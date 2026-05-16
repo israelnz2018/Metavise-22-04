@@ -1407,6 +1407,12 @@ export default function App() {
     status: 'idle' | 'loading' | 'success' | 'error';
     message?: string;
   }>({ status: 'idle' });
+  const [claudeKey, setClaudeKey] = useState('');
+  const [claudeShowKey, setClaudeShowKey] = useState(false);
+  const [claudeTestStatus, setClaudeTestStatus] = useState<{
+    status: 'idle' | 'loading' | 'success' | 'error';
+    message?: string;
+  }>({ status: 'idle' });
   const [assemblyTestStatus, setAssemblyTestStatus] = useState<{
     status: 'idle' | 'loading' | 'success' | 'error';
     message?: string;
@@ -5468,6 +5474,53 @@ export default function App() {
       }
     } catch (err: any) {
       setGeminiTestStatus({ status: 'error', message: err.message });
+    }
+  };
+
+  const handleSaveClaudeKey = async () => {
+    if (!claudeKey) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/claude/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: claudeKey }),
+      });
+      if (!response.ok) throw new Error('Falha ao salvar a chave API do Claude.');
+      toast.success('Chave API do Claude atualizada com sucesso!');
+      setClaudeKey('');
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTestClaudeConnection = async () => {
+    setClaudeTestStatus({ status: 'loading' });
+    try {
+      const response = await fetch('/api/claude/health');
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const data = await response.json();
+        if (response.ok && data.status === 'ok') {
+          setClaudeTestStatus({
+            status: 'success',
+            message: data.message || 'Conectado!',
+          });
+        } else {
+          setClaudeTestStatus({
+            status: 'error',
+            message: data.message || 'Falha na conexão.',
+          });
+        }
+      } else {
+        const text = await response.text();
+        throw new Error(`Resposta inválida do servidor: ${text.substring(0, 100)}`);
+      }
+    } catch (err: any) {
+      setClaudeTestStatus({ status: 'error', message: err.message });
     }
   };
 
@@ -13013,6 +13066,15 @@ export default function App() {
                   testStatus: geminiTestStatus,
                   onSave: handleSaveGeminiKey,
                   onTest: handleTestGeminiConnection,
+                }}
+                claude={{
+                  apiKey: claudeKey,
+                  onApiKeyChange: setClaudeKey,
+                  showKey: claudeShowKey,
+                  onToggleShowKey: () => setClaudeShowKey(!claudeShowKey),
+                  testStatus: claudeTestStatus,
+                  onSave: handleSaveClaudeKey,
+                  onTest: handleTestClaudeConnection,
                 }}
                 assemblyai={{
                   apiKey: assemblyKey,

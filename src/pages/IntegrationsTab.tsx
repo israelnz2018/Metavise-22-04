@@ -1,4 +1,4 @@
-import { RefreshCw, Shield, Volume2, User, Sparkles, Zap, Film } from 'lucide-react';
+import { RefreshCw, Shield, Volume2, User, Sparkles, Zap, Film, Bot } from 'lucide-react';
 import { IntegrationCard, type TestStatus } from '../components/IntegrationCard';
 
 // One provider's worth of state + callbacks. App.tsx still owns the state;
@@ -21,6 +21,7 @@ interface IntegrationsTabProps {
   heygen: ProviderConnection;
   runway: ProviderConnection;
   gemini: ProviderConnection;
+  claude: ProviderConnection;
   assemblyai: ProviderConnection;
   zapcap: ProviderConnection;
 }
@@ -33,6 +34,7 @@ export function IntegrationsTab({
   heygen,
   runway,
   gemini,
+  claude,
   assemblyai,
   zapcap,
 }: IntegrationsTabProps) {
@@ -92,6 +94,17 @@ export function IntegrationsTab({
       icon: <Sparkles size={20} />,
       iconBgColor: 'bg-amber-100',
       iconColor: 'text-amber-600',
+    },
+    {
+      state: claude,
+      title: 'Anthropic Claude',
+      subtitle: 'Copy, Hooks, Personas',
+      envVarName: 'CLAUDE_API_KEY',
+      warningText:
+        '⚠️ Esta chave será salva no servidor e usada para gerar copy (beats Schwartz), hooks, otimização para ElevenLabs e descoberta de persona.',
+      icon: <Bot size={20} />,
+      iconBgColor: 'bg-indigo-100',
+      iconColor: 'text-indigo-600',
     },
     {
       state: assemblyai,

@@ -6,6 +6,7 @@ import {
   GEMINI_CONFIG_PATH,
   ASSEMBLYAI_CONFIG_PATH,
   ZAPCAP_CONFIG_PATH,
+  CLAUDE_CONFIG_PATH,
 } from './paths.js';
 
 function readKeyFromFile(filePath: string): string | null {
@@ -71,6 +72,16 @@ export function getZapCapKey(): string | null {
     return fileKey;
   }
   const envKey = process.env.ZAPCAP_API_KEY;
+  return envKey ? envKey.trim().replace(/^["']|["']$/g, '') : null;
+}
+
+export function getClaudeKey(): string | null {
+  const fileKey = readKeyFromFile(CLAUDE_CONFIG_PATH);
+  if (fileKey) {
+    console.log(`[Claude Config] API Key found (starts with: ${fileKey.substring(0, 8)}...)`);
+    return fileKey;
+  }
+  const envKey = process.env.CLAUDE_API_KEY ?? process.env.ANTHROPIC_API_KEY;
   return envKey ? envKey.trim().replace(/^["']|["']$/g, '') : null;
 }
 

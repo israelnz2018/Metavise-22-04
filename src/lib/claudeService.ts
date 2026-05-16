@@ -1,8 +1,10 @@
 /**
- * METAVISE — CLAUDE SERVICE (via Railway)
- * 
- * Este arquivo chama o servidor Railway: /metavise/claude
- * 
+ * METAVISE — CLAUDE SERVICE
+ *
+ * Chama nosso backend Express em /api/claude/complete, que por sua vez
+ * proxia a Claude API da Anthropic. A chave é configurada via a aba
+ * Integrações → Anthropic Claude.
+ *
  * Funções:
  * 1. generateAdCopyWithClaude        → Gerar copy com beats Schwartz
  * 2. chooseBestHooksWithClaude       → Escolher 9 melhores hooks
@@ -10,124 +12,165 @@
  * 4. discoverPersonaWithClaude       → Descobrir avatar/persona
  * 5. improveCopyWithClaude           → Avaliar e melhorar copy existente
  */
- 
-const RAILWAY_URL = "https://analises-production.up.railway.app";
- 
-// Helper genérico que chama Claude via Railway
-async function callClaude(systemPrompt: string, userPrompt: string, maxTokens = 2000): Promise<string> {
-  const response = await fetch(`${RAILWAY_URL}/metavise/claude`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+
+const CLAUDE_URL = '/api/claude/complete';
+
+// Helper genérico que chama Claude via nosso proxy local.
+async function callClaude(
+  systemPrompt: string,
+  userPrompt: string,
+  maxTokens = 2000
+): Promise<string> {
+  const response = await fetch(CLAUDE_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       system: systemPrompt,
       user: userPrompt,
       max_tokens: maxTokens,
     }),
   });
- 
+
   if (!response.ok) {
     const err = await response.text();
-    throw new Error(`Railway Claude error: ${err}`);
+    throw new Error(`Claude proxy error: ${err}`);
   }
- 
+
   const data = await response.json();
-  if (!data.success) throw new Error(data.error || "Erro Claude.");
+  if (!data.success) throw new Error(data.error || 'Erro Claude.');
   return data.text;
 }
- 
+
 // ─────────────────────────────────────────────
 // 1. GERAR COPY com beats Schwartz
 // ─────────────────────────────────────────────
 export const generateAdCopyWithClaude = async (
   answers: Record<string, any>,
-  mode: "improve" | "as-is" | "questions",
+  mode: 'improve' | 'as-is' | 'questions',
   angle: string,
-  scriptLength?: "short" | "medium" | "long",
+  scriptLength?: 'short' | 'medium' | 'long',
   targetWordCount?: number,
   hookSelecionado?: string
 ): Promise<{ hooks: any[]; script: string }> => {
-  if (mode === "as-is") {
+  if (mode === 'as-is') {
     return {
       hooks: [],
-      script: answers.existingCopy || "",
+      script: answers.existingCopy || '',
     };
   }
 
-  const currentLevel = (answers.awarenessLevel || "3").toString().charAt(0) || "3";
+  const currentLevel = (answers.awarenessLevel || '3').toString().charAt(0) || '3';
   const wordCount = targetWordCount || 150;
 
   // Exact word budget per beat (replaces vague percentages)
   const beatBudgets: Record<string, Array<[string, number]>> = {
-    "1": [["REVELAÇÃO", 0.25], ["EVIDÊNCIA", 0.30], ["CONEXÃO COM PRODUTO", 0.35], ["CTA SUAVE", 0.10]],
-    "2": [["AGITAÇÃO DA DOR", 0.30], ["DIAGNÓSTICO ÚNICO", 0.20], ["SOLUÇÃO + MECANISMO", 0.30], ["PROVA", 0.10], ["CTA", 0.10]],
-    "3": [["QUEBRA DE PARADIGMA", 0.25], ["MECANISMO ÚNICO", 0.35], ["PROVA", 0.25], ["CTA DIRETO", 0.15]],
-    "4": [["DIFERENCIAÇÃO", 0.35], ["PROVA SOCIAL", 0.30], ["GARANTIA", 0.20], ["CTA + BENEFÍCIO", 0.15]],
-    "5": [["OFERTA INICIAL", 0.35], ["URGÊNCIA REAL", 0.30], ["CTA DIRETO", 0.35]],
+    '1': [
+      ['REVELAÇÃO', 0.25],
+      ['EVIDÊNCIA', 0.3],
+      ['CONEXÃO COM PRODUTO', 0.35],
+      ['CTA SUAVE', 0.1],
+    ],
+    '2': [
+      ['AGITAÇÃO DA DOR', 0.3],
+      ['DIAGNÓSTICO ÚNICO', 0.2],
+      ['SOLUÇÃO + MECANISMO', 0.3],
+      ['PROVA', 0.1],
+      ['CTA', 0.1],
+    ],
+    '3': [
+      ['QUEBRA DE PARADIGMA', 0.25],
+      ['MECANISMO ÚNICO', 0.35],
+      ['PROVA', 0.25],
+      ['CTA DIRETO', 0.15],
+    ],
+    '4': [
+      ['DIFERENCIAÇÃO', 0.35],
+      ['PROVA SOCIAL', 0.3],
+      ['GARANTIA', 0.2],
+      ['CTA + BENEFÍCIO', 0.15],
+    ],
+    '5': [
+      ['OFERTA INICIAL', 0.35],
+      ['URGÊNCIA REAL', 0.3],
+      ['CTA DIRETO', 0.35],
+    ],
   };
 
   const beatInstructions: Record<string, string> = {
-    "REVELAÇÃO": "Present a reality the avatar hasn't noticed. Start directly — no intro hook.",
-    "EVIDÊNCIA": "Fact, observation, or logical principle that proves the revelation.",
-    "CONEXÃO COM PRODUTO": `Introduce the product and how its mechanism solves the problem. Mechanism: ${answers.uniqueMechanism || ""}`,
-    "CTA SUAVE": "Soft call-to-action, low pressure.",
-    "AGITAÇÃO DA DOR": "2-3 visceral details of the pain. Use sensory language — what it feels like in daily life.",
-    "DIAGNÓSTICO ÚNICO": "Reframe: 'It's not X, it's Y.' Name the real root cause the avatar hasn't identified.",
-    "SOLUÇÃO + MECANISMO": `Present the product and its mechanism: ${answers.uniqueMechanism || ""}`,
-    "PROVA": "Logical proof of the mechanism. No invented statistics or testimonials.",
-    "CTA": "Direct CTA with one clear benefit.",
-    "QUEBRA DE PARADIGMA": "Contradict a widely held belief. Make it feel counterintuitive but undeniably true.",
-    "MECANISMO ÚNICO": `Explain how this differs from alternatives the avatar has already tried. Mechanism: ${answers.uniqueMechanism || ""}`,
-    "CTA DIRETO": "Clear, direct action. One sentence.",
-    "DIFERENCIAÇÃO": "1-2 specific differentiators vs. competing options the audience already knows.",
-    "PROVA SOCIAL": "Mechanism proof or specific result. No invented testimonials.",
-    "GARANTIA": "Reduce purchase risk with a concrete guarantee or reassurance.",
-    "CTA + BENEFÍCIO": "Direct action + one concrete benefit they get immediately.",
-    "OFERTA INICIAL": "Present the offer directly and specifically. No warm-up.",
-    "URGÊNCIA REAL": "Real scarcity or urgency only — never invent it.",
+    REVELAÇÃO: "Present a reality the avatar hasn't noticed. Start directly — no intro hook.",
+    EVIDÊNCIA: 'Fact, observation, or logical principle that proves the revelation.',
+    'CONEXÃO COM PRODUTO': `Introduce the product and how its mechanism solves the problem. Mechanism: ${answers.uniqueMechanism || ''}`,
+    'CTA SUAVE': 'Soft call-to-action, low pressure.',
+    'AGITAÇÃO DA DOR':
+      '2-3 visceral details of the pain. Use sensory language — what it feels like in daily life.',
+    'DIAGNÓSTICO ÚNICO':
+      "Reframe: 'It's not X, it's Y.' Name the real root cause the avatar hasn't identified.",
+    'SOLUÇÃO + MECANISMO': `Present the product and its mechanism: ${answers.uniqueMechanism || ''}`,
+    PROVA: 'Logical proof of the mechanism. No invented statistics or testimonials.',
+    CTA: 'Direct CTA with one clear benefit.',
+    'QUEBRA DE PARADIGMA':
+      'Contradict a widely held belief. Make it feel counterintuitive but undeniably true.',
+    'MECANISMO ÚNICO': `Explain how this differs from alternatives the avatar has already tried. Mechanism: ${answers.uniqueMechanism || ''}`,
+    'CTA DIRETO': 'Clear, direct action. One sentence.',
+    DIFERENCIAÇÃO: '1-2 specific differentiators vs. competing options the audience already knows.',
+    'PROVA SOCIAL': 'Mechanism proof or specific result. No invented testimonials.',
+    GARANTIA: 'Reduce purchase risk with a concrete guarantee or reassurance.',
+    'CTA + BENEFÍCIO': 'Direct action + one concrete benefit they get immediately.',
+    'OFERTA INICIAL': 'Present the offer directly and specifically. No warm-up.',
+    'URGÊNCIA REAL': 'Real scarcity or urgency only — never invent it.',
   };
 
-  const beats = beatBudgets[currentLevel] || beatBudgets["3"];
+  const beats = beatBudgets[currentLevel] || beatBudgets['3'];
   const beatStructure = beats
     .map(([name, pct]) => {
       const words = Math.round(wordCount * pct);
-      const instruction = beatInstructions[name] || "";
+      const instruction = beatInstructions[name] || '';
       return `[${name}] (${words} words): ${instruction}`;
     })
-    .join("\n");
+    .join('\n');
 
   const ctaByDestination: Record<string, string> = {
-    "Vídeo": "watch the video / see how it works",
-    "Landing Page de Vendas": "secure your spot / start today",
-    "Lead Form": "sign up for free / register now",
-    "WhatsApp": "message us on WhatsApp",
-    "Página de Captura": "get the material / download now",
+    Vídeo: 'watch the video / see how it works',
+    'Landing Page de Vendas': 'secure your spot / start today',
+    'Lead Form': 'sign up for free / register now',
+    WhatsApp: 'message us on WhatsApp',
+    'Página de Captura': 'get the material / download now',
   };
 
   const emotionGuidance: Record<string, string> = {
-    "Frustração": "Short, punchy sentences. Mirror the internal monologue of someone who has tried and failed. Vocabulary: stuck, tired, nothing works, done trying.",
-    "Curiosidade": "Open a loop early and hold it open until the mechanism reveal. Use incomplete thoughts and unexpected contrasts.",
-    "Medo de julgamento": "Speak directly to the fear of how others perceive them. Normalize the vulnerability first, then reframe it.",
-    "Confusão": "Acknowledge the overwhelm upfront. Use contrast: 'You've heard X, but actually Y.' Simplify aggressively.",
-    "Esperança": "Future-paced language. Short glimpses of a better state. Warm and credible — not hyped.",
-    "Alívio": "Write as if the reader has been holding tension — this script is the exhale. Calm, clear, reassuring.",
-    "Desejo de reconhecimento": "Acknowledge their effort and identity first. They want to be seen as capable and smart.",
-    "Urgência": "Active verbs. Present tense. No padding. Every sentence moves the reader forward.",
-    "Ambição": "Speak to a bigger version of themselves. Use specific outcomes, not vague transformation.",
-    "Desejo de controle": "Frame around agency: 'You can', 'It's in your hands', 'You decide'. Avoid passive constructions.",
-    "Exclusividade": "Language of rarity and selection. Not for everyone — and that's the point.",
+    Frustração:
+      'Short, punchy sentences. Mirror the internal monologue of someone who has tried and failed. Vocabulary: stuck, tired, nothing works, done trying.',
+    Curiosidade:
+      'Open a loop early and hold it open until the mechanism reveal. Use incomplete thoughts and unexpected contrasts.',
+    'Medo de julgamento':
+      'Speak directly to the fear of how others perceive them. Normalize the vulnerability first, then reframe it.',
+    Confusão:
+      "Acknowledge the overwhelm upfront. Use contrast: 'You've heard X, but actually Y.' Simplify aggressively.",
+    Esperança:
+      'Future-paced language. Short glimpses of a better state. Warm and credible — not hyped.',
+    Alívio:
+      'Write as if the reader has been holding tension — this script is the exhale. Calm, clear, reassuring.',
+    'Desejo de reconhecimento':
+      'Acknowledge their effort and identity first. They want to be seen as capable and smart.',
+    Urgência: 'Active verbs. Present tense. No padding. Every sentence moves the reader forward.',
+    Ambição:
+      'Speak to a bigger version of themselves. Use specific outcomes, not vague transformation.',
+    'Desejo de controle':
+      "Frame around agency: 'You can', 'It's in your hands', 'You decide'. Avoid passive constructions.",
+    Exclusividade: "Language of rarity and selection. Not for everyone — and that's the point.",
   };
 
-  const primaryEmotion = answers.primaryEmotion || "";
+  const primaryEmotion = answers.primaryEmotion || '';
   const emotionInstruction = emotionGuidance[primaryEmotion]
     ? `\nEMOTION DIRECTION — ${primaryEmotion}:\n${emotionGuidance[primaryEmotion]}`
     : primaryEmotion
-    ? `\nEMOTION DIRECTION: Write to actively trigger "${primaryEmotion}" in the reader. Use vocabulary, rhythm, and imagery that make them feel it — not just understand it.`
-    : "";
+      ? `\nEMOTION DIRECTION: Write to actively trigger "${primaryEmotion}" in the reader. Use vocabulary, rhythm, and imagery that make them feel it — not just understand it.`
+      : '';
 
   const systemPrompt = `You are a senior direct-response copywriter specializing in Meta Ads, trained in Eugene Schwartz's five stages of awareness (Breakthrough Advertising). Your job is to write punchy, specific, honest video scripts for paid ads.
 
 OUTPUT LANGUAGE:
-Write the entire script in: ${answers.language || "Português (Brasileiro)"}
+Write the entire script in: ${answers.language || 'Português (Brasileiro)'}
 Every word must be in this language. If any input data is in a different language, translate it naturally before using it.
 
 Respond ONLY with valid JSON. No markdown, no preamble.`;
@@ -135,21 +178,21 @@ Respond ONLY with valid JSON. No markdown, no preamble.`;
   const userPrompt = `Write a Meta Ads video script. Follow every instruction precisely.
 
 --- CONTEXT ---
-Language: ${answers.language || "Português (Brasileiro)"}
+Language: ${answers.language || 'Português (Brasileiro)'}
 Awareness level: ${currentLevel} / 5
-Audience: ${answers.audience || ""}
-Core pain / situation: ${answers.situation || answers.painPoints || ""}
-Main objection (anticipate and dissolve this in the copy): ${answers.mainObjection || "(none provided)"}
-Hidden desire (the deeper want — connect transformation to this, not just surface result): ${answers.hiddenDesire || "(none provided)"}
-Product: ${answers.productName || ""}
-Promised result: ${answers.productResult || ""}
-Unique mechanism: ${answers.uniqueMechanism || ""}
+Audience: ${answers.audience || ''}
+Core pain / situation: ${answers.situation || answers.painPoints || ''}
+Main objection (anticipate and dissolve this in the copy): ${answers.mainObjection || '(none provided)'}
+Hidden desire (the deeper want — connect transformation to this, not just surface result): ${answers.hiddenDesire || '(none provided)'}
+Product: ${answers.productName || ''}
+Promised result: ${answers.productResult || ''}
+Unique mechanism: ${answers.uniqueMechanism || ''}
 
 --- CREATIVE DIRECTION ---
-Ad style: ${answers.estiloAnuncio || "Direto ao Ponto"}
+Ad style: ${answers.estiloAnuncio || 'Direto ao Ponto'}
 Apply this style to the tone, rhythm, and sentence structure throughout the script.
 
-Angle: ${angle || "Direto"}
+Angle: ${angle || 'Direto'}
 The opening sentence and the main argument must be built around this angle. It is the through-line of the entire script.
 ${emotionInstruction}
 
@@ -174,7 +217,7 @@ Respond with ONLY this JSON:
 If no real proof exists → use MECHANISM PROOF or LOGICAL PROOF instead.
 
 --- CTA ---
-Required phrasing for "${answers.clickDestination || "Vídeo"}": ${ctaByDestination[answers.clickDestination || "Vídeo"] || "watch the video"}
+Required phrasing for "${answers.clickDestination || 'Vídeo'}": ${ctaByDestination[answers.clickDestination || 'Vídeo'] || 'watch the video'}
 Use this phrasing or a natural variation in the output language. Do not reference any other format (podcast, webinar, course, book).
 
 --- REPETITION LIMITS ---
@@ -184,7 +227,10 @@ Product name: max 2 mentions. Core pain term: max 3 mentions (use synonyms after
 
   let result: any;
   try {
-    const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    const cleaned = raw
+      .replace(/```json\n?/g, '')
+      .replace(/```\n?/g, '')
+      .trim();
     result = JSON.parse(cleaned);
   } catch {
     result = { script: raw };
@@ -192,7 +238,7 @@ Product name: max 2 mentions. Core pain term: max 3 mentions (use synonyms after
 
   return { hooks: [], script: result.script || raw };
 };
- 
+
 // ─────────────────────────────────────────────
 // 2b. ESCOLHER 9 HOOKS COM BASE EM COPY + NÍVEL
 // ─────────────────────────────────────────────
@@ -213,10 +259,10 @@ COPY APROVADA:
 ${approvedCopy}
 """
 
-NÍVEL DE CONSCIÊNCIA: ${awarenessLevel || "3"}
+NÍVEL DE CONSCIÊNCIA: ${awarenessLevel || '3'}
 
 CANDIDATOS (${candidateHooks.length}):
-${candidateHooks.map((h: any) => `ID ${h.id} [${h.tipo}]: ${h.template}`).join("\n")}
+${candidateHooks.map((h: any) => `ID ${h.id} [${h.tipo}]: ${h.template}`).join('\n')}
 
 REGRAS:
 1. Selecione EXATAMENTE 3 hooks por tipo (9 total, 3 grupos)
@@ -241,10 +287,13 @@ FORMATO (JSON apenas):
 
   try {
     const raw = await callClaude(systemPrompt, userPrompt, 1000);
-    const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    const cleaned = raw
+      .replace(/```json\n?/g, '')
+      .replace(/```\n?/g, '')
+      .trim();
     return JSON.parse(cleaned);
   } catch (err: any) {
-    console.error("[chooseHooksFromCopy]", err.message);
+    console.error('[chooseHooksFromCopy]', err.message);
     return null;
   }
 };
@@ -257,22 +306,22 @@ export const chooseBestHooksWithClaude = async (
   candidateHooks: any[]
 ): Promise<{ grupos: any[] } | null> => {
   if (!candidateHooks || candidateHooks.length === 0) return null;
- 
+
   const systemPrompt = `Você é um especialista em copywriting para Meta Ads. Sua função é selecionar os hooks mais eficazes para um projeto. Responda APENAS em JSON válido sem markdown.`;
- 
+
   const userPrompt = `Selecione os 9 melhores hooks para este projeto.
  
 PROJETO:
-- Produto: ${projectData.productName || ""}
-- Dor: ${projectData.situation || projectData.painPoints || ""}
-- Resultado: ${projectData.productResult || ""}
-- Audiência: ${projectData.audience || ""}
-- Emoção: ${projectData.primaryEmotion || ""}
-- Ângulo: ${projectData.angleIdea || ""}
-- Nível: ${projectData.awarenessLevel || "3"}
+- Produto: ${projectData.productName || ''}
+- Dor: ${projectData.situation || projectData.painPoints || ''}
+- Resultado: ${projectData.productResult || ''}
+- Audiência: ${projectData.audience || ''}
+- Emoção: ${projectData.primaryEmotion || ''}
+- Ângulo: ${projectData.angleIdea || ''}
+- Nível: ${projectData.awarenessLevel || '3'}
  
 CANDIDATOS (${candidateHooks.length}):
-${candidateHooks.map((h: any) => `ID ${h.id} [${h.tipo}]: ${h.template}`).join("\n")}
+${candidateHooks.map((h: any) => `ID ${h.id} [${h.tipo}]: ${h.template}`).join('\n')}
  
 REGRAS:
 1. Selecione EXATAMENTE 3 hooks por tipo (9 total, 3 grupos)
@@ -294,17 +343,20 @@ FORMATO (JSON apenas):
     }
   ]
 }`;
- 
+
   try {
     const raw = await callClaude(systemPrompt, userPrompt, 1000);
-    const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    const cleaned = raw
+      .replace(/```json\n?/g, '')
+      .replace(/```\n?/g, '')
+      .trim();
     return JSON.parse(cleaned);
   } catch (err: any) {
-    console.error("[chooseBestHooksWithClaude]", err.message);
+    console.error('[chooseBestHooksWithClaude]', err.message);
     return null;
   }
 };
- 
+
 // ─────────────────────────────────────────────
 // 3. OTIMIZAR COPY PARA ELEVENLABS V3
 // ─────────────────────────────────────────────
@@ -312,26 +364,26 @@ export const optimizeCopyForElevenLabsWithClaude = async (
   script: string,
   answers: Record<string, any>
 ): Promise<string> => {
-  const emotion = answers?.primaryEmotion || "Direto";
-  const style = answers?.estiloAnuncio || "Direto ao Ponto";
-  const language = answers?.language || "Português (Brasileiro)";
- 
+  const emotion = answers?.primaryEmotion || 'Direto';
+  const style = answers?.estiloAnuncio || 'Direto ao Ponto';
+  const language = answers?.language || 'Português (Brasileiro)';
+
   const emotionTags: Record<string, string> = {
-    Urgência: "<excited>",
-    Alívio: "<sighs>",
-    Frustração: "<frustrated>",
-    Esperança: "<warmly>",
-    Confusão: "<confused>",
-    Curiosidade: "<curious>",
-    Medo: "<whispers>",
-    Ambição: "<excited>",
-    Cansaço: "<softly>",
-    Tristeza: "<sadly>",
+    Urgência: '<excited>',
+    Alívio: '<sighs>',
+    Frustração: '<frustrated>',
+    Esperança: '<warmly>',
+    Confusão: '<confused>',
+    Curiosidade: '<curious>',
+    Medo: '<whispers>',
+    Ambição: '<excited>',
+    Cansaço: '<softly>',
+    Tristeza: '<sadly>',
   };
-  const emotionTag = emotionTags[emotion] || "";
- 
+  const emotionTag = emotionTags[emotion] || '';
+
   const systemPrompt = `Você é especialista em otimizar scripts para síntese de voz com ElevenLabs v3. Responda APENAS em JSON válido sem markdown.`;
- 
+
   const userPrompt = `Transforme o roteiro abaixo para ElevenLabs.
  
 ROTEIRO ORIGINAL:
@@ -368,21 +420,21 @@ REGRAS GERAIS DE OTIMIZAÇÃO ELEVENLABS:
  
 FORMATO (JSON apenas):
 {"optimizedScript": "script otimizado"}`;
- 
+
   const raw = await callClaude(systemPrompt, userPrompt, 2000);
- 
+
   try {
     const cleaned = raw
       .replace(/```json\n?/g, '')
       .replace(/```\n?/g, '')
       .trim();
-    
+
     // If it looks like JSON, parse it
     if (cleaned.startsWith('{')) {
       const parsed = JSON.parse(cleaned);
       return parsed.optimizedScript || parsed.script || cleaned;
     }
-    
+
     // If Claude returned plain text directly, use as-is
     return cleaned;
   } catch {
@@ -394,31 +446,29 @@ FORMATO (JSON apenas):
     return raw;
   }
 };
- 
+
 // ─────────────────────────────────────────────
 // 4. DESCOBRIR PERSONA/AVATAR
 // ─────────────────────────────────────────────
-export const discoverPersonaWithClaude = async (
-  answers: Record<string, any>
-): Promise<any> => {
+export const discoverPersonaWithClaude = async (answers: Record<string, any>): Promise<any> => {
   const systemPrompt = `Você é um especialista em marketing direto, copywriting e segmentação de Meta Ads. Você cria perfis ricos de cliente ideal (3 personas: principal, secundária, terciária) baseado em informações sobre o produto. Você infere dor, desejo, objeção e nível de consciência a partir do contexto. Responda APENAS em JSON válido sem markdown.`;
 
   const userPrompt = `Com base nas informações abaixo sobre um produto, gere 3 PERSONAS DIFERENTES (principal, secundária, terciária), priorizadas por probabilidade de conversão em Meta Ads.
 
 INFORMAÇÕES DO PRODUTO:
-- Produto: ${answers.product || ""}
-- Categoria: ${answers.category || ""}
-- O que faz: ${answers.whatItDoes || ""}
-- Transformação: De "${answers.transformationFrom || ""}" Para "${answers.transformationTo || ""}"
-- Urgência do problema: ${answers.urgency || ""}
-- Diferenciais: ${(answers.differentials || []).join(", ")}
-- Comentários sobre o produto: ${answers.productComment || "(nenhum)"}
+- Produto: ${answers.product || ''}
+- Categoria: ${answers.category || ''}
+- O que faz: ${answers.whatItDoes || ''}
+- Transformação: De "${answers.transformationFrom || ''}" Para "${answers.transformationTo || ''}"
+- Urgência do problema: ${answers.urgency || ''}
+- Diferenciais: ${(answers.differentials || []).join(', ')}
+- Comentários sobre o produto: ${answers.productComment || '(nenhum)'}
 
 INFORMAÇÕES DO CLIENTE:
-- O que já tentou e não funcionou: ${(answers.personaTriedBefore || []).join(", ")}
-- Capacidade de pagar: ${answers.payingCapacity || ""}
-- Desejos ocultos identificados: ${(answers.hiddenDesires || []).join(", ")}
-- Comentários extras: ${answers.problemComment || answers.clientComment || "(nenhum)"}
+- O que já tentou e não funcionou: ${(answers.personaTriedBefore || []).join(', ')}
+- Capacidade de pagar: ${answers.payingCapacity || ''}
+- Desejos ocultos identificados: ${(answers.hiddenDesires || []).join(', ')}
+- Comentários extras: ${answers.problemComment || answers.clientComment || '(nenhum)'}
 
 REGRAS:
 - Persona Principal: maior intersecção entre dor + urgência + capacidade de pagar + clareza do problema.
@@ -461,14 +511,17 @@ FORMATO (JSON apenas):
   const raw = await callClaude(systemPrompt, userPrompt, 4000);
 
   try {
-    const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    const cleaned = raw
+      .replace(/```json\n?/g, '')
+      .replace(/```\n?/g, '')
+      .trim();
     return JSON.parse(cleaned);
   } catch (err: any) {
-    console.error("[discoverPersonaWithClaude]", err.message);
-    throw new Error("Falha ao parsear resposta do Claude.");
+    console.error('[discoverPersonaWithClaude]', err.message);
+    throw new Error('Falha ao parsear resposta do Claude.');
   }
 };
- 
+
 // ─────────────────────────────────────────────
 // 5. AVALIAR E MELHORAR COPY EXISTENTE
 // ─────────────────────────────────────────────
@@ -478,44 +531,44 @@ export const improveCopyWithClaude = async (
   hookSelecionado?: string,
   targetWordCount?: number
 ): Promise<{ avaliacao: any; copyMelhorada: string }> => {
-  const currentLevel = (answers.awarenessLevel || "3").toString().charAt(0) || "3";
+  const currentLevel = (answers.awarenessLevel || '3').toString().charAt(0) || '3';
   const wordCount = targetWordCount || 150;
- 
+
   const beatByLevel: Record<string, string> = {
-    "1": "[HOOK] → [REVELAÇÃO] → [EVIDÊNCIA] → [CONEXÃO COM PRODUTO] → [CTA SUAVE]",
-    "2": "[HOOK] → [AGITAÇÃO DA DOR] → [DIAGNÓSTICO ÚNICO] → [SOLUÇÃO + MECANISMO] → [PROVA] → [CTA]",
-    "3": "[HOOK] → [QUEBRA DE PARADIGMA] → [MECANISMO ÚNICO] → [PROVA] → [CTA DIRETO]",
-    "4": "[HOOK] → [DIFERENCIAÇÃO] → [PROVA SOCIAL] → [GARANTIA] → [CTA + BENEFÍCIO]",
-    "5": "[HOOK + OFERTA] → [OFERTA EXPANDIDA] → [URGÊNCIA REAL] → [CTA DIRETO]",
+    '1': '[HOOK] → [REVELAÇÃO] → [EVIDÊNCIA] → [CONEXÃO COM PRODUTO] → [CTA SUAVE]',
+    '2': '[HOOK] → [AGITAÇÃO DA DOR] → [DIAGNÓSTICO ÚNICO] → [SOLUÇÃO + MECANISMO] → [PROVA] → [CTA]',
+    '3': '[HOOK] → [QUEBRA DE PARADIGMA] → [MECANISMO ÚNICO] → [PROVA] → [CTA DIRETO]',
+    '4': '[HOOK] → [DIFERENCIAÇÃO] → [PROVA SOCIAL] → [GARANTIA] → [CTA + BENEFÍCIO]',
+    '5': '[HOOK + OFERTA] → [OFERTA EXPANDIDA] → [URGÊNCIA REAL] → [CTA DIRETO]',
   };
- 
+
   const systemPrompt = `Você é um copywriter sênior especialista em Meta Ads, treinado nos princípios de Eugene Schwartz. Você avalia copies existentes e as transforma usando a estrutura de beats apropriada para o nível de consciência do avatar. Responda APENAS em JSON válido sem markdown.`;
- 
+
   const userPrompt = `Avalie a copy existente abaixo e produza uma versão melhorada usando a estrutura Schwartz para Nível ${currentLevel}.
  
 COPY EXISTENTE DO CLIENTE:
 ${existingCopy}
  
 CONTEXTO DO PROJETO:
-- Idioma: ${answers.language || "Português (Brasileiro)"}
+- Idioma: ${answers.language || 'Português (Brasileiro)'}
 - Nível de Consciência: ${currentLevel}
-- Audiência: ${answers.audience || ""}
-- Dor principal: ${answers.situation || answers.painPoints || ""}
-- Produto: ${answers.productName || ""}
-- Resultado: ${answers.productResult || ""}
-- Mecanismo único: ${answers.uniqueMechanism || ""}
-- Estilo: ${answers.estiloAnuncio || "Direto ao Ponto"}
-- Emoção: ${answers.primaryEmotion || ""}
-- Destino: ${answers.clickDestination || "Vídeo"}
+- Audiência: ${answers.audience || ''}
+- Dor principal: ${answers.situation || answers.painPoints || ''}
+- Produto: ${answers.productName || ''}
+- Resultado: ${answers.productResult || ''}
+- Mecanismo único: ${answers.uniqueMechanism || ''}
+- Estilo: ${answers.estiloAnuncio || 'Direto ao Ponto'}
+- Emoção: ${answers.primaryEmotion || ''}
+- Destino: ${answers.clickDestination || 'Vídeo'}
 CTA: ${
-  answers.ctaMode === 'custom' && answers.ctaCustom
-    ? `OBRIGATÓRIO — usar exatamente este CTA: "${answers.ctaCustom}"`
-    : `Criar o melhor CTA para nível ${currentLevel} com destino "${answers.clickDestination || 'Vídeo'}"`
-}
-${hookSelecionado ? `- Hook escolhido (use como primeira linha): "${hookSelecionado}"` : ""}
+    answers.ctaMode === 'custom' && answers.ctaCustom
+      ? `OBRIGATÓRIO — usar exatamente este CTA: "${answers.ctaCustom}"`
+      : `Criar o melhor CTA para nível ${currentLevel} com destino "${answers.clickDestination || 'Vídeo'}"`
+  }
+${hookSelecionado ? `- Hook escolhido (use como primeira linha): "${hookSelecionado}"` : ''}
  
 ESTRUTURA OBRIGATÓRIA PARA NÍVEL ${currentLevel}:
-${beatByLevel[currentLevel] || beatByLevel["3"]}
+${beatByLevel[currentLevel] || beatByLevel['3']}
  
 TAREFA EM 2 PARTES:
  
@@ -535,7 +588,7 @@ Mas CORRIGINDO:
 - Aplicar os beats da estrutura
 - Adicionar tags visíveis [HOOK], [BEAT], etc
 - Tamanho: ${wordCount} palavras (±10%)
-- ${hookSelecionado ? "Usar o hook escolhido como primeira linha" : "Criar um hook forte"}
+- ${hookSelecionado ? 'Usar o hook escolhido como primeira linha' : 'Criar um hook forte'}
  
 🚫 PROIBIDO:
 - Inventar dados (números, prazos, depoimentos) que não estão na copy original ou no contexto
@@ -557,15 +610,18 @@ FORMATO (JSON apenas):
   },
   "copyMelhorada": "Copy completa com tags [HOOK], [BEAT], etc"
 }`;
- 
+
   const raw = await callClaude(systemPrompt, userPrompt, Math.max(2000, wordCount * 10));
- 
+
   try {
-    const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    const cleaned = raw
+      .replace(/```json\n?/g, '')
+      .replace(/```\n?/g, '')
+      .trim();
     return JSON.parse(cleaned);
   } catch (err: any) {
-    console.error("[improveCopyWithClaude]", err.message);
-    throw new Error("Falha ao melhorar a copy. Tente novamente.");
+    console.error('[improveCopyWithClaude]', err.message);
+    throw new Error('Falha ao melhorar a copy. Tente novamente.');
   }
 };
 
@@ -576,11 +632,10 @@ export const refineHooksWithClaude = async (
   hooks: Array<{ id: number; template: string; tipo: string }>,
   answers: Record<string, any>
 ): Promise<Array<{ id: number; texto: string; tipo: string }>> => {
-
   const systemPrompt = `You are a copywriting expert specializing in hooks for Meta Ads. You transform hook templates into natural, specific hooks using project context.
 
 CRITICAL LANGUAGE RULE:
-All hooks must be written ENTIRELY in: ${answers.language || "Português (Brasileiro)"}
+All hooks must be written ENTIRELY in: ${answers.language || 'Português (Brasileiro)'}
 - Translate any context data that is in a different language
 - NEVER mix languages — not even a single word
 Respond ONLY in valid JSON without markdown.`;
@@ -588,16 +643,16 @@ Respond ONLY in valid JSON without markdown.`;
   const userPrompt = `Transforme cada template de hook abaixo em um hook real e natural usando o contexto do projeto.
 
 CONTEXTO DO PROJETO:
-- Produto: ${answers.productName || ""}
-- Problema que resolve: ${answers.situation || answers.painPoints || ""}
-- Resultado entregue: ${answers.productResult || ""}
-- Público-alvo: ${answers.audience || ""}
-- Mecanismo único: ${answers.uniqueMechanism || ""}
-- Emoção principal: ${answers.primaryEmotion || ""}
-- Idioma: ${answers.language || "Português (Brasileiro)"}
+- Produto: ${answers.productName || ''}
+- Problema que resolve: ${answers.situation || answers.painPoints || ''}
+- Resultado entregue: ${answers.productResult || ''}
+- Público-alvo: ${answers.audience || ''}
+- Mecanismo único: ${answers.uniqueMechanism || ''}
+- Emoção principal: ${answers.primaryEmotion || ''}
+- Idioma: ${answers.language || 'Português (Brasileiro)'}
 
 TEMPLATES A TRANSFORMAR:
-${hooks.map(h => `ID ${h.id} [${h.tipo}]: ${h.template}`).join("\n")}
+${hooks.map((h) => `ID ${h.id} [${h.tipo}]: ${h.template}`).join('\n')}
 
 REGRAS:
 1. Cada hook deve ter NO MÁXIMO 15 palavras
@@ -630,12 +685,15 @@ FORMATO (JSON apenas):
   const raw = await callClaude(systemPrompt, userPrompt, 1500);
 
   try {
-    const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    const cleaned = raw
+      .replace(/```json\n?/g, '')
+      .replace(/```\n?/g, '')
+      .trim();
     const parsed = JSON.parse(cleaned);
-    return parsed.hooks || hooks.map(h => ({ id: h.id, texto: h.template, tipo: h.tipo }));
+    return parsed.hooks || hooks.map((h) => ({ id: h.id, texto: h.template, tipo: h.tipo }));
   } catch (err: any) {
-    console.error("[refineHooksWithClaude]", err.message);
+    console.error('[refineHooksWithClaude]', err.message);
     // Fallback: retorna templates originais sem substituição
-    return hooks.map(h => ({ id: h.id, texto: h.template, tipo: h.tipo }));
+    return hooks.map((h) => ({ id: h.id, texto: h.template, tipo: h.tipo }));
   }
 };

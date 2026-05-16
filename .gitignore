@@ -17,6 +17,7 @@ runway-config.json
 gemini-config.json
 assemblyai-config.json
 zapcap-config.json
+claude-config.json
 
 # Logs & debug artifacts
 *.log
