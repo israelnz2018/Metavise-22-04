@@ -3510,6 +3510,33 @@ export default function App() {
   };
 
   const handleOpenKeySelector = async () => {
+    // If the admin already saved a key via the Integrações tab, it's in
+    // window.process.env.GEMINI_API_KEY. Trust that over the React state,
+    // which can lag the async /api/gemini/key hydration on first paint.
+    const w = window as any;
+    const liveKey = w.process?.env?.GEMINI_API_KEY || w.process?.env?.API_KEY;
+    if (liveKey) {
+      setHasApiKey(true);
+      return true;
+    }
+
+    // Try one last fetch from the server in case hydration was skipped.
+    try {
+      const r = await fetch('/api/gemini/key');
+      if (r.ok) {
+        const { apiKey } = await r.json();
+        if (apiKey) {
+          w.process = w.process || { env: {} };
+          w.process.env = w.process.env || {};
+          w.process.env.GEMINI_API_KEY = apiKey;
+          setHasApiKey(true);
+          return true;
+        }
+      }
+    } catch {
+      // fall through to AI Studio / final error message
+    }
+
     if ((window as any).aistudio?.openSelectKey) {
       try {
         await (window as any).aistudio.openSelectKey();
