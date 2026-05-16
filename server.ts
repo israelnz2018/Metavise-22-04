@@ -24,6 +24,11 @@ import { requestLogger } from './server/middleware/requestLogger.js';
 import { cors } from './server/middleware/cors.js';
 import { errorHandler } from './server/middleware/errorHandler.js';
 import { apiNotFound } from './server/middleware/notFound.js';
+import { getCredits, hasCredits, deductCredits } from './server/services/creditsService.js';
+import { userRouter } from './server/routes/user.routes.js';
+import { healthRouter } from './server/routes/health.routes.js';
+import { staticRouter } from './server/routes/static.routes.js';
+import { adminRouter } from './server/routes/admin.routes.js';
 
 dotenv.config();
 setupFfmpeg();
@@ -466,9 +471,6 @@ async function startServer() {
     }
   });
 
-  // Mock database for credits (in-memory for this demo)
-  let userCredits = 1000;
-
   // Proxy for ElevenLabs to hide API Key
   app.post('/api/elevenlabs/tts/:voiceId', async (req, res) => {
     const { voiceId } = req.params;
@@ -486,7 +488,7 @@ async function startServer() {
 
     // Token/Credit logic
     const tokenCost = Math.ceil(text.length / 10); // 1 credit per 10 characters
-    if (userCredits < tokenCost) {
+    if (!hasCredits(tokenCost)) {
       return res
         .status(403)
         .json({ error: 'Créditos insuficientes. Por favor, recarregue seu saldo.' });
@@ -551,7 +553,7 @@ async function startServer() {
         }
 
         // Deduct credits on success
-        userCredits -= tokenCost;
+        deductCredits(tokenCost);
 
         const arrayBuffer = await response.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
@@ -565,7 +567,7 @@ async function startServer() {
 
         res.set('Access-Control-Expose-Headers', 'x-remaining-credits, x-audio-url');
         res.set('Content-Type', 'audio/mpeg');
-        res.set('x-remaining-credits', userCredits.toString());
+        res.set('x-remaining-credits', getCredits().toString());
         res.set('x-audio-url', persistentUrl);
         return res.send(buffer);
       } catch (err: any) {
@@ -866,16 +868,9 @@ async function startServer() {
     }
   });
 
-  // API route to get current credits
-  app.get('/api/user/credits', (req, res) => {
-    res.json({ credits: userCredits });
-  });
-
-  // Serve generated assets
-  app.use('/generated', express.static(GENERATED_DIR));
-  app.use('/generated', (req, res) => {
-    res.status(404).send('Not found');
-  });
+  // Mounted routers
+  app.use('/api/user', userRouter);
+  app.use('/generated', staticRouter);
 
   // --- HeyGen Integration ---
 
@@ -967,7 +962,7 @@ async function startServer() {
 
     // Credit check
     const videoCost = 100; // Fixed cost for video generation
-    if (userCredits < videoCost) {
+    if (!hasCredits(videoCost)) {
       return res.status(403).json({ error: 'Créditos insuficientes para gerar vídeo.' });
     }
 
@@ -1165,11 +1160,11 @@ async function startServer() {
       const data = await response.json();
 
       // Deduct credits
-      userCredits -= videoCost;
+      const remaining = deductCredits(videoCost);
 
       res.json({
         videoId: data.data?.video_id,
-        remainingCredits: userCredits,
+        remainingCredits: remaining,
       });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -1913,9 +1908,7 @@ async function startServer() {
     }
   });
 
-  app.get('/api/test', (req, res) => {
-    res.json({ status: 'alive' });
-  });
+  app.use('/api', healthRouter);
 
   // POST /api/assemblyai/analyze
   // Recebe: { videoUrl: string }
@@ -2817,19 +2810,7 @@ async function startServer() {
     }
   });
 
-  // Route to view server logs
-  app.get('/api/admin/debug-logs', (req, res) => {
-    try {
-      if (fs.existsSync('debug_logs.txt')) {
-        const content = fs.readFileSync('debug_logs.txt', 'utf8');
-        res.send(`<pre>${content}</pre>`);
-      } else {
-        res.send('No logs found.');
-      }
-    } catch (err) {
-      res.status(500).send('Error reading logs');
-    }
-  });
+  app.use('/api/admin', adminRouter);
 
   // GET /api/zapcap/health
   app.get('/api/zapcap/health', async (req, res) => {
