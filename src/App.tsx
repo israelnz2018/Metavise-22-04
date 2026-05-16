@@ -1624,13 +1624,29 @@ export default function App() {
       const stored = localStorage.getItem(AUTOSAVE_KEY);
       if (!stored) return;
       const parsed = JSON.parse(stored);
-      // Sanity check — must look like an AdConfig.
-      if (parsed && typeof parsed === 'object' && parsed.copy) {
+      // Sanity-check the restored object has the nested shapes downstream
+      // code reads from. If anything is missing we drop the draft rather
+      // than crash the render tree.
+      const looksValid =
+        parsed &&
+        typeof parsed === 'object' &&
+        parsed.copy &&
+        typeof parsed.copy === 'object' &&
+        parsed.copy.answers &&
+        parsed.avatar &&
+        parsed.scene &&
+        parsed.edit &&
+        parsed.format;
+      if (looksValid) {
         setConfig(parsed);
         toast.success('Rascunho restaurado da sessão anterior.', { icon: '💾' });
+      } else {
+        console.warn('[AutoSave] Saved draft has unexpected shape, dropping it.');
+        localStorage.removeItem(AUTOSAVE_KEY);
       }
     } catch (err) {
       console.warn('[AutoSave] localStorage restore failed:', err);
+      localStorage.removeItem(AUTOSAVE_KEY);
     }
     // Intentionally only on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
