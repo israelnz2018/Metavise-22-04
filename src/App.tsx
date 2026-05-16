@@ -9,6 +9,7 @@ import HookVisualGenerator, {
   HookVisualGenerator as HookVisualGeneratorNamed,
 } from './components/HookVisualGenerator';
 import VozPremium from './components/VozPremium';
+import { IntegrationsTab } from './pages/IntegrationsTab';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -6500,668 +6501,6 @@ export default function App() {
             </button>
           </div>
         </motion.div>
-      </div>
-    );
-  };
-
-  const renderIntegrationsStep = () => {
-    return (
-      <div className="max-w-[1600px] mx-auto space-y-8">
-        <div className="p-8 bg-white rounded-3xl border-4 border-blue-100 shadow-2xl space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white">
-                <RefreshCw size={24} />
-              </div>
-              <div>
-                <h3 className="text-2xl font-black text-gray-900 tracking-tight">
-                  Status das Integrações
-                </h3>
-                <p className="text-gray-500 text-sm">
-                  Verifique a conectividade com as plataformas parceiras.
-                </p>
-              </div>
-            </div>
-            {userRole === 'admin' && (
-              <div className="flex items-center gap-2 px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold">
-                <Shield size={12} />
-                MODO ADMIN
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-4">
-            <div className="p-6 bg-gray-50 rounded-2xl border-2 border-gray-100 space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center">
-                    <Volume2 size={20} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-gray-900">ElevenLabs TTS</p>
-                    <p className="text-[10px] text-gray-500 uppercase font-bold">
-                      Vozes de Alta Fidelidade
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleTestElevenLabsConnection}
-                    disabled={testStatus.status === 'loading'}
-                    className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-50 transition-all flex items-center gap-2"
-                  >
-                    {testStatus.status === 'loading' ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      <Play size={14} />
-                    )}
-                    Testar Conexão
-                  </button>
-                  <div
-                    className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold ${
-                      testStatus.status === 'success'
-                        ? 'bg-green-100 text-green-700'
-                        : testStatus.status === 'error'
-                          ? 'bg-red-100 text-red-700'
-                          : 'bg-blue-100 text-blue-700'
-                    }`}
-                  >
-                    {testStatus.status === 'success' ? (
-                      <CheckCircle2 size={12} />
-                    ) : testStatus.status === 'error' ? (
-                      <AlertCircle size={12} />
-                    ) : (
-                      <RefreshCw size={12} />
-                    )}
-                    {testStatus.status === 'success'
-                      ? 'CONECTADO'
-                      : testStatus.status === 'error'
-                        ? 'ERRO'
-                        : 'VERIFICAR'}
-                  </div>
-                </div>
-              </div>
-
-              {testStatus.message && (
-                <p
-                  className={`text-[10px] font-bold uppercase tracking-wider px-3 py-2 rounded-lg ${
-                    testStatus.status === 'success'
-                      ? 'bg-green-50 text-green-600'
-                      : 'bg-red-50 text-red-600'
-                  }`}
-                >
-                  {testStatus.message}
-                </p>
-              )}
-
-              {userRole === 'admin' && (
-                <div className="pt-4 border-t border-gray-200 space-y-4">
-                  <div className="flex items-center gap-2 text-amber-600">
-                    <Key size={14} />
-                    <span className="text-[10px] font-bold uppercase tracking-widest">
-                      Gerenciar API Key (Admin Only)
-                    </span>
-                  </div>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <input
-                        type={showKey ? 'text' : 'password'}
-                        placeholder="Insira a nova ELEVENLABS_API_KEY"
-                        value={elevenLabsKey || ''}
-                        onChange={(e) => setElevenLabsKey(e.target.value)}
-                        className="w-full p-4 bg-white border-2 border-gray-200 rounded-2xl focus:border-blue-600 outline-none text-sm transition-all pr-12"
-                      />
-                      <button
-                        onClick={() => setShowKey(!showKey)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        {showKey ? <EyeOff size={18} /> : <Eye size={18} />}
-                      </button>
-                    </div>
-                    <button
-                      onClick={handleSaveElevenLabsKey}
-                      disabled={loading || !elevenLabsKey}
-                      className="px-6 bg-gray-900 text-white rounded-2xl font-bold hover:bg-black transition-all disabled:opacity-50"
-                    >
-                      {loading ? <Loader2 size={18} className="animate-spin" /> : 'Salvar'}
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-gray-400 font-medium">
-                    ⚠️ Esta chave será salva no servidor e usada para todas as gerações de voz da
-                    plataforma.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <div className="p-6 bg-gray-50 rounded-2xl border-2 border-gray-100 space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center">
-                    <User size={20} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-gray-900">HeyGen Avatars</p>
-                    <p className="text-[10px] text-gray-500 uppercase font-bold">
-                      Vídeos com Avatares AI
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleTestHeyGenConnection}
-                    disabled={heygenTestStatus.status === 'loading'}
-                    className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-50 transition-all flex items-center gap-2"
-                  >
-                    {heygenTestStatus.status === 'loading' ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      <Play size={14} />
-                    )}
-                    Testar Conexão
-                  </button>
-                  <div
-                    className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold ${
-                      heygenTestStatus.status === 'success'
-                        ? 'bg-green-100 text-green-700'
-                        : heygenTestStatus.status === 'error'
-                          ? 'bg-red-100 text-red-700'
-                          : 'bg-blue-100 text-blue-700'
-                    }`}
-                  >
-                    {heygenTestStatus.status === 'success' ? (
-                      <CheckCircle2 size={12} />
-                    ) : heygenTestStatus.status === 'error' ? (
-                      <AlertCircle size={12} />
-                    ) : (
-                      <RefreshCw size={12} />
-                    )}
-                    {heygenTestStatus.status === 'success'
-                      ? 'CONECTADO'
-                      : heygenTestStatus.status === 'error'
-                        ? 'ERRO'
-                        : 'VERIFICAR'}
-                  </div>
-                </div>
-              </div>
-
-              {heygenTestStatus.message && (
-                <p
-                  className={`text-[10px] font-bold uppercase tracking-wider px-3 py-2 rounded-lg ${
-                    heygenTestStatus.status === 'success'
-                      ? 'bg-green-50 text-green-600'
-                      : 'bg-red-50 text-red-600'
-                  }`}
-                >
-                  {heygenTestStatus.message}
-                </p>
-              )}
-
-              {userRole === 'admin' && (
-                <div className="pt-4 border-t border-gray-200 space-y-4">
-                  <div className="flex items-center gap-2 text-amber-600">
-                    <Key size={14} />
-                    <span className="text-[10px] font-bold uppercase tracking-widest">
-                      Gerenciar API Key (Admin Only)
-                    </span>
-                  </div>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <input
-                        type={heygenShowKey ? 'text' : 'password'}
-                        placeholder="Insira a nova HEYGEN_API_KEY"
-                        value={heygenKey || ''}
-                        onChange={(e) => setHeygenKey(e.target.value)}
-                        className="w-full p-4 bg-white border-2 border-gray-200 rounded-2xl focus:border-blue-600 outline-none text-sm transition-all pr-12"
-                      />
-                      <button
-                        onClick={() => setHeygenShowKey(!heygenShowKey)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        {heygenShowKey ? <EyeOff size={18} /> : <Eye size={18} />}
-                      </button>
-                    </div>
-                    <button
-                      onClick={handleSaveHeyGenKey}
-                      disabled={loading || !heygenKey}
-                      className="px-6 bg-gray-900 text-white rounded-2xl font-bold hover:bg-black transition-all disabled:opacity-50"
-                    >
-                      {loading ? <Loader2 size={18} className="animate-spin" /> : 'Salvar'}
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-gray-400 font-medium">
-                    ⚠️ Esta chave será salva no servidor e usada para todas as gerações de vídeo da
-                    plataforma.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <div className="p-6 bg-gray-50 rounded-2xl border-2 border-gray-100 space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center">
-                    <Sparkles size={20} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-gray-900">Runway Gen-3 Alpha</p>
-                    <p className="text-[10px] text-gray-500 uppercase font-bold">
-                      Vídeos Cinematográficos
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleTestRunwayConnection}
-                    disabled={runwayTestStatus.status === 'loading'}
-                    className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-50 transition-all flex items-center gap-2"
-                  >
-                    {runwayTestStatus.status === 'loading' ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      <Play size={14} />
-                    )}
-                    Testar Conexão
-                  </button>
-                  <div
-                    className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold ${
-                      runwayTestStatus.status === 'success'
-                        ? 'bg-green-100 text-green-700'
-                        : runwayTestStatus.status === 'error'
-                          ? 'bg-red-100 text-red-700'
-                          : 'bg-blue-100 text-blue-700'
-                    }`}
-                  >
-                    {runwayTestStatus.status === 'success' ? (
-                      <CheckCircle2 size={12} />
-                    ) : runwayTestStatus.status === 'error' ? (
-                      <AlertCircle size={12} />
-                    ) : (
-                      <RefreshCw size={12} />
-                    )}
-                    {runwayTestStatus.status === 'success'
-                      ? 'CONECTADO'
-                      : runwayTestStatus.status === 'error'
-                        ? 'ERRO'
-                        : 'VERIFICAR'}
-                  </div>
-                </div>
-              </div>
-
-              {runwayTestStatus.message && (
-                <p
-                  className={`text-[10px] font-bold uppercase tracking-wider px-3 py-2 rounded-lg ${
-                    runwayTestStatus.status === 'success'
-                      ? 'bg-green-50 text-green-600'
-                      : 'bg-red-50 text-red-600'
-                  }`}
-                >
-                  {runwayTestStatus.message}
-                </p>
-              )}
-
-              {userRole === 'admin' && (
-                <div className="pt-4 border-t border-gray-200 space-y-4">
-                  <div className="flex items-center gap-2 text-amber-600">
-                    <Key size={14} />
-                    <span className="text-[10px] font-bold uppercase tracking-widest">
-                      Gerenciar API Key (Admin Only)
-                    </span>
-                  </div>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <input
-                        type={runwayShowKey ? 'text' : 'password'}
-                        placeholder="Insira a nova RUNWAY_API_KEY"
-                        value={runwayKey || ''}
-                        onChange={(e) => setRunwayKey(e.target.value)}
-                        className="w-full p-4 bg-white border-2 border-gray-100 rounded-2xl focus:border-blue-600 outline-none text-sm transition-all pr-12"
-                      />
-                      <button
-                        onClick={() => setRunwayShowKey(!runwayShowKey)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        {runwayShowKey ? <EyeOff size={18} /> : <Eye size={18} />}
-                      </button>
-                    </div>
-                    <button
-                      onClick={handleSaveRunwayKey}
-                      disabled={loading || !runwayKey}
-                      className="px-6 bg-gray-900 text-white rounded-2xl font-bold hover:bg-black transition-all disabled:opacity-50"
-                    >
-                      {loading ? <Loader2 size={18} className="animate-spin" /> : 'Salvar'}
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-gray-400 font-medium">
-                    ⚠️ Esta chave será salva no servidor e usada para todas as gerações de vídeo
-                    Runway da plataforma.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Gemini Integration Card */}
-            <div className="p-6 bg-gray-50 rounded-2xl border-2 border-gray-100 space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center">
-                    <Sparkles size={20} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-gray-900">Google Gemini</p>
-                    <p className="text-[10px] text-gray-500 uppercase font-bold">
-                      IA Generativa de Copy + Hooks
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleTestGeminiConnection}
-                    disabled={geminiTestStatus.status === 'loading'}
-                    className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-50 transition-all flex items-center gap-2"
-                  >
-                    {geminiTestStatus.status === 'loading' ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      <Play size={14} />
-                    )}
-                    Testar Conexão
-                  </button>
-                  <div
-                    className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold ${
-                      geminiTestStatus.status === 'success'
-                        ? 'bg-green-100 text-green-700'
-                        : geminiTestStatus.status === 'error'
-                          ? 'bg-red-100 text-red-700'
-                          : 'bg-blue-100 text-blue-700'
-                    }`}
-                  >
-                    {geminiTestStatus.status === 'success' ? (
-                      <CheckCircle2 size={12} />
-                    ) : geminiTestStatus.status === 'error' ? (
-                      <AlertCircle size={12} />
-                    ) : (
-                      <RefreshCw size={12} />
-                    )}
-                    {geminiTestStatus.status === 'success'
-                      ? 'CONECTADO'
-                      : geminiTestStatus.status === 'error'
-                        ? 'ERRO'
-                        : 'VERIFICAR'}
-                  </div>
-                </div>
-              </div>
-
-              {geminiTestStatus.message && (
-                <p
-                  className={`text-[10px] font-bold uppercase tracking-wider px-3 py-2 rounded-lg ${
-                    geminiTestStatus.status === 'success'
-                      ? 'bg-green-50 text-green-600'
-                      : 'bg-red-50 text-red-600'
-                  }`}
-                >
-                  {geminiTestStatus.message}
-                </p>
-              )}
-
-              {userRole === 'admin' && (
-                <div className="pt-4 border-t border-gray-200 space-y-4">
-                  <div className="flex items-center gap-2 text-amber-600">
-                    <Key size={14} />
-                    <span className="text-[10px] font-bold uppercase tracking-widest">
-                      Gerenciar API Key (Admin Only)
-                    </span>
-                  </div>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <input
-                        type={geminiShowKey ? 'text' : 'password'}
-                        placeholder="Insira a nova GEMINI_API_KEY"
-                        value={geminiKey || ''}
-                        onChange={(e) => setGeminiKey(e.target.value)}
-                        className="w-full p-4 bg-white border-2 border-gray-200 rounded-2xl focus:border-blue-600 outline-none text-sm transition-all pr-12"
-                      />
-                      <button
-                        onClick={() => setGeminiShowKey(!geminiShowKey)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        {geminiShowKey ? <EyeOff size={18} /> : <Eye size={18} />}
-                      </button>
-                    </div>
-                    <button
-                      onClick={handleSaveGeminiKey}
-                      disabled={loading || !geminiKey}
-                      className="px-6 bg-gray-900 text-white rounded-2xl font-bold hover:bg-black transition-all disabled:opacity-50"
-                    >
-                      {loading ? <Loader2 size={18} className="animate-spin" /> : 'Salvar'}
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-gray-400 font-medium">
-                    ⚠️ Esta chave será salva no servidor e usada para geração de copy, hooks e
-                    roteiros via Google Gemini.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* AssemblyAI Integration Card */}
-            <div className="p-6 bg-gray-50 rounded-2xl border-2 border-gray-100 space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center">
-                    <Zap size={20} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-gray-900">AssemblyAI</p>
-                    <p className="text-[10px] text-gray-500 uppercase font-bold">
-                      Transcrição + Análise Neural
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleTestAssemblyAIConnection}
-                    disabled={assemblyTestStatus.status === 'loading'}
-                    className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-50 transition-all flex items-center gap-2"
-                  >
-                    {assemblyTestStatus.status === 'loading' ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      <Play size={14} />
-                    )}
-                    Testar Conexão
-                  </button>
-                  <div
-                    className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold ${
-                      assemblyTestStatus.status === 'success'
-                        ? 'bg-green-100 text-green-700'
-                        : assemblyTestStatus.status === 'error'
-                          ? 'bg-red-100 text-red-700'
-                          : 'bg-blue-100 text-blue-700'
-                    }`}
-                  >
-                    {assemblyTestStatus.status === 'success' ? (
-                      <CheckCircle2 size={12} />
-                    ) : assemblyTestStatus.status === 'error' ? (
-                      <AlertCircle size={12} />
-                    ) : (
-                      <RefreshCw size={12} />
-                    )}
-                    {assemblyTestStatus.status === 'success'
-                      ? 'CONECTADO'
-                      : assemblyTestStatus.status === 'error'
-                        ? 'ERRO'
-                        : 'VERIFICAR'}
-                  </div>
-                </div>
-              </div>
-              {assemblyTestStatus.message && (
-                <p
-                  className={`text-[10px] font-bold uppercase tracking-wider px-3 py-2 rounded-lg ${
-                    assemblyTestStatus.status === 'success'
-                      ? 'bg-green-50 text-green-600'
-                      : 'bg-red-50 text-red-600'
-                  }`}
-                >
-                  {assemblyTestStatus.message}
-                </p>
-              )}
-
-              {userRole === 'admin' && (
-                <div className="pt-4 border-t border-gray-200 space-y-4">
-                  <div className="flex items-center gap-2 text-amber-600">
-                    <Key size={14} />
-                    <span className="text-[10px] font-bold uppercase tracking-widest">
-                      Gerenciar API Key (Admin Only)
-                    </span>
-                  </div>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <input
-                        type={assemblyShowKey ? 'text' : 'password'}
-                        placeholder="Insira a nova ASSEMBLYAI_API_KEY"
-                        value={assemblyKey || ''}
-                        onChange={(e) => setAssemblyKey(e.target.value)}
-                        className="w-full p-4 bg-white border-2 border-gray-200 rounded-2xl focus:border-blue-600 outline-none text-sm transition-all pr-12"
-                      />
-                      <button
-                        onClick={() => setAssemblyShowKey(!assemblyShowKey)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        {assemblyShowKey ? <EyeOff size={18} /> : <Eye size={18} />}
-                      </button>
-                    </div>
-                    <button
-                      onClick={handleSaveAssemblyAIKey}
-                      disabled={loading || !assemblyKey}
-                      className="px-6 bg-gray-900 text-white rounded-2xl font-bold hover:bg-black transition-all disabled:opacity-50"
-                    >
-                      {loading ? <Loader2 size={18} className="animate-spin" /> : 'Salvar'}
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-gray-400 font-medium">
-                    ⚠️ Esta chave será salva no servidor e usada para transcrição e análise de áudio
-                    via AssemblyAI.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* ZapCap Integration Card */}
-            <div className="p-6 bg-gray-50 rounded-2xl border-2 border-gray-100 space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center">
-                    <Film size={20} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-gray-900">ZapCap Engine</p>
-                    <p className="text-[10px] text-gray-500 uppercase font-bold">
-                      Legendas + Edição Automática
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleTestZapCapConnection}
-                    disabled={zapcapTestStatus.status === 'loading'}
-                    className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-50 transition-all flex items-center gap-2"
-                  >
-                    {zapcapTestStatus.status === 'loading' ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      <Play size={14} />
-                    )}
-                    Testar Conexão
-                  </button>
-                  <div
-                    className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold ${
-                      zapcapTestStatus.status === 'success'
-                        ? 'bg-green-100 text-green-700'
-                        : zapcapTestStatus.status === 'error'
-                          ? 'bg-red-100 text-red-700'
-                          : 'bg-blue-100 text-blue-700'
-                    }`}
-                  >
-                    {zapcapTestStatus.status === 'success' ? (
-                      <CheckCircle2 size={12} />
-                    ) : zapcapTestStatus.status === 'error' ? (
-                      <AlertCircle size={12} />
-                    ) : (
-                      <RefreshCw size={12} />
-                    )}
-                    {zapcapTestStatus.status === 'success'
-                      ? 'CONECTADO'
-                      : zapcapTestStatus.status === 'error'
-                        ? 'ERRO'
-                        : 'VERIFICAR'}
-                  </div>
-                </div>
-              </div>
-              {zapcapTestStatus.message && (
-                <p
-                  className={`text-[10px] font-bold uppercase tracking-wider px-3 py-2 rounded-lg ${
-                    zapcapTestStatus.status === 'success'
-                      ? 'bg-green-50 text-green-600'
-                      : 'bg-red-50 text-red-600'
-                  }`}
-                >
-                  {zapcapTestStatus.message}
-                </p>
-              )}
-
-              {userRole === 'admin' && (
-                <div className="pt-4 border-t border-gray-200 space-y-4">
-                  <div className="flex items-center gap-2 text-amber-600">
-                    <Key size={14} />
-                    <span className="text-[10px] font-bold uppercase tracking-widest">
-                      Gerenciar API Key (Admin Only)
-                    </span>
-                  </div>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <input
-                        type={zapcapShowKey ? 'text' : 'password'}
-                        placeholder="Insira a nova ZAPCAP_API_KEY"
-                        value={zapcapKey || ''}
-                        onChange={(e) => setZapcapKey(e.target.value)}
-                        className="w-full p-4 bg-white border-2 border-gray-200 rounded-2xl focus:border-blue-600 outline-none text-sm transition-all pr-12"
-                      />
-                      <button
-                        onClick={() => setZapcapShowKey(!zapcapShowKey)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        {zapcapShowKey ? <EyeOff size={18} /> : <Eye size={18} />}
-                      </button>
-                    </div>
-                    <button
-                      onClick={handleSaveZapCapKey}
-                      disabled={loading || !zapcapKey}
-                      className="px-6 bg-gray-900 text-white rounded-2xl font-bold hover:bg-black transition-all disabled:opacity-50"
-                    >
-                      {loading ? <Loader2 size={18} className="animate-spin" /> : 'Salvar'}
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-gray-400 font-medium">
-                    ⚠️ Esta chave será salva no servidor e usada para edição de legendas + b-rolls
-                    via ZapCap.
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="p-6 bg-blue-50 rounded-3xl border border-blue-100">
-            <div className="flex items-center gap-3 mb-2">
-              <Sparkles className="text-blue-600" size={18} />
-              <h4 className="font-bold text-blue-900 text-sm">Sistema de Créditos</h4>
-            </div>
-            <p className="text-xs text-blue-700 leading-relaxed">
-              Sua conta possui <strong>{credits} créditos</strong> disponíveis. Cada geração de voz
-              consome créditos proporcionalmente ao tamanho do texto (1 crédito por 10 caracteres).
-            </p>
-          </div>
-        </div>
       </div>
     );
   };
@@ -14394,7 +13733,67 @@ export default function App() {
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
           >
-            {currentStep === 'integrations' && renderIntegrationsStep()}
+            {currentStep === 'integrations' && (
+              <IntegrationsTab
+                userRole={userRole}
+                credits={credits}
+                loading={loading}
+                elevenlabs={{
+                  apiKey: elevenLabsKey,
+                  onApiKeyChange: setElevenLabsKey,
+                  showKey,
+                  onToggleShowKey: () => setShowKey(!showKey),
+                  testStatus,
+                  onSave: handleSaveElevenLabsKey,
+                  onTest: handleTestElevenLabsConnection,
+                }}
+                heygen={{
+                  apiKey: heygenKey,
+                  onApiKeyChange: setHeygenKey,
+                  showKey: heygenShowKey,
+                  onToggleShowKey: () => setHeygenShowKey(!heygenShowKey),
+                  testStatus: heygenTestStatus,
+                  onSave: handleSaveHeyGenKey,
+                  onTest: handleTestHeyGenConnection,
+                }}
+                runway={{
+                  apiKey: runwayKey,
+                  onApiKeyChange: setRunwayKey,
+                  showKey: runwayShowKey,
+                  onToggleShowKey: () => setRunwayShowKey(!runwayShowKey),
+                  testStatus: runwayTestStatus,
+                  onSave: handleSaveRunwayKey,
+                  onTest: handleTestRunwayConnection,
+                }}
+                gemini={{
+                  apiKey: geminiKey,
+                  onApiKeyChange: setGeminiKey,
+                  showKey: geminiShowKey,
+                  onToggleShowKey: () => setGeminiShowKey(!geminiShowKey),
+                  testStatus: geminiTestStatus,
+                  onSave: handleSaveGeminiKey,
+                  onTest: handleTestGeminiConnection,
+                }}
+                assemblyai={{
+                  apiKey: assemblyKey,
+                  onApiKeyChange: setAssemblyKey,
+                  showKey: assemblyShowKey,
+                  onToggleShowKey: () => setAssemblyShowKey(!assemblyShowKey),
+                  testStatus: assemblyTestStatus,
+                  onSave: handleSaveAssemblyAIKey,
+                  onTest: handleTestAssemblyAIConnection,
+                }}
+                zapcap={{
+                  apiKey: zapcapKey,
+                  onApiKeyChange: setZapcapKey,
+                  showKey: zapcapShowKey,
+                  onToggleShowKey: () => setZapcapShowKey(!zapcapShowKey),
+                  testStatus: zapcapTestStatus,
+                  onSave: handleSaveZapCapKey,
+                  onTest: handleTestZapCapConnection,
+                }}
+              />
+            )}
             {currentStep === 'projects' && renderProjectsStep()}
             {currentStep === 'persona' && renderPersonaStep()}
             {currentStep === 'copy' && renderCopyStep()}
