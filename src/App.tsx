@@ -1600,58 +1600,6 @@ export default function App() {
     hydrateGeminiKey();
   }, []);
 
-  // --- Auto-save layer 1: localStorage backup ---
-  // Writes every config change to localStorage so the form survives page
-  // refreshes even before the user has created a Firestore project. Fast
-  // (~1ms), works offline, no auth required. The restore happens in a
-  // separate effect below.
-  const AUTOSAVE_KEY = 'metavise-draft-config-v1';
-  useEffect(() => {
-    try {
-      localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(config));
-    } catch (err) {
-      console.warn('[AutoSave] localStorage write failed:', err);
-    }
-  }, [config]);
-
-  // Restore the last-edited config from localStorage on mount, but ONLY if
-  // we haven't yet loaded a real project from Firestore. If the user opens
-  // a project later, setConfig overwrites this and the localStorage effect
-  // above just rewrites the new value.
-  useEffect(() => {
-    if (currentProjectId) return;
-    try {
-      const stored = localStorage.getItem(AUTOSAVE_KEY);
-      if (!stored) return;
-      const parsed = JSON.parse(stored);
-      // Sanity-check the restored object has the nested shapes downstream
-      // code reads from. If anything is missing we drop the draft rather
-      // than crash the render tree.
-      const looksValid =
-        parsed &&
-        typeof parsed === 'object' &&
-        parsed.copy &&
-        typeof parsed.copy === 'object' &&
-        parsed.copy.answers &&
-        parsed.avatar &&
-        parsed.scene &&
-        parsed.edit &&
-        parsed.format;
-      if (looksValid) {
-        setConfig(parsed);
-        toast.success('Rascunho restaurado da sessão anterior.', { icon: '💾' });
-      } else {
-        console.warn('[AutoSave] Saved draft has unexpected shape, dropping it.');
-        localStorage.removeItem(AUTOSAVE_KEY);
-      }
-    } catch (err) {
-      console.warn('[AutoSave] localStorage restore failed:', err);
-      localStorage.removeItem(AUTOSAVE_KEY);
-    }
-    // Intentionally only on mount.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const safeDeleteObject = async (path: string) => {
     try {
       const storageRef = ref(storage, path);
@@ -1947,6 +1895,59 @@ export default function App() {
       modeloVideo: 'veo-3.1-fast-generate-preview',
     },
   });
+
+  // --- Auto-save layer 1: localStorage backup ---
+  // Writes every config change to localStorage so the form survives page
+  // refreshes even before the user has created a Firestore project. Fast
+  // (~1ms), works offline, no auth required. Must live AFTER the config
+  // useState above — otherwise the [config] dep array hits the TDZ on
+  // the first render and crashes the whole tree.
+  const AUTOSAVE_KEY = 'metavise-draft-config-v1';
+  useEffect(() => {
+    try {
+      localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(config));
+    } catch (err) {
+      console.warn('[AutoSave] localStorage write failed:', err);
+    }
+  }, [config]);
+
+  // Restore the last-edited config from localStorage on mount, but ONLY if
+  // we haven't yet loaded a real project from Firestore. If the user opens
+  // a project later, setConfig overwrites this and the localStorage effect
+  // above just rewrites the new value.
+  useEffect(() => {
+    if (currentProjectId) return;
+    try {
+      const stored = localStorage.getItem(AUTOSAVE_KEY);
+      if (!stored) return;
+      const parsed = JSON.parse(stored);
+      // Sanity-check the restored object has the nested shapes downstream
+      // code reads from. If anything is missing we drop the draft rather
+      // than crash the render tree.
+      const looksValid =
+        parsed &&
+        typeof parsed === 'object' &&
+        parsed.copy &&
+        typeof parsed.copy === 'object' &&
+        parsed.copy.answers &&
+        parsed.avatar &&
+        parsed.scene &&
+        parsed.edit &&
+        parsed.format;
+      if (looksValid) {
+        setConfig(parsed);
+        toast.success('Rascunho restaurado da sessão anterior.', { icon: '💾' });
+      } else {
+        console.warn('[AutoSave] Saved draft has unexpected shape, dropping it.');
+        localStorage.removeItem(AUTOSAVE_KEY);
+      }
+    } catch (err) {
+      console.warn('[AutoSave] localStorage restore failed:', err);
+      localStorage.removeItem(AUTOSAVE_KEY);
+    }
+    // Intentionally only on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [loading, setLoading] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
