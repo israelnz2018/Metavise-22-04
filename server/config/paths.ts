@@ -9,6 +9,8 @@ export const CONFIG_PATH = path.join(process.cwd(), 'elevenlabs-config.json');
 export const HEYGEN_CONFIG_PATH = path.join(process.cwd(), 'heygen-config.json');
 export const RUNWAY_CONFIG_PATH = path.join(process.cwd(), 'runway-config.json');
 export const GEMINI_CONFIG_PATH = path.join(process.cwd(), 'gemini-config.json');
+export const ASSEMBLYAI_CONFIG_PATH = path.join(process.cwd(), 'assemblyai-config.json');
+export const ZAPCAP_CONFIG_PATH = path.join(process.cwd(), 'zapcap-config.json');
 export const FIREBASE_CONFIG_PATH = path.join(process.cwd(), 'firebase-applet-config.json');
 
 // generated/ lives next to server.ts (one level above server/config/).

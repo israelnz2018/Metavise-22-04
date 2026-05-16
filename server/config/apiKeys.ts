@@ -4,6 +4,8 @@ import {
   HEYGEN_CONFIG_PATH,
   RUNWAY_CONFIG_PATH,
   GEMINI_CONFIG_PATH,
+  ASSEMBLYAI_CONFIG_PATH,
+  ZAPCAP_CONFIG_PATH,
 } from './paths.js';
 
 function readKeyFromFile(filePath: string): string | null {
@@ -49,6 +51,26 @@ export function getGeminiKey(): string | null {
     return fileKey;
   }
   const envKey = process.env.GEMINI_API_KEY;
+  return envKey ? envKey.trim().replace(/^["']|["']$/g, '') : null;
+}
+
+export function getAssemblyAIKey(): string | null {
+  const fileKey = readKeyFromFile(ASSEMBLYAI_CONFIG_PATH);
+  if (fileKey) {
+    console.log(`[AssemblyAI Config] API Key found (starts with: ${fileKey.substring(0, 4)}...)`);
+    return fileKey;
+  }
+  const envKey = process.env.ASSEMBLYAI_API_KEY;
+  return envKey ? envKey.trim().replace(/^["']|["']$/g, '') : null;
+}
+
+export function getZapCapKey(): string | null {
+  const fileKey = readKeyFromFile(ZAPCAP_CONFIG_PATH);
+  if (fileKey) {
+    console.log(`[ZapCap Config] API Key found (starts with: ${fileKey.substring(0, 4)}...)`);
+    return fileKey;
+  }
+  const envKey = process.env.ZAPCAP_API_KEY;
   return envKey ? envKey.trim().replace(/^["']|["']$/g, '') : null;
 }
 

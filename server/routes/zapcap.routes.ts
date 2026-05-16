@@ -1,6 +1,9 @@
 import { Router } from 'express';
+import fs from 'fs';
 import { formatApiError, processDataError } from '../utils/errorExtractor.js';
 import { logToFile } from '../utils/fileLogger.js';
+import { getZapCapKey, getAssemblyAIKey } from '../config/apiKeys.js';
+import { ZAPCAP_CONFIG_PATH } from '../config/paths.js';
 
 const ZAPCAP_BASE = 'https://api.zapcap.ai';
 const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB
@@ -70,9 +73,26 @@ async function uploadVideoMultipart(
 
 export const zapCapRouter = Router();
 
+// POST /api/zapcap/config
+zapCapRouter.post('/config', async (req, res) => {
+  const { apiKey } = req.body;
+  if (!apiKey) return res.status(400).json({ error: 'API Key is required.' });
+
+  const trimmedKey = apiKey.trim().replace(/^["']|["']$/g, '');
+
+  try {
+    fs.writeFileSync(ZAPCAP_CONFIG_PATH, JSON.stringify({ apiKey: trimmedKey }, null, 2));
+    console.log('[ZapCap Config] API Key updated successfully.');
+    res.json({ message: 'ZapCap API Key updated successfully.' });
+  } catch (err: any) {
+    console.error('[ZapCap Config] Error saving config:', err);
+    res.status(500).json({ error: `Failed to save API Key: ${err.message}` });
+  }
+});
+
 // GET /api/zapcap/templates
 zapCapRouter.get('/templates', async (_req, res) => {
-  const apiKey = process.env.ZAPCAP_API_KEY?.trim();
+  const apiKey = getZapCapKey();
 
   if (!apiKey) {
     return res.status(500).json({ error: 'ZAPCAP_API_KEY não configurada.' });
@@ -120,8 +140,8 @@ zapCapRouter.post('/edit', async (req, res) => {
   const { videoUrl, transcriptId, selectedBrollIds, brollCandidates, config } = req.body;
   logToFile(`[ZapCap Edit] transcriptId: ${transcriptId}, videoUrl: ${videoUrl?.substring(0, 80)}`);
 
-  const apiKey = process.env.ZAPCAP_API_KEY?.trim();
-  const assemblyKey = process.env.ASSEMBLYAI_API_KEY?.trim();
+  const apiKey = getZapCapKey();
+  const assemblyKey = getAssemblyAIKey();
 
   if (!apiKey) {
     return res.status(500).json({ error: 'ZAPCAP_API_KEY não configurada.' });
@@ -354,7 +374,7 @@ zapCapRouter.post('/edit-simple', async (req, res) => {
     highlightColorThree,
   } = req.body;
 
-  const apiKey = process.env.ZAPCAP_API_KEY?.trim();
+  const apiKey = getZapCapKey();
 
   if (!apiKey) {
     logToFile(`[ZapCap Simple] Erro: ZAPCAP_API_KEY não configurada`);
@@ -501,7 +521,7 @@ const processedZapCapTasks = new Set<string>();
 // GET /api/zapcap/status/:videoId/:taskId
 zapCapRouter.get('/status/:videoId/:taskId', async (req, res) => {
   const { videoId, taskId } = req.params;
-  const apiKey = process.env.ZAPCAP_API_KEY?.trim();
+  const apiKey = getZapCapKey();
 
   if (!apiKey) {
     return res.status(500).json({ error: 'ZAPCAP_API_KEY não configurada.' });
@@ -547,7 +567,7 @@ zapCapRouter.get('/status/:videoId/:taskId', async (req, res) => {
 
 // GET /api/zapcap/health
 zapCapRouter.get('/health', async (_req, res) => {
-  const apiKey = process.env.ZAPCAP_API_KEY?.trim();
+  const apiKey = getZapCapKey();
   if (!apiKey) {
     return res.status(500).json({ status: 'error', message: 'ZAPCAP_API_KEY não configurada.' });
   }

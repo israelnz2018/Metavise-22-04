@@ -1,15 +1,35 @@
 import { Router } from 'express';
+import fs from 'fs';
 import { logToFile } from '../utils/fileLogger.js';
 import { formatApiError } from '../utils/errorExtractor.js';
+import { getAssemblyAIKey } from '../config/apiKeys.js';
+import { ASSEMBLYAI_CONFIG_PATH } from '../config/paths.js';
 
 export const assemblyAIRouter = Router();
+
+// POST /api/assemblyai/config
+assemblyAIRouter.post('/config', async (req, res) => {
+  const { apiKey } = req.body;
+  if (!apiKey) return res.status(400).json({ error: 'API Key is required.' });
+
+  const trimmedKey = apiKey.trim().replace(/^["']|["']$/g, '');
+
+  try {
+    fs.writeFileSync(ASSEMBLYAI_CONFIG_PATH, JSON.stringify({ apiKey: trimmedKey }, null, 2));
+    console.log('[AssemblyAI Config] API Key updated successfully.');
+    res.json({ message: 'AssemblyAI API Key updated successfully.' });
+  } catch (err: any) {
+    console.error('[AssemblyAI Config] Error saving config:', err);
+    res.status(500).json({ error: `Failed to save API Key: ${err.message}` });
+  }
+});
 
 // POST /api/assemblyai/analyze
 // Receives: { videoUrl: string }
 // Returns: { transcriptId, words, sentiment, highlights, autoHighlights, ... }
 assemblyAIRouter.post('/analyze', async (req, res) => {
   const { videoUrl } = req.body;
-  const apiKey = process.env.ASSEMBLYAI_API_KEY;
+  const apiKey = getAssemblyAIKey();
 
   if (!apiKey) {
     return res.status(500).json({ error: 'ASSEMBLYAI_API_KEY não configurada.' });
@@ -251,7 +271,7 @@ assemblyAIRouter.post('/analyze', async (req, res) => {
 
 // GET /api/assemblyai/health
 assemblyAIRouter.get('/health', async (_req, res) => {
-  const apiKey = process.env.ASSEMBLYAI_API_KEY;
+  const apiKey = getAssemblyAIKey();
   if (!apiKey) {
     return res
       .status(500)

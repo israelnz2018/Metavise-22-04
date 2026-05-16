@@ -1913,10 +1913,14 @@ export default function App() {
     status: 'idle' | 'loading' | 'success' | 'error';
     message?: string;
   }>({ status: 'idle' });
+  const [assemblyKey, setAssemblyKey] = useState('');
+  const [assemblyShowKey, setAssemblyShowKey] = useState(false);
   const [zapcapTestStatus, setZapcapTestStatus] = useState<{
     status: 'idle' | 'loading' | 'success' | 'error';
     message?: string;
   }>({ status: 'idle' });
+  const [zapcapKey, setZapcapKey] = useState('');
+  const [zapcapShowKey, setZapcapShowKey] = useState(false);
   const [generationStage, setGenerationStage] = useState<
     | 'idle'
     | 'audio'
@@ -5876,6 +5880,46 @@ export default function App() {
     }
   };
 
+  const handleSaveAssemblyAIKey = async () => {
+    if (!assemblyKey) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/assemblyai/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: assemblyKey }),
+      });
+      if (!response.ok) throw new Error('Falha ao salvar a chave API do AssemblyAI.');
+      toast.success('Chave API do AssemblyAI atualizada com sucesso!');
+      setAssemblyKey('');
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveZapCapKey = async () => {
+    if (!zapcapKey) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/zapcap/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: zapcapKey }),
+      });
+      if (!response.ok) throw new Error('Falha ao salvar a chave API do ZapCap.');
+      toast.success('Chave API do ZapCap atualizada com sucesso!');
+      setZapcapKey('');
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSaveRunwayKey = async () => {
     if (!runwayKey) return;
     setLoading(true);
@@ -6962,6 +7006,45 @@ export default function App() {
                   {assemblyTestStatus.message}
                 </p>
               )}
+
+              {userRole === 'admin' && (
+                <div className="pt-4 border-t border-gray-200 space-y-4">
+                  <div className="flex items-center gap-2 text-amber-600">
+                    <Key size={14} />
+                    <span className="text-[10px] font-bold uppercase tracking-widest">
+                      Gerenciar API Key (Admin Only)
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type={assemblyShowKey ? 'text' : 'password'}
+                        placeholder="Insira a nova ASSEMBLYAI_API_KEY"
+                        value={assemblyKey || ''}
+                        onChange={(e) => setAssemblyKey(e.target.value)}
+                        className="w-full p-4 bg-white border-2 border-gray-200 rounded-2xl focus:border-blue-600 outline-none text-sm transition-all pr-12"
+                      />
+                      <button
+                        onClick={() => setAssemblyShowKey(!assemblyShowKey)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        {assemblyShowKey ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                    <button
+                      onClick={handleSaveAssemblyAIKey}
+                      disabled={loading || !assemblyKey}
+                      className="px-6 bg-gray-900 text-white rounded-2xl font-bold hover:bg-black transition-all disabled:opacity-50"
+                    >
+                      {loading ? <Loader2 size={18} className="animate-spin" /> : 'Salvar'}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-gray-400 font-medium">
+                    ⚠️ Esta chave será salva no servidor e usada para transcrição e análise de áudio
+                    via AssemblyAI.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* ZapCap Integration Card */}
@@ -7025,6 +7108,45 @@ export default function App() {
                 >
                   {zapcapTestStatus.message}
                 </p>
+              )}
+
+              {userRole === 'admin' && (
+                <div className="pt-4 border-t border-gray-200 space-y-4">
+                  <div className="flex items-center gap-2 text-amber-600">
+                    <Key size={14} />
+                    <span className="text-[10px] font-bold uppercase tracking-widest">
+                      Gerenciar API Key (Admin Only)
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type={zapcapShowKey ? 'text' : 'password'}
+                        placeholder="Insira a nova ZAPCAP_API_KEY"
+                        value={zapcapKey || ''}
+                        onChange={(e) => setZapcapKey(e.target.value)}
+                        className="w-full p-4 bg-white border-2 border-gray-200 rounded-2xl focus:border-blue-600 outline-none text-sm transition-all pr-12"
+                      />
+                      <button
+                        onClick={() => setZapcapShowKey(!zapcapShowKey)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        {zapcapShowKey ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                    <button
+                      onClick={handleSaveZapCapKey}
+                      disabled={loading || !zapcapKey}
+                      className="px-6 bg-gray-900 text-white rounded-2xl font-bold hover:bg-black transition-all disabled:opacity-50"
+                    >
+                      {loading ? <Loader2 size={18} className="animate-spin" /> : 'Salvar'}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-gray-400 font-medium">
+                    ⚠️ Esta chave será salva no servidor e usada para edição de legendas + b-rolls
+                    via ZapCap.
+                  </p>
+                </div>
               )}
             </div>
           </div>
