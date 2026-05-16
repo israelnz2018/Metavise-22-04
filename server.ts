@@ -4,17 +4,17 @@ import path from 'path';
 import dotenv from 'dotenv';
 import fs from 'fs';
 import ffmpeg from 'fluent-ffmpeg';
-import ffmpegPath from 'ffmpeg-static';
 import admin from 'firebase-admin';
 
 import {
   CONFIG_PATH,
   HEYGEN_CONFIG_PATH,
   RUNWAY_CONFIG_PATH,
-  FIREBASE_CONFIG_PATH,
   GENERATED_DIR,
   ensureGeneratedDir,
 } from './server/config/paths.js';
+import { initFirebase } from './server/config/firebase.js';
+import { setupFfmpeg } from './server/config/ffmpeg.js';
 import { processDataError, formatApiError } from './server/utils/errorExtractor.js';
 import { downloadFile } from './server/utils/download.js';
 import { logToFile } from './server/utils/fileLogger.js';
@@ -22,24 +22,9 @@ import { getFFmpegFilter } from './server/services/ffmpegService.js';
 import { getElevenLabsKey, getHeyGenKey, getRunwayKey } from './server/config/apiKeys.js';
 
 dotenv.config();
-
-if (ffmpegPath) {
-  ffmpeg.setFfmpegPath(ffmpegPath);
-}
-
+setupFfmpeg();
 ensureGeneratedDir();
-
-// Initialize Firebase Admin
-let storage: any;
-if (fs.existsSync(FIREBASE_CONFIG_PATH)) {
-  const firebaseConfig = JSON.parse(fs.readFileSync(FIREBASE_CONFIG_PATH, 'utf-8'));
-  admin.initializeApp({
-    projectId: firebaseConfig.projectId,
-    storageBucket: firebaseConfig.storageBucket,
-  });
-  storage = admin.storage();
-  console.log('[Firebase Admin] Initialized with bucket:', firebaseConfig.storageBucket);
-}
+initFirebase();
 
 async function startServer() {
   const app = express();
@@ -502,12 +487,10 @@ async function startServer() {
     const apiKey = getElevenLabsKey();
 
     if (!apiKey) {
-      return res
-        .status(500)
-        .json({
-          error:
-            'ElevenLabs API Key is missing in backend environment variables (ELEVENLABS_API_KEY).',
-        });
+      return res.status(500).json({
+        error:
+          'ElevenLabs API Key is missing in backend environment variables (ELEVENLABS_API_KEY).',
+      });
     }
 
     // Token/Credit logic
@@ -1043,10 +1026,8 @@ async function startServer() {
       const isLikelyElevenLabs = voiceId && voiceId.length > 15 && !voiceId.includes('-');
       const finalVoiceId = isLikelyElevenLabs || !voiceId ? DEFAULT_HEYGEN_VOICE : voiceId;
 
-      // Intentionally strip ASCII control chars before sending to HeyGen.
-      // eslint-disable-next-line no-control-regex
       const sanitizedScript = script
-        ? script.substring(0, 4000).replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
+        ? script.substring(0, 4000).replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // eslint-disable-line no-control-regex
         : '';
 
       const isTalkingPhoto =
@@ -1520,12 +1501,10 @@ async function startServer() {
     const runwayKey = getRunwayKey();
 
     if (!runwayKey) {
-      return res
-        .status(500)
-        .json({
-          error:
-            'Runway API Key is missing in backend environment variables (RUNWAY_API_KEY) or runway-config.json.',
-        });
+      return res.status(500).json({
+        error:
+          'Runway API Key is missing in backend environment variables (RUNWAY_API_KEY) or runway-config.json.',
+      });
     }
 
     try {
