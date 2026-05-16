@@ -7538,6 +7538,85 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* SEÇÃO — Estratégia da Copy */}
+                <div className="space-y-6 bg-white p-8 rounded-[40px] border-2 border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-8 h-8 bg-blue-600 text-white rounded-xl flex items-center justify-center text-xs font-black">
+                      {sections.length + 4}
+                    </div>
+                    <h4 className="font-black text-gray-900 text-lg tracking-tight uppercase">
+                      {sections.length + 4}. Estratégia da Copy
+                    </h4>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">
+                      O ad vai vender ou só fazer o viewer clicar?
+                    </label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {[
+                        {
+                          id: 'vsl-curiosity',
+                          emoji: '🎯',
+                          label: 'Criar curiosidade',
+                          desc: 'Pro funil com VSL, webinar ou conteúdo longo. O ad só convence a clicar — quem vende é o vídeo.',
+                          bullets: [
+                            'Não revela produto / mecanismo',
+                            'Sem garantia, preço ou oferta',
+                            'Abre loop, fecha no vídeo',
+                          ],
+                        },
+                        {
+                          id: 'direct-sale',
+                          emoji: '💰',
+                          label: 'Vender no próprio ad',
+                          desc: 'Pro funil direto: ad → página de vendas / checkout. O ad já apresenta o produto, mecanismo e oferta.',
+                          bullets: [
+                            'Apresenta produto e mecanismo',
+                            'Pode usar prova social e garantia',
+                            'Fecha com CTA direto',
+                          ],
+                        },
+                      ].map((strat) => (
+                        <button
+                          key={strat.id}
+                          onClick={() => updateConfig('copy', 'answers', 'copyStrategy', strat.id)}
+                          className={`p-4 rounded-2xl border-2 text-left transition-all ${
+                            config.copy.answers.copyStrategy === strat.id
+                              ? 'border-blue-600 bg-blue-50'
+                              : 'border-gray-100 hover:border-blue-200'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3 mb-2">
+                            <span className="text-2xl">{strat.emoji}</span>
+                            <p className="font-black text-gray-900 uppercase tracking-tight text-sm">
+                              {strat.label}
+                            </p>
+                          </div>
+                          <p className="text-[11px] text-gray-500 font-medium mb-3 leading-relaxed">
+                            {strat.desc}
+                          </p>
+                          <ul className="space-y-1">
+                            {strat.bullets.map((b) => (
+                              <li
+                                key={b}
+                                className="text-[10px] text-gray-400 font-bold flex items-start gap-1.5"
+                              >
+                                <span className="text-blue-500 mt-0.5">•</span>
+                                <span>{b}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </button>
+                      ))}
+                    </div>
+                    {!config.copy.answers.copyStrategy && (
+                      <p className="text-[10px] text-amber-600 font-bold uppercase tracking-widest mt-2 ml-1">
+                        ⚠️ Sem escolha, usaremos os beats baseados no nível de consciência.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
                 {/* SEÇÃO 9 — Call to Action */}
                 <div className="space-y-6 bg-white p-8 rounded-[40px] border-2 border-gray-100 shadow-sm hover:shadow-md transition-shadow">
                   <div className="flex items-center gap-3 mb-2">

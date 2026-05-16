@@ -120,13 +120,13 @@ export const generateAdCopyWithClaude = async (
     'URGÊNCIA REAL': 'Real scarcity or urgency only — never invent it.',
   };
 
-  // VSL mode — when the click destination is "Vídeo", the ad's only job is
-  // to earn the click on a long-form video sales letter. The VSL itself does
-  // all the selling. Override the awareness-level beats with intrigue-only
-  // beats and forbid sales/closing language. Without this, level-4/5 beats
-  // (DIFERENCIAÇÃO / GARANTIA / OFERTA INICIAL) try to close the deal in the
-  // ad itself, which kills VSL conversion.
-  const isVslTraffic = (answers.clickDestination || 'Vídeo') === 'Vídeo';
+  // VSL mode — explicit user choice from the form ('vsl-curiosity').
+  // Some users send traffic to a long video that closes the sale (need
+  // intrigue-only ads); others send straight to a product page (need
+  // selling ads). Without an explicit choice, fall back to the awareness-
+  // level beats — that preserves the old behaviour for projects that
+  // haven't set the new field yet.
+  const isVslTraffic = answers.copyStrategy === 'vsl-curiosity';
   const vslBeats: Array<[string, number]> = [
     ['REVELAÇÃO INESPERADA', 0.3],
     ['LOOP DE CURIOSIDADE', 0.4],
