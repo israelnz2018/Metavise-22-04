@@ -1,0 +1,10 @@
+node_modules/
+dist/
+build/
+coverage/
+public/
+package-lock.json
+*.min.js
+*.min.css
+.vite/
+src/data/
