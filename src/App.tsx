@@ -1580,6 +1580,12 @@ export default function App() {
         w.process = w.process || { env: {} };
         w.process.env = w.process.env || {};
         w.process.env.GEMINI_API_KEY = apiKey;
+        // Tell the rest of the app that a key is available, otherwise the
+        // checkKey() effect that ran earlier on mount (synchronously, before
+        // this async fetch finished) leaves hasApiKey=false and downstream
+        // guards try to open the AI Studio key selector (which doesn't
+        // exist outside Google AI Studio).
+        setHasApiKey(true);
         console.log('[Gemini] API Key hydrated from server config.');
       } catch (e) {
         console.warn('[Gemini] Could not fetch saved API key:', e);
@@ -3515,7 +3521,9 @@ export default function App() {
         return false;
       }
     } else {
-      setError('O seletor de chaves API não está disponível neste ambiente.');
+      setError(
+        'Chave Gemini não configurada. Vá em Integrações → Google Gemini → Gerenciar API Key e cole sua chave.'
+      );
       return false;
     }
   };
@@ -5342,6 +5350,8 @@ export default function App() {
       w.process = w.process || { env: {} };
       w.process.env = w.process.env || {};
       w.process.env.GEMINI_API_KEY = geminiKey;
+      // Skip the AI Studio key selector for any subsequent IA call.
+      setHasApiKey(true);
       toast.success('Chave API do Gemini atualizada com sucesso!');
       setGeminiKey('');
     } catch (err: any) {
