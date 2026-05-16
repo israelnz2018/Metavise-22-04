@@ -20,6 +20,10 @@ import { downloadFile } from './server/utils/download.js';
 import { logToFile } from './server/utils/fileLogger.js';
 import { getFFmpegFilter } from './server/services/ffmpegService.js';
 import { getElevenLabsKey, getHeyGenKey, getRunwayKey } from './server/config/apiKeys.js';
+import { requestLogger } from './server/middleware/requestLogger.js';
+import { cors } from './server/middleware/cors.js';
+import { errorHandler } from './server/middleware/errorHandler.js';
+import { apiNotFound } from './server/middleware/notFound.js';
 
 dotenv.config();
 setupFfmpeg();
@@ -32,21 +36,8 @@ async function startServer() {
 
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ limit: '50mb', extended: true }));
-
-  // Request logger middleware
-  app.use((req, res, next) => {
-    if (req.url.startsWith('/api/')) {
-      logToFile(`[Request] ${req.method} ${req.url}`);
-    }
-    next();
-  });
-
-  // Simple CORS middleware
-  app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
-    next();
-  });
+  app.use(requestLogger);
+  app.use(cors);
 
   // API route to split video
   app.post('/api/video/compress', async (req, res) => {
@@ -2903,22 +2894,8 @@ async function startServer() {
     }
   });
 
-  // Fallback for missing API routes to prevent HTML response
-  app.all('/api/*', (req, res) => {
-    res.status(404).json({ error: `Route ${req.method} ${req.path} not found.` });
-  });
-
-  // Global error handler
-  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    console.error(`[Server Error] ${req.method} ${req.path}:`, err);
-    if (req.path.startsWith('/api/')) {
-      return res.status(err.status || 500).json({
-        error: err.message || 'Internal Server Error',
-        path: req.path,
-      });
-    }
-    next(err);
-  });
+  app.all('/api/*', apiNotFound);
+  app.use(errorHandler);
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
