@@ -1,0 +1,8 @@
+{
+  "name": "MetaVise Ad Creator",
+  "description": "A low-cost, high-output video ad generator for Meta Ads with project management, copywriting, and AI avatar generation.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

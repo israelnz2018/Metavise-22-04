@@ -1,0 +1,5890 @@
+{
+  "idioma": "en",
+  "total": 625,
+  "hooks": [
+    {
+      "id": 1,
+      "template": "I tried every ___ out there and here are the results…",
+      "tipo": "Confissão / História",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 2,
+      "template": "The Perfect ___ Doesn't Exist",
+      "tipo": "Quebra de Paradigma",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "id": 3,
+      "template": "___ are/is so good for ___ that they're/it is actually banned",
+      "tipo": "Quebra de Paradigma",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "id": 4,
+      "template": "Have You Ever Experienced ___? Here's How To Never Do That Again …",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 5,
+      "template": "If you haven't tried … Watch this!",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 6,
+      "template": "If you're not doing ___ you're missing out",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 7,
+      "template": "Stop scrolling if you suffer from ___",
+      "tipo": "Identificação",
+      "niveis": [
+        2
+      ]
+    },
+    {
+      "id": 8,
+      "template": "This is a less-known but very harmful myth in the ___ industry",
+      "tipo": "Quebra de Paradigma",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "id": 9,
+      "template": "This hack will save you hours on ___",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 10,
+      "template": "This might get me canceled, but I’m going to tell you ___ …",
+      "tipo": "Humor / Absurdo",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 11,
+      "template": "I cracked the code of [TOPIC]...",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 12,
+      "template": "Did you know that [percentage] of [interest group] believe in [idea]?",
+      "tipo": "Surpresa / Choque",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 13,
+      "template": "Did you know that ___?",
+      "tipo": "Surpresa / Choque",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 14,
+      "template": "Did you know that [statistic] of people struggle with [common issue]?",
+      "tipo": "Surpresa / Choque",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 15,
+      "template": "Did you know that [shocking statistic]?",
+      "tipo": "Surpresa / Choque",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 16,
+      "template": "I can tell if someone's [DESCRIPTION] within [NUMBER] minutes of meeting them...",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 17,
+      "template": "Do you want to know how to double your savings this year?",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 18,
+      "template": "Do you want to know how to [achieve something]?",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 19,
+      "template": "I have news for you - {insert a polarizing opinion} ...",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 20,
+      "template": "Wanna steal my proven {insert a name} method for {insert a goal}? 🔥",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 21,
+      "template": "i never realized [something] until i tried [experience]...",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 22,
+      "template": "i never realized ___ could be so simple.",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 23,
+      "template": "i never realized this about [topic] until now.",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 24,
+      "template": "i never thought [product/service] would work for [issue], but...",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 25,
+      "template": "i never thought [unexpected result] would happen.",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 26,
+      "template": "i never thought ___ could be so easy.",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 27,
+      "template": "i never thought i'd say this, but [unexpected statement]...",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 28,
+      "template": "i promise you’ve never seen anything like this before!",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 29,
+      "template": "i was amazed when i learned this about [topic]...",
+      "tipo": "Confissão / História",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 30,
+      "template": "i was shocked when i discovered [fact] about [topic]...",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 31,
+      "template": "i was shocked when i found out [fact].",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 32,
+      "template": "i was surprised to find out that [fact]...",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 33,
+      "template": "i was surprised to learn [fact].",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 34,
+      "template": "The {#}-Minute, {#}-Step Solution For The Best {Noun}",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 35,
+      "template": "here’s a trick that nobody tells you about [topic]…",
+      "tipo": "Quebra de Paradigma",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "id": 36,
+      "template": "here’s how i achieved [desired result] in [time frame].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 37,
+      "template": "here’s how to make [something complicated] easier…",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 38,
+      "template": "here’s what no one tells you about [topic].",
+      "tipo": "Quebra de Paradigma",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "id": 39,
+      "template": "here's what [celebrity/influencer] doesn't tell you about [topic].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 40,
+      "template": "here's what happened after i tried _____",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 41,
+      "template": "here's what happens when you [try specific action].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 42,
+      "template": "here's why [common advice] doesn't work.",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 43,
+      "template": "here's why [common practice] is actually harmful.",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 44,
+      "template": "here's why ___ is a game-changer.",
+      "tipo": "Urgência / Notícia",
+      "niveis": [
+        4,
+        5
+      ]
+    },
+    {
+      "id": 45,
+      "template": "here's why ___ is more important than you think.",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 46,
+      "template": "here's why i switched from [product a] to [product b].",
+      "tipo": "Contraste / Antes-Depois",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 47,
+      "template": "i bet you didn’t know this about [common item].",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 48,
+      "template": "i was today years old when i found out…",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 49,
+      "template": "i was today years old when i learned this…",
+      "tipo": "Confissão / História",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 50,
+      "template": "i wish someone would’ve told me this when i was starting as a [target audience].",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 51,
+      "template": "if you don’t know, now you know!",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 52,
+      "template": "if you think x is better than y, i’m going to prove you wrong right now.",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 53,
+      "template": "if you think [something silly], wait until you see this…",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 54,
+      "template": "if you want to [achieve a goal], start with this…",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 55,
+      "template": "if you want to achieve_____ listen up!",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 56,
+      "template": "if you’re not (desired result), you’re falling behind",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 57,
+      "template": "if you're a [student/professional], you need to see this.",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 58,
+      "template": "i bet you didn’t know this [niche tip].",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 59,
+      "template": "i can't believe i didn’t know this about [topic].",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 60,
+      "template": "Stop wasting your time with this mistake!",
+      "tipo": "Quebra de Paradigma",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "id": 61,
+      "template": "Why you should start [specific action] today.",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 62,
+      "template": "what if i told you [surprising fact]?",
+      "tipo": "Surpresa / Choque",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 63,
+      "template": "want to learn how to [achieve something]? watch this…",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 64,
+      "template": "I wasn’t going to share this, but _____",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 65,
+      "template": "If you do ___________, I’m calling you out.",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 66,
+      "template": "If you haven’t tried ___… Watch this!",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 67,
+      "template": "Everything you know about ___ is WRONG!",
+      "tipo": "Quebra de Paradigma",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "id": 68,
+      "template": "This is the most reliable method for [task].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 69,
+      "template": "If you're new on Tik Tok, I have a question for you...",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 70,
+      "template": "I'm about to tell you the TOP SECRET in [INDUSTRY, TOPIC]...",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 71,
+      "template": "Here's a crazy (social platform / niche related / industry topic) hack that you're not ready",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 72,
+      "template": "*\"Would you try this innovative [strategy/tool] for yourself and see the amazing results it",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 73,
+      "template": "*\"Sick of trying [ineffective methods] that just don’t work? Let me show you what does.\"*",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 74,
+      "template": "*\"Stop scrolling if you have [pain point], try this [unique solution].\"*",
+      "tipo": "Identificação",
+      "niveis": [
+        2
+      ]
+    },
+    {
+      "id": 75,
+      "template": "*\"Here’s why your [process/strategy] isn’t working – and how to fix it for good.\"*",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 76,
+      "template": "*\"Nobody is talking about this [innovative product/strategy] in the [specific",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 77,
+      "template": "*\"You won’t believe this [adjective] [hack/tip] that will change everything for your",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 78,
+      "template": "I can’t believe this [product/service] is only $[price].",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 79,
+      "template": "I can’t get over this [product/service]!",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 80,
+      "template": "Watch this if you hate [specific challenge].",
+      "tipo": "Identificação",
+      "niveis": [
+        2
+      ]
+    },
+    {
+      "id": 81,
+      "template": "If you have trouble with [specific issue in your industry], listen up.",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 82,
+      "template": "Stop scrolling if you're tired of [problem specific to the industry].",
+      "tipo": "Identificação",
+      "niveis": [
+        2
+      ]
+    },
+    {
+      "id": 83,
+      "template": "If you’re feeling skeptical about [specific aspect of industry], watch this.",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 84,
+      "template": "Watch this if you hate [specific challenge in industry].",
+      "tipo": "Identificação",
+      "niveis": [
+        2
+      ]
+    },
+    {
+      "id": 85,
+      "template": "The perfect [industry/product] doesn’t exist, but this is how to be the best you can be.",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 86,
+      "template": "This simple technique can change your [specific outcome] overnight.",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 87,
+      "template": "If you're not doing [action], you're missing out on [result].",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 88,
+      "template": "The one thing that changed everything about how I [outcome].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 89,
+      "template": "Want to double your [specific area] results? Watch this!",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 90,
+      "template": "Attention [target audience]: Get ready for a mind-blowing video!",
+      "tipo": "Surpresa / Choque",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 91,
+      "template": "You won't believe this but ____",
+      "tipo": "Surpresa / Choque",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 92,
+      "template": "I don't think people understand ____.",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 93,
+      "template": "If you want to ____ do this.",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 94,
+      "template": "Here are 3 quick ways to get ___",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 95,
+      "template": "here's how to achieve [positive result] in just [number] easy steps!",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 96,
+      "template": "i asked [number] experts about [topic], and here's what they said.",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 97,
+      "template": "i audited [number] websites. here are [number] tips to boost conversions...",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 98,
+      "template": "i followed [routine], and it exceeded my expectations.",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 99,
+      "template": "here's how to make the most of your [time or resources] in just [short time frame].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 100,
+      "template": "3 ___ changed my life",
+      "tipo": "Confissão / História",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 101,
+      "template": "5 Tips to get rid of ___",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 102,
+      "template": "let’s figure out why [problem] persists and how to overcome it.",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 103,
+      "template": "life hack alert! did you know…",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 104,
+      "template": "if you’re like me, you need to try this.",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 105,
+      "template": "[Number] Ways To Do ___ …",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 106,
+      "template": "[number] hacks to supercharge your [specific area] game!",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 107,
+      "template": "[number] steps to achieve [outcome] that brings [benefit]",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 108,
+      "template": "i tested [hack/tip/trick], so you don’t have to ___.",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 109,
+      "template": "i tested [method], and here's what i found.",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 110,
+      "template": "i tested [product/service], and here's my review.",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 111,
+      "template": "i tested [viral trend], and the results are in.",
+      "tipo": "Confissão / História",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 112,
+      "template": "i tried [method/product], and here's what i learned.",
+      "tipo": "Confissão / História",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 113,
+      "template": "i tried [method] for [time frame], and here's what happened.",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 114,
+      "template": "i tried every ___ and this is the best.",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 115,
+      "template": "i tried every productivity app, and here's what worked.",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 116,
+      "template": "[number] steps to master [skill] that will lead to [benefit]",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 117,
+      "template": "[number] surprising facts about [topic] that will [outcome]",
+      "tipo": "Surpresa / Choque",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 118,
+      "template": "[number] ways to achieve [outcome]!",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 119,
+      "template": "[number] ways to level up your [specific area] game!",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 120,
+      "template": "10 tips to improve your [skill] immediately",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 121,
+      "template": "5 mistakes you must avoid if you want to succeed in photography",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 122,
+      "template": "Here’s [number] underestimated hacks to [desired result]...",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 123,
+      "template": "Here’s a [number] minute strategy for [goal].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 124,
+      "template": "The best way to [accomplish a task] without [common obstacle].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 125,
+      "template": "These 3 ___ changed my life",
+      "tipo": "Confissão / História",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 126,
+      "template": "X% of [target audience] are [facing specific issue], and here’s why.",
+      "tipo": "Surpresa / Choque",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 127,
+      "template": "You need this if you want to ______",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 128,
+      "template": "Here's 3 things you NEED to be using if you're a (niche/title/relationship).",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 129,
+      "template": "top 3 ways to [achieve a goal]…",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 130,
+      "template": "top hacks to [solve a problem].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 131,
+      "template": "This is the best way to [solve problem] in 2024.",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 132,
+      "template": "This is the best way to tackle ___.",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 133,
+      "template": "This is the most straightforward method for [task].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 134,
+      "template": "This is the quickest way to [achieve goal].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 135,
+      "template": "This is the simplest way to [achieve goal].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 136,
+      "template": "This is the simplest way to get a [desired result], and help [do something good].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 137,
+      "template": "This is the ultimate hack for [desired result].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 138,
+      "template": "Here’s (amount) underestimated (hack/tip/trick)",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 139,
+      "template": "3 tips to help you [solve a problem].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 140,
+      "template": "3 tips to help you [overcome anxiety].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 141,
+      "template": "[Number] tips to help you [solve industry-specific problem].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 142,
+      "template": "5 simple ways to improve your [skill/area of life].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 143,
+      "template": "The top [X] tips for [achieving specific result].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 144,
+      "template": "ways to solve [problem] faster than ever.",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 145,
+      "template": "10 tips you can follow for [desired result].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 146,
+      "template": "Okay, I'm sharing my secret on how I ___",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 147,
+      "template": "it all started when i decided to [do something daring]…",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 148,
+      "template": "Can you believe i used to steer clear of [something]? now, it’s a game-changer. here’s",
+      "tipo": "Urgência / Notícia",
+      "niveis": [
+        4,
+        5
+      ]
+    },
+    {
+      "id": 149,
+      "template": "Here’s how I did [impressive feat] in just [time].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 150,
+      "template": "Here’s how I overcame [a major challenge]…",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 151,
+      "template": "Here’s how I turned my failure into success.",
+      "tipo": "Contraste / Antes-Depois",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 152,
+      "template": "i spent $100 on [product/service], and here's my honest review.",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 153,
+      "template": "i spent a day doing [activity], and here's what i learned.",
+      "tipo": "Confissão / História",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 154,
+      "template": "i spent a week doing [activity], and here's what i discovered.",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 155,
+      "template": "i spent x hours collecting (related to niche) from 100+ (related to niche)…",
+      "tipo": "Contraste / Antes-Depois",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 156,
+      "template": "I've never told anyone this before, but...",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 157,
+      "template": "I lost my [BUSINESS, RELATIONSHIP, WORKPLACE, ETC] [AMOUNT OF VALUABLE",
+      "tipo": "Confissão / História",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 158,
+      "template": "i tested [method], and here's my honest opinion.",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 159,
+      "template": "i tried [alternative method], and it worked better than [traditional method].",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 160,
+      "template": "i tried [diy project], and it was a game-changer.",
+      "tipo": "Urgência / Notícia",
+      "niveis": [
+        4,
+        5
+      ]
+    },
+    {
+      "id": 161,
+      "template": "i was working at a [job] from 6pm to 4am with only $400 in my bank account. here's",
+      "tipo": "Contraste / Antes-Depois",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 162,
+      "template": "how i turned it around.",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 163,
+      "template": "I think I just found ___",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 164,
+      "template": "Calling all ___ who are tired of ___",
+      "tipo": "Identificação",
+      "niveis": [
+        2
+      ]
+    },
+    {
+      "id": 165,
+      "template": "i was amazed by this discovery.",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 166,
+      "template": "Here’s a story about how I [overcame a challenge].",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 167,
+      "template": "here's what happened when i [tried something new]...",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 168,
+      "template": "i attempted [challenge], and the results surprised me.",
+      "tipo": "Confissão / História",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 169,
+      "template": "i can’t believe i used to overlook [something important], but now i swear by it.",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 170,
+      "template": "i did ___ for a week and here’s what happened.",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 171,
+      "template": "i challenged myself to [do something difficult], and here’s what happened…",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 172,
+      "template": "Why I always [use strategy/product] and you should too.",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 173,
+      "template": "watch me try [something difficult]—spoiler: i failed spectacularly…",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 174,
+      "template": "This is the story of how I [achieved something remarkable]…",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 175,
+      "template": "This one change transformed my [life/health/finances].",
+      "tipo": "Contraste / Antes-Depois",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 176,
+      "template": "I had to buy one of these [Show the product] LET ME EXPLAIN what it does...",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 177,
+      "template": "(Platform) just launched a new feature and I'm super excited for it! Let me break it",
+      "tipo": "Urgência / Notícia",
+      "niveis": [
+        4,
+        5
+      ]
+    },
+    {
+      "id": 178,
+      "template": "Here’s the REAL reason why you can’t achieve [goal]... and how to fix it!",
+      "tipo": "Quebra de Paradigma",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "id": 179,
+      "template": "I tried every (blank) so you don’t have to",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 180,
+      "template": "*\"The time I [specific event]—and how it transformed my [life/career/process].\"*",
+      "tipo": "Contraste / Antes-Depois",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 181,
+      "template": "*\"Here’s a story about [common struggle] and how I overcame it.\"*",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 182,
+      "template": "I bought this [product] for [someone], and now [result]!",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 183,
+      "template": "I dropped out of college to chase my dream of [goal].",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 184,
+      "template": "I dropped out of [school/job] to chase my dream of [industry-related goal].",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 185,
+      "template": "How I saved [time/money/etc.] while still achieving [industry goal].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 186,
+      "template": "I can’t get over [industry-related result or experience].",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 187,
+      "template": "I was [struggling], but then this happened…",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 188,
+      "template": "How I overcame [challenge] and built [result].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 189,
+      "template": "“This is how I overcame my biggest obstacle.”",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 190,
+      "template": "“I used to struggle with [issue], and here’s how I fixed it.”",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 191,
+      "template": "“Here’s how I turned my failure into success.”",
+      "tipo": "Contraste / Antes-Depois",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 192,
+      "template": "I tried every photo editing app out there and here are the results…",
+      "tipo": "Confissão / História",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 193,
+      "template": "How I went from ___ to ___ in (number of days).",
+      "tipo": "Contraste / Antes-Depois",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 194,
+      "template": "I took my client from ___ to ___ by doing these (number) things.",
+      "tipo": "Contraste / Antes-Depois",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 195,
+      "template": "The quickest way to solve ___",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 196,
+      "template": "This is why your ___ isn't working",
+      "tipo": "Quebra de Paradigma",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "id": 197,
+      "template": "If you want ___ avoid this, and try this!",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 198,
+      "template": "If you’re not getting ___ then you need to be doing ___",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 199,
+      "template": "Do you have problems with ___? here's the solution!",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 200,
+      "template": "Are you struggling with [problem]? this should solve your problem!",
+      "tipo": "Identificação",
+      "niveis": [
+        2
+      ]
+    },
+    {
+      "id": 201,
+      "template": "Do you want to learn how to [skill] fast?",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 202,
+      "template": "How to (Desired Outcome) With No (Resources)",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 203,
+      "template": "if you're struggling with [problem], watch this.",
+      "tipo": "Identificação",
+      "niveis": [
+        2
+      ]
+    },
+    {
+      "id": 204,
+      "template": "if you're tired of [specific problem], here's a solution.",
+      "tipo": "Identificação",
+      "niveis": [
+        2
+      ]
+    },
+    {
+      "id": 205,
+      "template": "stop doing (pain point of target audience) right now! instead (desired result).",
+      "tipo": "Quebra de Paradigma",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 206,
+      "template": "here's how to overcome challenges with ___.",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 207,
+      "template": "here's how to solve [problem] in [time frame].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 208,
+      "template": "here's how to avoid [common mistake] when [performing a task].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 209,
+      "template": "here's how to make your [item] last longer.",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 210,
+      "template": "i found the perfect solution for [problem].",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 211,
+      "template": "Here’s how to avoid [common mistake]…",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 212,
+      "template": "i used to struggle with [issue], and here’s how i fixed it.",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 213,
+      "template": "i used to think ___, but then i learned…",
+      "tipo": "Confissão / História",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 214,
+      "template": "i was skeptical about [trend], but here's my experience.",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 215,
+      "template": "You have to stop believing ___ if you want _____",
+      "tipo": "Quebra de Paradigma",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "id": 216,
+      "template": "If you want ___ avoid this one thing",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 217,
+      "template": "If you’re not doing ___ you’re missing out",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 218,
+      "template": "How To Get ___ Quickly",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 219,
+      "template": "here's why [common belief] is a myth.",
+      "tipo": "Quebra de Paradigma",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "id": 220,
+      "template": "here's why [common belief] is misleading.",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 221,
+      "template": "here's why [common product] is overrated.",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 222,
+      "template": "here's why [popular advice] isn't working for you.",
+      "tipo": "Quebra de Paradigma",
+      "niveis": [
+        3
+      ]
+    },
+    {
+      "id": 223,
+      "template": "here's why you're failing at [task].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 224,
+      "template": "here's what you need to know before trying [product/service].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 225,
+      "template": "i discovered [tool], and it revolutionized my [task].",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 226,
+      "template": "i followed [person]'s routine for a week, and here's what happened.",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 227,
+      "template": "If you're like me & do ___, then this one's for you",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 228,
+      "template": "How I __ while on a budget",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 229,
+      "template": "The most surprising fact about [topic].",
+      "tipo": "Surpresa / Choque",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 230,
+      "template": "The most effective [technique] for [task].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 231,
+      "template": "What’s the best way to [solve a problem]? Here’s my take…",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 232,
+      "template": "Why 99% of [target audience] don’t [achieve specific goal].",
+      "tipo": "Surpresa / Choque",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 233,
+      "template": "Why 99% of cold emails don't receive answers.",
+      "tipo": "Surpresa / Choque",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 234,
+      "template": "Do you have the ability to (desirable outcome) without (undesirable thing)?",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 235,
+      "template": "Are you making this mistake with [a specific task]?",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 236,
+      "template": "Do you know who you spend the most time with in your life?",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 237,
+      "template": "if you [do this], i automatically assume [desired outcome].",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 238,
+      "template": "if you agree, hit the like button…",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 239,
+      "template": "if you can relate to this, keep watching.",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 240,
+      "template": "if you do x, you’re going to [negative result].",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 241,
+      "template": "if you’re still [doing this], i’m begging you to listen to me…",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 242,
+      "template": "if you’re under (# of age) and you’re not x, listen up!",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 243,
+      "template": "if you’ve ever struggled with x, do x.",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 244,
+      "template": "i want to be extremely honest with you about [topic].",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 245,
+      "template": "i was skeptical about [method], but this really works.",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 246,
+      "template": "if you’re thinking about [action], watch this first.",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 247,
+      "template": "if you’re struggling with [problem], watch this.",
+      "tipo": "Identificação",
+      "niveis": [
+        2
+      ]
+    },
+    {
+      "id": 248,
+      "template": "Have You Ever Experienced ___? Here’s How To Never Do That Again …",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 249,
+      "template": "“Do not do action before you try this” ( show how to use product )",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 250,
+      "template": "Everything you knew about ___ is 100% WRONG!",
+      "tipo": "Surpresa / Choque",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 251,
+      "template": "If you like  you need",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 252,
+      "template": "This is how I got (x)",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 253,
+      "template": "Here are ___ tips to get rid of ___",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 254,
+      "template": "Here is a simple hack to help you do _",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 255,
+      "template": "I met (controversial person/celeb) and here’s what they said _",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 256,
+      "template": "Why 99% of (audience) won’t _",
+      "tipo": "Surpresa / Choque",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 257,
+      "template": "Stop scrolling if you want to do ___",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 258,
+      "template": "I just found the perfect product that helps with ___",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 259,
+      "template": "Here’s a simple hack to help you do ___",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 260,
+      "template": "Do you have problems with ___? Well I just found the perfect solution!",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 261,
+      "template": "Here’s how I achieved ___ in only (quantity) months/years!",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 262,
+      "template": "If you want ___, avoid doing this!",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 263,
+      "template": "You need to stop doing this!",
+      "tipo": "Quebra de Paradigma",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 264,
+      "template": "If you want to do ___, you need to do this!",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 265,
+      "template": "if you like ____ you’re gonna like/hate this",
+      "tipo": "Identificação",
+      "niveis": [
+        2
+      ]
+    },
+    {
+      "id": 266,
+      "template": "Try this one hack to get ___",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 267,
+      "template": "I tried every ___ so you don’t have to!",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 268,
+      "template": "This hack changed my life!",
+      "tipo": "Confissão / História",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 269,
+      "template": "“I used to feel pain point until I realized Y”",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 270,
+      "template": "If you ___ listen up",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 271,
+      "template": "How to make sure you'll never ___",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 272,
+      "template": "I spent ____ years designing this",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 273,
+      "template": "____ easy to remember tips for _____",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 274,
+      "template": "if you do ____ you need to hear this!!",
+      "tipo": "Identificação",
+      "niveis": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": 275,
+      "template": "“How to get Y in 24 Hours”",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 276,
+      "template": "“This trick will save you hours”",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 277,
+      "template": "Stop scrolling if you suffer with X",
+      "tipo": "Identificação",
+      "niveis": [
+        2
+      ]
+    },
+    {
+      "id": 278,
+      "template": "I never leave the house without ____",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 279,
+      "template": "I was atheist before I found ____",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 280,
+      "template": "I promise you’ve never X",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 281,
+      "template": "If you suffer from X",
+      "tipo": "Identificação",
+      "niveis": [
+        2
+      ]
+    },
+    {
+      "id": 282,
+      "template": "Here’s how I did _____ in ____ (amount of time)",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 283,
+      "template": "I bought _____ so you don’t have to",
+      "tipo": "Confissão / História",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 284,
+      "template": "___ tricks experts don't dare tell you (but we will)",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 285,
+      "template": "How I got ___ in 24 hours",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 286,
+      "template": "Want ___? Then stop scrolling",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 287,
+      "template": "Why isn't anyone talking about ___ tips?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 288,
+      "template": "Things I Wish I Knew About Sooner Part ___",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 289,
+      "template": "You probably didn’t know this, but ___ …",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 290,
+      "template": "Don’t _____ until you read this",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 291,
+      "template": "You NEED this [PRODUCT/MINDSET] if you want to [RESULT]...",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 292,
+      "template": "3 things i wish i knew before ___",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 293,
+      "template": "5 things you didn’t know about [topic]",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 294,
+      "template": "Everyone’s talking about this new [trend].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 295,
+      "template": "Have you ever noticed that [FAMOUS PERSON IN YOUR",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 296,
+      "template": "INDUSTRY][CHARACTERISTIC, ACTION, TRAIT]? Here's why...",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 297,
+      "template": "Want to know the missing piece in your [BUSINESS, RESULT, ETC]?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 298,
+      "template": "Do you know the secret to [achieving something]?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 299,
+      "template": "Ever wondered how [topic] works?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 300,
+      "template": "Ever wondered why [something happens]? here’s the answer…",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 301,
+      "template": "What if I told you {insert a polarizing statement} ...",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 302,
+      "template": "Here’s what no one is telling you about {insert goal} 👇",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 303,
+      "template": "here’s a tough pill that [target audience] can't swallow…",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 304,
+      "template": "here’s the hidden truth about [situation].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 305,
+      "template": "here’s what i discovered about [topic]…",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 306,
+      "template": "here's a [budget-friendly/easy] way to [achieve goal].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 307,
+      "template": "here's a [little-known fact] about [topic].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 308,
+      "template": "here's a [number]-day plan to [achieve goal].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 309,
+      "template": "i’ll tell you a secret no one has ever told you about [insider knowledge].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 310,
+      "template": "if crazy situation (i was on death row, my house was burning down) i would x.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 311,
+      "template": "What if You Could Trade (Your Possession) For (Another Possession) – Would You Do",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 312,
+      "template": "Why is nobody talking about this?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 313,
+      "template": "imagine if you could travel around the world without leaving your job.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 314,
+      "template": "imagine you are given a [related to niche], you can’t give it away or sell it, what are you",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 315,
+      "template": "let me tell you a quick story about [event].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 316,
+      "template": "let me show you my secret weapon!",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 317,
+      "template": "ready for a secret that no one’s spilled before? brace yourself for [topic].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 318,
+      "template": "The real story behind [event]...",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 319,
+      "template": "The shocking truth about [industry/field].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 320,
+      "template": "The secret to [achieving something] is simpler than you think…",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 321,
+      "template": "The secret to mastering [skill].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 322,
+      "template": "The secret to [desired outcome] revealed.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 323,
+      "template": "What you don’t know what really happens in _____",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 324,
+      "template": "What’s stopping you from [goal]?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 325,
+      "template": "Why did the [object] cross the road? To [unexpected punchline]!",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 326,
+      "template": "Why didn’t anyone tell me this sooner?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 327,
+      "template": "Why does no one talk about this?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 328,
+      "template": "Why is no one talking about the side effects of meditation?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 329,
+      "template": "Why isn’t anyone discussing [related to niche]?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 330,
+      "template": "You won’t believe what happened when I [action].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 331,
+      "template": "what if you could change one thing about [topic]?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 332,
+      "template": "what if your dream career was just one step away?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 333,
+      "template": "what would happen if ___?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 334,
+      "template": "what happens when you mix with [y]? watch to find out…",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 335,
+      "template": "want to know the secret to [desired outcome]? watch till the end...",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 336,
+      "template": "what would you do if [a specific situation] occurred?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 337,
+      "template": "what would you do if you could change careers today?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 338,
+      "template": "You should never [COMPLETE ACTION] when you...",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 339,
+      "template": "I’m about to expose the biggest myth in _____",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 340,
+      "template": "Why is ______ still a thing in 202*?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 341,
+      "template": "The Perfect ___ Doesn’t Exist",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 342,
+      "template": "Imagine if you could ___",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 343,
+      "template": "what would your reaction be if you discovered the secret to perfect health?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 344,
+      "template": "This is the most affordable way to [achieve something].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 345,
+      "template": "This is the ultimate solution for ___.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 346,
+      "template": "This is what [famous person] hides about what they teach…",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 347,
+      "template": "This is why [target audience tactic] isn’t working.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 348,
+      "template": "Here's something [PERSON OR GROUP OF PEOPLE] don't want you to know:",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 349,
+      "template": "This [ITEM] will change your life...",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 350,
+      "template": "THIS is what's keeping you from [ACCOMPLISHMENT]",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 351,
+      "template": "The most damaging thing to [OBJECT, MINDSET, GOAL, ETC] is...",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 352,
+      "template": "The worst thing you can [DO, THINK, SAY] [BEFORE/AFTER EVENT]",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 353,
+      "template": "*\"[Target audience], I need your help! Let’s work together to [achieve shared goal].\"*",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 354,
+      "template": "*\"Feeling overwhelmed by your [specific challenge]? Here’s the solution you’ve been",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 355,
+      "template": "*\"Why is nobody talking about this game-changing [strategy/product]? Let’s dive in and",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 356,
+      "template": "Why doesn’t anyone talk about this?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 357,
+      "template": "This one mistake could be costing you ($)",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 358,
+      "template": "Exposing my secret to (blank)",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 359,
+      "template": "Everything you knew about (subject) is WRONG!",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 360,
+      "template": "Imagine if you could (insert result here)",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 361,
+      "template": "My biggest regret is not trying this ______ sooner",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 362,
+      "template": "*\"If you have [specific problem], listen up for this [solution].\"*",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 363,
+      "template": "You won’t believe this thing called “[concept]”.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 364,
+      "template": "Something you didn’t know about [topic].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 365,
+      "template": "The best kept secret for [achieving something].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 366,
+      "template": "This is day [X] of my [X]-day challenge.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 367,
+      "template": "Why is nobody talking about this [topic related to industry]?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 368,
+      "template": "You won’t believe this thing called “[industry-specific term].”",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 369,
+      "template": "Something you didn’t know about [industry-specific topic].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 370,
+      "template": "Warning to [target audience], this is a game changer.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 371,
+      "template": "You won’t believe what happens when you [action].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 372,
+      "template": "This is the secret to mastering [topic] effortlessly.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 373,
+      "template": "[Industry] experts aren't telling you this one thing.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 374,
+      "template": "What everyone is getting wrong about [topic].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 375,
+      "template": "Why is nobody talking about [secret/strategy]?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 376,
+      "template": "“You need to act fast to see results!”",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 377,
+      "template": "“If you want to improve, start today!”",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 378,
+      "template": "“Take the first step toward [goal] today!”",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 379,
+      "template": "Discover the secret to [desired outcome].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 380,
+      "template": "Discover the hidden benefits of [product/service].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 381,
+      "template": "Want to achieve [desired result]? Let me show you how.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 382,
+      "template": "Want to know the untold story behind [product/service]? Watch now!",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 383,
+      "template": "Discover the untapped potential of [solve a problem] in this video.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 384,
+      "template": "What are some weird things people don't know about _____",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 385,
+      "template": "Am I the only one who didn't know ____.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 386,
+      "template": "Everybody's looking for ____.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 387,
+      "template": "Did you know ___ doesn't ___ as you think?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 388,
+      "template": "5 Ways I Did ___, And The 4th One Is The Best …",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 389,
+      "template": "3 Reasons Why I Love ___",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 390,
+      "template": "5 Reasons why I use ___…",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 391,
+      "template": "___ Reason why you should be using ___",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 392,
+      "template": "Here are 3 signs you should ___",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 393,
+      "template": "let’s talk about the mistakes i made when [situation or activity].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 394,
+      "template": "let’s talk about why [popular opinion] is misguided…",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 395,
+      "template": "red flags to look for in ___.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 396,
+      "template": "i’m going to try 5 most popular [related to niche]",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 397,
+      "template": "i’ve just tried 5 [related to niche] you can have only in xxx",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 398,
+      "template": "3 things you probably don't know about [JOB, TOOL, EVENT, ETC]...",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 399,
+      "template": "3 signs you should {insert something that your audience should start doing}",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 400,
+      "template": "Here are the 3 reasons why {insert a pain point}",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 401,
+      "template": "[Number] Things I Wish I Knew Before I ___",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 402,
+      "template": "294 [Number] Lessons I Learned From (unexpected scenario)",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 403,
+      "template": "[Number] Achievements This Client Had During (program)",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 404,
+      "template": "[number] eye-opening insights i gained this year that rocked my world in [specific area]",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 405,
+      "template": "8 [related to niche] tools that will save you hundreds of hours of work",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 406,
+      "template": "7 secrets to [something important]",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 407,
+      "template": "5 things you can do right now to improve ___",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 408,
+      "template": "Here’s a [number]-step formula to [achieve result] faster...",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 409,
+      "template": "Here’s a [number]-part series on [topic].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 410,
+      "template": "Here’s a [number]-step checklist for [task].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 411,
+      "template": "Here’s a [number]-step process to [achieve result].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 412,
+      "template": "Here’s a [number]-minute tutorial on [skill].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 413,
+      "template": "Here’s a [number]-minute breakdown of [topic].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 414,
+      "template": "Here’s a [number]-minute workout for [specific goal].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 415,
+      "template": "The best [product/service] for [specific need]...",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 416,
+      "template": "The best [product] alternatives for [problem].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 417,
+      "template": "The best [product] for [specific audience].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 418,
+      "template": "The best advice I ever received about [topic]...",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 419,
+      "template": "The best-kept secret to [achieving a goal].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 420,
+      "template": "The most underrated [app/tool] you need to try.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 421,
+      "template": "X myths that [niche] creators get all wrong…",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 422,
+      "template": "You need these [tools or resources] to make life easier!",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 423,
+      "template": "You need this free tool for ___",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 424,
+      "template": "top [number] reasons why [statement].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 425,
+      "template": "[NUMBER] [ITEMS] I'm loving for [ACHIEVING SOMETHING]...",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 426,
+      "template": "These [NUMBER] [ITEMS] will change the way you [ACHIEVE SOMETHING]...",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 427,
+      "template": "top 5 reasons why [something happens].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 428,
+      "template": "top 5 tools for [specific task]…",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 429,
+      "template": "This is my #1 tip for [niche].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 430,
+      "template": "This is the difference between luxury [related to niche], and mass [related to niche].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 431,
+      "template": "This is the key to [desired outcome].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 432,
+      "template": "*\"[Number] things every [target audience] needs to [achieve desired result].\"*",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 433,
+      "template": "*\"Are you making these [number] common mistakes in [specific process]? Avoid them",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 434,
+      "template": "to [achieve result].\"*",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 435,
+      "template": "[Number] things every [industry-related target audience] needs to [achieve goal].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 436,
+      "template": "[Number] things you should know about [industry-related topic].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 437,
+      "template": "7 common mistakes people make when [activity].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 438,
+      "template": "5 [industry] secrets that you need to know.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 439,
+      "template": "In 60 seconds, I'm going to show you ___.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 440,
+      "template": "The ___ secrets to ____.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 441,
+      "template": "Why you struggle to ___, Here are (Insert number) Tips",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 442,
+      "template": "Getting My Daily ___ Different With…",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 443,
+      "template": "Last Week I Was Doing ___ When ___ Happened…",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 444,
+      "template": "The #1 Way To Do ___ …",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 445,
+      "template": "once upon a time, i faced [challenge]…",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 446,
+      "template": "let me tell you about the time i [experienced something unique]…",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 447,
+      "template": "What Would You Do If ___? I just did.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 448,
+      "template": "A must-watch for anyone struggling with ___!",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 449,
+      "template": "Exposing my secret to (desired result)",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 450,
+      "template": "Ever ask yourself why [common problem] persists?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 451,
+      "template": "After [period of time], i just realized that i was doing this wrong.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 452,
+      "template": "The biggest mistake I ever made was...",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 453,
+      "template": "i’ll never forget the day i [event].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 454,
+      "template": "i’ll never go back to ___ after learning this.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 455,
+      "template": "i’m about to spill my secret on [topic], but i don’t even care.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 456,
+      "template": "If there’s one thing you’ll never catch me doing, it’s this …",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 457,
+      "template": "Taking on the [popular challenge]—will I succeed?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 458,
+      "template": "The craziest thing just happened at (place), you will never believe it.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 459,
+      "template": "The dark secret behind [industry practice].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 460,
+      "template": "The one thing that boosted my [aspect] instantly.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 461,
+      "template": "The results were not what I expected...",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 462,
+      "template": "what’s the craziest thing you’ve done for [topic]?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 463,
+      "template": "Why are there not more people talking about___",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 464,
+      "template": "Why I think [something widely accepted] is wrong…",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 465,
+      "template": "You’ll never look at ___ the same way again.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 466,
+      "template": "You’ll never guess what happened when I tried this!",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 467,
+      "template": "watch me attempt [a seemingly impossible task]…",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 468,
+      "template": "watch me transform [object/space] with just $20.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 469,
+      "template": "watch me transform [something] in just [time frame].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 470,
+      "template": "This mistake cost me $xxx. Here’s what happened…",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 471,
+      "template": "Ok so this (product) is literally breaking the internet...",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 472,
+      "template": "*\"My [person/relation] bought me this [product/tool], and it changed everything.\"*",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 473,
+      "template": "*\"I spent [amount of time] on [process], and here’s what I learned.\"*",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 474,
+      "template": "*\"Let me take you back to when I [specific moment/event].\"*",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 475,
+      "template": "My biggest regret is not [action] sooner.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 476,
+      "template": "[Personal situation] taught me this one thing.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 477,
+      "template": "My [partner/friend/co-worker] surprised me with [industry-related item/experience],",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 478,
+      "template": "Let me tell you the story of how [situation] led to [outcome].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 479,
+      "template": "The one thing I wish I knew before starting in [industry].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 480,
+      "template": "Here’s the moment I realized [lesson learned].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 481,
+      "template": "You won’t believe what happened when I tried [action].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 482,
+      "template": "[Personal story] that will change the way you think about [topic].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 483,
+      "template": "This experience made me realize the importance of [lesson].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 484,
+      "template": "“Let me tell you a quick story about [event].”",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 485,
+      "template": "“I learned the hard way when I [experience].”",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 486,
+      "template": "“Once upon a time, I faced [challenge]…”",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 487,
+      "template": "“Here’s a story about the time I [memorable moment].”",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 488,
+      "template": "“You won’t believe what happened when I [action].”",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 489,
+      "template": "“Here’s what happened when I tried [action].”",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 490,
+      "template": "“I’ll never forget the day I [event].”",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 491,
+      "template": "“Here’s a funny story about [situation].”",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 492,
+      "template": "“This is what I wish I knew when I started [journey].”",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 493,
+      "template": "If someone had told me [insight], I would’ve never believed them.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 494,
+      "template": "Get Rid Of ___ With ___",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 495,
+      "template": "This one mistake could be costing you ___",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 496,
+      "template": "This is why your ___ isn’t working",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 497,
+      "template": "Exposing my secret to ___",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 498,
+      "template": "Want to feel ___ but don’t want to break the bank?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 499,
+      "template": "So you want to [ACHIEVE GOAL] but you keep getting stuck...I think I know why.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 500,
+      "template": "it only takes 5 minutes to ___!",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 501,
+      "template": "it really doesn’t have to be complicated. simplify your [process or task].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 502,
+      "template": "it’s easier than you think to ___!",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 503,
+      "template": "mistakes you’re probably making if you’re not getting [desired result].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 504,
+      "template": "The easiest & most accessible way to get started with ___",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 505,
+      "template": "This is the biggest mistake people make when ___",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 506,
+      "template": "The Most Efficient Way To ___ If You're ___…",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 507,
+      "template": "Want to feel ___ but don't want to break the bank?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 508,
+      "template": "What ___ industry don't want you to know about ___",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 509,
+      "template": "This is my most controversial belief about ___",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 510,
+      "template": "Here’s a common mistake people make with [task].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 511,
+      "template": "The most effective [product] you've never tried.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 512,
+      "template": "The most valuable [skill] in [year]—master it and you'll [outcome]...",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 513,
+      "template": "The hidden dangers of [common product/practice].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 514,
+      "template": "The best resources for [learning something]...",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 515,
+      "template": "The most surprising uses for [product].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 516,
+      "template": "The most important lesson I learned about [topic]...",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 517,
+      "template": "Here’s a pro tip for [solving a problem].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 518,
+      "template": "Here’s a behind-the-scenes look at [process/event]...",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 519,
+      "template": "Here’s a quick breakdown of [complex topic]...",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 520,
+      "template": "What’s your opinion on [a controversial topic]?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 521,
+      "template": "Why [specific action] is the key to [achieving a goal].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 522,
+      "template": "You need to see this to understand [process].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 523,
+      "template": "You’re probably overthinking ___.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 524,
+      "template": "Can I share a secret with you?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 525,
+      "template": "When’s the last time you _____?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 526,
+      "template": "Do you want to know why you should never ________",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 527,
+      "template": "Have you ever noticed that [FAMOUS PERSON IN YOUR INDUSTRY][CHARACTERISTIC, ACTION, TRAIT]? Here's why...",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 528,
+      "template": "What would happen if you believed in (desirable outcome)?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 529,
+      "template": "Ever ask yourself, [thought-provoking question]?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 530,
+      "template": "Can you guess why this [related to niche] is outcompeting x y z?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 531,
+      "template": "Can you spot the difference in [items]?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 532,
+      "template": "Here’s why I disagree with [common belief]…",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 533,
+      "template": "Here’s why I’ll never stop ___.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 534,
+      "template": "Here’s why I stopped [common practice].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 535,
+      "template": "Here’s why I’m obsessed with [product/trend].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 536,
+      "template": "Here’s why I’ll never ___ again.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 537,
+      "template": "is it just me, or does [something strange] happen to everyone?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 538,
+      "template": "let’s talk about overcoming mistakes i made when [situation or activity].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 539,
+      "template": "how would you react if [something surprising] happened?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 540,
+      "template": "how would you react if you could become fluent in a new language in one month?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 541,
+      "template": "Struggling with [pain point of target audience]? Here’s a secret tip I wish I knew earlier.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 542,
+      "template": "The [people in your niche] are going to hate me for this but…",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 543,
+      "template": "The real reason behind [event] might shock you.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 544,
+      "template": "The biggest secret about [desired result] no one shares.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 545,
+      "template": "The one thing you should never do when [activity].",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 546,
+      "template": "Which [category] resonates with you? A) [option a] or B) [option b]?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 547,
+      "template": "Why are you still [doing this] in 2024?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 548,
+      "template": "This may be controversial but ___",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 549,
+      "template": "“This is why I’ll NEVER go back to X”",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 550,
+      "template": "X Mistakes you’re making with __",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 551,
+      "template": "Have you heard about _ ?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 552,
+      "template": "___ people stop scrolling!",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 553,
+      "template": "3 Big Mistakes You’re Making When _",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 554,
+      "template": "You need to stop _, here's why",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 555,
+      "template": "This feels illegal to know: _",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 556,
+      "template": "My stepsis got stuck in the washing machine so I had to _",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 557,
+      "template": "This is the only thing you need to know about ___!",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 558,
+      "template": "Don’t make this mistake when doing ___",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 559,
+      "template": "What would you do if ___?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 560,
+      "template": "Don’t believe this ___ myth!",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 561,
+      "template": "Other ___ are lying to you!",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 562,
+      "template": "This ___ will blow your mind!",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 563,
+      "template": "You will look at ___ differently by the end of this video!",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 564,
+      "template": "“If you just started using product you absolutely have to see this”",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 565,
+      "template": "“If you’re X listen up”",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 566,
+      "template": "I discovered the secret to ___",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 567,
+      "template": "This is the story of ___",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 568,
+      "template": "what's one piece of advice that sounds illegal___",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 569,
+      "template": "5 mistakes you are probably making when you ___",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 570,
+      "template": "This one simple mistake could be costing you ___",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 571,
+      "template": "Here’s my go-to ___ for ___",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 572,
+      "template": "The BEST ___ I’ve ever used!",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 573,
+      "template": "___ is the only one I use for ___ and I'm gonna show you why.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 574,
+      "template": "# Reasons ___ is Better than ___",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 575,
+      "template": "# Reasons ___ is the Worst ___",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 576,
+      "template": "Get Into ___ In # Easy Minutes A Day",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 577,
+      "template": "“I was today years old when”",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 578,
+      "template": "“If you want X listen up”",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 579,
+      "template": "Get Rid of Your ___ Once and For All",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 580,
+      "template": "865 One question no ___ can resist.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 581,
+      "template": "Please stop trying to ___",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 582,
+      "template": "Winter is coming you need this ___",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 583,
+      "template": "Instead of doing/using ___ do ___.",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 584,
+      "template": "Before you scroll ____",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 585,
+      "template": "Did you know _____ just blew up in popularity?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 586,
+      "template": "“Don’t make this mistake if you’re using X”",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 587,
+      "template": "“Here’s the truth about XYZ big companies don’t want you to know”",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 588,
+      "template": "Want to know the secret to ____?",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 589,
+      "template": "Warning to [target market]",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 590,
+      "template": "This single important tip will change your life:",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 591,
+      "template": "Get your GF/BF a ____",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 592,
+      "template": "Here is a tip from a professional ____ that can ____",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 593,
+      "template": "Here is the number #1 thing _____ should know",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 594,
+      "template": "So this just happened at _____",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 595,
+      "template": "The ugly truth about ___",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 596,
+      "template": "Here’s why _____ won’t work",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 597,
+      "template": "The feminine/masculine urge to _____",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 598,
+      "template": "You guys keep asking for ___(Niche/solution)",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 599,
+      "template": "You won’t believe ____",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 600,
+      "template": "____ things I wish I knew before I _____",
+      "tipo": "Curiosidade / Pergunta",
+      "niveis": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": 601,
+      "template": "The only way to do ___ …",
+      "tipo": "Quebra de Paradigma",
+      "niveis": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": 602,
+      "template": "3 things you need to stop doing right now",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 603,
+      "template": "what if i told you there's an easy way to [achieve desired result]?",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 604,
+      "template": "“Why wait? Start your journey today!”",
+      "tipo": "Urgência / Notícia",
+      "niveis": [
+        4,
+        5
+      ]
+    },
+    {
+      "id": 605,
+      "template": "Want to know the insider tips for [desired outcome]? Watch now!",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 606,
+      "template": "[Number] Things That Feel Illegal To Know",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 607,
+      "template": "[Number] Reasons Why Your (business) is (undesirable outcome)",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 608,
+      "template": "___ things that feel illegal to know",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 609,
+      "template": "top 3 things you need to know about ___…",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 610,
+      "template": "*\"Here are [number] [strategies/tips/products] to solve [problem/achieve goal].\"*",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 611,
+      "template": "*\"[Number] underestimated [tools/tips] for [specific outcome].\"*",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 612,
+      "template": "10 things you’re not doing to [achieve goal].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 613,
+      "template": "7 things you’re not doing for [goal].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 614,
+      "template": "5 things you’re not doing to [improve specific area].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 615,
+      "template": "5 things you’re not doing to [show love/appreciation].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 616,
+      "template": "5 things you’re not doing to [get better results].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 617,
+      "template": "5 things you’re not doing to [achieve specific result in your industry].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 618,
+      "template": "10 things you’re not doing to improve your [industry-specific skill or outcome].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 619,
+      "template": "10 things you’re not doing to [desired outcome].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 620,
+      "template": "3 things you need to start doing today for [result].",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 621,
+      "template": "___ reasons to do ___.",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 622,
+      "template": "Sick/Tired of _? Keep watching, trust me/You need this",
+      "tipo": "Identificação",
+      "niveis": [
+        2
+      ]
+    },
+    {
+      "id": 623,
+      "template": "# Reasons it's Better to ___",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 624,
+      "template": "# Reasons Not to ___",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    },
+    {
+      "id": 625,
+      "template": "The WORST things to do before ___",
+      "tipo": "Resultado / Promessa",
+      "niveis": [
+        3,
+        4
+      ]
+    }
+  ]
+}
