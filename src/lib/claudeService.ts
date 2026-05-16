@@ -120,14 +120,60 @@ export const generateAdCopyWithClaude = async (
     'URGÊNCIA REAL': 'Real scarcity or urgency only — never invent it.',
   };
 
-  const beats = beatBudgets[currentLevel] || beatBudgets['3'];
-  const beatStructure = beats
+  // VSL mode — when the click destination is "Vídeo", the ad's only job is
+  // to earn the click on a long-form video sales letter. The VSL itself does
+  // all the selling. Override the awareness-level beats with intrigue-only
+  // beats and forbid sales/closing language. Without this, level-4/5 beats
+  // (DIFERENCIAÇÃO / GARANTIA / OFERTA INICIAL) try to close the deal in the
+  // ad itself, which kills VSL conversion.
+  const isVslTraffic = (answers.clickDestination || 'Vídeo') === 'Vídeo';
+  const vslBeats: Array<[string, number]> = [
+    ['REVELAÇÃO INESPERADA', 0.3],
+    ['LOOP DE CURIOSIDADE', 0.4],
+    ['PONTE PARA O VÍDEO', 0.2],
+    ['CTA SUAVE', 0.1],
+  ];
+  const vslBeatInstructions: Record<string, string> = {
+    'REVELAÇÃO INESPERADA':
+      'Open with a counterintuitive statement, surprising fact, or contradiction that stops the scroll. Do NOT reveal the product, mechanism, or solution.',
+    'LOOP DE CURIOSIDADE':
+      'Deepen the mystery. Hint that there is a specific explanation/method/reason — but never give it. Make the reader feel they MUST know more.',
+    'PONTE PARA O VÍDEO':
+      'Make it clear the full answer lives inside the video. Phrasing like "in this video", "what I show in detail", "the full method". Do not summarise it.',
+    'CTA SUAVE':
+      'Low-pressure invitation to watch the video. One short sentence. No promise of the outcome.',
+  };
+
+  const activeBeats = isVslTraffic ? vslBeats : beatBudgets[currentLevel] || beatBudgets['3'];
+  const activeBeatInstructions = isVslTraffic ? vslBeatInstructions : beatInstructions;
+
+  const beatStructure = activeBeats
     .map(([name, pct]) => {
       const words = Math.round(wordCount * pct);
-      const instruction = beatInstructions[name] || '';
+      const instruction = activeBeatInstructions[name] || '';
       return `[${name}] (${words} words): ${instruction}`;
     })
     .join('\n');
+
+  const vslGuard = isVslTraffic
+    ? `
+
+--- VSL TRAFFIC MODE (CRITICAL) ---
+The click destination is a long-form Video Sales Letter (VSL). The ad's ONLY job is to earn the click. The VSL handles the entire sale.
+
+ABSOLUTELY DO NOT:
+- Promise the result or transformation
+- Reveal the product name in the first half
+- Describe the mechanism, formula, or method
+- Mention price, discount, guarantee, or refund
+- Use closing language ("buy now", "secure your spot", "limited offer")
+- Resolve the curiosity loop
+
+YOU MUST:
+- Open a loop the viewer can only close by watching
+- Treat the video as the ONLY place where the answer lives
+- Stop before the payoff. The reader should be MORE curious at the end than at the start, not less.`
+    : '';
 
   const ctaByDestination: Record<string, string> = {
     Vídeo: 'watch the video / see how it works',
@@ -200,6 +246,7 @@ ${emotionInstruction}
 Write each beat in sequence. Do not skip or merge beats. Include the beat label in the output (e.g. [REVELAÇÃO]).
 
 ${beatStructure}
+${vslGuard}
 
 --- WORD COUNT ---
 Target: ${wordCount} words (±5 words max). Count words excluding beat labels in brackets.
