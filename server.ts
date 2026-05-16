@@ -30,6 +30,7 @@ import { healthRouter } from './server/routes/health.routes.js';
 import { staticRouter } from './server/routes/static.routes.js';
 import { adminRouter } from './server/routes/admin.routes.js';
 import { assemblyAIRouter } from './server/routes/assemblyai.routes.js';
+import { runwayRouter } from './server/routes/runway.routes.js';
 
 dotenv.config();
 setupFfmpeg();
@@ -873,6 +874,7 @@ async function startServer() {
   app.use('/api/user', userRouter);
   app.use('/generated', staticRouter);
   app.use('/api/assemblyai', assemblyAIRouter);
+  app.use('/api/runway', runwayRouter);
 
   // --- HeyGen Integration ---
 
@@ -1481,177 +1483,6 @@ async function startServer() {
     });
   });
 
-  // --- Runway Integration ---
-
-  // API route to generate video with Runway
-  app.post('/api/runway/generate', async (req, res) => {
-    const { promptText, duration, ratio, model } = req.body;
-    const runwayKey = getRunwayKey();
-
-    if (!runwayKey) {
-      return res.status(500).json({
-        error:
-          'Runway API Key is missing in backend environment variables (RUNWAY_API_KEY) or runway-config.json.',
-      });
-    }
-
-    try {
-      const runwayModel = (model as string) || 'gen3a_turbo';
-      const runwayRatio = ratio === '16:9' ? '16:9' : '9:16';
-      const runwaySeconds = Number(duration) === 10 ? 10 : 5;
-
-      console.log(`[Runway Proxy] Initiating generation: ${promptText.substring(0, 50)}...`, {
-        model: runwayModel,
-        ratio: runwayRatio,
-        seconds: runwaySeconds,
-      });
-
-      const hostnames = ['api.dev.runwayml.com', 'api.runwayml.com'];
-      const paths = ['/v1/tasks', '/tasks'];
-      let lastError = null;
-
-      for (const hostname of hostnames) {
-        for (const apiPath of paths) {
-          try {
-            console.log(`[Runway Proxy] Trying: https://${hostname}${apiPath}`);
-            const response = await fetch(`https://${hostname}${apiPath}`, {
-              method: 'POST',
-              headers: {
-                Authorization: `Bearer ${runwayKey}`,
-                'X-Runway-Version': '2024-11-06',
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                model: runwayModel,
-                promptText,
-                ratio: runwayRatio,
-                seconds: runwaySeconds,
-              }),
-            });
-
-            if (!response.ok) {
-              const status = response.status;
-              const errorData = await response.json().catch(() => ({}));
-              const msg = errorData.error || response.statusText;
-              lastError = new Error(`${msg} (${status})`);
-
-              // If it's a 404, try the other path or hostname
-              if (status === 404) {
-                console.warn(`[Runway Proxy] ${hostname}${apiPath} returned 404. Trying next...`);
-                continue;
-              }
-
-              // If api.runwayml.com tells us to use api.dev.runwayml.com (401), we just log it and move to dev if we haven't already
-              if (
-                status === 401 &&
-                hostname === 'api.runwayml.com' &&
-                JSON.stringify(errorData).includes('api.dev.runwayml.com')
-              ) {
-                console.warn(
-                  `[Runway Proxy] api.runwayml.com requested switch to api.dev.runwayml.com.`
-                );
-                continue;
-              }
-
-              console.error(
-                `[Runway Proxy] ${hostname}${apiPath} failed with ${status}:`,
-                JSON.stringify(errorData)
-              );
-              throw lastError;
-            }
-
-            const task = await response.json();
-            console.log(`[Runway Proxy] Task created on ${hostname}: ${task.id}`);
-            return res.json({ taskId: task.id, status: 'PENDING', hostname });
-          } catch (err: any) {
-            // If we reached the end of both loops and still failed, rethrow
-            if (hostname === hostnames[hostnames.length - 1] && apiPath === paths[paths.length - 1])
-              throw err;
-            console.warn(`[Runway Proxy] Failed with ${hostname}${apiPath}: ${err.message}.`);
-          }
-        }
-      }
-    } catch (err: any) {
-      console.error('[Runway Proxy] Generation failed:', err);
-      res.status(500).json({ error: err.message || 'Unknown Runway error' });
-    }
-  });
-
-  // API route to check Runway task status
-  app.get('/api/runway/status/:taskId', async (req, res) => {
-    const { taskId } = req.params;
-    const runwayKey = getRunwayKey();
-
-    if (!runwayKey) return res.status(500).json({ error: 'Runway API Key missing.' });
-
-    try {
-      const hostnames = ['api.dev.runwayml.com', 'api.runwayml.com'];
-      let task = null;
-
-      for (const hostname of hostnames) {
-        try {
-          const response = await fetch(`https://${hostname}/v1/tasks/${taskId}`, {
-            headers: {
-              Authorization: `Bearer ${runwayKey}`,
-              'X-Runway-Version': '2024-11-06',
-            },
-          });
-
-          if (!response.ok) {
-            if (response.status === 404) continue;
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(
-              errorData.error || `Runway API error: ${response.statusText} (${response.status})`
-            );
-          }
-
-          task = await response.json();
-          break;
-        } catch (err) {
-          if (hostname === hostnames[hostnames.length - 1]) throw err;
-        }
-      }
-
-      if (!task) throw new Error('Task not found on any known Runway endpoint.');
-
-      if (task.status === 'SUCCEEDED' && task.output && task.output.length > 0) {
-        // Download the result to our generated dir for persistence
-        const videoUrl = task.output[0];
-        const filename = `runway_${taskId}_${Date.now()}.mp4`;
-        const filePath = path.join(GENERATED_DIR, filename);
-
-        if (!fs.existsSync(filePath)) {
-          console.log(`[Runway Proxy] Task succeeded. Downloading result: ${videoUrl}`);
-          await downloadFile(videoUrl, filePath);
-        }
-
-        return res.json({
-          status: task.status,
-          videoUrl: `/generated/${filename}`,
-          originalOutput: task.output,
-        });
-      }
-
-      res.json({ status: task.status, progress: task.progress });
-    } catch (err: any) {
-      console.error(`[Runway Proxy] Status check failed for ${taskId}:`, err);
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  // API route to update Runway configuration
-  app.post('/api/runway/config', async (req, res) => {
-    const { apiKey } = req.body;
-    if (!apiKey) return res.status(400).json({ error: 'API Key is required.' });
-
-    try {
-      fs.writeFileSync(RUNWAY_CONFIG_PATH, JSON.stringify({ apiKey }, null, 2));
-      res.json({ message: 'Runway API Key updated successfully.' });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
   // --- Scene-Based Rendering ---
   app.post('/api/video/render-scenes', async (req, res) => {
     const {
@@ -1867,46 +1698,6 @@ async function startServer() {
     } catch (err: any) {
       console.error('[Render Scenes] Error:', err);
       res.status(500).json({ error: err.message });
-    }
-  });
-
-  // API route to check Runway health
-  app.get('/api/runway/health', async (req, res) => {
-    const runwayKey = getRunwayKey();
-    if (!runwayKey)
-      return res.status(500).json({ status: 'error', message: 'RUNWAY_API_KEY is missing.' });
-
-    try {
-      // Get organization info to check connection
-      const hostnames = ['api.dev.runwayml.com', 'api.runwayml.com'];
-      let org = null;
-
-      for (const hostname of hostnames) {
-        try {
-          const response = await fetch(`https://${hostname}/v1/organization`, {
-            headers: {
-              Authorization: `Bearer ${runwayKey}`,
-              'X-Runway-Version': '2024-11-06',
-            },
-          });
-
-          if (!response.ok) {
-            if (response.status === 404) continue;
-            throw new Error(`Runway API error: ${response.statusText} (${response.status})`);
-          }
-
-          org = await response.json();
-          break;
-        } catch (err) {
-          if (hostname === hostnames[hostnames.length - 1]) throw err;
-        }
-      }
-
-      if (!org)
-        throw new Error('Could not fetch organization info from any known Runway endpoint.');
-      res.json({ status: 'ok', message: `Conexão bem-sucedida! Créditos: ${org.creditBalance}` });
-    } catch (err: any) {
-      res.status(500).json({ status: 'error', message: err.message });
     }
   });
 
