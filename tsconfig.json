@@ -30,5 +30,5 @@
     "noUncheckedIndexedAccess": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src", "server.ts", "scripts", "test-api.js"]
+  "include": ["src", "server.ts", "server", "scripts", "test-api.js"]
 }
