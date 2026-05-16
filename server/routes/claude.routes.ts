@@ -11,10 +11,11 @@ const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
 // but visibly worse at creative writing. Override per-call by passing a
 // `model` field in the request body if you need to A/B compare.
 const DEFAULT_MODEL = 'claude-opus-4-7';
-// Extended thinking budget (Claude reasons internally before replying).
-// Improves copy quality noticeably; costs extra thinking tokens.
-const THINKING_BUDGET = 5000;
-const DEFAULT_MAX_TOKENS = 12000; // must exceed THINKING_BUDGET
+// Extended thinking — Opus 4.7 uses the newer "adaptive" mode controlled by
+// output_config.effort ('low' | 'medium' | 'high'). Higher effort = more
+// internal reasoning, better copy quality, higher cost.
+const THINKING_EFFORT = 'high';
+const DEFAULT_MAX_TOKENS = 12000;
 
 // POST /api/claude/config
 claudeRouter.post('/config', async (req, res) => {
@@ -96,7 +97,7 @@ claudeRouter.post('/complete', async (req, res) => {
   const max_tokens = Math.max(requestedMaxTokens, DEFAULT_MAX_TOKENS);
 
   console.log(
-    `[Claude] /complete model=${model} thinking=${thinking ? THINKING_BUDGET : 'off'} ` +
+    `[Claude] /complete model=${model} thinking=${thinking ? THINKING_EFFORT : 'off'} ` +
       `max_tokens=${max_tokens} user_len=${user.length}`
   );
 
@@ -112,8 +113,15 @@ claudeRouter.post('/complete', async (req, res) => {
         model,
         max_tokens,
         // Extended thinking — Claude reasons internally before replying.
-        // Disable per-call by sending `"thinking": false`.
-        ...(thinking ? { thinking: { type: 'enabled', budget_tokens: THINKING_BUDGET } } : {}),
+        // Disable per-call by sending `"thinking": false`. Opus 4.7 only
+        // accepts the 'adaptive' shape; older models used 'enabled' with a
+        // budget_tokens field.
+        ...(thinking
+          ? {
+              thinking: { type: 'adaptive' },
+              output_config: { effort: THINKING_EFFORT },
+            }
+          : {}),
         // Cache the (typically large, repeated) system prompt — copy
         // generation reuses the same beats Schwartz instructions across
         // many requests, so caching cuts cost noticeably.
