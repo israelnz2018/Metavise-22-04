@@ -52,7 +52,7 @@ export default [
   },
 
   {
-    files: ['server.ts', 'test-api.js'],
+    files: ['server.ts', 'server/**/*.{ts,js}', 'test-api.js'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',
