@@ -1,0 +1,11 @@
+# Add the latest nvm-managed node to PATH so git hooks find node/npx.
+# Git invokes hooks in a minimal shell that does not load ~/.zshrc,
+# and nvm.sh requires bash, so we add the binary directory directly.
+if [ -d "$HOME/.nvm/versions/node" ]; then
+  NODE_VER="$(ls -t "$HOME/.nvm/versions/node" | head -1)"
+  if [ -n "$NODE_VER" ]; then
+    export PATH="$HOME/.nvm/versions/node/$NODE_VER/bin:$PATH"
+  fi
+fi
+
+npx lint-staged
