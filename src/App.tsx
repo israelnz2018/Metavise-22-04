@@ -1594,6 +1594,42 @@ export default function App() {
     hydrateGeminiKey();
   }, []);
 
+  // --- Auto-save layer 1: localStorage backup ---
+  // Writes every config change to localStorage so the form survives page
+  // refreshes even before the user has created a Firestore project. Fast
+  // (~1ms), works offline, no auth required. The restore happens in a
+  // separate effect below.
+  const AUTOSAVE_KEY = 'metavise-draft-config-v1';
+  useEffect(() => {
+    try {
+      localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(config));
+    } catch (err) {
+      console.warn('[AutoSave] localStorage write failed:', err);
+    }
+  }, [config]);
+
+  // Restore the last-edited config from localStorage on mount, but ONLY if
+  // we haven't yet loaded a real project from Firestore. If the user opens
+  // a project later, setConfig overwrites this and the localStorage effect
+  // above just rewrites the new value.
+  useEffect(() => {
+    if (currentProjectId) return;
+    try {
+      const stored = localStorage.getItem(AUTOSAVE_KEY);
+      if (!stored) return;
+      const parsed = JSON.parse(stored);
+      // Sanity check — must look like an AdConfig.
+      if (parsed && typeof parsed === 'object' && parsed.copy) {
+        setConfig(parsed);
+        toast.success('Rascunho restaurado da sessão anterior.', { icon: '💾' });
+      }
+    } catch (err) {
+      console.warn('[AutoSave] localStorage restore failed:', err);
+    }
+    // Intentionally only on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const safeDeleteObject = async (path: string) => {
     try {
       const storageRef = ref(storage, path);
@@ -3350,6 +3386,26 @@ export default function App() {
       { duration: Infinity }
     );
   };
+
+  // --- Auto-save layer 2: Firestore debounced auto-save ---
+  // Once a project is loaded (currentProjectId is set), every change to
+  // config schedules a Firestore save 2 seconds later. If config changes
+  // again before the timer fires, the previous save is cancelled and a
+  // new one is scheduled — so we batch fast typing into one write.
+  useEffect(() => {
+    if (!currentProjectId || !user || isProjectLoading) return;
+    const t = setTimeout(() => {
+      handleSaveProject().catch((err) => {
+        console.warn('[AutoSave] Firestore save failed:', err);
+      });
+    }, 2000);
+    return () => clearTimeout(t);
+    // handleSaveProject is intentionally NOT in deps — it changes every
+    // render (no useCallback), and we don't want to reset the timer just
+    // because of an unrelated re-render. config + currentProjectId + user
+    // are what should trigger a save.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config, currentProjectId, user, isProjectLoading]);
 
   const handleDeleteProject = (projectId: string) => {
     setDeleteProjectConfirmId(projectId);
