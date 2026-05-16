@@ -7,6 +7,9 @@ import { GENERATED_DIR } from '../config/paths.js';
 import { downloadFile } from '../utils/download.js';
 import { processDataError } from '../utils/errorExtractor.js';
 import { getFFmpegFilter } from '../services/ffmpegService.js';
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('Video');
 
 export const videoRouter = Router();
 
@@ -366,7 +369,7 @@ videoRouter.post('/crop', async (req, res) => {
 
   if (!videoUrl) return res.status(400).json({ error: 'videoUrl is required.' });
 
-  console.log('[CROP DEBUG 1] Request received:', {
+  log.info('crop request', {
     videoUrl: videoUrl.substring(0, 60),
     aspectRatio,
     cropOffset,
@@ -377,20 +380,9 @@ videoRouter.post('/crop', async (req, res) => {
     const inputPath = path.join(GENERATED_DIR, `${videoId}_input.mp4`);
     const outputPath = path.join(GENERATED_DIR, `${videoId}_final.mp4`);
 
-    console.log('[CROP DEBUG 2] Paths:', { inputPath, outputPath });
-    console.log('[CROP DEBUG 3] GENERATED_DIR exists:', fs.existsSync(GENERATED_DIR));
-
-    console.log('[CROP DEBUG 4] Downloading file...');
     await downloadFile(videoUrl, inputPath);
-    console.log('[CROP DEBUG 5] Download complete. Input file exists:', fs.existsSync(inputPath));
-
-    if (fs.existsSync(inputPath)) {
-      const stats = fs.statSync(inputPath);
-      console.log('[CROP DEBUG 6] Input file size:', stats.size, 'bytes');
-    }
 
     const filter = getFFmpegFilter(aspectRatio || '1:1', cropOffset || 0);
-    console.log('[CROP DEBUG 7] FFmpeg filter:', filter);
 
     await new Promise((resolve, reject) => {
       ffmpeg(inputPath)
@@ -405,29 +397,18 @@ videoRouter.post('/crop', async (req, res) => {
           '-movflags +faststart',
         ])
         .output(outputPath)
-        .on('start', (cmd) => console.log('[CROP DEBUG 8] FFmpeg started:', cmd))
-        .on('end', () => {
-          console.log('[CROP DEBUG 9] FFmpeg finished');
-          resolve(null);
-        })
+        .on('end', () => resolve(null))
         .on('error', (err) => {
-          console.error('[CROP DEBUG ERROR] FFmpeg failed:', err);
+          log.error('ffmpeg crop failed:', err);
           reject(err);
         })
         .run();
     });
 
-    console.log('[CROP DEBUG 10] Output file exists:', fs.existsSync(outputPath));
-    if (fs.existsSync(outputPath)) {
-      const outStats = fs.statSync(outputPath);
-      console.log('[CROP DEBUG 11] Output file size:', outStats.size, 'bytes');
-    }
-
     if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
     res.json({ url: `/generated/${videoId}_final.mp4` });
   } catch (err: any) {
-    console.error('[CROP DEBUG FAIL] Error:', err.message);
-    console.error('[CROP DEBUG FAIL] Stack:', err.stack);
+    log.error('crop failed:', err.message);
     res.status(500).json({ error: `Crop failed: ${err.message}` });
   }
 });
