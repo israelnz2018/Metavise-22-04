@@ -1,5 +1,10 @@
 import fs from 'fs';
-import { CONFIG_PATH, HEYGEN_CONFIG_PATH, RUNWAY_CONFIG_PATH } from './paths.js';
+import {
+  CONFIG_PATH,
+  HEYGEN_CONFIG_PATH,
+  RUNWAY_CONFIG_PATH,
+  GEMINI_CONFIG_PATH,
+} from './paths.js';
 
 function readKeyFromFile(filePath: string): string | null {
   if (!fs.existsSync(filePath)) return null;
@@ -34,6 +39,16 @@ export function getHeyGenKey(): string | null {
     return fileKey;
   }
   const envKey = process.env.HEYGEN_API_KEY;
+  return envKey ? envKey.trim().replace(/^["']|["']$/g, '') : null;
+}
+
+export function getGeminiKey(): string | null {
+  const fileKey = readKeyFromFile(GEMINI_CONFIG_PATH);
+  if (fileKey) {
+    console.log(`[Gemini Config] API Key found (starts with: ${fileKey.substring(0, 4)}...)`);
+    return fileKey;
+  }
+  const envKey = process.env.GEMINI_API_KEY;
   return envKey ? envKey.trim().replace(/^["']|["']$/g, '') : null;
 }
 

@@ -9,6 +9,12 @@ coverage/
 # Environment & secrets
 .env*
 !.env.example
+# Per-provider API key files written by the in-app admin "Salvar" buttons.
+# firebase-applet-config.json is intentionally NOT ignored (public web config).
+elevenlabs-config.json
+heygen-config.json
+runway-config.json
+gemini-config.json
 
 # Logs & debug artifacts
 *.log

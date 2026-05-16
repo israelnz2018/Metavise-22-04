@@ -3,37 +3,34 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from "react";
-import { GoogleGenAI } from "@google/genai";
+import React, { useState, useEffect, useRef } from 'react';
+import { GoogleGenAI } from '@google/genai';
 import HookVisualGenerator, {
   HookVisualGenerator as HookVisualGeneratorNamed,
-} from "./components/HookVisualGenerator";
-import VozPremium from "./components/VozPremium";
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
+} from './components/HookVisualGenerator';
+import VozPremium from './components/VozPremium';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
 const getVideoAspectRatioClass = (video: any) => {
-  const ratio = video.aspectRatio || "9:16";
-  if (ratio === "9:16") return "aspect-[9/16]";
-  if (ratio === "4:5") return "aspect-[4/5]";
-  if (ratio === "1:1") return "aspect-square";
-  return "aspect-video";
+  const ratio = video.aspectRatio || '9:16';
+  if (ratio === '9:16') return 'aspect-[9/16]';
+  if (ratio === '4:5') return 'aspect-[4/5]';
+  if (ratio === '1:1') return 'aspect-square';
+  return 'aspect-video';
 };
 
 const getRecomendedEstilo = (nivelConsciencia: string) => {
   const level = nivelConsciencia.charAt(0);
-  if (level === "1")
-    return ["Storytelling", "Gancho de Curiosidade", "Educativo"];
-  if (level === "2")
-    return ["Problema → Solução", "Storytelling", "Inspirador"];
-  if (level === "3") return ["Antes e Depois", "Prova Social", "Educativo"];
-  if (level === "4")
-    return ["Direto ao Ponto", "Prova Social", "Profissional / Autoridade"];
-  if (level === "5") return ["Direto ao Ponto", "Urgência / Escassez"];
+  if (level === '1') return ['Storytelling', 'Gancho de Curiosidade', 'Educativo'];
+  if (level === '2') return ['Problema → Solução', 'Storytelling', 'Inspirador'];
+  if (level === '3') return ['Antes e Depois', 'Prova Social', 'Educativo'];
+  if (level === '4') return ['Direto ao Ponto', 'Prova Social', 'Profissional / Autoridade'];
+  if (level === '5') return ['Direto ao Ponto', 'Urgência / Escassez'];
   return [];
 };
 
@@ -46,59 +43,58 @@ const recomendacoesTempo: Record<
     frase: string;
   }
 > = {
-  "1": {
-    faixaSegundos: "90-180s",
+  '1': {
+    faixaSegundos: '90-180s',
     palavrasMin: 225,
     palavrasMax: 450,
     frase:
-      "Seu público ainda não sabe que tem esse problema — precisa de tempo pra despertar interesse.",
+      'Seu público ainda não sabe que tem esse problema — precisa de tempo pra despertar interesse.',
   },
-  "2": {
-    faixaSegundos: "60-120s",
+  '2': {
+    faixaSegundos: '60-120s',
     palavrasMin: 150,
     palavrasMax: 300,
     frase:
-      "Seu público sente a dor mas não sabe a solução — vale agitar o problema antes de apresentar o produto.",
+      'Seu público sente a dor mas não sabe a solução — vale agitar o problema antes de apresentar o produto.',
   },
-  "3": {
-    faixaSegundos: "45-90s",
+  '3': {
+    faixaSegundos: '45-90s',
     palavrasMin: 110,
     palavrasMax: 225,
     frase:
-      "Seu público já busca soluções — ideal um vídeo médio que mostre o seu diferencial sem cansar.",
+      'Seu público já busca soluções — ideal um vídeo médio que mostre o seu diferencial sem cansar.',
   },
-  "4": {
-    faixaSegundos: "30-60s",
+  '4': {
+    faixaSegundos: '30-60s',
     palavrasMin: 75,
     palavrasMax: 150,
     frase:
-      "Seu público já te conhece ou conhece concorrentes — vá direto na diferenciação e prova.",
+      'Seu público já te conhece ou conhece concorrentes — vá direto na diferenciação e prova.',
   },
-  "5": {
-    faixaSegundos: "15-30s",
+  '5': {
+    faixaSegundos: '15-30s',
     palavrasMin: 35,
     palavrasMax: 75,
-    frase:
-      "Seu público está pronto pra comprar — só precisa de um empurrão com oferta e urgência.",
+    frase: 'Seu público está pronto pra comprar — só precisa de um empurrão com oferta e urgência.',
   },
 };
 
 const DURATION_OPTIONS = [
-  { label: "15s", words: 38 },
-  { label: "30s", words: 75 },
-  { label: "45s", words: 113 },
-  { label: "60s", words: 150 },
-  { label: "90s", words: 225 },
-  { label: "120s", words: 300 },
-  { label: "180s", words: 450 },
+  { label: '15s', words: 38 },
+  { label: '30s', words: 75 },
+  { label: '45s', words: 113 },
+  { label: '60s', words: 150 },
+  { label: '90s', words: 225 },
+  { label: '120s', words: 300 },
+  { label: '180s', words: 450 },
 ];
 
 const LEVEL_TO_WORDS: Record<string, number> = {
-  "1": 300,
-  "2": 225,
-  "3": 150,
-  "4": 113,
-  "5": 75,
+  '1': 300,
+  '2': 225,
+  '3': 150,
+  '4': 113,
+  '5': 75,
 };
 
 const getRecomendacaoTempo = (nivelConsciencia: string) => {
@@ -106,12 +102,12 @@ const getRecomendacaoTempo = (nivelConsciencia: string) => {
   return level ? recomendacoesTempo[level] : null;
 };
 
-import hooksBibleEn from "./data/hooksBible_en.json";
-import hooksBiblePt from "./data/hooksBible_pt.json";
+import hooksBibleEn from './data/hooksBible_en.json';
+import hooksBiblePt from './data/hooksBible_pt.json';
 
 const getHooksBible = (language?: string) => {
   // Logic based on project language
-  if (language === "Português (Brasileiro)") {
+  if (language === 'Português (Brasileiro)') {
     if (
       hooksBiblePt &&
       hooksBiblePt.hooks &&
@@ -128,69 +124,59 @@ const getHooksBible = (language?: string) => {
   }
 
   // Final emergency fallback to empty structure if everything fails
-  return { hooks: [], total: 0, idioma: "en" };
+  return { hooks: [], total: 0, idioma: 'en' };
 };
 
 const HOOK_TYPES_BY_LEVEL: Record<string, string[]> = {
-  "1": ["Surpresa / Choque", "Curiosidade / Pergunta", "Identificação"],
-  "2": ["Identificação", "Confissão / História", "Quebra de Paradigma"],
-  "3": [
-    "Quebra de Paradigma",
-    "Contraste / Antes-Depois",
-    "Resultado / Promessa",
-  ],
-  "4": [
-    "Resultado / Promessa",
-    "Contraste / Antes-Depois",
-    "Surpresa / Choque",
-  ],
-  "5": ["Resultado / Promessa", "Urgência / Notícia", "Humor / Absurdo"],
+  '1': ['Surpresa / Choque', 'Curiosidade / Pergunta', 'Identificação'],
+  '2': ['Identificação', 'Confissão / História', 'Quebra de Paradigma'],
+  '3': ['Quebra de Paradigma', 'Contraste / Antes-Depois', 'Resultado / Promessa'],
+  '4': ['Resultado / Promessa', 'Contraste / Antes-Depois', 'Surpresa / Choque'],
+  '5': ['Resultado / Promessa', 'Urgência / Notícia', 'Humor / Absurdo'],
 };
 
 const processHookTemplate = (
   template: string,
   answers: any,
   hookType?: string,
-  withParens: boolean = false,
+  withParens: boolean = false
 ) => {
-  if (!template) return "";
+  if (!template) return '';
   let text = template;
 
   const shortify = (text: string, maxWords: number = 8): string => {
-    if (!text) return "";
+    if (!text) return '';
     let processed = text;
 
     // If text contains a comma, usually it's "Name, Description"
     // User wants the description part (after comma)
-    if (text.includes(",")) {
-      const parts = text.split(",");
+    if (text.includes(',')) {
+      const parts = text.split(',');
       if (parts.length > 1) {
         processed = parts[1].trim();
       }
     }
 
     // Cleaning: remove articles at start
-    processed = processed
-      .replace(/^(a |o |as |os |the |um |uma |an |the )/i, "")
-      .trim();
+    processed = processed.replace(/^(a |o |as |os |the |um |uma |an |the )/i, '').trim();
 
     // Take only until first period
-    processed = processed.split(".")[0].trim();
+    processed = processed.split('.')[0].trim();
 
     // Limit words
     const words = processed.split(/\s+/);
     if (words.length > maxWords) {
-      processed = words.slice(0, maxWords).join(" ");
+      processed = words.slice(0, maxWords).join(' ');
     }
 
     return processed.toLowerCase();
   };
 
-  const nomeProduto = answers.productName || "";
-  const problemaAvatar = answers.situation || "";
-  const resultadoConcreto = answers.productResult || "";
-  const publicoAlvo = answers.audience || "";
-  const mecanismoUnico = answers.uniqueMechanism || "";
+  const nomeProduto = answers.productName || '';
+  const problemaAvatar = answers.situation || '';
+  const resultadoConcreto = answers.productResult || '';
+  const publicoAlvo = answers.audience || '';
+  const mecanismoUnico = answers.uniqueMechanism || '';
 
   const publicoAlvoCurto = shortify(publicoAlvo, 5);
   const problemaAvatarCurto = shortify(problemaAvatar, 6);
@@ -198,152 +184,147 @@ const processHookTemplate = (
 
   const mapping: Record<string, string> = {
     // === ENGLISH PLACEHOLDERS ===
-    "[product]": nomeProduto,
-    "[product/service]": nomeProduto,
-    "[service]": nomeProduto,
-    "[TOPIC]": nomeProduto,
-    "[topic]": nomeProduto,
-    "{insert a name}": nomeProduto,
-    "[common item]": nomeProduto,
-    "[trend]": nomeProduto,
-    "[task]": nomeProduto,
+    '[product]': nomeProduto,
+    '[product/service]': nomeProduto,
+    '[service]': nomeProduto,
+    '[TOPIC]': nomeProduto,
+    '[topic]': nomeProduto,
+    '{insert a name}': nomeProduto,
+    '[common item]': nomeProduto,
+    '[trend]': nomeProduto,
+    '[task]': nomeProduto,
 
     // Pain
-    "[problem]": problemaAvatarCurto,
-    "[pain point]": problemaAvatarCurto,
-    "(pain point)": problemaAvatarCurto,
-    "[common issue]": problemaAvatarCurto,
-    "[specific issue]": problemaAvatarCurto,
-    "[challenge]": problemaAvatarCurto,
-    "[specific challenge]": problemaAvatarCurto,
-    "[issue]": problemaAvatarCurto,
-    "[specific issue in your industry]": problemaAvatarCurto,
-    "[problem specific to the industry]": problemaAvatarCurto,
-    "[specific challenge in industry]": problemaAvatarCurto,
-    "[problema específico da indústria]": problemaAvatarCurto,
-    "[specific industry problem]": problemaAvatarCurto,
-    "[problema específico]": problemaAvatarCurto,
-    "[specific problem]": problemaAvatarCurto,
-    "[ponto de dor específico]": problemaAvatarCurto,
-    "[ineffective methods]": problemaAvatarCurto,
+    '[problem]': problemaAvatarCurto,
+    '[pain point]': problemaAvatarCurto,
+    '(pain point)': problemaAvatarCurto,
+    '[common issue]': problemaAvatarCurto,
+    '[specific issue]': problemaAvatarCurto,
+    '[challenge]': problemaAvatarCurto,
+    '[specific challenge]': problemaAvatarCurto,
+    '[issue]': problemaAvatarCurto,
+    '[specific issue in your industry]': problemaAvatarCurto,
+    '[problem specific to the industry]': problemaAvatarCurto,
+    '[specific challenge in industry]': problemaAvatarCurto,
+    '[problema específico da indústria]': problemaAvatarCurto,
+    '[specific industry problem]': problemaAvatarCurto,
+    '[problema específico]': problemaAvatarCurto,
+    '[specific problem]': problemaAvatarCurto,
+    '[ponto de dor específico]': problemaAvatarCurto,
+    '[ineffective methods]': problemaAvatarCurto,
 
     // Result
-    "[result]": resultadoConcretoCurto,
-    "[desired outcome]": resultadoConcretoCurto,
-    "[desired result]": resultadoConcretoCurto,
-    "[specific outcome]": resultadoConcretoCurto,
-    "[goal]": resultadoConcretoCurto,
-    "[achieve something]": resultadoConcretoCurto,
-    "{insert a goal}": resultadoConcretoCurto,
-    "[atingir um objetivo]": resultadoConcretoCurto,
-    "[achieve a goal]": resultadoConcretoCurto,
-    "[achieving a goal]": resultadoConcretoCurto,
-    "[achieving specific goal]": resultadoConcretoCurto,
-    "[achieving something]": resultadoConcretoCurto,
-    "[desired transformation]": resultadoConcretoCurto,
-    "[positive result]": resultadoConcretoCurto,
-    "[impressive feat]": resultadoConcretoCurto,
-    "[outcome]": resultadoConcretoCurto,
-    "[transformação desejada]": resultadoConcretoCurto,
+    '[result]': resultadoConcretoCurto,
+    '[desired outcome]': resultadoConcretoCurto,
+    '[desired result]': resultadoConcretoCurto,
+    '[specific outcome]': resultadoConcretoCurto,
+    '[goal]': resultadoConcretoCurto,
+    '[achieve something]': resultadoConcretoCurto,
+    '{insert a goal}': resultadoConcretoCurto,
+    '[atingir um objetivo]': resultadoConcretoCurto,
+    '[achieve a goal]': resultadoConcretoCurto,
+    '[achieving a goal]': resultadoConcretoCurto,
+    '[achieving specific goal]': resultadoConcretoCurto,
+    '[achieving something]': resultadoConcretoCurto,
+    '[desired transformation]': resultadoConcretoCurto,
+    '[positive result]': resultadoConcretoCurto,
+    '[impressive feat]': resultadoConcretoCurto,
+    '[outcome]': resultadoConcretoCurto,
+    '[transformação desejada]': resultadoConcretoCurto,
 
     // Audience
-    "[target audience]": publicoAlvoCurto,
-    "[audience]": publicoAlvoCurto,
-    "[student/professional]": publicoAlvoCurto,
-    "[target market]": publicoAlvoCurto,
-    "[niche]": publicoAlvoCurto,
-    "(niche)": publicoAlvoCurto,
-    "[nicho]": publicoAlvoCurto,
-    "[industry]": publicoAlvoCurto,
-    "[indústria]": publicoAlvoCurto,
-    "[professionals]": publicoAlvoCurto,
-    "[profissionais]": publicoAlvoCurto,
+    '[target audience]': publicoAlvoCurto,
+    '[audience]': publicoAlvoCurto,
+    '[student/professional]': publicoAlvoCurto,
+    '[target market]': publicoAlvoCurto,
+    '[niche]': publicoAlvoCurto,
+    '(niche)': publicoAlvoCurto,
+    '[nicho]': publicoAlvoCurto,
+    '[industry]': publicoAlvoCurto,
+    '[indústria]': publicoAlvoCurto,
+    '[professionals]': publicoAlvoCurto,
+    '[profissionais]': publicoAlvoCurto,
 
     // Mechanism
-    "[unique solution]": mecanismoUnico,
-    "[strategy/tool]": mecanismoUnico,
-    "[method]": mecanismoUnico,
-    "[innovative product/strategy]": mecanismoUnico,
+    '[unique solution]': mecanismoUnico,
+    '[strategy/tool]': mecanismoUnico,
+    '[method]': mecanismoUnico,
+    '[innovative product/strategy]': mecanismoUnico,
 
     // === PORTUGUESE PLACEHOLDERS (square brackets) ===
-    "[produto]": nomeProduto,
-    "[produto/serviço]": nomeProduto,
-    "[serviço]": nomeProduto,
-    "[tópico]": nomeProduto,
-    "[tema]": nomeProduto,
-    "[tendência]": nomeProduto,
-    "[tarefa]": nomeProduto,
-    "[problema]": problemaAvatarCurto,
-    "[ponto de dor]": problemaAvatarCurto,
-    "[desafio]": problemaAvatarCurto,
-    "[desafio específico]": problemaAvatarCurto,
-    "[problema comum]": problemaAvatarCurto,
-    "[resultado]": resultadoConcretoCurto,
-    "[resultado desejado]": resultadoConcretoCurto,
-    "[resultado específico]": resultadoConcretoCurto,
-    "[objetivo]": resultadoConcretoCurto,
-    "[público-alvo]": publicoAlvoCurto,
-    "[público]": publicoAlvoCurto,
-    "[estudante/profissional]": publicoAlvoCurto,
-    "[audiência]": publicoAlvoCurto,
-    "[solução única]": mecanismoUnico,
-    "[método]": mecanismoUnico,
-    "[estratégia]": mecanismoUnico,
+    '[produto]': nomeProduto,
+    '[produto/serviço]': nomeProduto,
+    '[serviço]': nomeProduto,
+    '[tópico]': nomeProduto,
+    '[tema]': nomeProduto,
+    '[tendência]': nomeProduto,
+    '[tarefa]': nomeProduto,
+    '[problema]': problemaAvatarCurto,
+    '[ponto de dor]': problemaAvatarCurto,
+    '[desafio]': problemaAvatarCurto,
+    '[desafio específico]': problemaAvatarCurto,
+    '[problema comum]': problemaAvatarCurto,
+    '[resultado]': resultadoConcretoCurto,
+    '[resultado desejado]': resultadoConcretoCurto,
+    '[resultado específico]': resultadoConcretoCurto,
+    '[objetivo]': resultadoConcretoCurto,
+    '[público-alvo]': publicoAlvoCurto,
+    '[público]': publicoAlvoCurto,
+    '[estudante/profissional]': publicoAlvoCurto,
+    '[audiência]': publicoAlvoCurto,
+    '[solução única]': mecanismoUnico,
+    '[método]': mecanismoUnico,
+    '[estratégia]': mecanismoUnico,
 
     // === PORTUGUESE PLACEHOLDERS (parentheses) ===
-    "(produto)": nomeProduto,
-    "(produto/serviço)": nomeProduto,
-    "(produto caro)": nomeProduto,
-    "(ponto de dor)": problemaAvatarCurto,
-    "(ponto de dor do público-alvo)": problemaAvatarCurto,
-    "(problema)": problemaAvatarCurto,
-    "(resultado)": resultadoConcretoCurto,
-    "(resultado desejado)": resultadoConcretoCurto,
-    "(objetivo)": resultadoConcretoCurto,
-    "(público)": publicoAlvoCurto,
-    "(público-alvo)": publicoAlvoCurto,
-    "(método)": mecanismoUnico,
+    '(produto)': nomeProduto,
+    '(produto/serviço)': nomeProduto,
+    '(produto caro)': nomeProduto,
+    '(ponto de dor)': problemaAvatarCurto,
+    '(ponto de dor do público-alvo)': problemaAvatarCurto,
+    '(problema)': problemaAvatarCurto,
+    '(resultado)': resultadoConcretoCurto,
+    '(resultado desejado)': resultadoConcretoCurto,
+    '(objetivo)': resultadoConcretoCurto,
+    '(público)': publicoAlvoCurto,
+    '(público-alvo)': publicoAlvoCurto,
+    '(método)': mecanismoUnico,
   };
 
   // Replace specific placeholders (case-insensitive)
   Object.entries(mapping).forEach(([placeholder, value]) => {
     if (value) {
-      const escaped = placeholder.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const regex = new RegExp(escaped, "gi");
+      const escaped = placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(escaped, 'gi');
       const replacement = withParens ? `(${value})` : value;
       text = text.replace(regex, replacement);
     }
   });
 
   // Generic placeholder ___ (3 underscores)
-  if (text.includes("___")) {
+  if (text.includes('___')) {
     let genericReplacement = nomeProduto;
-    if (hookType === "Identificação")
-      genericReplacement = problemaAvatarCurto || nomeProduto;
-    else if (hookType === "Resultado / Promessa")
+    if (hookType === 'Identificação') genericReplacement = problemaAvatarCurto || nomeProduto;
+    else if (hookType === 'Resultado / Promessa')
       genericReplacement = resultadoConcretoCurto || nomeProduto;
-    else if (hookType === "Confissão / História")
-      genericReplacement = nomeProduto;
-    else if (hookType === "Quebra de Paradigma")
-      genericReplacement = nomeProduto;
-    else if (hookType === "Contraste / Antes-Depois")
+    else if (hookType === 'Confissão / História') genericReplacement = nomeProduto;
+    else if (hookType === 'Quebra de Paradigma') genericReplacement = nomeProduto;
+    else if (hookType === 'Contraste / Antes-Depois')
       genericReplacement = resultadoConcretoCurto || nomeProduto;
 
     if (genericReplacement) {
-      const finalGeneric = withParens
-        ? `(${genericReplacement})`
-        : genericReplacement;
+      const finalGeneric = withParens ? `(${genericReplacement})` : genericReplacement;
       text = text.replace(/_{3,}/g, finalGeneric);
     }
   }
 
   // Cleanup: remove any orphan underscores (2+ consecutive)
-  text = text.replace(/_{2,}/g, "");
+  text = text.replace(/_{2,}/g, '');
 
   // Cleanup: remove orphan double dots, weird spacing
-  text = text.replace(/\s+\./g, ".");
-  text = text.replace(/\.{2,}/g, ".");
-  text = text.replace(/\s{2,}/g, " ");
+  text = text.replace(/\s+\./g, '.');
+  text = text.replace(/\.{2,}/g, '.');
+  text = text.replace(/\s{2,}/g, ' ');
   text = text.trim();
 
   return text;
@@ -351,32 +332,22 @@ const processHookTemplate = (
 
 const getHookScore = (hook: any, answers: any) => {
   let score = 0;
-  const emotion = answers.emotion || "";
-  const angle = answers.angleIdea || "";
+  const emotion = answers.emotion || '';
+  const angle = answers.angleIdea || '';
 
   // High-level heuristic for matching
-  if (
-    hook.tipo === "Confissão / História" &&
-    (emotion === "Vergonha" || emotion === "Frustração")
-  )
+  if (hook.tipo === 'Confissão / História' && (emotion === 'Vergonha' || emotion === 'Frustração'))
+    score += 2;
+  if (hook.tipo === 'Surpresa / Choque' && (emotion === 'Insegurança' || angle.includes('errado')))
     score += 2;
   if (
-    hook.tipo === "Surpresa / Choque" &&
-    (emotion === "Insegurança" || angle.includes("errado"))
+    hook.tipo === 'Resultado / Promessa' &&
+    (emotion === 'Ambição' || angle.includes('Resultado'))
   )
     score += 2;
-  if (
-    hook.tipo === "Resultado / Promessa" &&
-    (emotion === "Ambição" || angle.includes("Resultado"))
-  )
+  if (hook.tipo === 'Identificação' && (emotion === 'Cansaço' || angle.includes('culpa')))
     score += 2;
-  if (
-    hook.tipo === "Identificação" &&
-    (emotion === "Cansaço" || angle.includes("culpa"))
-  )
-    score += 2;
-  if (hook.tipo === "Quebra de Paradigma" && angle.includes("simples"))
-    score += 2;
+  if (hook.tipo === 'Quebra de Paradigma' && angle.includes('simples')) score += 2;
 
   return score;
 };
@@ -389,33 +360,27 @@ const formatSpeechTime = (words: number) => {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   if (seconds === 0) {
-    return `${minutes} ${minutes === 1 ? "minuto" : "minutos"} de fala`;
+    return `${minutes} ${minutes === 1 ? 'minuto' : 'minutos'} de fala`;
   }
-  return `${minutes} ${minutes === 1 ? "minuto" : "minutos"} e ${seconds} segundos de fala`;
+  return `${minutes} ${minutes === 1 ? 'minuto' : 'minutos'} e ${seconds} segundos de fala`;
 };
 
 const countWords = (text: string): number => {
-  return (text || "")
-    .replace(/\[.*?\]/g, "") // remove [HOOK], [AGITAÇÃO DA DOR], etc.
-    .replace(/\(.*?\)/g, "") // remove (parênteses) se houver
+  return (text || '')
+    .replace(/\[.*?\]/g, '') // remove [HOOK], [AGITAÇÃO DA DOR], etc.
+    .replace(/\(.*?\)/g, '') // remove (parênteses) se houver
     .trim()
     .split(/\s+/)
     .filter(Boolean).length;
 };
 
-const AutoResizeTextarea = ({
-  value,
-  onChange,
-  placeholder,
-  className,
-  minHeight,
-}: any) => {
+const AutoResizeTextarea = ({ value, onChange, placeholder, className, minHeight }: any) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const adjustHeight = () => {
     const textarea = textareaRef.current;
     if (textarea) {
-      textarea.style.height = "auto";
+      textarea.style.height = 'auto';
       textarea.style.height = `${textarea.scrollHeight}px`;
     }
   };
@@ -431,7 +396,7 @@ const AutoResizeTextarea = ({
       onChange={onChange}
       onInput={adjustHeight}
       placeholder={placeholder}
-      className={cn("resize-none overflow-hidden", className)}
+      className={cn('resize-none overflow-hidden', className)}
       style={{ minHeight }}
       rows={1}
     />
@@ -440,8 +405,8 @@ const AutoResizeTextarea = ({
 
 const detectDuration = (file: File): Promise<number> => {
   return new Promise((resolve) => {
-    const video = document.createElement("video");
-    video.preload = "metadata";
+    const video = document.createElement('video');
+    video.preload = 'metadata';
     video.onloadedmetadata = () => {
       URL.revokeObjectURL(video.src);
       resolve(video.duration);
@@ -450,37 +415,37 @@ const detectDuration = (file: File): Promise<number> => {
   });
 };
 
-const detectVideoFormat = (file: File): Promise<"9:16" | "1:1" | "16:9"> => {
+const detectVideoFormat = (file: File): Promise<'9:16' | '1:1' | '16:9'> => {
   return new Promise((resolve) => {
-    const video = document.createElement("video");
-    video.preload = "metadata";
+    const video = document.createElement('video');
+    video.preload = 'metadata';
     video.onloadedmetadata = () => {
       const w = video.videoWidth;
       const h = video.videoHeight;
       URL.revokeObjectURL(video.src);
       const ratio = w / h;
-      if (ratio < 0.8) resolve("9:16");
-      else if (ratio > 1.2) resolve("16:9");
-      else resolve("1:1");
+      if (ratio < 0.8) resolve('9:16');
+      else if (ratio > 1.2) resolve('16:9');
+      else resolve('1:1');
     };
     video.src = URL.createObjectURL(file);
   });
 };
 
-const detectVideoFormatFromUrl = (url: string): Promise<"9:16" | "1:1" | "16:9"> => {
+const detectVideoFormatFromUrl = (url: string): Promise<'9:16' | '1:1' | '16:9'> => {
   return new Promise((resolve) => {
-    const video = document.createElement("video");
-    video.preload = "metadata";
-    video.crossOrigin = "anonymous";
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.crossOrigin = 'anonymous';
     video.onloadedmetadata = () => {
       const w = video.videoWidth;
       const h = video.videoHeight;
       const ratio = w / h;
-      if (ratio < 0.8) resolve("9:16");
-      else if (ratio > 1.2) resolve("16:9");
-      else resolve("1:1");
+      if (ratio < 0.8) resolve('9:16');
+      else if (ratio > 1.2) resolve('16:9');
+      else resolve('1:1');
     };
-    video.onerror = () => resolve("9:16"); // fallback
+    video.onerror = () => resolve('9:16'); // fallback
     video.src = url;
   });
 };
@@ -552,9 +517,9 @@ import {
   PlayCircle,
   Plus,
   Scan,
-} from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
-import { Toaster, toast } from "react-hot-toast";
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Toaster, toast } from 'react-hot-toast';
 import {
   generateAdCopy,
   chooseBestHooks,
@@ -574,14 +539,14 @@ import {
   generateImageFromPrompt,
   generateVideoPromptSuggestion,
   generateImagePromptSuggestion,
-} from "./lib/gemini";
+} from './lib/gemini';
 import {
   generateAdCopyWithClaude,
   discoverPersonaWithClaude,
   optimizeCopyForElevenLabsWithClaude,
-} from "./lib/claudeService";
-import { auth, db, storage } from "./lib/firebase";
-import { uploadBase64ToStorage } from "./lib/storage";
+} from './lib/claudeService';
+import { auth, db, storage } from './lib/firebase';
+import { uploadBase64ToStorage } from './lib/storage';
 import {
   ref,
   uploadBytes,
@@ -589,7 +554,7 @@ import {
   deleteObject,
   uploadBytesResumable,
   listAll,
-} from "firebase/storage";
+} from 'firebase/storage';
 import {
   signInWithPopup,
   GoogleAuthProvider,
@@ -598,7 +563,7 @@ import {
   signOut,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-} from "firebase/auth";
+} from 'firebase/auth';
 import {
   doc,
   getDoc,
@@ -613,177 +578,168 @@ import {
   orderBy,
   deleteDoc,
   updateDoc,
-} from "firebase/firestore";
+} from 'firebase/firestore';
 
 // --- Constants & Types ---
 
 const VOICE_ENRICHMENT: Record<string, any> = {
-  "21m00Tcm4TlvDq8ikWAM": {
-    tone: "professional",
-    useCase: "narration",
-    age: "adult",
-    traits: ["steady", "formal"],
+  '21m00Tcm4TlvDq8ikWAM': {
+    tone: 'professional',
+    useCase: 'narration',
+    age: 'adult',
+    traits: ['steady', 'formal'],
   },
   AZnzlk1XhkDUD9712F1H: {
-    tone: "warm",
-    useCase: "social media",
-    age: "young",
-    traits: ["expressive", "conversational"],
+    tone: 'warm',
+    useCase: 'social media',
+    age: 'young',
+    traits: ['expressive', 'conversational'],
   },
   EXAVITQu4vr4xnNLMQyw: {
-    tone: "energetic",
-    useCase: "ads",
-    age: "young",
-    traits: ["animated", "fast"],
+    tone: 'energetic',
+    useCase: 'ads',
+    age: 'young',
+    traits: ['animated', 'fast'],
   },
   FGY24tPteIu75mcnmEBm: {
-    tone: "calm",
-    useCase: "narration",
-    age: "mature",
-    traits: ["steady", "relaxed"],
+    tone: 'calm',
+    useCase: 'narration',
+    age: 'mature',
+    traits: ['steady', 'relaxed'],
   },
   IKne3meq5aZN9y9aqztW: {
-    tone: "confident",
-    useCase: "corporate",
-    age: "adult",
-    traits: ["steady", "professional"],
+    tone: 'confident',
+    useCase: 'corporate',
+    age: 'adult',
+    traits: ['steady', 'professional'],
   },
   Lcf7uHj9CuTkj2fBn64Y: {
-    tone: "conversational",
-    useCase: "podcast",
-    age: "young",
-    traits: ["expressive", "casual"],
+    tone: 'conversational',
+    useCase: 'podcast',
+    age: 'young',
+    traits: ['expressive', 'casual'],
   },
   MF3mGyEYCl7XYW7LecSj: {
-    tone: "serious",
-    useCase: "corporate",
-    age: "mature",
-    traits: ["steady", "formal"],
+    tone: 'serious',
+    useCase: 'corporate',
+    age: 'mature',
+    traits: ['steady', 'formal'],
   },
   N2lVS1wz9p6S8C9m0T68: {
-    tone: "youthful",
-    useCase: "social media",
-    age: "young",
-    traits: ["animated", "energetic"],
+    tone: 'youthful',
+    useCase: 'social media',
+    age: 'young',
+    traits: ['animated', 'energetic'],
   },
   P6E4Wm6H6n7vM6m0T68: {
-    tone: "warm",
-    useCase: "narration",
-    age: "adult",
-    traits: ["relaxed", "steady"],
+    tone: 'warm',
+    useCase: 'narration',
+    age: 'adult',
+    traits: ['relaxed', 'steady'],
   },
   VR6A4Wm6H6n7vM6m0T68: {
-    tone: "energetic",
-    useCase: "ads",
-    age: "adult",
-    traits: ["animated", "confident"],
+    tone: 'energetic',
+    useCase: 'ads',
+    age: 'adult',
+    traits: ['animated', 'confident'],
   },
   ErXw797vAYCPNrxqHWBh: {
-    tone: "professional",
-    useCase: "narration",
-    age: "adult",
-    traits: ["steady"],
+    tone: 'professional',
+    useCase: 'narration',
+    age: 'adult',
+    traits: ['steady'],
   },
   GBv7mTt0atIp3Br8iCZE: {
-    tone: "calm",
-    useCase: "narration",
-    age: "adult",
-    traits: ["relaxed"],
+    tone: 'calm',
+    useCase: 'narration',
+    age: 'adult',
+    traits: ['relaxed'],
   },
   TxGEqnCBvURuXPunYqzpX: {
-    tone: "deep",
-    useCase: "narration",
-    age: "adult",
-    traits: ["steady"],
+    tone: 'deep',
+    useCase: 'narration',
+    age: 'adult',
+    traits: ['steady'],
   },
   TX3LPaxmHKxFfWOs9PZ5: {
-    tone: "professional",
-    useCase: "narration",
-    age: "adult",
-    traits: ["steady"],
+    tone: 'professional',
+    useCase: 'narration',
+    age: 'adult',
+    traits: ['steady'],
   },
 };
 
 const AVATAR_ENRICHMENT: Record<string, any> = {
-  josh_lite_20230714: { gender: "male", age: "young", type: "realistic" },
-  erica_lite_20230714: { gender: "female", age: "young", type: "realistic" },
-  ann_lite_20230714: { gender: "female", age: "adult", type: "realistic" },
-  bryan_lite_20230714: { gender: "male", age: "adult", type: "realistic" },
-  lucas_lite_20230714: { gender: "male", age: "mature", type: "realistic" },
-  clara_lite_20230714: { gender: "female", age: "mature", type: "realistic" },
+  josh_lite_20230714: { gender: 'male', age: 'young', type: 'realistic' },
+  erica_lite_20230714: { gender: 'female', age: 'young', type: 'realistic' },
+  ann_lite_20230714: { gender: 'female', age: 'adult', type: 'realistic' },
+  bryan_lite_20230714: { gender: 'male', age: 'adult', type: 'realistic' },
+  lucas_lite_20230714: { gender: 'male', age: 'mature', type: 'realistic' },
+  clara_lite_20230714: { gender: 'female', age: 'mature', type: 'realistic' },
 };
 
 const HEYGEN_NAME_KEYWORDS = {
   styles: {
     Professional: [
-      "business",
-      "biztalk",
-      "office",
-      "formal",
-      "executive",
-      "suit",
-      "corporate",
-      "nurse",
-      "doctor",
+      'business',
+      'biztalk',
+      'office',
+      'formal',
+      'executive',
+      'suit',
+      'corporate',
+      'nurse',
+      'doctor',
     ],
     Lifestyle: [
-      "lounge",
-      "casual",
-      "yoga",
-      "home",
-      "outdoor",
-      "sport",
-      "fitness",
-      "shirt",
-      "bar",
-      "sitting",
+      'lounge',
+      'casual',
+      'yoga',
+      'home',
+      'outdoor',
+      'sport',
+      'fitness',
+      'shirt',
+      'bar',
+      'sitting',
     ],
-    UGC: ["ugc", "selfie", "creator", "vlog", "natural", "authentic"],
-    Community: ["community", "group", "social", "friendly"],
+    UGC: ['ugc', 'selfie', 'creator', 'vlog', 'natural', 'authentic'],
+    Community: ['community', 'group', 'social', 'friendly'],
   },
   ages: {
-    "Young Adult": ["young", "teen", "student", "junior"],
-    "Middle Aged": ["adult", "senior", "middle", "manager", "parent"],
-    Elderly: ["elderly", "grandma", "grandpa", "senior", "older"],
+    'Young Adult': ['young', 'teen', 'student', 'junior'],
+    'Middle Aged': ['adult', 'senior', 'middle', 'manager', 'parent'],
+    Elderly: ['elderly', 'grandma', 'grandpa', 'senior', 'older'],
   },
   ethnicities: {
-    White: [
-      "adriana",
-      "amelia",
-      "annie",
-      "blanka",
-      "carla",
-      "chloe",
-      "ann",
-      "bahar",
-    ],
-    Asian: ["aiko", "yuna", "mei", "jin", "kenji", "sakura", "hana"],
-    "South Asian": ["priya", "ananya", "raj", "vikram", "aisha"],
-    Latino: ["sofia", "carlos", "miguel", "rosa", "lucia", "pedro"],
-    "Middle Eastern": ["bahar", "layla", "omar", "yasmin", "zara"],
-    Black: ["alicia", "james", "marcus", "diana", "jordan", "nova"],
+    White: ['adriana', 'amelia', 'annie', 'blanka', 'carla', 'chloe', 'ann', 'bahar'],
+    Asian: ['aiko', 'yuna', 'mei', 'jin', 'kenji', 'sakura', 'hana'],
+    'South Asian': ['priya', 'ananya', 'raj', 'vikram', 'aisha'],
+    Latino: ['sofia', 'carlos', 'miguel', 'rosa', 'lucia', 'pedro'],
+    'Middle Eastern': ['bahar', 'layla', 'omar', 'yasmin', 'zara'],
+    Black: ['alicia', 'james', 'marcus', 'diana', 'jordan', 'nova'],
   },
 };
 
 type Step =
-  | "integrations"
-  | "projects"
-  | "persona"
-  | "copy"
-  | "hook-visual"
-  | "video-ia"
-  | "voz-premium"
-  | "avatar"
-  | "subtitles"
-  | "edit"
-  | "edit-zap"
-  | "edit2"
-  | "final"
-  | "scene-builder";
+  | 'integrations'
+  | 'projects'
+  | 'persona'
+  | 'copy'
+  | 'hook-visual'
+  | 'video-ia'
+  | 'voz-premium'
+  | 'avatar'
+  | 'subtitles'
+  | 'edit'
+  | 'edit-zap'
+  | 'edit2'
+  | 'final'
+  | 'scene-builder';
 
 interface Scene {
   id: string;
-  type: "avatar" | "text" | "image" | "runway";
+  type: 'avatar' | 'text' | 'image' | 'runway';
   duration: number;
   settings: {
     // Avatar
@@ -794,15 +750,15 @@ interface Scene {
     text?: string;
     fontSize?: number;
     fontWeight?: string;
-    textPosition?: "top" | "center" | "bottom";
+    textPosition?: 'top' | 'center' | 'bottom';
     backgroundColor?: string;
     musicEnabled?: boolean;
     musicVolume?: number;
 
     // Image
     imageUrl?: string;
-    zoomEffect?: "in" | "out" | "none";
-    panEffect?: "left" | "right" | "none";
+    zoomEffect?: 'in' | 'out' | 'none';
+    panEffect?: 'left' | 'right' | 'none';
     overlayText?: string;
 
     // Runway
@@ -811,7 +767,7 @@ interface Scene {
     refImage?: string;
 
     // Global
-    transition?: "fade" | "cut" | "slide";
+    transition?: 'fade' | 'cut' | 'slide';
   };
 }
 
@@ -826,7 +782,7 @@ interface Project {
   id: string;
   userId: string;
   name: string;
-  type: "complete" | "copy" | "video" | "editing";
+  type: 'complete' | 'copy' | 'video' | 'editing';
   config: AdConfig;
   variants?: ProjectVariant[];
   createdAt: any;
@@ -835,17 +791,17 @@ interface Project {
 interface TimelineEdit {
   id: string;
   timestamp: number;
-  type: "transition" | "image" | "text" | "sound";
+  type: 'transition' | 'image' | 'text' | 'sound';
   value: string;
   aiPrompt?: string;
   phrase?: string;
   videoUrl?: string;
   processedVideoUrl?: string;
-  aspectRatio?: "16:9" | "9:16" | "1:1";
+  aspectRatio?: '16:9' | '9:16' | '1:1';
   previewMetadata?: {
     zoom?: number;
     textOverlay?: string;
-    textPosition?: "top" | "center" | "bottom";
+    textPosition?: 'top' | 'center' | 'bottom';
     effect?: string;
   };
   videoOp?: any;
@@ -858,7 +814,7 @@ interface TimelineEdit {
 interface VideoSegment {
   id: string;
   number: number;
-  type: "REPLACE" | "KEEP";
+  type: 'REPLACE' | 'KEEP';
   startTime: number;
   endTime: number;
   transcript: string;
@@ -890,16 +846,16 @@ interface HookVisualData {
 interface AdConfig {
   angle: string;
   copy: {
-    mode: "improve" | "as-is" | "questions";
-    subMode?: "zero" | "improve" | "ready";
-    discoveryMode?: "unknown" | "known" | "discovering" | "done";
+    mode: 'improve' | 'as-is' | 'questions';
+    subMode?: 'zero' | 'improve' | 'ready';
+    discoveryMode?: 'unknown' | 'known' | 'discovering' | 'done';
     answers: Record<string, any>;
     generatedScript: string;
     generatedHooks: any[];
     selectedHookIdx?: number;
     optimizedScript?: string;
     finalScript?: string;
-    scriptLength?: "short" | "medium" | "long";
+    scriptLength?: 'short' | 'medium' | 'long';
     targetWordCount?: number;
     hookSelecionado?: string;
     hooksBiblioteca?: any[];
@@ -921,14 +877,14 @@ interface AdConfig {
     customFaceUrl: string | null;
     voiceId: string;
     scale?: number;
-    avatarFormat?: "original" | "square";
+    avatarFormat?: 'original' | 'square';
     cropOffset?: number; // -50 to 50
   };
   subtitles: {
     style: string;
   };
   format: {
-    aspectRatio: "16:9" | "9:16" | "1:1";
+    aspectRatio: '16:9' | '9:16' | '1:1';
     duration: number;
   };
   edit: {
@@ -980,7 +936,7 @@ interface AdConfig {
     url: string;
     storagePath: string | null;
     createdAt: string;
-    aspectRatio?: "16:9" | "9:16" | "1:1";
+    aspectRatio?: '16:9' | '9:16' | '1:1';
     scale?: number;
     timelineEdits?: TimelineEdit[];
   }[];
@@ -1007,7 +963,7 @@ interface AssemblyAnalysis {
   duration: number;
   sentimentResults: {
     text: string;
-    sentiment: "POSITIVE" | "NEGATIVE" | "NEUTRAL";
+    sentiment: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
     confidence: number;
     start: number;
     end: number;
@@ -1052,15 +1008,15 @@ interface BrollCandidate {
 
 interface AutoEditState {
   status:
-    | "idle"
-    | "uploading"
-    | "analyzing"
-    | "analyzed"
-    | "rendering"
-    | "editing"
-    | "polling"
-    | "completed"
-    | "error";
+    | 'idle'
+    | 'uploading'
+    | 'analyzing'
+    | 'analyzed'
+    | 'rendering'
+    | 'editing'
+    | 'polling'
+    | 'completed'
+    | 'error';
   step: string;
   progress: number;
   error?: string;
@@ -1070,10 +1026,10 @@ interface AutoEditState {
   finalVideoUrl?: string;
   brollCandidates: BrollCandidate[];
   selectedBrollIds: string[];
-  editMode?: "auto" | "manual";
+  editMode?: 'auto' | 'manual';
   versions?: string[];
   originalVideoUrl?: string;
-  videoFormat?: "9:16" | "1:1" | "16:9";
+  videoFormat?: '9:16' | '1:1' | '16:9';
   compressing?: boolean;
 }
 
@@ -1095,323 +1051,322 @@ interface ZapCapRenderConfig {
 
 const AD_STYLES = [
   {
-    id: "direto",
-    emoji: "🎯",
-    label: "Direto ao Ponto",
-    desc: "Vai direto para a oferta, sem enrolação",
+    id: 'direto',
+    emoji: '🎯',
+    label: 'Direto ao Ponto',
+    desc: 'Vai direto para a oferta, sem enrolação',
   },
   {
-    id: "storytelling",
-    emoji: "📖",
-    label: "Storytelling",
-    desc: "Prende com uma história antes de vender",
+    id: 'storytelling',
+    emoji: '📖',
+    label: 'Storytelling',
+    desc: 'Prende com uma história antes de vender',
   },
   {
-    id: "problema_solucao",
-    emoji: "🔁",
-    label: "Problema → Solução",
-    desc: "Mostra a dor do cliente e posiciona o produto como resposta",
+    id: 'problema_solucao',
+    emoji: '🔁',
+    label: 'Problema → Solução',
+    desc: 'Mostra a dor do cliente e posiciona o produto como resposta',
   },
   {
-    id: "prova_social",
-    emoji: "🏆",
-    label: "Prova Social",
-    desc: "Usa resultados reais e depoimentos para convencer",
+    id: 'prova_social',
+    emoji: '🏆',
+    label: 'Prova Social',
+    desc: 'Usa resultados reais e depoimentos para convencer',
   },
   {
-    id: "curiosidade",
-    emoji: "🪝",
-    label: "Gancho de Curiosidade",
-    desc: "Abre uma pergunta que faz o espectador querer saber mais",
+    id: 'curiosidade',
+    emoji: '🪝',
+    label: 'Gancho de Curiosidade',
+    desc: 'Abre uma pergunta que faz o espectador querer saber mais',
   },
   {
-    id: "urgencia",
-    emoji: "⏳",
-    label: "Urgência / Escassez",
-    desc: "Cria pressão de tempo ou quantidade limitada",
+    id: 'urgencia',
+    emoji: '⏳',
+    label: 'Urgência / Escassez',
+    desc: 'Cria pressão de tempo ou quantidade limitada',
   },
   {
-    id: "profissional",
-    emoji: "💼",
-    label: "Profissional / Autoridade",
-    desc: "Tom sério e confiável, ideal para B2B ou serviços premium",
+    id: 'profissional',
+    emoji: '💼',
+    label: 'Profissional / Autoridade',
+    desc: 'Tom sério e confiável, ideal para B2B ou serviços premium',
   },
   {
-    id: "humor",
-    emoji: "😂",
-    label: "Humor / Entretenimento",
-    desc: "Usa leveza e humor para prender atenção e criar identificação",
+    id: 'humor',
+    emoji: '😂',
+    label: 'Humor / Entretenimento',
+    desc: 'Usa leveza e humor para prender atenção e criar identificação',
   },
   {
-    id: "antes_depois",
-    emoji: "🔄",
-    label: "Antes e Depois",
-    desc: "Mostra a transformação que o produto causa na vida do cliente",
+    id: 'antes_depois',
+    emoji: '🔄',
+    label: 'Antes e Depois',
+    desc: 'Mostra a transformação que o produto causa na vida do cliente',
   },
   {
-    id: "educativo",
-    emoji: "💡",
-    label: "Educativo",
-    desc: "Ensina algo valioso antes de apresentar o produto como solução",
+    id: 'educativo',
+    emoji: '💡',
+    label: 'Educativo',
+    desc: 'Ensina algo valioso antes de apresentar o produto como solução',
   },
   {
-    id: "inspirador",
-    emoji: "❤️",
-    label: "Inspirador",
-    desc: "Desperta emoção e conecta o produto a uma aspiração maior",
+    id: 'inspirador',
+    emoji: '❤️',
+    label: 'Inspirador',
+    desc: 'Desperta emoção e conecta o produto a uma aspiração maior',
   },
 ];
 
 const STEPS: { id: Step; label: string; icon: any }[] = [
-  { id: "integrations", label: "Integrações", icon: RefreshCw },
-  { id: "projects", label: "Meus Projetos", icon: Layout },
-  { id: "persona", label: "Identificar Persona", icon: Users },
-  { id: "copy", label: "Gerar Texto Criativo", icon: Edit3 },
-  { id: "hook-visual", label: "Gerar Texto (Gancho)", icon: Clapperboard },
-  { id: "video-ia", label: "Gerar Vídeo (Gancho)", icon: Video },
-  { id: "voz-premium", label: "Gerar Voz", icon: Sparkles },
-  { id: "avatar", label: "Gerar Vídeo com Avatar", icon: User },
-  { id: "edit-zap", label: "Edição Zap", icon: Zap },
-  { id: "edit2", label: "Edição Premium", icon: Wand2 },
+  { id: 'integrations', label: 'Integrações', icon: RefreshCw },
+  { id: 'projects', label: 'Meus Projetos', icon: Layout },
+  { id: 'persona', label: 'Identificar Persona', icon: Users },
+  { id: 'copy', label: 'Gerar Texto Criativo', icon: Edit3 },
+  { id: 'hook-visual', label: 'Gerar Texto (Gancho)', icon: Clapperboard },
+  { id: 'video-ia', label: 'Gerar Vídeo (Gancho)', icon: Video },
+  { id: 'voz-premium', label: 'Gerar Voz', icon: Sparkles },
+  { id: 'avatar', label: 'Gerar Vídeo com Avatar', icon: User },
+  { id: 'edit-zap', label: 'Edição Zap', icon: Zap },
+  { id: 'edit2', label: 'Edição Premium', icon: Wand2 },
 
-  { id: "final", label: "Exportar", icon: Video },
+  { id: 'final', label: 'Exportar', icon: Video },
 ];
 
 const VEO_MODELS = [
   {
-    id: "veo-3.1-lite-generate-preview",
-    label: "VEO 3.1 Lite",
-    desc: "Rápido e econômico (Rascunho)",
+    id: 'veo-3.1-lite-generate-preview',
+    label: 'VEO 3.1 Lite',
+    desc: 'Rápido e econômico (Rascunho)',
     icon: Zap,
-    engine: "veo",
+    engine: 'veo',
   },
   {
-    id: "veo-3.1-generate-preview",
-    label: "VEO 3.1 Premium",
-    desc: "Alta qualidade e realismo",
+    id: 'veo-3.1-generate-preview',
+    label: 'VEO 3.1 Premium',
+    desc: 'Alta qualidade e realismo',
     icon: Star,
-    engine: "veo",
+    engine: 'veo',
   },
   {
-    id: "gen3a_turbo",
-    label: "Runway Gen-3 Turbo",
-    desc: "Realismo cinematográfico",
+    id: 'gen3a_turbo',
+    label: 'Runway Gen-3 Turbo',
+    desc: 'Realismo cinematográfico',
     icon: Sparkles,
-    engine: "runway",
+    engine: 'runway',
     hidden: true,
   },
 ];
 
 const EDITING_TEMPLATES = [
   {
-    id: "veo-futuristic",
-    label: "Sci-Fi Futurista",
-    desc: "Gera cenas High-Tech, neons e ambiente digital para seus B-rolls.",
-    style: "futuristic, sci-fi, high-tech, neon, digital",
+    id: 'veo-futuristic',
+    label: 'Sci-Fi Futurista',
+    desc: 'Gera cenas High-Tech, neons e ambiente digital para seus B-rolls.',
+    style: 'futuristic, sci-fi, high-tech, neon, digital',
   },
   {
-    id: "veo-professional",
-    label: "Corporativo / Business",
-    desc: "Cenas de escritórios modernos, cidades e ambientes profissionais.",
-    style: "professional, corporate, modern office, skyline, business",
+    id: 'veo-professional',
+    label: 'Corporativo / Business',
+    desc: 'Cenas de escritórios modernos, cidades e ambientes profissionais.',
+    style: 'professional, corporate, modern office, skyline, business',
   },
   {
-    id: "veo-nature",
-    label: "Natureza / Relaxante",
-    desc: "Paisagens naturais, luz suave e ambientes orgânicos.",
-    style: "nature, organic, soft lighting, cinematic landscapes",
+    id: 'veo-nature',
+    label: 'Natureza / Relaxante',
+    desc: 'Paisagens naturais, luz suave e ambientes orgânicos.',
+    style: 'nature, organic, soft lighting, cinematic landscapes',
   },
   {
-    id: "veo-abstract",
-    label: "Abstrato / Vibrante",
-    desc: "Formas geométricas, cores vibrantes e movimento artístico.",
-    style: "abstract, vibrant colors, artistic movement, motion graphics",
+    id: 'veo-abstract',
+    label: 'Abstrato / Vibrante',
+    desc: 'Formas geométricas, cores vibrantes e movimento artístico.',
+    style: 'abstract, vibrant colors, artistic movement, motion graphics',
   },
 ];
 
 const ANGLES = [
   {
-    id: "podcast",
-    label: "Podcast",
-    desc: "Autoridade especialista, vibe de estúdio",
+    id: 'podcast',
+    label: 'Podcast',
+    desc: 'Autoridade especialista, vibe de estúdio',
   },
-  { id: "interview", label: "Entrevista", desc: "Talking head profissional" },
+  { id: 'interview', label: 'Entrevista', desc: 'Talking head profissional' },
   {
-    id: "ugc_camera",
-    label: "Câmera UGC",
-    desc: "Autêntico, direto para a câmera",
-  },
-  {
-    id: "street_interview",
-    label: "Entrevista de Rua",
-    desc: "Dinâmico, vibe em movimento",
-  },
-  { id: "news", label: "Estilo Noticiário", desc: "Apresentação formal" },
-  {
-    id: "selfie",
-    label: "Estilo Selfie",
-    desc: "Casual, sensação de celular na mão",
+    id: 'ugc_camera',
+    label: 'Câmera UGC',
+    desc: 'Autêntico, direto para a câmera',
   },
   {
-    id: "cinematic",
-    label: "Cinematográfico",
-    desc: "Talking head de alta qualidade",
+    id: 'street_interview',
+    label: 'Entrevista de Rua',
+    desc: 'Dinâmico, vibe em movimento',
+  },
+  { id: 'news', label: 'Estilo Noticiário', desc: 'Apresentação formal' },
+  {
+    id: 'selfie',
+    label: 'Estilo Selfie',
+    desc: 'Casual, sensação de celular na mão',
+  },
+  {
+    id: 'cinematic',
+    label: 'Cinematográfico',
+    desc: 'Talking head de alta qualidade',
   },
 ];
 
 const SUBTITLE_STYLES = [
-  { id: "simple", label: "Simples", class: "text-white font-sans" },
+  { id: 'simple', label: 'Simples', class: 'text-white font-sans' },
   {
-    id: "bold_ad",
-    label: "Negrito (Estilo Anúncio)",
-    class: "text-yellow-400 font-bold uppercase italic",
+    id: 'bold_ad',
+    label: 'Negrito (Estilo Anúncio)',
+    class: 'text-yellow-400 font-bold uppercase italic',
   },
   {
-    id: "animated",
-    label: "Animado",
-    class: "text-white font-black uppercase tracking-widest",
+    id: 'animated',
+    label: 'Animado',
+    class: 'text-white font-black uppercase tracking-widest',
   },
   {
-    id: "word_by_word",
-    label: "Palavra por Palavra",
-    class: "text-white bg-black/50 px-2",
+    id: 'word_by_word',
+    label: 'Palavra por Palavra',
+    class: 'text-white bg-black/50 px-2',
   },
   {
-    id: "highlighted",
-    label: "Destaque de Palavra-chave",
-    class: "text-white bg-blue-600 px-2",
+    id: 'highlighted',
+    label: 'Destaque de Palavra-chave',
+    class: 'text-white bg-blue-600 px-2',
   },
   {
-    id: "neon",
-    label: "Brilho Neon",
-    class: "text-[#39FF14] font-mono font-bold",
+    id: 'neon',
+    label: 'Brilho Neon',
+    class: 'text-[#39FF14] font-mono font-bold',
   },
-  { id: "minimal", label: "Minimalista", class: "text-gray-200 font-light" },
+  { id: 'minimal', label: 'Minimalista', class: 'text-gray-200 font-light' },
   {
-    id: "caption_box",
-    label: "Caixa de Legenda",
-    class: "text-black bg-white px-2",
+    id: 'caption_box',
+    label: 'Caixa de Legenda',
+    class: 'text-black bg-white px-2',
   },
-  { id: "retro", label: "Retro VHS", class: "text-cyan-300 font-mono italic" },
+  { id: 'retro', label: 'Retro VHS', class: 'text-cyan-300 font-mono italic' },
   {
-    id: "gradient",
-    label: "Gradiente",
-    class:
-      "text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600 font-bold",
+    id: 'gradient',
+    label: 'Gradiente',
+    class: 'text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600 font-bold',
   },
 ];
 
 const AVATARS = [
   // Men
   {
-    id: "m1",
-    name: "Alex",
-    gender: "male",
-    img: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&h=400",
+    id: 'm1',
+    name: 'Alex',
+    gender: 'male',
+    img: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&h=400',
   },
   {
-    id: "m2",
-    name: "Marcus",
-    gender: "male",
-    img: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=400&h=400",
+    id: 'm2',
+    name: 'Marcus',
+    gender: 'male',
+    img: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=400&h=400',
   },
   {
-    id: "m3",
-    name: "David",
-    gender: "male",
-    img: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&h=400",
+    id: 'm3',
+    name: 'David',
+    gender: 'male',
+    img: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&h=400',
   },
   {
-    id: "m4",
-    name: "James",
-    gender: "male",
-    img: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=400&h=400",
+    id: 'm4',
+    name: 'James',
+    gender: 'male',
+    img: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=400&h=400',
   },
   {
-    id: "m5",
-    name: "Leo",
-    gender: "male",
-    img: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=400&h=400",
+    id: 'm5',
+    name: 'Leo',
+    gender: 'male',
+    img: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=400&h=400',
   },
   // Women
   {
-    id: "f1",
-    name: "Sarah",
-    gender: "female",
-    img: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=400&h=400",
+    id: 'f1',
+    name: 'Sarah',
+    gender: 'female',
+    img: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=400&h=400',
   },
   {
-    id: "f2",
-    name: "Elena",
-    gender: "female",
-    img: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=400&h=400",
+    id: 'f2',
+    name: 'Elena',
+    gender: 'female',
+    img: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=400&h=400',
   },
   {
-    id: "f3",
-    name: "Maya",
-    gender: "female",
-    img: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&h=400",
+    id: 'f3',
+    name: 'Maya',
+    gender: 'female',
+    img: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&h=400',
   },
   {
-    id: "f4",
-    name: "Chloe",
-    gender: "female",
-    img: "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=400&h=400",
+    id: 'f4',
+    name: 'Chloe',
+    gender: 'female',
+    img: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=400&h=400',
   },
   {
-    id: "f5",
-    name: "Sofia",
-    gender: "female",
-    img: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=400&h=400",
+    id: 'f5',
+    name: 'Sofia',
+    gender: 'female',
+    img: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=400&h=400',
   },
 ];
 
 const VOICES = []; // Removed hardcoded voices
 
 const FORMATS = [
-  { id: "9:16", label: "Vertical (9:16)", desc: "Reels, TikTok, Shorts" },
-  { id: "1:1", label: "Quadrado (1:1)", desc: "Instagram, Feed" },
-  { id: "16:9", label: "Horizontal (16:9)", desc: "YouTube, Web" },
+  { id: '9:16', label: 'Vertical (9:16)', desc: 'Reels, TikTok, Shorts' },
+  { id: '1:1', label: 'Quadrado (1:1)', desc: 'Instagram, Feed' },
+  { id: '16:9', label: 'Horizontal (16:9)', desc: 'YouTube, Web' },
 ];
 
 const TRANSITIONS = [
-  { id: "none", label: "Nenhuma" },
-  { id: "fade", label: "Fade" },
-  { id: "zoom", label: "Zoom" },
-  { id: "slide", label: "Slide" },
-  { id: "dissolve", label: "Dissolver" },
+  { id: 'none', label: 'Nenhuma' },
+  { id: 'fade', label: 'Fade' },
+  { id: 'zoom', label: 'Zoom' },
+  { id: 'slide', label: 'Slide' },
+  { id: 'dissolve', label: 'Dissolver' },
 ];
 
 const SOUND_EFFECTS = [
-  { id: "none", label: "Nenhum" },
-  { id: "whoosh", label: "Whoosh" },
-  { id: "pop", label: "Pop" },
-  { id: "glitch", label: "Glitch" },
-  { id: "impact", label: "Impacto" },
+  { id: 'none', label: 'Nenhum' },
+  { id: 'whoosh', label: 'Whoosh' },
+  { id: 'pop', label: 'Pop' },
+  { id: 'glitch', label: 'Glitch' },
+  { id: 'impact', label: 'Impacto' },
 ];
 
 const BACKGROUND_MUSIC = [
-  { id: "none", label: "Nenhuma" },
-  { id: "corporate", label: "Corporativa" },
-  { id: "upbeat", label: "Animada" },
-  { id: "lofi", label: "Lo-Fi" },
-  { id: "dramatic", label: "Dramática" },
+  { id: 'none', label: 'Nenhuma' },
+  { id: 'corporate', label: 'Corporativa' },
+  { id: 'upbeat', label: 'Animada' },
+  { id: 'lofi', label: 'Lo-Fi' },
+  { id: 'dramatic', label: 'Dramática' },
 ];
 
 const MOTION_EFFECTS = [
-  { id: "none", label: "Nenhum" },
-  { id: "zoom_in", label: "Zoom In Lento" },
-  { id: "pan_left", label: "Pan Esquerda" },
-  { id: "pan_right", label: "Pan Direita" },
-  { id: "shake", label: "Leve Tremor" },
+  { id: 'none', label: 'Nenhum' },
+  { id: 'zoom_in', label: 'Zoom In Lento' },
+  { id: 'pan_left', label: 'Pan Esquerda' },
+  { id: 'pan_right', label: 'Pan Direita' },
+  { id: 'shake', label: 'Leve Tremor' },
 ];
 
 const CINEMATIC_EFFECTS = [
-  { id: "none", label: "Nenhum" },
-  { id: "film_grain", label: "Grão de Filme" },
-  { id: "vignette", label: "Vinheta" },
-  { id: "color_grade", label: "Color Grading" },
-  { id: "letterbox", label: "Letterbox" },
+  { id: 'none', label: 'Nenhum' },
+  { id: 'film_grain', label: 'Grão de Filme' },
+  { id: 'vignette', label: 'Vinheta' },
+  { id: 'color_grade', label: 'Color Grading' },
+  { id: 'letterbox', label: 'Letterbox' },
 ];
 
 // --- Components ---
@@ -1458,7 +1413,7 @@ const VariantItem: React.FC<{
               url: variant.config.audioUrl,
               storagePath: variant.config.audioStoragePath,
               voiceId: variant.config.avatar.voiceId,
-              createdAt: "",
+              createdAt: '',
             },
           ]
         : [];
@@ -1470,7 +1425,7 @@ const VariantItem: React.FC<{
             {
               url: variant.config.videoUrl,
               storagePath: variant.config.videoStoragePath,
-              createdAt: "",
+              createdAt: '',
               aspectRatio: variant.config.format.aspectRatio,
             },
           ]
@@ -1480,8 +1435,8 @@ const VariantItem: React.FC<{
     <div
       className={`rounded-[32px] border-2 transition-all overflow-hidden ${
         isViewing
-          ? "border-blue-600 bg-blue-50/30 shadow-lg shadow-blue-100/50"
-          : "border-gray-100 bg-white hover:border-blue-100"
+          ? 'border-blue-600 bg-blue-50/30 shadow-lg shadow-blue-100/50'
+          : 'border-gray-100 bg-white hover:border-blue-100'
       }`}
     >
       <div
@@ -1492,8 +1447,8 @@ const VariantItem: React.FC<{
           <div
             className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
               isViewing
-                ? "bg-blue-600 text-white shadow-lg shadow-blue-500/40"
-                : "bg-blue-50 text-blue-600"
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/40'
+                : 'bg-blue-50 text-blue-600'
             }`}
           >
             <Layout size={24} />
@@ -1508,13 +1463,13 @@ const VariantItem: React.FC<{
                     onChange={(e) => setRenameValue(e.target.value)}
                     onClick={(e) => e.stopPropagation()}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") {
+                      if (e.key === 'Enter') {
                         e.preventDefault();
                         if (renameValue.trim() && renameValue !== variant.name) {
                           onRename(project.id, variant.id, renameValue);
                         }
                         setIsRenaming(false);
-                      } else if (e.key === "Escape") {
+                      } else if (e.key === 'Escape') {
                         setRenameValue(variant.name);
                         setIsRenaming(false);
                       }
@@ -1567,7 +1522,7 @@ const VariantItem: React.FC<{
             <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
               {variant.createdAt?.toDate
                 ? variant.createdAt.toDate().toLocaleString()
-                : "Data não disponível"}
+                : 'Data não disponível'}
             </p>
           </div>
         </div>
@@ -1609,17 +1564,17 @@ const VariantItem: React.FC<{
               <div
                 onClick={(e) => {
                   e.stopPropagation();
-                  setExpandedItem(expandedItem === "copy" ? null : "copy");
+                  setExpandedItem(expandedItem === 'copy' ? null : 'copy');
                 }}
                 className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all cursor-pointer ${
-                  expandedItem === "copy"
-                    ? "bg-amber-50 border-amber-200 shadow-sm"
-                    : "bg-gray-50/50 border-gray-100 hover:border-amber-200"
+                  expandedItem === 'copy'
+                    ? 'bg-amber-50 border-amber-200 shadow-sm'
+                    : 'bg-gray-50/50 border-gray-100 hover:border-amber-200'
                 }`}
               >
                 <div className="flex items-center gap-3">
                   <div
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center ${expandedItem === "copy" ? "bg-amber-200 text-amber-700" : "bg-amber-100 text-amber-600"}`}
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center ${expandedItem === 'copy' ? 'bg-amber-200 text-amber-700' : 'bg-amber-100 text-amber-600'}`}
                   >
                     <Type size={14} />
                   </div>
@@ -1631,7 +1586,7 @@ const VariantItem: React.FC<{
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      onLoad(variant, "copy");
+                      onLoad(variant, 'copy');
                     }}
                     className="px-3 py-1.5 bg-amber-100 text-amber-700 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-amber-200 transition-all"
                   >
@@ -1640,7 +1595,7 @@ const VariantItem: React.FC<{
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      onLoad(variant, "voz-premium");
+                      onLoad(variant, 'voz-premium');
                     }}
                     className="px-3 py-1.5 bg-gray-900 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-black transition-all"
                   >
@@ -1648,15 +1603,15 @@ const VariantItem: React.FC<{
                   </button>
                   <ChevronDown
                     size={16}
-                    className={`text-gray-400 transition-transform duration-300 ${expandedItem === "copy" ? "rotate-180" : ""}`}
+                    className={`text-gray-400 transition-transform duration-300 ${expandedItem === 'copy' ? 'rotate-180' : ''}`}
                   />
                 </div>
               </div>
               <AnimatePresence>
-                {expandedItem === "copy" && (
+                {expandedItem === 'copy' && (
                   <motion.div
                     initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
+                    animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                     className="overflow-hidden"
                   >
@@ -1688,26 +1643,21 @@ const VariantItem: React.FC<{
 
           {/* Audio Items */}
           {displayAudios.map((audio, idx) => (
-            <div
-              key={`creative-audio-${idx}-${audio.url || "no-url"}`}
-              className="space-y-2"
-            >
+            <div key={`creative-audio-${idx}-${audio.url || 'no-url'}`} className="space-y-2">
               <div
                 onClick={(e) => {
                   e.stopPropagation();
-                  setExpandedItem(
-                    expandedItem === `audio-${idx}` ? null : `audio-${idx}`,
-                  );
+                  setExpandedItem(expandedItem === `audio-${idx}` ? null : `audio-${idx}`);
                 }}
                 className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all cursor-pointer ${
                   expandedItem === `audio-${idx}`
-                    ? "bg-green-50 border-green-200 shadow-sm"
-                    : "bg-gray-50/50 border-gray-100 hover:border-green-200"
+                    ? 'bg-green-50 border-green-200 shadow-sm'
+                    : 'bg-gray-50/50 border-gray-100 hover:border-green-200'
                 }`}
               >
                 <div className="flex items-center gap-3">
                   <div
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center ${expandedItem === `audio-${idx}` ? "bg-green-200 text-green-700" : "bg-green-100 text-green-600"}`}
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center ${expandedItem === `audio-${idx}` ? 'bg-green-200 text-green-700' : 'bg-green-100 text-green-600'}`}
                   >
                     <Volume2 size={14} />
                   </div>
@@ -1719,7 +1669,7 @@ const VariantItem: React.FC<{
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      onLoad(variant, "avatar");
+                      onLoad(variant, 'avatar');
                     }}
                     className="px-3 py-1.5 bg-gray-900 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-black transition-all"
                   >
@@ -1727,7 +1677,7 @@ const VariantItem: React.FC<{
                   </button>
                   <ChevronDown
                     size={16}
-                    className={`text-gray-400 transition-transform duration-300 ${expandedItem === `audio-${idx}` ? "rotate-180" : ""}`}
+                    className={`text-gray-400 transition-transform duration-300 ${expandedItem === `audio-${idx}` ? 'rotate-180' : ''}`}
                   />
                 </div>
               </div>
@@ -1735,16 +1685,12 @@ const VariantItem: React.FC<{
                 {expandedItem === `audio-${idx}` && (
                   <motion.div
                     initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
+                    animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                     className="overflow-hidden"
                   >
                     <div className="p-4 bg-white rounded-2xl border border-green-100 flex items-center justify-between gap-4 shadow-inner">
-                      <audio
-                        src={audio.url || undefined}
-                        controls
-                        className="h-8 flex-1"
-                      />
+                      <audio src={audio.url || undefined} controls className="h-8 flex-1" />
                       <div className="flex items-center gap-2">
                         <a
                           href={audio.url}
@@ -1762,7 +1708,7 @@ const VariantItem: React.FC<{
                               e.stopPropagation();
                               if (
                                 window.confirm(
-                                  "Tem certeza que deseja deletar este áudio? Esta ação não pode ser desfeita.",
+                                  'Tem certeza que deseja deletar este áudio? Esta ação não pode ser desfeita.'
                                 )
                               ) {
                                 onDeleteAudio(audio);
@@ -1784,26 +1730,21 @@ const VariantItem: React.FC<{
 
           {/* Video Items */}
           {displayVideos.map((video, idx) => (
-            <div
-              key={`creative-video-${idx}-${video.url || "no-url"}`}
-              className="space-y-2"
-            >
+            <div key={`creative-video-${idx}-${video.url || 'no-url'}`} className="space-y-2">
               <div
                 onClick={(e) => {
                   e.stopPropagation();
-                  setExpandedItem(
-                    expandedItem === `video-${idx}` ? null : `video-${idx}`,
-                  );
+                  setExpandedItem(expandedItem === `video-${idx}` ? null : `video-${idx}`);
                 }}
                 className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all cursor-pointer ${
                   expandedItem === `video-${idx}`
-                    ? "bg-blue-50 border-blue-200 shadow-sm"
-                    : "bg-gray-50/50 border-gray-100 hover:border-blue-200"
+                    ? 'bg-blue-50 border-blue-200 shadow-sm'
+                    : 'bg-gray-50/50 border-gray-100 hover:border-blue-200'
                 }`}
               >
                 <div className="flex items-center gap-3">
                   <div
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center ${expandedItem === `video-${idx}` ? "bg-blue-200 text-blue-700" : "bg-blue-100 text-blue-600"}`}
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center ${expandedItem === `video-${idx}` ? 'bg-blue-200 text-blue-700' : 'bg-blue-100 text-blue-600'}`}
                   >
                     <Video size={14} />
                   </div>
@@ -1815,7 +1756,7 @@ const VariantItem: React.FC<{
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      onLoad(variant, "edit");
+                      onLoad(variant, 'edit');
                     }}
                     className="px-3 py-1.5 bg-gray-900 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-black transition-all"
                   >
@@ -1823,7 +1764,7 @@ const VariantItem: React.FC<{
                   </button>
                   <ChevronDown
                     size={16}
-                    className={`text-gray-400 transition-transform duration-300 ${expandedItem === `video-${idx}` ? "rotate-180" : ""}`}
+                    className={`text-gray-400 transition-transform duration-300 ${expandedItem === `video-${idx}` ? 'rotate-180' : ''}`}
                   />
                 </div>
               </div>
@@ -1831,49 +1772,43 @@ const VariantItem: React.FC<{
                 {expandedItem === `video-${idx}` && (
                   <motion.div
                     initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
+                    animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                     className="overflow-hidden"
                   >
                     <div className="space-y-4 p-4 bg-white rounded-2xl border border-blue-100 shadow-inner">
                       <div
                         className={cn(
-                          "bg-black rounded-xl overflow-hidden border-2 border-gray-100 shadow-sm",
-                          getVideoAspectRatioClass(video),
+                          'bg-black rounded-xl overflow-hidden border-2 border-gray-100 shadow-sm',
+                          getVideoAspectRatioClass(video)
                         )}
                       >
                         <video
                           src={
-                            getAuthorizedUrl(
-                              video.url || "",
-                              platformApiKey || undefined,
-                            ) || undefined
+                            getAuthorizedUrl(video.url || '', platformApiKey || undefined) ||
+                            undefined
                           }
                           controls
                           className="w-full h-full object-contain"
                           referrerPolicy={
-                            video.url?.includes(
-                              "generativelanguage.googleapis.com",
-                            )
-                              ? "no-referrer"
+                            video.url?.includes('generativelanguage.googleapis.com')
+                              ? 'no-referrer'
                               : undefined
                           }
                           crossOrigin={
-                            video.url?.includes(
-                              "generativelanguage.googleapis.com",
-                            )
-                              ? "anonymous"
+                            video.url?.includes('generativelanguage.googleapis.com')
+                              ? 'anonymous'
                               : undefined
                           }
                           onError={(e) => {
-                            if (video.url?.startsWith("/generated/")) {
-                              console.warn("[Video Expired] Variant Item:", video.url);
-                              e.currentTarget.style.display = "none";
+                            if (video.url?.startsWith('/generated/')) {
+                              console.warn('[Video Expired] Variant Item:', video.url);
+                              e.currentTarget.style.display = 'none';
                             } else {
                               console.error(
-                                "[Video Error] Variant Item:",
+                                '[Video Error] Variant Item:',
                                 e.currentTarget.error?.message,
-                                video.url,
+                                video.url
                               );
                             }
                           }}
@@ -1884,7 +1819,7 @@ const VariantItem: React.FC<{
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              onLoad(variant, "edit");
+                              onLoad(variant, 'edit');
                             }}
                             className="px-4 py-2 bg-purple-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-purple-700 transition-all shadow-lg shadow-purple-100 flex items-center gap-2"
                           >
@@ -1894,7 +1829,7 @@ const VariantItem: React.FC<{
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              onLoad(variant, "final");
+                              onLoad(variant, 'final');
                             }}
                             className="px-4 py-2 bg-gray-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-lg shadow-gray-200 flex items-center gap-2"
                           >
@@ -1939,54 +1874,60 @@ const VariantItem: React.FC<{
 };
 
 export default function App() {
-  const [currentStep, setCurrentStep] = useState<Step>("projects");
+  const [currentStep, setCurrentStep] = useState<Step>('projects');
   const [deleteProjectConfirmId, setDeleteProjectConfirmId] = useState<string | null>(null);
-  const [voiceSource, setVoiceSource] = useState<"copy" | "hook">("copy");
+  const [voiceSource, setVoiceSource] = useState<'copy' | 'hook'>('copy');
   const [previewAvatar, setPreviewAvatar] = useState<any>(null);
   const [credits, setCredits] = useState<number>(0);
   const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [userRole, setUserRole] = useState<"user" | "admin">("user");
+  const [userRole, setUserRole] = useState<'user' | 'admin'>('user');
   const [isAuthReady, setIsAuthReady] = useState(false);
-  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [elevenLabsKey, setElevenLabsKey] = useState("");
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [elevenLabsKey, setElevenLabsKey] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [testStatus, setTestStatus] = useState<{
-    status: "idle" | "loading" | "success" | "error";
+    status: 'idle' | 'loading' | 'success' | 'error';
     message?: string;
-  }>({ status: "idle" });
-  const [heygenKey, setHeygenKey] = useState("");
+  }>({ status: 'idle' });
+  const [heygenKey, setHeygenKey] = useState('');
   const [heygenShowKey, setHeygenShowKey] = useState(false);
   const [heygenTestStatus, setHeygenTestStatus] = useState<{
-    status: "idle" | "loading" | "success" | "error";
+    status: 'idle' | 'loading' | 'success' | 'error';
     message?: string;
-  }>({ status: "idle" });
-  const [runwayKey, setRunwayKey] = useState("");
+  }>({ status: 'idle' });
+  const [runwayKey, setRunwayKey] = useState('');
   const [runwayShowKey, setRunwayShowKey] = useState(false);
   const [runwayTestStatus, setRunwayTestStatus] = useState<{
-    status: "idle" | "loading" | "success" | "error";
+    status: 'idle' | 'loading' | 'success' | 'error';
     message?: string;
-  }>({ status: "idle" });
+  }>({ status: 'idle' });
+  const [geminiKey, setGeminiKey] = useState('');
+  const [geminiShowKey, setGeminiShowKey] = useState(false);
+  const [geminiTestStatus, setGeminiTestStatus] = useState<{
+    status: 'idle' | 'loading' | 'success' | 'error';
+    message?: string;
+  }>({ status: 'idle' });
   const [assemblyTestStatus, setAssemblyTestStatus] = useState<{
-    status: "idle" | "loading" | "success" | "error";
+    status: 'idle' | 'loading' | 'success' | 'error';
     message?: string;
-  }>({ status: "idle" });
+  }>({ status: 'idle' });
   const [zapcapTestStatus, setZapcapTestStatus] = useState<{
-    status: "idle" | "loading" | "success" | "error";
+    status: 'idle' | 'loading' | 'success' | 'error';
     message?: string;
-  }>({ status: "idle" });
+  }>({ status: 'idle' });
   const [generationStage, setGenerationStage] = useState<
-    | "idle"
-    | "audio"
-    | "audio_ready"
-    | "video"
-    | "video_ready"
-    | "subtitles"
-    | "subtitles_ready"
-    | "edit"
-    | "completed"
-  >("idle");
+    | 'idle'
+    | 'audio'
+    | 'audio_ready'
+    | 'video'
+    | 'video_ready'
+    | 'subtitles'
+    | 'subtitles_ready'
+    | 'edit'
+    | 'completed'
+  >('idle');
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [audioStoragePath, setAudioStoragePath] = useState<string | null>(null);
   const [audios, setAudios] = useState<
@@ -2030,27 +1971,27 @@ export default function App() {
     // 0. Garantir hookVisual
     if (!loadedConfig.hookVisual) {
       loadedConfig.hookVisual = {
-        promptImagem: "",
+        promptImagem: '',
         imagensGeradas: [],
-        imagemEscolhida: "",
-        promptVideo: "",
-        videoGerado: "",
+        imagemEscolhida: '',
+        promptVideo: '',
+        videoGerado: '',
         duracaoVideo: 4,
-        modeloImagem: "imagen-4.0-generate-001",
-        modeloVideo: "veo-3.1-fast-generate-preview",
+        modeloImagem: 'imagen-4.0-generate-001',
+        modeloVideo: 'veo-3.1-fast-generate-preview',
       };
     }
 
     // 1. Retrocompatibilidade: Garantir campos básicos de edit
     if (!loadedConfig.edit) {
       loadedConfig.edit = {
-        transition: "none",
-        soundEffect: "none",
-        backgroundMusic: "none",
-        textOverlay: "",
-        motionEffect: "none",
-        cinematicEffect: "none",
-        cta: "",
+        transition: 'none',
+        soundEffect: 'none',
+        backgroundMusic: 'none',
+        textOverlay: '',
+        motionEffect: 'none',
+        cinematicEffect: 'none',
+        cta: '',
         logoUrl: null,
         pacing: 1.0,
         timelineEdits: [],
@@ -2062,39 +2003,39 @@ export default function App() {
     // 2. Retrocompatibilidade: Garantir campos de copy
     if (!loadedConfig.copy) {
       (loadedConfig as any).copy = {
-        mode: "questions",
+        mode: 'questions',
         answers: {},
-        generatedScript: "",
+        generatedScript: '',
         generatedHooks: [],
-        discoveryMode: "unknown",
+        discoveryMode: 'unknown',
       };
     }
 
     // 3. Inferir discoveryMode se estiver faltando
     if (!loadedConfig.copy.discoveryMode) {
       if (loadedConfig.copy.finalScript) {
-        loadedConfig.copy.discoveryMode = "done";
+        loadedConfig.copy.discoveryMode = 'done';
       } else if (
         loadedConfig.copy.answers?.audience ||
         loadedConfig.copy.answers?.productName ||
         Object.keys(loadedConfig.copy.answers || {}).length > 0
       ) {
-        loadedConfig.copy.discoveryMode = "known";
+        loadedConfig.copy.discoveryMode = 'known';
       } else {
-        loadedConfig.copy.discoveryMode = "unknown";
+        loadedConfig.copy.discoveryMode = 'unknown';
       }
     }
 
     // 4. Garantir campos de answers (Bug 2)
     const answers = loadedConfig.copy.answers || {};
     const defaultAnswers: Record<string, any> = {
-      language: answers.language || "Português (Brasileiro)",
-      awarenessLevel: answers.awarenessLevel || "",
-      estiloAnuncio: answers.estiloAnuncio || "",
-      clickDestination: answers.clickDestination || "",
-      primaryEmotion: answers.primaryEmotion || "",
-      angleIdea: answers.angleIdea || "",
-      businessModel: answers.businessModel || "",
+      language: answers.language || 'Português (Brasileiro)',
+      awarenessLevel: answers.awarenessLevel || '',
+      estiloAnuncio: answers.estiloAnuncio || '',
+      clickDestination: answers.clickDestination || '',
+      primaryEmotion: answers.primaryEmotion || '',
+      angleIdea: answers.angleIdea || '',
+      businessModel: answers.businessModel || '',
     };
     loadedConfig.copy.answers = { ...defaultAnswers, ...answers };
 
@@ -2110,10 +2051,10 @@ export default function App() {
           const key = await g.aistudio.getSelectedApiKey();
           if (key && key !== platformApiKey) {
             setPlatformApiKey(key);
-            console.log("[AI Studio Debug] Platform API Key synchronized.");
+            console.log('[AI Studio Debug] Platform API Key synchronized.');
           }
         } catch (e) {
-          console.warn("[AI Studio Debug] Failed to sync platform API key:", e);
+          console.warn('[AI Studio Debug] Failed to sync platform API key:', e);
         }
       }
     };
@@ -2123,13 +2064,35 @@ export default function App() {
     return () => clearInterval(interval);
   }, [platformApiKey]);
 
+  // Hydrate Gemini API key from the backend on app boot so all the existing
+  // call sites (which read window.process.env.GEMINI_API_KEY) work even when
+  // the key was set via the in-app admin UI rather than the .env file.
+  useEffect(() => {
+    const hydrateGeminiKey = async () => {
+      try {
+        const r = await fetch('/api/gemini/key');
+        if (!r.ok) return;
+        const { apiKey } = await r.json();
+        if (!apiKey) return;
+        const w = window as any;
+        w.process = w.process || { env: {} };
+        w.process.env = w.process.env || {};
+        w.process.env.GEMINI_API_KEY = apiKey;
+        console.log('[Gemini] API Key hydrated from server config.');
+      } catch (e) {
+        console.warn('[Gemini] Could not fetch saved API key:', e);
+      }
+    };
+    hydrateGeminiKey();
+  }, []);
+
   const safeDeleteObject = async (path: string) => {
     try {
       const storageRef = ref(storage, path);
       await deleteObject(storageRef);
     } catch (err: any) {
       // If the object is already gone, we consider it a success
-      if (err.code === "storage/object-not-found") {
+      if (err.code === 'storage/object-not-found') {
         console.warn(`Object not found in storage, skipping deletion: ${path}`);
         return;
       }
@@ -2137,10 +2100,7 @@ export default function App() {
     }
   };
 
-  const handleDeleteAudio = async (audioArg?: {
-    url: string;
-    storagePath: string | null;
-  }) => {
+  const handleDeleteAudio = async (audioArg?: { url: string; storagePath: string | null }) => {
     const targetAudio = audioArg || audioToDelete;
     if (!targetAudio) return;
     try {
@@ -2166,18 +2126,17 @@ export default function App() {
 
       setAudioToDelete(null);
       setShowDeleteModal(false);
-      toast.success("Áudio deletado com sucesso!");
+      toast.success('Áudio deletado com sucesso!');
 
       // Auto-save after deletion
       handleSaveProject({
         audios: newAudios,
         audioUrl: audioUrl === targetAudio.url ? null : audioUrl,
-        audioStoragePath:
-          audioUrl === targetAudio.url ? null : audioStoragePath,
+        audioStoragePath: audioUrl === targetAudio.url ? null : audioStoragePath,
       });
     } catch (err) {
-      console.error("Erro ao deletar áudio:", err);
-      toast.error("Erro ao deletar áudio.");
+      console.error('Erro ao deletar áudio:', err);
+      toast.error('Erro ao deletar áudio.');
     }
   };
 
@@ -2205,10 +2164,10 @@ export default function App() {
         videoStoragePath: null,
         videos: newVideos,
         lastVideoMetadata: null,
-        generationStage: "idle",
+        generationStage: 'idle',
       }));
       setShowDeleteVideoModal(false);
-      toast.success("Vídeo deletado com sucesso!");
+      toast.success('Vídeo deletado com sucesso!');
 
       // Auto-save
       setTimeout(() => {
@@ -2217,19 +2176,16 @@ export default function App() {
           videoStoragePath: null,
           videos: newVideos,
           lastVideoMetadata: null,
-          generationStage: "idle",
+          generationStage: 'idle',
         });
       }, 500);
     } catch (err) {
-      console.error("Erro ao deletar vídeo:", err);
-      toast.error("Erro ao deletar vídeo.");
+      console.error('Erro ao deletar vídeo:', err);
+      toast.error('Erro ao deletar vídeo.');
     }
   };
 
-  const handleDeleteVideoFromArray = async (video: {
-    url: string;
-    storagePath: string | null;
-  }) => {
+  const handleDeleteVideoFromArray = async (video: { url: string; storagePath: string | null }) => {
     if (!video.storagePath) {
       const newVideos = videos.filter((v) => v.url !== video.url);
       setVideos(newVideos);
@@ -2239,12 +2195,9 @@ export default function App() {
       let newLastMetadata = lastVideoMetadata;
 
       if (videoUrl === video.url) {
-        newVideoUrl =
-          newVideos.length > 0 ? newVideos[newVideos.length - 1].url : null;
+        newVideoUrl = newVideos.length > 0 ? newVideos[newVideos.length - 1].url : null;
         newVideoStoragePath =
-          newVideos.length > 0
-            ? newVideos[newVideos.length - 1].storagePath
-            : null;
+          newVideos.length > 0 ? newVideos[newVideos.length - 1].storagePath : null;
         setVideoUrl(newVideoUrl);
         setVideoStoragePath(newVideoStoragePath);
 
@@ -2267,7 +2220,7 @@ export default function App() {
         lastVideoMetadata: newLastMetadata,
       }));
 
-      toast.success("Vídeo removido do histórico!");
+      toast.success('Vídeo removido do histórico!');
 
       handleSaveProject({
         videos: newVideos,
@@ -2291,12 +2244,9 @@ export default function App() {
       let newLastMetadata = lastVideoMetadata;
 
       if (videoUrl === video.url) {
-        newVideoUrl =
-          newVideos.length > 0 ? newVideos[newVideos.length - 1].url : null;
+        newVideoUrl = newVideos.length > 0 ? newVideos[newVideos.length - 1].url : null;
         newVideoStoragePath =
-          newVideos.length > 0
-            ? newVideos[newVideos.length - 1].storagePath
-            : null;
+          newVideos.length > 0 ? newVideos[newVideos.length - 1].storagePath : null;
         setVideoUrl(newVideoUrl);
         setVideoStoragePath(newVideoStoragePath);
 
@@ -2319,7 +2269,7 @@ export default function App() {
         lastVideoMetadata: newLastMetadata,
       }));
 
-      toast.success("Vídeo deletado com sucesso!");
+      toast.success('Vídeo deletado com sucesso!');
 
       handleSaveProject({
         videos: newVideos,
@@ -2328,15 +2278,15 @@ export default function App() {
         lastVideoMetadata: newLastMetadata,
       });
     } catch (err) {
-      console.error("Erro ao deletar vídeo:", err);
-      toast.error("Erro ao deletar vídeo.");
+      console.error('Erro ao deletar vídeo:', err);
+      toast.error('Erro ao deletar vídeo.');
     }
   };
 
   const handleSaveVideoToFirebase = async (heygenVideoUrl: string) => {
     if (!auth.currentUser) return { url: heygenVideoUrl, path: null };
     try {
-      addLog("Salvando vídeo no Firebase...");
+      addLog('Salvando vídeo no Firebase...');
       let response;
       for (let i = 0; i < 3; i++) {
         response = await fetch(heygenVideoUrl);
@@ -2344,118 +2294,113 @@ export default function App() {
         console.warn(`Attempt ${i + 1} failed with status ${response.status}. Retrying...`);
         if (i < 2) await new Promise((r) => setTimeout(r, 2000));
       }
-      
+
       if (!response || !response.ok) {
         throw new Error(`HTTP Error ${response?.status}`);
       }
-      const contentType = response.headers.get("content-type");
-      if (contentType && contentType.includes("text/html")) {
-        throw new Error("Received HTML instead of media");
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('text/html')) {
+        throw new Error('Received HTML instead of media');
       }
-      
+
       const blob = await response.blob();
-      const storageRef = ref(
-        storage,
-        `video/${auth.currentUser.uid}/${Date.now()}.mp4`,
-      );
+      const storageRef = ref(storage, `video/${auth.currentUser.uid}/${Date.now()}.mp4`);
       await uploadBytes(storageRef, blob);
       const downloadUrl = await getDownloadURL(storageRef);
-      addLog("Vídeo salvo no Firebase com sucesso.");
+      addLog('Vídeo salvo no Firebase com sucesso.');
       return { url: downloadUrl, path: storageRef.fullPath };
     } catch (err) {
-      console.error("Erro ao salvar vídeo no Firebase:", err);
-      addLog("Falha ao salvar no Firebase, usando URL original.");
+      console.error('Erro ao salvar vídeo no Firebase:', err);
+      addLog('Falha ao salvar no Firebase, usando URL original.');
       return { url: heygenVideoUrl, path: null };
     }
   };
   const [selectedHookIdx, setSelectedHookIdx] = useState<number | null>(null);
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
-  const [newProjectName, setNewProjectName] = useState("");
-  const [newProjectType, setNewProjectType] = useState<
-    "complete" | "copy" | "video" | "editing"
-  >("complete");
+  const [newProjectName, setNewProjectName] = useState('');
+  const [newProjectType, setNewProjectType] = useState<'complete' | 'copy' | 'video' | 'editing'>(
+    'complete'
+  );
   const [config, setConfig] = useState<AdConfig>({
-    angle: "podcast",
+    angle: 'podcast',
     copy: {
-      mode: "questions",
+      mode: 'questions',
       answers: {},
-      generatedScript: "",
+      generatedScript: '',
       generatedHooks: [],
-      hookSelecionado: "",
+      hookSelecionado: '',
       hooksBiblioteca: [],
       hooksDisponiveis: [],
     },
     scene: {
-      description: "",
-      background: "",
-      framing: "",
-      lighting: "",
-      tone: "",
-      bodyLanguage: "",
-      deliveryStyle: "",
+      description: '',
+      background: '',
+      framing: '',
+      lighting: '',
+      tone: '',
+      bodyLanguage: '',
+      deliveryStyle: '',
     },
-    avatar: { faceId: "f1", customFaceUrl: null, voiceId: "", scale: 1.0 },
-    subtitles: { style: "bold_ad" },
-    format: { aspectRatio: "9:16", duration: 10 },
+    avatar: { faceId: 'f1', customFaceUrl: null, voiceId: '', scale: 1.0 },
+    subtitles: { style: 'bold_ad' },
+    format: { aspectRatio: '9:16', duration: 10 },
     edit: {
-      transition: "none",
-      soundEffect: "none",
-      backgroundMusic: "none",
-      textOverlay: "",
-      motionEffect: "none",
-      cinematicEffect: "none",
-      cta: "",
+      transition: 'none',
+      soundEffect: 'none',
+      backgroundMusic: 'none',
+      textOverlay: '',
+      motionEffect: 'none',
+      cinematicEffect: 'none',
+      cta: '',
       logoUrl: null,
       pacing: 1.0,
       timelineEdits: [],
-      editingLevel: "medium",
-      veoModel: "veo-3.1-lite-generate-preview",
+      editingLevel: 'medium',
+      veoModel: 'veo-3.1-lite-generate-preview',
     },
-    retouch: { feedback: "", startTime: "0", endTime: "10" },
+    retouch: { feedback: '', startTime: '0', endTime: '10' },
     voiceSettings: {
-      gender: "",
-      filter: "",
-      accent: "",
-      age: "",
-      language: "",
-      stability: "Equilibrada",
-      speed: "Normal",
+      gender: '',
+      filter: '',
+      accent: '',
+      age: '',
+      language: '',
+      stability: 'Equilibrada',
+      speed: 'Normal',
       isSatisfied: false,
     },
     hookVisual: {
-      promptImagem: "",
+      promptImagem: '',
       imagensGeradas: [],
-      imagemEscolhida: "",
-      promptVideo: "",
-      videoGerado: "",
+      imagemEscolhida: '',
+      promptVideo: '',
+      videoGerado: '',
       duracaoVideo: 4,
-      modeloImagem: "imagen-4.0-generate-001",
-      modeloVideo: "veo-3.1-fast-generate-preview",
+      modeloImagem: 'imagen-4.0-generate-001',
+      modeloVideo: 'veo-3.1-fast-generate-preview',
     },
   });
 
   const [loading, setLoading] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
-  const [hookSearch, setHookSearch] = useState("");
+  const [hookSearch, setHookSearch] = useState('');
   const [hookToneFilter, setHookToneFilter] = useState<
-    "Direto" | "Pergunta" | "História" | "Choque" | "Todos"
-  >("Todos");
+    'Direto' | 'Pergunta' | 'História' | 'Choque' | 'Todos'
+  >('Todos');
   const [hookLevelFilters, setHookLevelFilters] = useState<number[]>([]);
   const [hookTypeFilters, setHookTypeFilters] = useState<string[]>([]);
 
   // Auto-initialize hook filters based on project's awareness level
   useEffect(() => {
-    const levelStr = (config.copy.answers.awarenessLevel || "3")
-      .toString()
-      .charAt(0);
+    const levelStr = (config.copy.answers.awarenessLevel || '3').toString().charAt(0);
     const levelNum = parseInt(levelStr);
     const recommendedTypes = HOOK_TYPES_BY_LEVEL[levelStr] || [];
 
     setHookLevelFilters([levelNum]);
     setHookTypeFilters(recommendedTypes);
-    setHookSearch("");
-    setHookToneFilter("Todos");
+    setHookSearch('');
+    setHookToneFilter('Todos');
   }, [config.copy.answers.awarenessLevel, config.copy.answers.language]);
 
   const [showAllHooks, setShowAllHooks] = useState(false);
@@ -2463,19 +2408,12 @@ export default function App() {
   const [currentVariantId, setCurrentVariantId] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [draggingEditId, setDraggingEditId] = useState<string | null>(null);
-  const [playingVideos, setPlayingVideos] = useState<Record<string, boolean>>(
-    {},
-  );
-  const [hasFinishedVideos, setHasFinishedVideos] = useState<
-    Record<string, boolean>
-  >({});
+  const [playingVideos, setPlayingVideos] = useState<Record<string, boolean>>({});
+  const [hasFinishedVideos, setHasFinishedVideos] = useState<Record<string, boolean>>({});
   const timelineRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const updateProjectHookVisual = (
-    projectId: string,
-    data: Partial<HookVisualData>,
-  ) => {
+  const updateProjectHookVisual = (projectId: string, data: Partial<HookVisualData>) => {
     setProjects((prev) =>
       prev.map((p) =>
         p.id === projectId
@@ -2486,8 +2424,8 @@ export default function App() {
                 hookVisual: { ...p.config.hookVisual, ...data },
               },
             }
-          : p,
-      ),
+          : p
+      )
     );
 
     if (projectId === currentProjectId) {
@@ -2499,7 +2437,7 @@ export default function App() {
   };
 
   const [providerError, setProviderError] = useState<{
-    provider: "Model" | "ElevenLabs" | "HeyGen";
+    provider: 'Model' | 'ElevenLabs' | 'HeyGen';
     message: string;
   } | null>(null);
   const [videoOp, setVideoOp] = useState<any>(null);
@@ -2509,46 +2447,32 @@ export default function App() {
   const [isEditApproved, setIsEditApproved] = useState(false);
   const [hasGeneratedEdits, setHasGeneratedEdits] = useState(false);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
-  const [runwayPrompt, setRunwayPrompt] = useState("");
+  const [runwayPrompt, setRunwayPrompt] = useState('');
   const [runwayDuration, setRunwayDuration] = useState(5);
   const [isGeneratingRunway, setIsGeneratingRunway] = useState(false);
   const [isGeneratingVeoClip, setIsGeneratingVeoClip] = useState(false);
-  const [copySubMode, setCopySubMode] = useState<"zero" | "improve" | "ready">(
-    "zero",
-  );
+  const [copySubMode, setCopySubMode] = useState<'zero' | 'improve' | 'ready'>('zero');
 
   const [copyDiscoveryMode, setCopyDiscoveryMode] = useState<
-    "unknown" | "known" | "discovering" | "done"
-  >("unknown");
+    'unknown' | 'known' | 'discovering' | 'done'
+  >('unknown');
 
-  const updateConfig = (
-    section: keyof AdConfig,
-    subSection: string,
-    field: string,
-    value: any,
-  ) => {
+  const updateConfig = (section: keyof AdConfig, subSection: string, field: string, value: any) => {
     setConfig((prev) => {
       const currentSub = (prev[section] as any)[subSection] || {};
       const newSub = { ...currentSub, [field]: value };
 
       // Auto-suggestion for basePhrase if field is angleIdea
-      if (
-        section === "copy" &&
-        subSection === "answers" &&
-        field === "angleIdea" &&
-        value
-      ) {
+      if (section === 'copy' && subSection === 'answers' && field === 'angleIdea' && value) {
         const suggestions: Record<string, string> = {
-          "Você está fazendo errado":
-            "O verdadeiro problema não é o que você está fazendo, é COMO você está fazendo.",
-          "Não é culpa sua":
-            "Você não falhou, o sistema que te ensinaram é que está quebrado.",
-          "Ninguém te contou isso":
-            "Existe um segredo que os especialistas não querem que você saiba.",
-          "O problema não é o que você pensa":
-            "A causa real da sua dor não é X, é algo muito mais profundo.",
-          "Existe uma forma mais simples":
-            "Pare de complicar. Existe um caminho 10x mais rápido.",
+          'Você está fazendo errado':
+            'O verdadeiro problema não é o que você está fazendo, é COMO você está fazendo.',
+          'Não é culpa sua': 'Você não falhou, o sistema que te ensinaram é que está quebrado.',
+          'Ninguém te contou isso':
+            'Existe um segredo que os especialistas não querem que você saiba.',
+          'O problema não é o que você pensa':
+            'A causa real da sua dor não é X, é algo muito mais profundo.',
+          'Existe uma forma mais simples': 'Pare de complicar. Existe um caminho 10x mais rápido.',
         };
         if (suggestions[value]) newSub.basePhrase = suggestions[value];
       }
@@ -2561,7 +2485,7 @@ export default function App() {
         },
       };
     });
-    if (section === "copy") setHasUnsavedCopyChanges(true);
+    if (section === 'copy') setHasUnsavedCopyChanges(true);
   };
 
   const applyAwarenessLevelChange = (newLevel: string) => {
@@ -2591,60 +2515,43 @@ export default function App() {
         const persona = JSON.parse(config.copy.answers.discoveredPersona);
         // Só preenche se o campo estiver vazio
         if (!config.copy.answers.audience && persona.persona) {
-          updateConfig("copy", "answers", "audience", persona.persona);
+          updateConfig('copy', 'answers', 'audience', persona.persona);
         }
         if (!config.copy.answers.situation && persona.mainPain) {
-          updateConfig("copy", "answers", "situation", persona.mainPain);
+          updateConfig('copy', 'answers', 'situation', persona.mainPain);
         }
         if (!config.copy.answers.awarenessLevel && persona.awarenessLevel) {
-          updateConfig(
-            "copy",
-            "answers",
-            "awarenessLevel",
-            persona.awarenessLevel,
-          );
+          updateConfig('copy', 'answers', 'awarenessLevel', persona.awarenessLevel);
         }
-        if (
-          (!config.copy.answers.age || config.copy.answers.age.length === 0) &&
-          persona.age
-        ) {
-          const ageOptions = ["18-24", "25-34", "35-44", "45-54", "55+"];
+        if ((!config.copy.answers.age || config.copy.answers.age.length === 0) && persona.age) {
+          const ageOptions = ['18-24', '25-34', '35-44', '45-54', '55+'];
           const personaAgeStr = String(persona.age);
-          const matched = ageOptions.filter((opt) =>
-            personaAgeStr.includes(opt),
-          );
+          const matched = ageOptions.filter((opt) => personaAgeStr.includes(opt));
           if (matched.length > 0) {
-            updateConfig("copy", "answers", "age", matched);
+            updateConfig('copy', 'answers', 'age', matched);
           } else {
             const num = parseInt(personaAgeStr);
             if (!isNaN(num)) {
-              if (num >= 18 && num <= 24)
-                updateConfig("copy", "answers", "age", ["18-24"]);
-              else if (num >= 25 && num <= 34)
-                updateConfig("copy", "answers", "age", ["25-34"]);
-              else if (num >= 35 && num <= 44)
-                updateConfig("copy", "answers", "age", ["35-44"]);
-              else if (num >= 45 && num <= 54)
-                updateConfig("copy", "answers", "age", ["45-54"]);
-              else if (num >= 55)
-                updateConfig("copy", "answers", "age", ["55+"]);
+              if (num >= 18 && num <= 24) updateConfig('copy', 'answers', 'age', ['18-24']);
+              else if (num >= 25 && num <= 34) updateConfig('copy', 'answers', 'age', ['25-34']);
+              else if (num >= 35 && num <= 44) updateConfig('copy', 'answers', 'age', ['35-44']);
+              else if (num >= 45 && num <= 54) updateConfig('copy', 'answers', 'age', ['45-54']);
+              else if (num >= 55) updateConfig('copy', 'answers', 'age', ['55+']);
             }
           }
         }
         if (!config.copy.answers.painPoints && persona.mainPain) {
-          updateConfig("copy", "answers", "painPoints", persona.mainPain);
+          updateConfig('copy', 'answers', 'painPoints', persona.mainPain);
         }
         if (!config.copy.answers.triedBefore && persona.triedBefore) {
-          updateConfig("copy", "answers", "triedBefore", persona.triedBefore);
+          updateConfig('copy', 'answers', 'triedBefore', persona.triedBefore);
         }
       } catch (e) {}
     }
   }, [config.copy?.answers?.discoveredPersona]);
 
   const [discoveryStep, setDiscoveryStep] = useState<number>(0);
-  const [discoveryAnswers, setDiscoveryAnswers] = useState<
-    Record<string, string>
-  >({});
+  const [discoveryAnswers, setDiscoveryAnswers] = useState<Record<string, string>>({});
   const [generatedPersona, setGeneratedPersona] = useState<any>(null);
   const [showEditPersonaModal, setShowEditPersonaModal] = useState(false);
   const [pendingNewSubproject, setPendingNewSubproject] = useState<Project | null>(null);
@@ -2669,25 +2576,20 @@ export default function App() {
     }
   }, [config.copy?.answers?.savedPersonas]);
   const [personaEditMode, setPersonaEditMode] = useState(false);
-  const [showAwarenessChangeModal, setShowAwarenessChangeModal] =
-    useState(false);
-  const [pendingAwarenessLevel, setPendingAwarenessLevel] = useState<
-    string | null
-  >(null);
+  const [showAwarenessChangeModal, setShowAwarenessChangeModal] = useState(false);
+  const [pendingAwarenessLevel, setPendingAwarenessLevel] = useState<string | null>(null);
 
   // Estados da Edição 2 (AssemblyAI + ZapCap)
   const [autoEditState, setAutoEditState] = useState<AutoEditState>({
-    status: "idle",
-    step: "",
+    status: 'idle',
+    step: '',
     progress: 0,
     brollCandidates: [],
     selectedBrollIds: [],
-    editMode: "auto",
+    editMode: 'auto',
     versions: [],
   });
-  const [userVideos, setUserVideos] = useState<
-    { name: string; url: string; path: string }[]
-  >([]);
+  const [userVideos, setUserVideos] = useState<{ name: string; url: string; path: string }[]>([]);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -2705,24 +2607,24 @@ export default function App() {
         const videos = await Promise.all(videoPromises);
         setUserVideos(videos);
       } catch (err) {
-        console.error("[Fetch Videos] Error:", err);
+        console.error('[Fetch Videos] Error:', err);
       }
     };
-    if (user?.uid && currentStep === "edit2") {
+    if (user?.uid && currentStep === 'edit2') {
       fetchUserVideos();
     }
   }, [user?.uid, currentStep]);
 
   const handleUploadVideo = async (file: File) => {
     if (!user?.uid) {
-      toast.error("Você precisa estar logado para fazer upload.");
+      toast.error('Você precisa estar logado para fazer upload.');
       return;
     }
 
     try {
       const duration = await detectDuration(file);
       if (duration > 180) {
-        toast.error("Vídeo muito longo. O máximo permitido é 3 minutos.");
+        toast.error('Vídeo muito longo. O máximo permitido é 3 minutos.');
         return;
       }
 
@@ -2730,7 +2632,7 @@ export default function App() {
 
       setAutoEditState((prev) => ({
         ...prev,
-        status: "uploading",
+        status: 'uploading',
         progress: 0,
       }));
 
@@ -2740,16 +2642,15 @@ export default function App() {
       const uploadTask = uploadBytesResumable(storageRef, file);
 
       uploadTask.on(
-        "state_changed",
+        'state_changed',
         (snapshot) => {
-          const progress =
-            (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
           setUploadProgress(progress);
         },
         (error) => {
-          console.error("[Upload Error]:", error);
-          toast.error("Erro ao fazer upload do vídeo.");
-          setAutoEditState((prev) => ({ ...prev, status: "idle" }));
+          console.error('[Upload Error]:', error);
+          toast.error('Erro ao fazer upload do vídeo.');
+          setAutoEditState((prev) => ({ ...prev, status: 'idle' }));
         },
         async () => {
           const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
@@ -2757,15 +2658,15 @@ export default function App() {
           let finalUrl = downloadUrl;
           if (file.size > 500 * 1024 * 1024) {
             toast(
-              "Seu vídeo é grande. Vamos otimizá-lo automaticamente mantendo a qualidade Full HD... ⚡",
-              { icon: "⚡" },
+              'Seu vídeo é grande. Vamos otimizá-lo automaticamente mantendo a qualidade Full HD... ⚡',
+              { icon: '⚡' }
             );
             setAutoEditState((prev) => ({ ...prev, compressing: true }));
 
             try {
-              const res = await fetch("/api/video/compress", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
+              const res = await fetch('/api/video/compress', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   filePath,
                   originalUrl: downloadUrl,
@@ -2775,23 +2676,23 @@ export default function App() {
 
               if (res.status === 422) {
                 const data = await res.json();
-                toast.error(data.error || "Erro na compressão.");
+                toast.error(data.error || 'Erro na compressão.');
                 setAutoEditState((prev) => ({
                   ...prev,
-                  status: "idle",
+                  status: 'idle',
                   originalVideoUrl: undefined,
                 }));
                 return;
               }
 
-              if (!res.ok) throw new Error("Erro desconhecido na compressão.");
+              if (!res.ok) throw new Error('Erro desconhecido na compressão.');
 
               const data = await res.json();
               finalUrl = data.url;
-              toast.success("Vídeo otimizado com sucesso!");
+              toast.success('Vídeo otimizado com sucesso!');
             } catch (err) {
-              console.error("[Compression Error]:", err);
-              toast.error("Falha ao otimizar vídeo.");
+              console.error('[Compression Error]:', err);
+              toast.error('Falha ao otimizar vídeo.');
             } finally {
               setAutoEditState((prev) => ({ ...prev, compressing: false }));
             }
@@ -2799,47 +2700,45 @@ export default function App() {
 
           setAutoEditState((prev) => ({
             ...prev,
-            status: "idle",
+            status: 'idle',
             originalVideoUrl: finalUrl,
             videoFormat: format,
           }));
           setVideoUrl(finalUrl);
           toast.success(
-            `✅ Vídeo carregado — Formato detectado: ${format === "9:16" ? "Vertical 9:16" : format === "16:9" ? "Horizontal 16:9" : "Quadrado 1:1"}`,
+            `✅ Vídeo carregado — Formato detectado: ${format === '9:16' ? 'Vertical 9:16' : format === '16:9' ? 'Horizontal 16:9' : 'Quadrado 1:1'}`
           );
-        },
+        }
       );
     } catch (err) {
-      console.error("[Pre-upload Error]:", err);
-      toast.error("Erro ao processar arquivo.");
-      setAutoEditState((prev) => ({ ...prev, status: "idle" }));
+      console.error('[Pre-upload Error]:', err);
+      toast.error('Erro ao processar arquivo.');
+      setAutoEditState((prev) => ({ ...prev, status: 'idle' }));
     }
   };
   const [zapCapTemplates, setZapCapTemplates] = useState<ZapCapTemplate[]>([]);
-  const [zapCapRenderConfig, setZapCapRenderConfig] =
-    useState<ZapCapRenderConfig>({
-      templateId: "",
-      emoji: false,
-      emphasizeKeywords: true,
-      animation: true,
-      fontUppercase: true,
-      fontSize: 46,
-      fontColor: "#ffffff",
-      highlightColor1: "#2bf82a",
-      highlightColor2: "#fdfa14",
-      highlightColor3: "#f01916",
-      top: 75,
-      brollPercent: 30,
-    });
+  const [zapCapRenderConfig, setZapCapRenderConfig] = useState<ZapCapRenderConfig>({
+    templateId: '',
+    emoji: false,
+    emphasizeKeywords: true,
+    animation: true,
+    fontUppercase: true,
+    fontSize: 46,
+    fontColor: '#ffffff',
+    highlightColor1: '#2bf82a',
+    highlightColor2: '#fdfa14',
+    highlightColor3: '#f01916',
+    top: 75,
+    brollPercent: 30,
+  });
   const [brollPercent, setBrollPercent] = useState<number>(50);
-  const [recommendedBrollPercent, setRecommendedBrollPercent] =
-    useState<number>(50);
+  const [recommendedBrollPercent, setRecommendedBrollPercent] = useState<number>(50);
   const zapcapPollRef = useRef<NodeJS.Timeout | null>(null);
   const isRenderingRef = useRef(false);
 
   // Estados isolados da aba Edição Zap (separados da Edição Premium)
   const [zapState, setZapState] = useState<{
-    status: "idle" | "uploading" | "rendering" | "completed" | "error";
+    status: 'idle' | 'uploading' | 'rendering' | 'completed' | 'error';
     step: string;
     progress: number;
     videoId?: string;
@@ -2847,29 +2746,29 @@ export default function App() {
     finalVideoUrl?: string;
     originalVideoUrl?: string;
     versions: string[];
-    videoFormat: "16:9" | "1:1" | "9:16";
+    videoFormat: '16:9' | '1:1' | '9:16';
   }>({
-    status: "idle",
-    step: "",
+    status: 'idle',
+    step: '',
     progress: 0,
     versions: [],
-    videoFormat: "9:16",
+    videoFormat: '9:16',
   });
   const [zapVideoUrl, setZapVideoUrl] = useState<string | null>(null);
-  const [zapTemplateId, setZapTemplateId] = useState<string>("");
+  const [zapTemplateId, setZapTemplateId] = useState<string>('');
   const [zapBrollPercent, setZapBrollPercent] = useState<number>(50);
   const [zapEmoji, setZapEmoji] = useState<boolean>(false);
   const [zapAnimation, setZapAnimation] = useState<boolean>(true);
   const [zapEmphasizeKeywords, setZapEmphasizeKeywords] = useState<boolean>(true);
   const [zapSilenceRemoval, setZapSilenceRemoval] = useState<number>(0);
-  const [zapLanguage, setZapLanguage] = useState<string>("en");
+  const [zapLanguage, setZapLanguage] = useState<string>('en');
   // Estados de personalização da legenda (Edição Zap)
-  const [zapVideoFormat, setZapVideoFormat] = useState<"auto" | "9:16" | "1:1" | "16:9">("auto");
+  const [zapVideoFormat, setZapVideoFormat] = useState<'auto' | '9:16' | '1:1' | '16:9'>('auto');
   const [zapSubtitleTop, setZapSubtitleTop] = useState<number>(70);
   const [zapFontUppercase, setZapFontUppercase] = useState<boolean>(false);
   const [zapFontSize, setZapFontSize] = useState<number>(46);
   const [zapDisplayWords, setZapDisplayWords] = useState<number>(4);
-  const [zapHighlightPalette, setZapHighlightPalette] = useState<string>("default");
+  const [zapHighlightPalette, setZapHighlightPalette] = useState<string>('default');
   const zapPollRef = useRef<NodeJS.Timeout | null>(null);
   const isZapRenderingRef = useRef(false);
 
@@ -2881,13 +2780,13 @@ export default function App() {
   // Initialize Scene Builder
   useEffect(() => {
     if (
-      currentStep === "edit2" &&
+      currentStep === 'edit2' &&
       videoUrl &&
       (!config.edit.scenes || config.edit.scenes.length === 0)
     ) {
       const initialScene: Scene = {
-        id: "initial-avatar",
-        type: "avatar",
+        id: 'initial-avatar',
+        type: 'avatar',
         duration: config.format.duration || 10,
         settings: { trimStart: 0, trimEnd: config.format.duration || 10 },
       };
@@ -2895,7 +2794,7 @@ export default function App() {
         ...prev,
         edit: { ...prev.edit, scenes: [initialScene] },
       }));
-      setSelectedSceneId("initial-avatar");
+      setSelectedSceneId('initial-avatar');
     }
   }, [currentStep, videoUrl]);
 
@@ -2909,27 +2808,21 @@ export default function App() {
     let timer: any = null;
 
     const isRunning =
-      videoOp &&
-      ["pending", "waiting", "processing"].includes(videoOp.status) &&
-      !videoOp.isStuck;
+      videoOp && ['pending', 'waiting', 'processing'].includes(videoOp.status) && !videoOp.isStuck;
 
     if (isRunning) {
-      if (process.env.NODE_ENV !== "production")
-        console.log("[HeyGen Timer] Starting live clock...");
+      if (process.env.NODE_ENV !== 'production')
+        console.log('[HeyGen Timer] Starting live clock...');
       timer = setInterval(() => {
         const now = Date.now();
         setVideoOp((prev: any) => {
-          if (
-            !prev ||
-            !["pending", "waiting", "processing"].includes(prev.status)
-          )
-            return prev;
+          if (!prev || !['pending', 'waiting', 'processing'].includes(prev.status)) return prev;
 
           const totalTime = Math.round((now - prev.startTime) / 1000);
           let queuedTime = prev.queuedTime || 0;
           let renderTime = prev.renderTime || 0;
 
-          if (prev.status === "processing") {
+          if (prev.status === 'processing') {
             if (prev.processingStartTime) {
               renderTime = Math.round((now - prev.processingStartTime) / 1000);
             }
@@ -2949,8 +2842,8 @@ export default function App() {
 
     return () => {
       if (timer) {
-        if (process.env.NODE_ENV !== "production")
-          console.log("[HeyGen Timer] Stopping live clock.");
+        if (process.env.NODE_ENV !== 'production')
+          console.log('[HeyGen Timer] Stopping live clock.');
         clearInterval(timer);
       }
     };
@@ -2974,45 +2867,31 @@ export default function App() {
 
   const [loadingVoices, setLoadingVoices] = useState(false);
   const [viewingProjectId, setViewingProjectId] = useState<string | null>(null);
-  const [viewingVariant, setViewingVariant] = useState<ProjectVariant | null>(
-    null,
-  );
+  const [viewingVariant, setViewingVariant] = useState<ProjectVariant | null>(null);
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const [heygenAvatars, setHeygenAvatars] = useState<any[]>([]);
   const [loadingAvatars, setLoadingAvatars] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
-  const [avatarSearch, setAvatarSearch] = useState("");
-  const [voiceSearch, setVoiceSearch] = useState("");
+  const [avatarSearch, setAvatarSearch] = useState('');
+  const [voiceSearch, setVoiceSearch] = useState('');
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
   const [isVoiceConfirmed, setIsVoiceConfirmed] = useState(false);
   const [videoToDelete, setVideoToDelete] = useState<any>(null);
-  const [showDeleteHistoryVideoModal, setShowDeleteHistoryVideoModal] =
-    useState(false);
+  const [showDeleteHistoryVideoModal, setShowDeleteHistoryVideoModal] = useState(false);
   const [avatarFilters, setAvatarFilters] = useState({
-    gender: localStorage.getItem("avatarFilters_gender") || "",
-    ages: JSON.parse(localStorage.getItem("avatarFilters_ages") || "[]"),
-    styles: JSON.parse(localStorage.getItem("avatarFilters_styles") || "[]"),
-    ethnicities: JSON.parse(
-      localStorage.getItem("avatarFilters_ethnicities") || "[]",
-    ),
-    sort: localStorage.getItem("avatarFilters_sort") || "name",
+    gender: localStorage.getItem('avatarFilters_gender') || '',
+    ages: JSON.parse(localStorage.getItem('avatarFilters_ages') || '[]'),
+    styles: JSON.parse(localStorage.getItem('avatarFilters_styles') || '[]'),
+    ethnicities: JSON.parse(localStorage.getItem('avatarFilters_ethnicities') || '[]'),
+    sort: localStorage.getItem('avatarFilters_sort') || 'name',
   });
 
   useEffect(() => {
-    localStorage.setItem("avatarFilters_gender", avatarFilters.gender);
-    localStorage.setItem(
-      "avatarFilters_ages",
-      JSON.stringify(avatarFilters.ages),
-    );
-    localStorage.setItem(
-      "avatarFilters_styles",
-      JSON.stringify(avatarFilters.styles),
-    );
-    localStorage.setItem(
-      "avatarFilters_ethnicities",
-      JSON.stringify(avatarFilters.ethnicities),
-    );
-    localStorage.setItem("avatarFilters_sort", avatarFilters.sort);
+    localStorage.setItem('avatarFilters_gender', avatarFilters.gender);
+    localStorage.setItem('avatarFilters_ages', JSON.stringify(avatarFilters.ages));
+    localStorage.setItem('avatarFilters_styles', JSON.stringify(avatarFilters.styles));
+    localStorage.setItem('avatarFilters_ethnicities', JSON.stringify(avatarFilters.ethnicities));
+    localStorage.setItem('avatarFilters_sort', avatarFilters.sort);
   }, [avatarFilters]);
 
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -3021,7 +2900,7 @@ export default function App() {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [showElevenLabsConfig, setShowElevenLabsConfig] = useState(false);
-  const [newElevenLabsKey, setNewElevenLabsKey] = useState("");
+  const [newElevenLabsKey, setNewElevenLabsKey] = useState('');
   const [isUpdatingKey, setIsUpdatingKey] = useState(false);
   const [isTestingKey, setIsTestingKey] = useState(false);
 
@@ -3030,17 +2909,17 @@ export default function App() {
     const trimmedKey = newElevenLabsKey.trim();
     setIsTestingKey(true);
     try {
-      const response = await fetch("/api/elevenlabs/health", {
-        headers: { "xi-api-key": trimmedKey }, // We'll update the server to accept this header for testing
+      const response = await fetch('/api/elevenlabs/health', {
+        headers: { 'xi-api-key': trimmedKey }, // We'll update the server to accept this header for testing
       });
       const data = await response.json();
       if (response.ok) {
         toast.success(`Conexão bem-sucedida! Plano: ${data.tier}`);
       } else {
-        toast.error(`Falha na conexão: ${data.message || "Chave inválida"}`);
+        toast.error(`Falha na conexão: ${data.message || 'Chave inválida'}`);
       }
     } catch (err) {
-      toast.error("Erro ao testar conexão");
+      toast.error('Erro ao testar conexão');
     } finally {
       setIsTestingKey(false);
     }
@@ -3051,24 +2930,24 @@ export default function App() {
     const trimmedKey = newElevenLabsKey.trim();
     setIsUpdatingKey(true);
     try {
-      const response = await fetch("/api/elevenlabs/config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/elevenlabs/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ apiKey: trimmedKey }),
       });
       if (response.ok) {
-        toast.success("API Key do ElevenLabs atualizada!");
+        toast.success('API Key do ElevenLabs atualizada!');
         setShowElevenLabsConfig(false);
         setVoiceError(null);
         // Retry fetching voices
-        setCurrentStep("copy"); // Toggle step to trigger useEffect
-        setTimeout(() => setCurrentStep("voz-premium"), 10);
+        setCurrentStep('copy'); // Toggle step to trigger useEffect
+        setTimeout(() => setCurrentStep('voz-premium'), 10);
       } else {
         const data = await response.json();
-        toast.error(data.error || "Erro ao atualizar API Key");
+        toast.error(data.error || 'Erro ao atualizar API Key');
       }
     } catch (err) {
-      toast.error("Erro de conexão ao atualizar API Key");
+      toast.error('Erro de conexão ao atualizar API Key');
     } finally {
       setIsUpdatingKey(false);
     }
@@ -3079,11 +2958,11 @@ export default function App() {
 
   useEffect(() => {
     const fetchVoices = async () => {
-      if (currentStep === "voz-premium" && elevenLabsVoices.length === 0) {
+      if (currentStep === 'voz-premium' && elevenLabsVoices.length === 0) {
         setLoadingVoices(true);
         setVoiceError(null);
         try {
-          const response = await fetch("/api/elevenlabs/voices");
+          const response = await fetch('/api/elevenlabs/voices');
           if (!response.ok) {
             const errorData = await response.json();
             const errorMessage =
@@ -3094,23 +2973,21 @@ export default function App() {
               `Erro ${response.status}`;
             throw new Error(`ElevenLabs: ${errorMessage}`);
           }
-          const contentType = response.headers.get("content-type");
+          const contentType = response.headers.get('content-type');
           let data;
-          if (contentType && contentType.includes("application/json")) {
+          if (contentType && contentType.includes('application/json')) {
             data = await response.json();
           } else {
             const text = await response.text();
-            throw new Error(
-              `Resposta inválida do servidor: ${text.substring(0, 100)}`,
-            );
+            throw new Error(`Resposta inválida do servidor: ${text.substring(0, 100)}`);
           }
 
           // Log raw response for inspection
-          console.log("[ElevenLabs] Raw Voices Response:", data);
+          console.log('[ElevenLabs] Raw Voices Response:', data);
 
           setElevenLabsVoices(data.voices || []);
         } catch (err: any) {
-          console.error("Error fetching voices:", err);
+          console.error('Error fetching voices:', err);
           setVoiceError(err.message);
         } finally {
           setLoadingVoices(false);
@@ -3122,35 +2999,33 @@ export default function App() {
 
   useEffect(() => {
     const fetchAvatars = async () => {
-      if (currentStep === "avatar" && heygenAvatars.length === 0) {
+      if (currentStep === 'avatar' && heygenAvatars.length === 0) {
         setLoadingAvatars(true);
         setAvatarError(null);
         try {
-          const response = await fetch("/api/heygen/avatars");
+          const response = await fetch('/api/heygen/avatars');
           if (!response.ok) {
             const errorData = await response.json();
             throw new Error(errorData.error || `Erro ${response.status}`);
           }
-          const contentType = response.headers.get("content-type");
+          const contentType = response.headers.get('content-type');
           let data;
-          if (contentType && contentType.includes("application/json")) {
+          if (contentType && contentType.includes('application/json')) {
             data = await response.json();
           } else {
             const text = await response.text();
-            throw new Error(
-              `Resposta inválida do servidor: ${text.substring(0, 100)}`,
-            );
+            throw new Error(`Resposta inválida do servidor: ${text.substring(0, 100)}`);
           }
           setHeygenAvatars(data.data?.avatars || []);
 
           if (data.data?.avatars?.length > 0) {
             console.log(
-              "[HeyGen Avatar Tags Sample]",
+              '[HeyGen Avatar Tags Sample]',
               data.data.avatars.slice(0, 3).map((a: any) => ({
                 name: a.avatar_name,
                 tags: a.tags,
                 gender: a.gender,
-              })),
+              }))
             );
             if (!config.avatar.faceId) {
               setConfig((prev) => ({
@@ -3163,7 +3038,7 @@ export default function App() {
             }
           }
         } catch (err: any) {
-          console.error("Error fetching avatars:", err);
+          console.error('Error fetching avatars:', err);
           setAvatarError(err.message);
         } finally {
           setLoadingAvatars(false);
@@ -3179,7 +3054,7 @@ export default function App() {
       const envKey =
         (window as any).process?.env?.API_KEY ||
         (window as any).process?.env?.GEMINI_API_KEY ||
-        (typeof process !== "undefined"
+        (typeof process !== 'undefined'
           ? process.env.API_KEY || process.env.GEMINI_API_KEY
           : undefined);
       if (envKey) {
@@ -3192,7 +3067,7 @@ export default function App() {
           const hasKey = await (window as any).aistudio.hasSelectedApiKey();
           setHasApiKey(hasKey);
         } catch (err) {
-          console.error("Error checking API key status:", err);
+          console.error('Error checking API key status:', err);
         }
       }
     };
@@ -3202,16 +3077,12 @@ export default function App() {
   const isVideoUpToDate = () => {
     if (!config.lastVideoMetadata || !config.videoUrl) return false;
 
-    let avatarScript = (config.copy.generatedScript || "").includes("[AVATAR]:")
-      ? config.copy.generatedScript
-          .split("[AVATAR]:")[1]
-          .split("[SCENE]:")[0]
-          .trim()
-      : config.copy.generatedScript || "";
+    let avatarScript = (config.copy.generatedScript || '').includes('[AVATAR]:')
+      ? config.copy.generatedScript.split('[AVATAR]:')[1].split('[SCENE]:')[0].trim()
+      : config.copy.generatedScript || '';
 
     if (isTestMode) {
-      avatarScript =
-        "Olá! Este é um teste rápido de 3 segundos para validar a geração.";
+      avatarScript = 'Olá! Este é um teste rápido de 3 segundos para validar a geração.';
     }
 
     return (
@@ -3221,29 +3092,29 @@ export default function App() {
       config.lastVideoMetadata.audioUrl === audioUrl &&
       config.lastVideoMetadata.aspectRatio === config.format.aspectRatio &&
       config.lastVideoMetadata.isTestMode === isTestMode &&
-      config.lastVideoMetadata.status === "completed"
+      config.lastVideoMetadata.status === 'completed'
     );
   };
 
   useEffect(() => {
     if (
       config.lastVideoMetadata &&
-      config.lastVideoMetadata.status === "pending" &&
+      config.lastVideoMetadata.status === 'pending' &&
       !videoOp &&
       !loading &&
-      currentStep === "avatar"
+      currentStep === 'avatar'
     ) {
       const videoId = config.lastVideoMetadata.videoId;
       const startTime = new Date(config.lastVideoMetadata.createdAt).getTime();
 
-      if (process.env.NODE_ENV !== "production") {
+      if (process.env.NODE_ENV !== 'production') {
         console.log(`[Persistence] Resuming polling for video ${videoId}`);
       }
 
       const initialOp = {
         id: videoId,
-        status: "pending",
-        displayStatus: "Resuming...",
+        status: 'pending',
+        displayStatus: 'Resuming...',
         progress: 0,
         startTime,
         requestSentTime: new Date(startTime).toLocaleTimeString(),
@@ -3251,7 +3122,7 @@ export default function App() {
         processingStartTime: null,
         totalTime: 0,
         pollCount: 0,
-        lastStatus: "pending",
+        lastStatus: 'pending',
         lastStatusChangeTime: startTime,
         isStuck: false,
         stuckReason: null,
@@ -3264,11 +3135,11 @@ export default function App() {
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
     return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
     };
   }, []);
 
@@ -3279,9 +3150,9 @@ export default function App() {
     }
 
     const q = query(
-      collection(db, "projects"),
-      where("userId", "==", user.uid),
-      orderBy("createdAt", "desc"),
+      collection(db, 'projects'),
+      where('userId', '==', user.uid),
+      orderBy('createdAt', 'desc')
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -3291,14 +3162,14 @@ export default function App() {
         // Migration: ensure hookVisual exists in config
         if (data.config && !data.config.hookVisual) {
           data.config.hookVisual = {
-            promptImagem: "",
+            promptImagem: '',
             imagensGeradas: [],
-            imagemEscolhida: "",
-            promptVideo: "",
-            videoGerado: "",
+            imagemEscolhida: '',
+            promptVideo: '',
+            videoGerado: '',
             duracaoVideo: 4,
-            modeloImagem: "imagen-4.0-generate-001",
-            modeloVideo: "veo-3.1-fast-generate-preview",
+            modeloImagem: 'imagen-4.0-generate-001',
+            modeloVideo: 'veo-3.1-fast-generate-preview',
           };
         }
 
@@ -3317,18 +3188,16 @@ export default function App() {
     // Test connection to Firestore
     const testConnection = async () => {
       try {
-        await getDocFromServer(doc(db, "test", "connection"));
+        await getDocFromServer(doc(db, 'test', 'connection'));
       } catch (error) {
         if (
           error instanceof Error &&
-          (error.message.includes("the client is offline") ||
-            error.message.includes("unavailable") ||
-            error.message.includes("Failed to get document"))
+          (error.message.includes('the client is offline') ||
+            error.message.includes('unavailable') ||
+            error.message.includes('Failed to get document'))
         ) {
           // Ignore the offline/unavailable warning during boot negotiation
-          console.warn(
-            "Firebase connection might be in offline mode or negotiating fallback.",
-          );
+          console.warn('Firebase connection might be in offline mode or negotiating fallback.');
         }
       }
     };
@@ -3340,23 +3209,23 @@ export default function App() {
 
       if (firebaseUser) {
         // Ensure user document exists
-        const userRef = doc(db, "users", firebaseUser.uid);
+        const userRef = doc(db, 'users', firebaseUser.uid);
         const userSnap = await getDoc(userRef);
 
         if (!userSnap.exists()) {
-          const isAdmin = firebaseUser.email === "israelnz2018@hotmail.com";
+          const isAdmin = firebaseUser.email === 'israelnz2018@hotmail.com';
           await setDoc(userRef, {
             uid: firebaseUser.uid,
             email: firebaseUser.email,
             credits: 1000,
-            role: isAdmin ? "admin" : "user",
+            role: isAdmin ? 'admin' : 'user',
             createdAt: serverTimestamp(),
           });
-          setUserRole(isAdmin ? "admin" : "user");
+          setUserRole(isAdmin ? 'admin' : 'user');
         } else {
           const data = userSnap.data();
-          const isAdmin = firebaseUser.email === "israelnz2018@hotmail.com";
-          setUserRole(isAdmin ? "admin" : data.role || "user");
+          const isAdmin = firebaseUser.email === 'israelnz2018@hotmail.com';
+          setUserRole(isAdmin ? 'admin' : data.role || 'user');
         }
       }
     });
@@ -3371,15 +3240,15 @@ export default function App() {
     }
 
     const unsubscribeCredits = onSnapshot(
-      doc(db, "users", user.uid),
+      doc(db, 'users', user.uid),
       (doc) => {
         if (doc.exists()) {
           setCredits(doc.data().credits);
         }
       },
       (error) => {
-        console.error("Firestore Error (Credits):", error);
-      },
+        console.error('Firestore Error (Credits):', error);
+      }
     );
 
     return () => unsubscribeCredits();
@@ -3387,43 +3256,31 @@ export default function App() {
 
   useEffect(() => {
     const handleCreditsUpdate = (e: any) => setCredits(e.detail);
-    window.addEventListener("credits-updated", handleCreditsUpdate);
-    return () =>
-      window.removeEventListener("credits-updated", handleCreditsUpdate);
+    window.addEventListener('credits-updated', handleCreditsUpdate);
+    return () => window.removeEventListener('credits-updated', handleCreditsUpdate);
   }, []);
 
   // Voice Recommendations Effect
   useEffect(() => {
-    const awarenessLevel = (
-      config.copy.answers.awarenessLevel || ""
-    ).toString();
-    const awarenessNum = parseInt(awarenessLevel.split("-")[0]) || 0;
-    const personaGender = config.copy.answers.personaGender || "";
+    const awarenessLevel = (config.copy.answers.awarenessLevel || '').toString();
+    const awarenessNum = parseInt(awarenessLevel.split('-')[0]) || 0;
+    const personaGender = config.copy.answers.personaGender || '';
     const recommendedGender =
-      personaGender === "Homem"
-        ? "male"
-        : personaGender === "Mulher"
-          ? "female"
-          : "";
+      personaGender === 'Homem' ? 'male' : personaGender === 'Mulher' ? 'female' : '';
 
-    let recommendedFilter = "";
-    if (awarenessNum >= 1 && awarenessNum <= 2)
-      recommendedFilter = "Amigável / Natural";
+    let recommendedFilter = '';
+    if (awarenessNum >= 1 && awarenessNum <= 2) recommendedFilter = 'Amigável / Natural';
     else if (awarenessNum >= 3 && awarenessNum <= 4)
-      recommendedFilter = "Profissional / Autoridade";
+      recommendedFilter = 'Profissional / Autoridade';
     else if (awarenessNum >= 5 && awarenessNum <= 6)
-      recommendedFilter = "Profissional / Autoridade";
+      recommendedFilter = 'Profissional / Autoridade';
 
-    let recommendedStability = "";
-    if (awarenessNum >= 1 && awarenessNum <= 2)
-      recommendedStability = "Expressiva";
-    else if (awarenessNum >= 3 && awarenessNum <= 4)
-      recommendedStability = "Equilibrada";
-    else if (awarenessNum >= 5 && awarenessNum <= 6)
-      recommendedStability = "Estável";
+    let recommendedStability = '';
+    if (awarenessNum >= 1 && awarenessNum <= 2) recommendedStability = 'Expressiva';
+    else if (awarenessNum >= 3 && awarenessNum <= 4) recommendedStability = 'Equilibrada';
+    else if (awarenessNum >= 5 && awarenessNum <= 6) recommendedStability = 'Estável';
 
-    const recommendedSpeed =
-      awarenessNum >= 1 && awarenessNum <= 2 ? "Lento" : "Normal";
+    const recommendedSpeed = awarenessNum >= 1 && awarenessNum <= 2 ? 'Lento' : 'Normal';
 
     // Auto-select recommendations if they change or are not set
     setConfig((prev) => {
@@ -3438,10 +3295,7 @@ export default function App() {
         newSettings.filter = recommendedFilter;
         changed = true;
       }
-      if (
-        recommendedStability &&
-        newSettings.stability !== recommendedStability
-      ) {
+      if (recommendedStability && newSettings.stability !== recommendedStability) {
         newSettings.stability = recommendedStability;
         changed = true;
       }
@@ -3467,57 +3321,57 @@ export default function App() {
         name: newProjectName,
         type: newProjectType,
         config: {
-          angle: "podcast",
+          angle: 'podcast',
           copy: {
-            mode: "questions",
+            mode: 'questions',
             subMode: copySubMode,
             answers: {},
-            generatedScript: "",
+            generatedScript: '',
             generatedHooks: [],
           },
           scene: {
-            description: "",
-            background: "",
-            framing: "",
-            lighting: "",
-            tone: "",
-            bodyLanguage: "",
-            deliveryStyle: "",
+            description: '',
+            background: '',
+            framing: '',
+            lighting: '',
+            tone: '',
+            bodyLanguage: '',
+            deliveryStyle: '',
           },
-          avatar: { faceId: "", customFaceUrl: null, voiceId: "" },
-          subtitles: { style: "simple" },
-          format: { aspectRatio: "9:16", duration: 15 },
+          avatar: { faceId: '', customFaceUrl: null, voiceId: '' },
+          subtitles: { style: 'simple' },
+          format: { aspectRatio: '9:16', duration: 15 },
           hookVisual: {
-            promptImagem: "",
+            promptImagem: '',
             imagensGeradas: [],
-            imagemEscolhida: "",
-            promptVideo: "",
-            videoGerado: "",
+            imagemEscolhida: '',
+            promptVideo: '',
+            videoGerado: '',
             duracaoVideo: 4,
-            modeloImagem: "imagen-4.0-generate-001",
-            modeloVideo: "veo-3.1-fast-generate-preview",
+            modeloImagem: 'imagen-4.0-generate-001',
+            modeloVideo: 'veo-3.1-fast-generate-preview',
           },
-          retouch: { feedback: "", startTime: "", endTime: "" },
+          retouch: { feedback: '', startTime: '', endTime: '' },
           audios: [],
         },
         createdAt: serverTimestamp(),
       };
 
-      const docRef = await addDoc(collection(db, "projects"), projectData);
+      const docRef = await addDoc(collection(db, 'projects'), projectData);
       setCurrentProjectId(docRef.id);
       setConfig(projectData.config);
       setShowNewProjectModal(false);
-      setNewProjectName("");
+      setNewProjectName('');
       const firstStepByType: Record<string, any> = {
-        complete: "copy",
-        copy: "copy",
-        video: "voz-premium",
-        editing: "edit2",
+        complete: 'copy',
+        copy: 'copy',
+        video: 'voz-premium',
+        editing: 'edit2',
       };
-      setCurrentStep(firstStepByType[newProjectType] || "copy");
+      setCurrentStep(firstStepByType[newProjectType] || 'copy');
     } catch (err) {
-      console.error("Error creating project:", err);
-      setError("Falha ao criar projeto.");
+      console.error('Error creating project:', err);
+      setError('Falha ao criar projeto.');
     } finally {
       setIsSaving(false);
     }
@@ -3529,11 +3383,11 @@ export default function App() {
       const result = await discoverPersonaWithClaude(answers);
       setGeneratedPersona(result);
       setPersonasSaved(false);
-      toast.success("3 Personas geradas com sucesso! Escolha uma para continuar. ✨");
-      addLog("PERSONAS_IDENTIFICADAS");
+      toast.success('3 Personas geradas com sucesso! Escolha uma para continuar. ✨');
+      addLog('PERSONAS_IDENTIFICADAS');
     } catch (err: any) {
-      console.error("Erro ao gerar personas:", err);
-      toast.error(`Erro ao gerar personas: ${err.message || "Tente novamente."}`);
+      console.error('Erro ao gerar personas:', err);
+      toast.error(`Erro ao gerar personas: ${err.message || 'Tente novamente.'}`);
     } finally {
       setLoading(false);
     }
@@ -3541,16 +3395,16 @@ export default function App() {
 
   const handleSavePersonas = async () => {
     if (!generatedPersona?.personas || generatedPersona.personas.length === 0) {
-      toast.error("Nenhum persona gerado para salvar.");
+      toast.error('Nenhum persona gerado para salvar.');
       return;
     }
     if (!currentProjectId) {
-      toast.error("Nenhum projeto ativo. Crie ou abra um projeto primeiro.");
+      toast.error('Nenhum projeto ativo. Crie ou abra um projeto primeiro.');
       return;
     }
     // Atualiza o estado local
     const personasJson = JSON.stringify(generatedPersona.personas);
-    updateConfig("copy", "answers", "savedPersonas", personasJson);
+    updateConfig('copy', 'answers', 'savedPersonas', personasJson);
     setPersonasSaved(true);
 
     // Persiste no Firestore via handleSaveProject com override explícito
@@ -3566,10 +3420,10 @@ export default function App() {
         },
       };
       await handleSaveProject(overrideConfig);
-      toast.success("3 Personas salvos no projeto! Agora escolha um para enviar à Copy.");
+      toast.success('3 Personas salvos no projeto! Agora escolha um para enviar à Copy.');
     } catch (e) {
-      console.error("Erro ao persistir personas:", e);
-      toast.error("Personas salvos localmente, mas houve erro ao gravar no servidor.");
+      console.error('Erro ao persistir personas:', e);
+      toast.error('Personas salvos localmente, mas houve erro ao gravar no servidor.');
     }
   };
 
@@ -3583,84 +3437,76 @@ export default function App() {
       mainPain: persona.mainPain,
       triedBefore: persona.currentSituation,
       desiredTransformation: persona.strongestPromise,
-      productName: config.copy.answers.product || "",
-      productProblem: config.copy.answers.whatItDoes || "",
+      productName: config.copy.answers.product || '',
+      productProblem: config.copy.answers.whatItDoes || '',
       productResult: persona.strongestPromise,
     };
-    updateConfig(
-      "copy",
-      "answers",
-      "discoveredPersona",
-      JSON.stringify(personaForAutoPopulate),
-    );
-    updateConfig(
-      "copy",
-      "answers",
-      "selectedPersonaFull",
-      JSON.stringify(persona),
-    );
+    updateConfig('copy', 'answers', 'discoveredPersona', JSON.stringify(personaForAutoPopulate));
+    updateConfig('copy', 'answers', 'selectedPersonaFull', JSON.stringify(persona));
     // Pula o pop-up "unknown" e vai direto pros campos da Copy
-    setCopyDiscoveryMode("done");
+    setCopyDiscoveryMode('done');
     setConfig((prev) => ({
       ...prev,
       copy: {
         ...prev.copy,
-        discoveryMode: "done",
+        discoveryMode: 'done',
       },
     }));
     // Reset o flag de campos aplicados — usuário precisa clicar "Atualizar Campos" pra preencher
     setCopyFieldsApplied(false);
-    toast.success(`Persona "${persona.name}" enviado! Clique em "Atualizar Campos da Copy" para preencher.`);
-    setCurrentStep("copy");
+    toast.success(
+      `Persona "${persona.name}" enviado! Clique em "Atualizar Campos da Copy" para preencher.`
+    );
+    setCurrentStep('copy');
   };
 
   // Mapeamento de emotionalTrigger / hiddenDesire → emoção das 15 opções
   const mapToEmotion = (persona: any): string => {
-    const trigger = (persona.emotionalTrigger || "").toLowerCase();
-    const desire = (persona.hiddenDesire || "").toLowerCase();
-    const fear = (persona.dominantFear || "").toLowerCase();
+    const trigger = (persona.emotionalTrigger || '').toLowerCase();
+    const desire = (persona.hiddenDesire || '').toLowerCase();
+    const fear = (persona.dominantFear || '').toLowerCase();
     const combined = `${trigger} ${desire} ${fear}`;
 
-    if (/frustra|cansad|exaust|nada funciona/.test(combined)) return "Frustração";
-    if (/vergonh|envergonhad/.test(combined)) return "Vergonha";
-    if (/ansied|preocup|nervos/.test(combined)) return "Ansiedade";
-    if (/julgamento|julgad|opini/.test(combined)) return "Medo de julgamento";
-    if (/insegur|incapaz|n[aã]o sei/.test(combined)) return "Insegurança";
-    if (/raiv|injusti|frustrad/.test(combined)) return "Raiva leve";
-    if (/confus|perdid|n[aã]o entend/.test(combined)) return "Confusão";
-    if (/cansad|exaust|esgotad/.test(combined)) return "Cansaço";
-    if (/desmotiva|desanim|sem [aâ]nimo/.test(combined)) return "Desmotivação";
-    if (/ambi[cç]|conquist|alcan[cç]/.test(combined)) return "Ambição";
-    if (/reconhec|admir|respeit/.test(combined)) return "Desejo de reconhecimento";
-    if (/control|aut[oó]nom|liberdade/.test(combined)) return "Desejo de controle";
-    if (/exclusiv|elite|premium/.test(combined)) return "Exclusividade";
-    if (/esperan[cç]|sonh|querer mais/.test(combined)) return "Esperança";
-    if (/al[ií]vio|paz|tranquil/.test(combined)) return "Alívio";
-    return "Frustração"; // default
+    if (/frustra|cansad|exaust|nada funciona/.test(combined)) return 'Frustração';
+    if (/vergonh|envergonhad/.test(combined)) return 'Vergonha';
+    if (/ansied|preocup|nervos/.test(combined)) return 'Ansiedade';
+    if (/julgamento|julgad|opini/.test(combined)) return 'Medo de julgamento';
+    if (/insegur|incapaz|n[aã]o sei/.test(combined)) return 'Insegurança';
+    if (/raiv|injusti|frustrad/.test(combined)) return 'Raiva leve';
+    if (/confus|perdid|n[aã]o entend/.test(combined)) return 'Confusão';
+    if (/cansad|exaust|esgotad/.test(combined)) return 'Cansaço';
+    if (/desmotiva|desanim|sem [aâ]nimo/.test(combined)) return 'Desmotivação';
+    if (/ambi[cç]|conquist|alcan[cç]/.test(combined)) return 'Ambição';
+    if (/reconhec|admir|respeit/.test(combined)) return 'Desejo de reconhecimento';
+    if (/control|aut[oó]nom|liberdade/.test(combined)) return 'Desejo de controle';
+    if (/exclusiv|elite|premium/.test(combined)) return 'Exclusividade';
+    if (/esperan[cç]|sonh|querer mais/.test(combined)) return 'Esperança';
+    if (/al[ií]vio|paz|tranquil/.test(combined)) return 'Alívio';
+    return 'Frustração'; // default
   };
 
   // Mapeamento de communicationTone → estilo de anúncio
   const mapToStyle = (tone: string): string => {
-    const t = (tone || "").toLowerCase();
-    if (/empat|hist[oó]ria|jornada|pessoal/.test(t)) return "Storytelling Pessoal";
-    if (/autoridade|especialista|cient[ií]fico/.test(t)) return "Autoridade / Educativo";
-    if (/direto|objetivo|sem rodeios/.test(t)) return "Direto ao Ponto";
-    if (/divertid|leve|humor/.test(t)) return "Humor / Descontraído";
-    if (/urg[eê]nc|escasse/.test(t)) return "Urgência / Escassez";
-    return "Direto ao Ponto";
+    const t = (tone || '').toLowerCase();
+    if (/empat|hist[oó]ria|jornada|pessoal/.test(t)) return 'Storytelling Pessoal';
+    if (/autoridade|especialista|cient[ií]fico/.test(t)) return 'Autoridade / Educativo';
+    if (/direto|objetivo|sem rodeios/.test(t)) return 'Direto ao Ponto';
+    if (/divertid|leve|humor/.test(t)) return 'Humor / Descontraído';
+    if (/urg[eê]nc|escasse/.test(t)) return 'Urgência / Escassez';
+    return 'Direto ao Ponto';
   };
 
   // Aplica os dados do persona aos campos da Copy. Chamado pelo botão "Atualizar Campos da Copy".
   const applyPersonaToCopy = () => {
     if (!config.copy?.answers?.selectedPersonaFull) {
-      toast.error("Nenhum persona selecionado.");
+      toast.error('Nenhum persona selecionado.');
       return;
     }
     let persona: any;
     try {
       persona = JSON.parse(config.copy.answers.selectedPersonaFull);
     } catch (e) {
-      toast.error("Erro ao ler persona salvo.");
+      toast.error('Erro ao ler persona salvo.');
       return;
     }
 
@@ -3668,33 +3514,39 @@ export default function App() {
     const richAudience = [
       persona.name,
       persona.description,
-      persona.hiddenDesire ? `Desejo profundo: ${persona.hiddenDesire}.` : "",
-    ].filter(Boolean).join(" ");
+      persona.hiddenDesire ? `Desejo profundo: ${persona.hiddenDesire}.` : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
 
     // Situação rica: situação atual + razão do nível de consciência
     const richSituation = [
       persona.currentSituation,
-      persona.awarenessReason ? `(${persona.awarenessReason})` : "",
-    ].filter(Boolean).join(" ");
+      persona.awarenessReason ? `(${persona.awarenessReason})` : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
 
     // Dor rica: dor principal + medo dominante
     const richPain = [
       persona.mainPain,
-      persona.dominantFear ? `Medo: ${persona.dominantFear}.` : "",
-    ].filter(Boolean).join(" ");
+      persona.dominantFear ? `Medo: ${persona.dominantFear}.` : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
 
     // Mapear idade pra opções fixas
-    const ageOptions = ["18-24", "25-34", "35-44", "45-54", "55+"];
-    const personaAgeStr = String(persona.age || "");
+    const ageOptions = ['18-24', '25-34', '35-44', '45-54', '55+'];
+    const personaAgeStr = String(persona.age || '');
     let mappedAge: string[] = ageOptions.filter((opt) => personaAgeStr.includes(opt));
     if (mappedAge.length === 0) {
       const num = parseInt(personaAgeStr);
       if (!isNaN(num)) {
-        if (num >= 18 && num <= 24) mappedAge = ["18-24"];
-        else if (num >= 25 && num <= 34) mappedAge = ["25-34"];
-        else if (num >= 35 && num <= 44) mappedAge = ["35-44"];
-        else if (num >= 45 && num <= 54) mappedAge = ["45-54"];
-        else if (num >= 55) mappedAge = ["55+"];
+        if (num >= 18 && num <= 24) mappedAge = ['18-24'];
+        else if (num >= 25 && num <= 34) mappedAge = ['25-34'];
+        else if (num >= 35 && num <= 44) mappedAge = ['35-44'];
+        else if (num >= 45 && num <= 54) mappedAge = ['45-54'];
+        else if (num >= 55) mappedAge = ['55+'];
       }
     }
 
@@ -3710,8 +3562,8 @@ export default function App() {
           painPoints: richPain,
           triedBefore: persona.currentSituation || prev.copy.answers.triedBefore,
           awarenessLevel: persona.awarenessLevel || prev.copy.answers.awarenessLevel,
-          mainObjection: persona.mainObjection || "",
-          hiddenDesire: persona.hiddenDesire || "",
+          mainObjection: persona.mainObjection || '',
+          hiddenDesire: persona.hiddenDesire || '',
           productResult: persona.strongestPromise || prev.copy.answers.productResult,
           emotion: mapToEmotion(persona),
           estiloAnuncio: mapToStyle(persona.communicationTone),
@@ -3719,25 +3571,20 @@ export default function App() {
       },
     }));
     setCopyFieldsApplied(true);
-    toast.success("Campos da Copy atualizados a partir do persona! ✨");
+    toast.success('Campos da Copy atualizados a partir do persona! ✨');
   };
 
-  const handleSaveProject = async (
-    overridesOrEvent?: Partial<AdConfig> | React.MouseEvent,
-  ) => {
+  const handleSaveProject = async (overridesOrEvent?: Partial<AdConfig> | React.MouseEvent) => {
     // Robust event detection to prevent circular structure errors
     const isEvent = !!(
       overridesOrEvent &&
-      typeof overridesOrEvent === "object" &&
-      ("nativeEvent" in overridesOrEvent ||
-        "target" in overridesOrEvent ||
-        ("type" in overridesOrEvent &&
-          (overridesOrEvent as any).type.includes("click")))
+      typeof overridesOrEvent === 'object' &&
+      ('nativeEvent' in overridesOrEvent ||
+        'target' in overridesOrEvent ||
+        ('type' in overridesOrEvent && (overridesOrEvent as any).type.includes('click')))
     );
 
-    const overrides = isEvent
-      ? {}
-      : (overridesOrEvent as Partial<AdConfig>) || {};
+    const overrides = isEvent ? {} : (overridesOrEvent as Partial<AdConfig>) || {};
     if (!user || isProjectLoading) return;
 
     if (!currentProjectId) {
@@ -3746,24 +3593,21 @@ export default function App() {
     }
 
     setIsSaving(true);
-    if (process.env.NODE_ENV !== "production")
-      console.log("VOICE_SAVE_STARTED");
+    if (process.env.NODE_ENV !== 'production') console.log('VOICE_SAVE_STARTED');
     try {
-      const awarenessLevel = config.copy.answers.awarenessLevel || "Geral";
+      const awarenessLevel = config.copy.answers.awarenessLevel || 'Geral';
       const variantId = currentVariantId || Date.now().toString();
 
       // Update config with current videoUrl and audioUrl before saving, allowing overrides
       const configToSave = JSON.parse(
         JSON.stringify({
           ...config,
-          videoUrl:
-            overrides?.videoUrl !== undefined ? overrides.videoUrl : videoUrl,
+          videoUrl: overrides?.videoUrl !== undefined ? overrides.videoUrl : videoUrl,
           videoStoragePath:
             overrides?.videoStoragePath !== undefined
               ? overrides.videoStoragePath
               : videoStoragePath,
-          audioUrl:
-            overrides?.audioUrl !== undefined ? overrides.audioUrl : audioUrl,
+          audioUrl: overrides?.audioUrl !== undefined ? overrides.audioUrl : audioUrl,
           audioStoragePath:
             overrides?.audioStoragePath !== undefined
               ? overrides.audioStoragePath
@@ -3775,14 +3619,12 @@ export default function App() {
               ? overrides.lastVideoMetadata
               : lastVideoMetadata,
           generationStage:
-            overrides?.generationStage !== undefined
-              ? overrides.generationStage
-              : generationStage,
+            overrides?.generationStage !== undefined ? overrides.generationStage : generationStage,
           ...overrides,
-        }),
+        })
       );
 
-      const projectRef = doc(db, "projects", currentProjectId);
+      const projectRef = doc(db, 'projects', currentProjectId);
       const projectSnap = await getDoc(projectRef);
       let variants = [];
       let existingVariant = null;
@@ -3791,9 +3633,7 @@ export default function App() {
         const data = projectSnap.data();
         variants = data.variants || [];
         if (currentVariantId) {
-          existingVariant = variants.find(
-            (v: any) => v.id === currentVariantId,
-          );
+          existingVariant = variants.find((v: any) => v.id === currentVariantId);
         }
       }
 
@@ -3803,10 +3643,10 @@ export default function App() {
         const cloned = JSON.parse(JSON.stringify(cfg));
         if (cloned.edit?.segments) {
           cloned.edit.segments = cloned.edit.segments.map((s: any) => {
-            if (s.visualConcept?.imageUrl?.startsWith("data:")) {
+            if (s.visualConcept?.imageUrl?.startsWith('data:')) {
               // We prune base64 instead of uploading it in a loop to avoid hitting storage too hard
               // The user can re-generate if needed, or we hope they approval/upload happened elsewhere
-              s.visualConcept.imageUrl = "";
+              s.visualConcept.imageUrl = '';
             }
             return s;
           });
@@ -3834,7 +3674,7 @@ export default function App() {
       }
 
       // Keep only last 5 variants to save space
-      let prunedVariants = variants.slice(-5).map((v) => ({
+      const prunedVariants = variants.slice(-5).map((v) => ({
         ...v,
         config: cleanConfigForStorage(v.config),
       }));
@@ -3846,39 +3686,32 @@ export default function App() {
           variants: prunedVariants,
           updatedAt: serverTimestamp(),
         },
-        { merge: true },
+        { merge: true }
       );
 
-      addLog("PROJETO_SALVO");
-      if (process.env.NODE_ENV !== "production")
-        console.log("VOICE_SAVE_COMPLETED");
+      addLog('PROJETO_SALVO');
+      if (process.env.NODE_ENV !== 'production') console.log('VOICE_SAVE_COMPLETED');
       toast.success(
         currentVariantId
           ? `Versão "${awarenessLevel}" atualizada com sucesso!`
-          : `Versão "${awarenessLevel}" arquivada com sucesso!`,
+          : `Versão "${awarenessLevel}" arquivada com sucesso!`
       );
     } catch (err) {
-      console.error("Error saving project:", err);
-      setError("Falha ao salvar projeto.");
+      console.error('Error saving project:', err);
+      setError('Falha ao salvar projeto.');
     } finally {
       setIsSaving(false);
       setHasUnsavedCopyChanges(false);
     }
   };
 
-  const handleLoadVariant = async (
-    variant: ProjectVariant,
-    step: Step = "copy",
-  ) => {
-    if (process.env.NODE_ENV !== "production")
-      console.log("[Debug] Loading Variant:", variant.id);
+  const handleLoadVariant = async (variant: ProjectVariant, step: Step = 'copy') => {
+    if (process.env.NODE_ENV !== 'production') console.log('[Debug] Loading Variant:', variant.id);
     setIsProjectLoading(true);
 
     try {
       // Set project context
-      const parentProject = projects.find((p) =>
-        p.variants?.some((v) => v.id === variant.id),
-      );
+      const parentProject = projects.find((p) => p.variants?.some((v) => v.id === variant.id));
       if (parentProject) {
         setCurrentProjectId(parentProject.id);
       }
@@ -3890,13 +3723,13 @@ export default function App() {
       setVideoUrl(null);
       setVideoStoragePath(null);
       setVideos([]);
-      setGenerationStage("idle");
+      setGenerationStage('idle');
 
       // Hydrate and set config
       const loadedConfig = hydrateProjectConfig({ ...variant.config });
 
-      if (process.env.NODE_ENV !== "production") {
-        console.log("[Debug] Variant Config Hydrated:", {
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[Debug] Variant Config Hydrated:', {
           discoveryMode: loadedConfig.copy.discoveryMode,
           hasAnswers: Object.keys(loadedConfig.copy.answers || {}).length,
           hasScript: !!loadedConfig.copy.generatedScript,
@@ -3933,41 +3766,37 @@ export default function App() {
       setIsHookSaved(
         !!loadedConfig.copy.finalScript ||
           (loadedConfig.copy.selectedHookIdx !== undefined &&
-            loadedConfig.copy.selectedHookIdx !== null),
+            loadedConfig.copy.selectedHookIdx !== null)
       );
       setCurrentStep(step);
       toast.success(`Versão "${variant.name}" carregada!`);
     } catch (err) {
-      console.error("[Debug] Error loading variant:", err);
-      toast.error("Erro ao carregar versão.");
+      console.error('[Debug] Error loading variant:', err);
+      toast.error('Erro ao carregar versão.');
     } finally {
       setIsProjectLoading(false);
     }
   };
 
-  const handleRenameVariant = async (
-    projectId: string,
-    variantId: string,
-    newName: string,
-  ) => {
+  const handleRenameVariant = async (projectId: string, variantId: string, newName: string) => {
     if (!newName.trim()) {
-      toast.error("Nome não pode ser vazio.");
+      toast.error('Nome não pode ser vazio.');
       return;
     }
     try {
-      const projectRef = doc(db, "projects", projectId);
+      const projectRef = doc(db, 'projects', projectId);
       const projectSnap = await getDoc(projectRef);
       if (projectSnap.exists()) {
         const data = projectSnap.data();
         const variants = (data.variants || []).map((v: any) =>
-          v.id === variantId ? { ...v, name: newName.trim() } : v,
+          v.id === variantId ? { ...v, name: newName.trim() } : v
         );
         await setDoc(projectRef, { variants }, { merge: true });
-        toast.success("Subprojeto renomeado!");
+        toast.success('Subprojeto renomeado!');
       }
     } catch (err) {
-      console.error("Error renaming variant:", err);
-      toast.error("Falha ao renomear subprojeto.");
+      console.error('Error renaming variant:', err);
+      toast.error('Falha ao renomear subprojeto.');
     }
   };
 
@@ -3975,9 +3804,7 @@ export default function App() {
     toast(
       (t) => (
         <div className="flex flex-col gap-3">
-          <p className="font-bold text-gray-900">
-            Deseja excluir esta versão do projeto?
-          </p>
+          <p className="font-bold text-gray-900">Deseja excluir esta versão do projeto?</p>
           <div className="flex gap-2 justify-end">
             <button
               onClick={() => toast.dismiss(t.id)}
@@ -3989,22 +3816,20 @@ export default function App() {
               onClick={async () => {
                 toast.dismiss(t.id);
                 try {
-                  const projectRef = doc(db, "projects", projectId);
+                  const projectRef = doc(db, 'projects', projectId);
                   const projectSnap = await getDoc(projectRef);
                   if (projectSnap.exists()) {
                     const data = projectSnap.data();
-                    const variants = (data.variants || []).filter(
-                      (v: any) => v.id !== variantId,
-                    );
+                    const variants = (data.variants || []).filter((v: any) => v.id !== variantId);
                     await setDoc(projectRef, { variants }, { merge: true });
                     if (currentVariantId === variantId) {
                       setCurrentVariantId(null);
                     }
-                    toast.success("Versão excluída!");
+                    toast.success('Versão excluída!');
                   }
                 } catch (err) {
-                  console.error("Error deleting variant:", err);
-                  setError("Falha ao excluir versão.");
+                  console.error('Error deleting variant:', err);
+                  setError('Falha ao excluir versão.');
                 }
               }}
               className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-sm font-bold hover:bg-red-700"
@@ -4014,7 +3839,7 @@ export default function App() {
           </div>
         </div>
       ),
-      { duration: Infinity },
+      { duration: Infinity }
     );
   };
 
@@ -4027,23 +3852,22 @@ export default function App() {
     const projectId = deleteProjectConfirmId;
     setDeleteProjectConfirmId(null);
     try {
-      await deleteDoc(doc(db, "projects", projectId));
+      await deleteDoc(doc(db, 'projects', projectId));
       if (currentProjectId === projectId) {
         setCurrentProjectId(null);
       }
       if (viewingProjectId === projectId) {
         setViewingProjectId(null);
       }
-      toast.success("Projeto excluído!");
+      toast.success('Projeto excluído!');
     } catch (err) {
-      console.error("Error deleting project:", err);
-      setError("Falha ao excluir projeto.");
+      console.error('Error deleting project:', err);
+      setError('Falha ao excluir projeto.');
     }
   };
 
   const handleLoadProject = async (project: Project, step?: Step) => {
-    if (process.env.NODE_ENV !== "production")
-      console.log("[Debug] Loading Project:", project.id);
+    if (process.env.NODE_ENV !== 'production') console.log('[Debug] Loading Project:', project.id);
     setIsProjectLoading(true);
 
     try {
@@ -4055,8 +3879,7 @@ export default function App() {
       const matchingVariant = (project.variants || []).find(
         (v: any) =>
           v.config.copy.generatedScript === loadedConfig.copy.generatedScript &&
-          v.config.copy.answers.awarenessLevel ===
-            loadedConfig.copy.answers.awarenessLevel,
+          v.config.copy.answers.awarenessLevel === loadedConfig.copy.answers.awarenessLevel
       );
 
       if (matchingVariant) {
@@ -4065,8 +3888,8 @@ export default function App() {
         setCurrentVariantId(null);
       }
 
-      if (process.env.NODE_ENV !== "production") {
-        console.log("[Debug] Project Config Hydrated:", {
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[Debug] Project Config Hydrated:', {
           discoveryMode: loadedConfig.copy.discoveryMode,
           hasAnswers: Object.keys(loadedConfig.copy.answers || {}).length,
           hasScript: !!loadedConfig.copy.generatedScript,
@@ -4087,7 +3910,7 @@ export default function App() {
       setAudios(loadedConfig.audios || []);
       setVideos(loadedConfig.videos || []);
       setLastVideoMetadata(loadedConfig.lastVideoMetadata || null);
-      setGenerationStage((loadedConfig.generationStage as any) || "idle");
+      setGenerationStage((loadedConfig.generationStage as any) || 'idle');
       if (loadedConfig.copy.selectedHookIdx !== undefined) {
         setSelectedHookIdx(loadedConfig.copy.selectedHookIdx);
       } else {
@@ -4098,21 +3921,21 @@ export default function App() {
       setIsHookSaved(
         !!loadedConfig.copy.finalScript ||
           (loadedConfig.copy.selectedHookIdx !== undefined &&
-            loadedConfig.copy.selectedHookIdx !== null),
+            loadedConfig.copy.selectedHookIdx !== null)
       );
 
       const firstStepByType: Record<string, string> = {
-        complete: "copy",
-        copy: "copy",
-        video: "voz-premium",
-        editing: "edit2",
+        complete: 'copy',
+        copy: 'copy',
+        video: 'voz-premium',
+        editing: 'edit2',
       };
-      const resolvedStep = step || firstStepByType[project.type] || "copy";
+      const resolvedStep = step || firstStepByType[project.type] || 'copy';
       setCurrentStep(resolvedStep as Step);
       toast.success(`Projeto "${project.name}" carregado!`);
     } catch (err) {
-      console.error("[Debug] Error loading project:", err);
-      toast.error("Erro ao carregar projeto.");
+      console.error('[Debug] Error loading project:', err);
+      toast.error('Erro ao carregar projeto.');
     } finally {
       setIsProjectLoading(false);
     }
@@ -4123,16 +3946,13 @@ export default function App() {
     setPendingNewSubproject(project);
   };
 
-  const proceedNewSubproject = (
-    project: Project,
-    personaPath: "known" | "discover",
-  ) => {
+  const proceedNewSubproject = (project: Project, personaPath: 'known' | 'discover') => {
     setCurrentProjectId(project.id);
     setCurrentVariantId(null);
     const newConfig = JSON.parse(JSON.stringify(project.config));
-    newConfig.copy.generatedScript = "";
+    newConfig.copy.generatedScript = '';
     newConfig.copy.generatedHooks = [];
-    newConfig.copy.optimizedScript = "";
+    newConfig.copy.optimizedScript = '';
     newConfig.videoUrl = null;
     newConfig.videoStoragePath = null;
     newConfig.audioUrl = null;
@@ -4140,24 +3960,24 @@ export default function App() {
     newConfig.audios = [];
     newConfig.videos = [];
     newConfig.edit = {
-      transition: "none",
-      soundEffect: "none",
-      backgroundMusic: "none",
-      textOverlay: "",
-      motionEffect: "none",
-      cinematicEffect: "none",
-      cta: "",
+      transition: 'none',
+      soundEffect: 'none',
+      backgroundMusic: 'none',
+      textOverlay: '',
+      motionEffect: 'none',
+      cinematicEffect: 'none',
+      cta: '',
       logoUrl: null,
       pacing: 1.0,
       timelineEdits: [],
     };
-    newConfig.generationStage = "idle";
+    newConfig.generationStage = 'idle';
 
     if (newConfig.copy.answers.awarenessLevel) {
       delete newConfig.copy.answers.awarenessLevel;
     }
 
-    const finalDiscoveryMode = personaPath === "known" ? "known" : "unknown";
+    const finalDiscoveryMode = personaPath === 'known' ? 'known' : 'unknown';
     setCopyDiscoveryMode(finalDiscoveryMode);
     newConfig.copy.discoveryMode = finalDiscoveryMode;
 
@@ -4168,16 +3988,16 @@ export default function App() {
     setAudioUrl(null);
     setAudioStoragePath(null);
     setAudios([]);
-    setGenerationStage("idle");
+    setGenerationStage('idle');
     setPendingNewSubproject(null);
     setCopyFieldsApplied(false);
 
-    if (personaPath === "discover") {
-      setCurrentStep("persona");
-      toast.success("Iniciando novo subprojeto! Vamos identificar o persona primeiro.");
+    if (personaPath === 'discover') {
+      setCurrentStep('persona');
+      toast.success('Iniciando novo subprojeto! Vamos identificar o persona primeiro.');
     } else {
-      setCurrentStep("copy");
-      toast.success("Iniciando novo subprojeto!");
+      setCurrentStep('copy');
+      toast.success('Iniciando novo subprojeto!');
     }
   };
 
@@ -4188,14 +4008,12 @@ export default function App() {
         setHasApiKey(true);
         return true;
       } catch (err) {
-        console.error("Error opening key selector:", err);
-        setError(
-          "Não foi possível abrir o seletor de chaves. Tente novamente.",
-        );
+        console.error('Error opening key selector:', err);
+        setError('Não foi possível abrir o seletor de chaves. Tente novamente.');
         return false;
       }
     } else {
-      setError("O seletor de chaves API não está disponível neste ambiente.");
+      setError('O seletor de chaves API não está disponível neste ambiente.');
       return false;
     }
   };
@@ -4218,7 +4036,7 @@ export default function App() {
     try {
       const optimized = await optimizeCopyForElevenLabsWithClaude(
         config.copy.generatedScript,
-        config.copy.answers,
+        config.copy.answers
       );
 
       setConfig((prev) => ({
@@ -4230,10 +4048,10 @@ export default function App() {
       }));
       setHasUnsavedCopyChanges(true);
 
-      addLog("COPY_OTIMIZADA_ELEVENLABS");
+      addLog('COPY_OTIMIZADA_ELEVENLABS');
     } catch (err) {
-      console.error("Error optimizing copy:", err);
-      setError("Falha ao otimizar copy para ElevenLabs.");
+      console.error('Error optimizing copy:', err);
+      setError('Falha ao otimizar copy para ElevenLabs.');
     } finally {
       setIsOptimizing(false);
     }
@@ -4241,16 +4059,14 @@ export default function App() {
 
   const handleGenerateCopy = async () => {
     if (!isOnline) {
-      setError("Você está offline. Verifique sua conexão com a internet.");
+      setError('Você está offline. Verifique sua conexão com a internet.');
       return;
     }
 
     if (!hasApiKey) {
       const opened = await handleOpenKeySelector();
       if (!opened) return;
-      setError(
-        "Por favor, selecione sua chave API e clique em Gerar Copy novamente.",
-      );
+      setError('Por favor, selecione sua chave API e clique em Gerar Copy novamente.');
       return;
     }
 
@@ -4258,9 +4074,7 @@ export default function App() {
     setError(null);
     setProviderError(null);
     try {
-      const selectedStyle = AD_STYLES.find(
-        (s) => s.label === config.copy.answers.estiloAnuncio,
-      );
+      const selectedStyle = AD_STYLES.find((s) => s.label === config.copy.answers.estiloAnuncio);
       const styleWithDesc = selectedStyle
         ? `${selectedStyle.label} — ${selectedStyle.desc}`
         : config.copy.answers.estiloAnuncio;
@@ -4271,42 +4085,37 @@ export default function App() {
         config.angle,
         config.copy.scriptLength,
         config.copy.targetWordCount,
-        config.copy.hookSelecionado || "",
+        config.copy.hookSelecionado || ''
       );
-      if (!result) throw new Error("A IA retornou uma resposta vazia.");
+      if (!result) throw new Error('A IA retornou uma resposta vazia.');
 
       setConfig((prev) => ({
         ...prev,
         copy: {
           ...prev.copy,
           generatedScript: result.script || result,
-          optimizedScript: "",
+          optimizedScript: '',
         },
       }));
       setHasUnsavedCopyChanges(true);
-      toast.success("Copy gerada com sucesso!");
+      toast.success('Copy gerada com sucesso!');
     } catch (err: any) {
-      console.error("Generation error:", err);
+      console.error('Generation error:', err);
       const msg = err.message || String(err);
-      if (
-        msg.includes("Requested entity was not found") ||
-        msg.includes("API_KEY_INVALID")
-      ) {
+      if (msg.includes('Requested entity was not found') || msg.includes('API_KEY_INVALID')) {
         setHasApiKey(false);
         setProviderError({
-          provider: "Model",
-          message:
-            "Sua chave API parece inválida. Por favor, selecione-a novamente.",
+          provider: 'Model',
+          message: 'Sua chave API parece inválida. Por favor, selecione-a novamente.',
         });
-      } else if (msg.includes("fetch")) {
+      } else if (msg.includes('fetch')) {
         setProviderError({
-          provider: "Model",
-          message:
-            "Erro de conexão com o servidor da IA. Verifique sua internet.",
+          provider: 'Model',
+          message: 'Erro de conexão com o servidor da IA. Verifique sua internet.',
         });
       } else {
         setProviderError({
-          provider: "Model",
+          provider: 'Model',
           message: `Erro ao gerar copy: ${msg}`,
         });
       }
@@ -4326,28 +4135,24 @@ export default function App() {
   };
 
   const addLog = (message: string) => {
-    setLogs((prev) => [
-      ...prev,
-      `[${new Date().toLocaleTimeString()}] ${message}`,
-    ]);
+    setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${message}`]);
   };
 
   const handleGenerateAudio = async () => {
     if (!isOnline) {
-      setError("Você está offline. Verifique sua conexão com a internet.");
+      setError('Você está offline. Verifique sua conexão com a internet.');
       return;
     }
 
     // Prefer optimized script for audio generation if available
-    const scriptToUse =
-      config.copy.optimizedScript || config.copy.generatedScript;
+    const scriptToUse = config.copy.optimizedScript || config.copy.generatedScript;
 
-    const avatarScript = (scriptToUse || "").includes("[AVATAR]:")
-      ? scriptToUse.split("[AVATAR]:")[1].split("[SCENE]:")[0].trim()
-      : scriptToUse || "";
+    const avatarScript = (scriptToUse || '').includes('[AVATAR]:')
+      ? scriptToUse.split('[AVATAR]:')[1].split('[SCENE]:')[0].trim()
+      : scriptToUse || '';
 
-    if (!avatarScript || avatarScript.trim() === "") {
-      setError("Script está vazio. Por favor, gere a copy primeiro.");
+    if (!avatarScript || avatarScript.trim() === '') {
+      setError('Script está vazio. Por favor, gere a copy primeiro.');
       return;
     }
 
@@ -4358,8 +4163,8 @@ export default function App() {
     setAudioUrl(null);
 
     try {
-      setGenerationStage("audio");
-      addLog("AUDIO_STARTED");
+      setGenerationStage('audio');
+      addLog('AUDIO_STARTED');
 
       const stabilityMap: Record<string, number> = {
         Expressiva: 0.3,
@@ -4373,9 +4178,8 @@ export default function App() {
       };
 
       const settings = {
-        stability:
-          stabilityMap[config.voiceSettings?.stability || "Equilibrada"],
-        speed: speedMap[config.voiceSettings?.speed || "Normal"],
+        stability: stabilityMap[config.voiceSettings?.stability || 'Equilibrada'],
+        speed: speedMap[config.voiceSettings?.speed || 'Normal'],
       };
 
       const result = await generateVoice(
@@ -4383,11 +4187,11 @@ export default function App() {
         config.avatar.voiceId,
         undefined,
         3,
-        settings,
+        settings
       );
       if (result && result.arrayBuffer) {
         const audioBlob = new Blob([result.arrayBuffer], {
-          type: "audio/mpeg",
+          type: 'audio/mpeg',
         });
         let url = result.persistentUrl || URL.createObjectURL(audioBlob);
 
@@ -4396,27 +4200,21 @@ export default function App() {
         // Try to upload to Firebase Storage for true persistence across sessions
         try {
           if (auth.currentUser) {
-            const storageRef = ref(
-              storage,
-              `audio/${auth.currentUser.uid}/${Date.now()}.mp3`,
-            );
-            console.log("Attempting to upload audio to:", storageRef.fullPath);
+            const storageRef = ref(storage, `audio/${auth.currentUser.uid}/${Date.now()}.mp3`);
+            console.log('Attempting to upload audio to:', storageRef.fullPath);
             await uploadBytes(storageRef, audioBlob, {
-              contentType: "audio/mpeg",
+              contentType: 'audio/mpeg',
             });
             const downloadUrl = await getDownloadURL(storageRef);
             url = downloadUrl;
             finalStoragePath = storageRef.fullPath;
-            console.log("Audio uploaded to Firebase Storage successfully.");
+            console.log('Audio uploaded to Firebase Storage successfully.');
           } else {
-            console.warn("Cannot upload audio: No user logged in.");
+            console.warn('Cannot upload audio: No user logged in.');
           }
         } catch (uploadErr) {
-          console.error(
-            "CRITICAL: Failed to upload audio to Firebase Storage:",
-            uploadErr,
-          );
-          console.warn("Falling back to local URL.");
+          console.error('CRITICAL: Failed to upload audio to Firebase Storage:', uploadErr);
+          console.warn('Falling back to local URL.');
         }
 
         const newAudio = {
@@ -4441,37 +4239,33 @@ export default function App() {
           audios: [...(prev.audios || []), newAudio],
           videoUrl: null,
           videoStoragePath: null,
-          generationStage: "audio_ready",
+          generationStage: 'audio_ready',
         }));
 
-        addLog("AUDIO_COMPLETED");
-        setGenerationStage("audio_ready");
+        addLog('AUDIO_COMPLETED');
+        setGenerationStage('audio_ready');
 
         // Auto-save after audio generation to ensure history is persisted
         handleSaveProject({
           audioUrl: url,
           audioStoragePath: finalStoragePath,
           audios: [...(audios || []), newAudio],
-          generationStage: "audio_ready",
+          generationStage: 'audio_ready',
         });
       }
     } catch (err: any) {
-      console.error("Audio generation failed:", err);
+      console.error('Audio generation failed:', err);
       const msg = err.message || String(err);
-      if (
-        msg.includes("heavy traffic") ||
-        msg.includes("system_busy") ||
-        msg.includes("busy")
-      ) {
+      if (msg.includes('heavy traffic') || msg.includes('system_busy') || msg.includes('busy')) {
         setProviderError({
-          provider: "ElevenLabs",
+          provider: 'ElevenLabs',
           message:
-            "O sistema da ElevenLabs está com tráfego pesado no momento. Fizemos várias tentativas automáticas de conexão, mas o servidor continua ocupado. Por favor, aguarde cerca de um minuto e tente novamente.",
+            'O sistema da ElevenLabs está com tráfego pesado no momento. Fizemos várias tentativas automáticas de conexão, mas o servidor continua ocupado. Por favor, aguarde cerca de um minuto e tente novamente.',
         });
       } else {
         setProviderError({
-          provider: "ElevenLabs",
-          message: msg || "Erro ao gerar áudio.",
+          provider: 'ElevenLabs',
+          message: msg || 'Erro ao gerar áudio.',
         });
       }
     } finally {
@@ -4483,14 +4277,14 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      setGenerationStage("subtitles");
-      addLog("SUBTITLES_STARTED");
+      setGenerationStage('subtitles');
+      addLog('SUBTITLES_STARTED');
       await new Promise((resolve) => setTimeout(resolve, 2000));
-      addLog("SUBTITLES_COMPLETED");
-      setGenerationStage("subtitles_ready");
+      addLog('SUBTITLES_COMPLETED');
+      setGenerationStage('subtitles_ready');
     } catch (err: any) {
-      console.error("Subtitles error:", err);
-      setError(err.message || "Erro ao gerar legendas.");
+      console.error('Subtitles error:', err);
+      setError(err.message || 'Erro ao gerar legendas.');
     } finally {
       setLoading(false);
     }
@@ -4500,15 +4294,15 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      setGenerationStage("edit");
-      addLog("EDIT_STARTED");
+      setGenerationStage('edit');
+      addLog('EDIT_STARTED');
       await new Promise((resolve) => setTimeout(resolve, 1500));
-      addLog("EDIT_COMPLETED");
-      setGenerationStage("completed");
-      toast.success("Edições aplicadas com sucesso!");
+      addLog('EDIT_COMPLETED');
+      setGenerationStage('completed');
+      toast.success('Edições aplicadas com sucesso!');
     } catch (err: any) {
-      console.error("Edit error:", err);
-      setError(err.message || "Erro ao aplicar edições.");
+      console.error('Edit error:', err);
+      setError(err.message || 'Erro ao aplicar edições.');
     } finally {
       setLoading(false);
     }
@@ -4523,48 +4317,42 @@ export default function App() {
     const pollStatus = async () => {
       try {
         const now = Date.now();
-        if (process.env.NODE_ENV !== "production") {
+        if (process.env.NODE_ENV !== 'production') {
           console.log(`[HeyGen Polling] Attempting poll for ${videoId}...`);
         }
 
         if (!videoId) {
-          console.error(
-            "[HeyGen Polling] Skipping poll: videoId is null or empty.",
-          );
+          console.error('[HeyGen Polling] Skipping poll: videoId is null or empty.');
           return;
         }
 
         const statusRes = await fetch(`/api/heygen/status/${videoId}`);
         if (!statusRes.ok) {
-          console.error(
-            `[HeyGen Polling] Status check failed for ${videoId}: ${statusRes.status}`,
-          );
+          console.error(`[HeyGen Polling] Status check failed for ${videoId}: ${statusRes.status}`);
           return;
         }
 
-        const contentType = statusRes.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
-          console.error(
-            `[HeyGen Polling] Invalid content-type for ${videoId}: ${contentType}`,
-          );
+        const contentType = statusRes.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          console.error(`[HeyGen Polling] Invalid content-type for ${videoId}: ${contentType}`);
           return;
         }
 
         const statusData = await statusRes.json();
-        if (process.env.NODE_ENV !== "production") {
+        if (process.env.NODE_ENV !== 'production') {
           console.log(`[HeyGen Polling] Status for ${videoId}:`, statusData);
         }
 
-        if (statusData.status === "failed") {
+        if (statusData.status === 'failed') {
           console.error(
             `[HeyGen Polling] Job failed for ${videoId}:`,
-            statusData.error || "Unknown error",
+            statusData.error || 'Unknown error'
           );
           setVideoOp((prev: any) => ({
             ...prev,
-            status: "failed",
-            displayStatus: "Error",
-            error: statusData.error || "Unknown error",
+            status: 'failed',
+            displayStatus: 'Error',
+            error: statusData.error || 'Unknown error',
           }));
           if (pollIntervalRef.current) {
             clearInterval(pollIntervalRef.current);
@@ -4577,17 +4365,17 @@ export default function App() {
           if (!prev || prev.id !== videoId) return prev;
 
           const statusMap: Record<string, string> = {
-            pending: "Queued",
-            waiting: "Waiting",
-            processing: "Processing",
-            rendering: "Rendering",
-            completed: "Done",
-            failed: "Error",
+            pending: 'Queued',
+            waiting: 'Waiting',
+            processing: 'Processing',
+            rendering: 'Rendering',
+            completed: 'Done',
+            failed: 'Error',
           };
 
           const currentStatus = statusData.status;
           let processingStartTime = prev.processingStartTime;
-          if (currentStatus === "processing" && !processingStartTime) {
+          if (currentStatus === 'processing' && !processingStartTime) {
             processingStartTime = now;
           }
 
@@ -4600,18 +4388,18 @@ export default function App() {
             const timeInStatus = (now - prev.lastStatusChangeTime) / 1000;
             if (timeInStatus > 360) {
               isStuck = true;
-              stuckReason = "No status change detected for >6m";
+              stuckReason = 'No status change detected for >6m';
             }
           } else {
             lastStatusChangeTime = now;
           }
 
           if (
-            (currentStatus === "pending" || currentStatus === "waiting") &&
+            (currentStatus === 'pending' || currentStatus === 'waiting') &&
             now - prev.startTime > 300000
           ) {
             isStuck = true;
-            stuckReason = "Likely stuck in queue (>5m)";
+            stuckReason = 'Likely stuck in queue (>5m)';
           }
 
           return {
@@ -4630,13 +4418,10 @@ export default function App() {
           };
         });
 
-        if (
-          statusData.status === "completed" ||
-          statusData.status === "failed"
-        ) {
-          if (process.env.NODE_ENV !== "production") {
+        if (statusData.status === 'completed' || statusData.status === 'failed') {
+          if (process.env.NODE_ENV !== 'production') {
             console.log(
-              `[HeyGen Polling] Stopping for ${videoId} (Final Status: ${statusData.status})`,
+              `[HeyGen Polling] Stopping for ${videoId} (Final Status: ${statusData.status})`
             );
           }
           if (pollIntervalRef.current) {
@@ -4644,28 +4429,31 @@ export default function App() {
             pollIntervalRef.current = null;
           }
 
-          if (statusData.status === "completed") {
-            addLog("VIDEO_COMPLETED");
+          if (statusData.status === 'completed') {
+            addLog('VIDEO_COMPLETED');
 
             // Post-process crop via Railway (Cloud Run FFmpeg is broken).
             // Returns a Firebase Storage URL of the cropped video.
             const finalizeVideo = async (url: string): Promise<string> => {
-              if (config.avatar.avatarFormat !== "square") return url;
+              if (config.avatar.avatarFormat !== 'square') return url;
               if (!auth.currentUser) {
                 console.warn('[Crop Railway] No authenticated user, skipping crop');
                 return url;
               }
               try {
                 console.log('[Crop Railway] Requesting crop:', url.substring(0, 80));
-                const cropRes = await fetch("https://analises-production.up.railway.app/metavise/crop", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    videoUrl: url,
-                    aspectRatio: "1:1",
-                    cropOffset: config.avatar.cropOffset || 0,
-                  }),
-                });
+                const cropRes = await fetch(
+                  'https://analises-production.up.railway.app/metavise/crop',
+                  {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      videoUrl: url,
+                      aspectRatio: '1:1',
+                      cropOffset: config.avatar.cropOffset || 0,
+                    }),
+                  }
+                );
                 if (!cropRes.ok) {
                   console.error('[Crop Railway] Failed with status', cropRes.status);
                   return url;
@@ -4675,7 +4463,7 @@ export default function App() {
                 // Use the same path pattern as handleSaveVideoToFirebase: video/{uid}/{timestamp}.mp4
                 const storageRef = ref(
                   storage,
-                  `video/${auth.currentUser.uid}/cropped_${Date.now()}.mp4`,
+                  `video/${auth.currentUser.uid}/cropped_${Date.now()}.mp4`
                 );
                 await uploadBytes(storageRef, blob, { contentType: 'video/mp4' });
                 const downloadUrl = await getDownloadURL(storageRef);
@@ -4693,113 +4481,109 @@ export default function App() {
 
               // Crop first (if square), then save the (possibly cropped) URL to Firebase
               const finalUrl = await finalizeVideo(statusData.video_url);
-              handleSaveVideoToFirebase(finalUrl)
-                .then((result) => {
-                  if (!result || !result.url) {
-                    console.error(
-                      "[Video Debug] handleSaveVideoToFirebase failed, using HeyGen URL as final fallback",
-                    );
-                    // Last fallback — use HeyGen URL directly (works for ~24h before expiring)
-                    const newVideo = {
-                      url: statusData.video_url,
-                      storagePath: null,
-                      createdAt: new Date().toISOString(),
-                      aspectRatio: config.format.aspectRatio,
-                      scale: config.avatar.scale || 1.0,
-                      timelineEdits: [],
-                    };
-                    setVideoUrl(statusData.video_url);
-                    setVideos((prev) => [...prev, newVideo]);
-                    setLoading(false);
-                    toast(
-                      "Vídeo gerado mas falha ao salvar no storage. Use o vídeo agora — link expira em ~24h.",
-                      { icon: "⚠️", duration: 6000 }
-                    );
-                    return;
-                  }
-
+              handleSaveVideoToFirebase(finalUrl).then((result) => {
+                if (!result || !result.url) {
+                  console.error(
+                    '[Video Debug] handleSaveVideoToFirebase failed, using HeyGen URL as final fallback'
+                  );
+                  // Last fallback — use HeyGen URL directly (works for ~24h before expiring)
                   const newVideo = {
-                    url: result.url,
-                    storagePath: result.path,
+                    url: statusData.video_url,
+                    storagePath: null,
                     createdAt: new Date().toISOString(),
                     aspectRatio: config.format.aspectRatio,
                     scale: config.avatar.scale || 1.0,
                     timelineEdits: [],
                   };
-
-                  setVideoUrl(result.url);
-                  setVideoStoragePath(result.path);
+                  setVideoUrl(statusData.video_url);
                   setVideos((prev) => [...prev, newVideo]);
-
-                  setConfig((prev) => ({
-                    ...prev,
-                    videoUrl: result.url,
-                    videoStoragePath: result.path,
-                    videos: [...(prev.videos || []), newVideo],
-                    generationStage: "video_ready",
-                  }));
-                  setLastVideoMetadata((prev: any) =>
-                    prev
-                      ? {
-                          ...prev,
-                          url: result.url,
-                          status: "completed",
-                        }
-                      : null,
-                  );
-                  setGenerationStage("video_ready");
                   setLoading(false);
+                  toast(
+                    'Vídeo gerado mas falha ao salvar no storage. Use o vídeo agora — link expira em ~24h.',
+                    { icon: '⚠️', duration: 6000 }
+                  );
+                  return;
+                }
 
-                  // Auto-save after video generation
-                  handleSaveProject({
-                    videoUrl: result.url,
-                    videoStoragePath: result.path,
-                    videos: [...(videos || []), newVideo],
-                    lastVideoMetadata: lastVideoMetadata
-                      ? {
-                          ...lastVideoMetadata,
-                          url: result.url,
-                          status: "completed",
-                        }
-                      : undefined,
-                    generationStage: "video_ready",
-                  });
+                const newVideo = {
+                  url: result.url,
+                  storagePath: result.path,
+                  createdAt: new Date().toISOString(),
+                  aspectRatio: config.format.aspectRatio,
+                  scale: config.avatar.scale || 1.0,
+                  timelineEdits: [],
+                };
+
+                setVideoUrl(result.url);
+                setVideoStoragePath(result.path);
+                setVideos((prev) => [...prev, newVideo]);
+
+                setConfig((prev) => ({
+                  ...prev,
+                  videoUrl: result.url,
+                  videoStoragePath: result.path,
+                  videos: [...(prev.videos || []), newVideo],
+                  generationStage: 'video_ready',
+                }));
+                setLastVideoMetadata((prev: any) =>
+                  prev
+                    ? {
+                        ...prev,
+                        url: result.url,
+                        status: 'completed',
+                      }
+                    : null
+                );
+                setGenerationStage('video_ready');
+                setLoading(false);
+
+                // Auto-save after video generation
+                handleSaveProject({
+                  videoUrl: result.url,
+                  videoStoragePath: result.path,
+                  videos: [...(videos || []), newVideo],
+                  lastVideoMetadata: lastVideoMetadata
+                    ? {
+                        ...lastVideoMetadata,
+                        url: result.url,
+                        status: 'completed',
+                      }
+                    : undefined,
+                  generationStage: 'video_ready',
                 });
+              });
             } else {
               setVideoUrl(statusData.video_url);
-              setGenerationStage("video_ready");
+              setGenerationStage('video_ready');
               setLoading(false);
             }
           } else {
-            addLog("VIDEO_FAILED");
+            addLog('VIDEO_FAILED');
             const rawError =
               statusData.error ||
               statusData.error_message ||
               statusData.data?.error ||
               statusData.data?.error_message;
-            let errorMsg = "Erro desconhecido";
+            let errorMsg = 'Erro desconhecido';
 
-            if (typeof rawError === "string") {
+            if (typeof rawError === 'string') {
               errorMsg = rawError;
-            } else if (rawError && typeof rawError === "object") {
-              errorMsg =
-                rawError.message ||
-                rawError.exception_class ||
-                JSON.stringify(rawError);
+            } else if (rawError && typeof rawError === 'object') {
+              errorMsg = rawError.message || rawError.exception_class || JSON.stringify(rawError);
             }
 
             if (
-              errorMsg.toLowerCase().includes("quota") ||
-              errorMsg.toLowerCase().includes("balance")
+              errorMsg.toLowerCase().includes('quota') ||
+              errorMsg.toLowerCase().includes('balance')
             ) {
               setProviderError({
-                provider: "HeyGen",
+                provider: 'HeyGen',
                 message:
-                  "HeyGen quota/balance exceeded. Please top up or wait before generating again.",
+                  'HeyGen quota/balance exceeded. Please top up or wait before generating again.',
               });
             } else {
               setProviderError({
-                provider: "HeyGen",
+                provider: 'HeyGen',
                 message: `Geração falhou: ${errorMsg}`,
               });
             }
@@ -4807,10 +4591,10 @@ export default function App() {
           }
         }
       } catch (err: any) {
-        if (err.message && err.message.includes("Failed to fetch")) {
+        if (err.message && err.message.includes('Failed to fetch')) {
           // Ignore network errors (like load balancer timeouts or momentary drops)
         } else {
-          console.error("Polling error:", err);
+          console.error('Polling error:', err);
         }
       }
     };
@@ -4821,21 +4605,19 @@ export default function App() {
 
   const handleGenerateVideo = async (forceRegenerate = false) => {
     if (!isOnline) {
-      setError("Você está offline. Verifique sua conexão com a internet.");
+      setError('Você está offline. Verifique sua conexão com a internet.');
       return;
     }
 
-    if (audioUrl && audioUrl.startsWith("blob:")) {
+    if (audioUrl && audioUrl.startsWith('blob:')) {
       setError(
-        "O áudio ainda está sendo processado ou falhou no upload. Tente gerar o áudio novamente.",
+        'O áudio ainda está sendo processado ou falhou no upload. Tente gerar o áudio novamente.'
       );
       return;
     }
 
     if (!audioUrl && !isTestMode) {
-      setError(
-        "Áudio não encontrado. Por favor, gere o áudio no passo anterior.",
-      );
+      setError('Áudio não encontrado. Por favor, gere o áudio no passo anterior.');
       return;
     }
 
@@ -4844,18 +4626,12 @@ export default function App() {
 
     // Check if video already exists and matches current config
     if (!forceRegenerate && config.lastVideoMetadata && config.videoUrl) {
-      let avatarScript = (config.copy.generatedScript || "").includes(
-        "[AVATAR]:",
-      )
-        ? config.copy.generatedScript
-            .split("[AVATAR]:")[1]
-            .split("[SCENE]:")[0]
-            .trim()
-        : config.copy.generatedScript || "";
+      let avatarScript = (config.copy.generatedScript || '').includes('[AVATAR]:')
+        ? config.copy.generatedScript.split('[AVATAR]:')[1].split('[SCENE]:')[0].trim()
+        : config.copy.generatedScript || '';
 
       if (isTestMode) {
-        avatarScript =
-          "Olá! Este é um teste rápido de 3 segundos para validar a geração.";
+        avatarScript = 'Olá! Este é um teste rápido de 3 segundos para validar a geração.';
       }
 
       const isMatch =
@@ -4865,13 +4641,13 @@ export default function App() {
         config.lastVideoMetadata.audioUrl === audioUrl &&
         config.lastVideoMetadata.aspectRatio === config.format.aspectRatio &&
         config.lastVideoMetadata.isTestMode === isTestMode &&
-        config.lastVideoMetadata.status === "completed";
+        config.lastVideoMetadata.status === 'completed';
 
       if (isMatch) {
         setVideoUrl(config.videoUrl);
-        setGenerationStage("video_ready");
+        setGenerationStage('video_ready');
         setLoading(false);
-        toast.success("Vídeo já gerado para estas configurações.");
+        toast.success('Vídeo já gerado para estas configurações.');
         return;
       }
     }
@@ -4887,53 +4663,37 @@ export default function App() {
       }));
     }
 
-    if (
-      !config.avatar.faceId ||
-      config.avatar.faceId === "f1" ||
-      config.avatar.faceId === ""
-    ) {
-      setError(
-        "Por favor, selecione um avatar válido na lista antes de gerar o vídeo.",
-      );
+    if (!config.avatar.faceId || config.avatar.faceId === 'f1' || config.avatar.faceId === '') {
+      setError('Por favor, selecione um avatar válido na lista antes de gerar o vídeo.');
       setLoading(false);
       return;
     }
 
     try {
-      let avatarScript = (config.copy.generatedScript || "").includes(
-        "[AVATAR]:",
-      )
-        ? config.copy.generatedScript
-            .split("[AVATAR]:")[1]
-            .split("[SCENE]:")[0]
-            .trim()
-        : config.copy.generatedScript || "";
+      let avatarScript = (config.copy.generatedScript || '').includes('[AVATAR]:')
+        ? config.copy.generatedScript.split('[AVATAR]:')[1].split('[SCENE]:')[0].trim()
+        : config.copy.generatedScript || '';
 
       if (isTestMode) {
-        avatarScript =
-          "Olá! Este é um teste rápido de 3 segundos para validar a geração.";
+        avatarScript = 'Olá! Este é um teste rápido de 3 segundos para validar a geração.';
       }
 
-      if (!avatarScript || avatarScript.trim() === "") {
-        throw new Error("Script está vazio. Por favor, gere a copy primeiro.");
+      if (!avatarScript || avatarScript.trim() === '') {
+        throw new Error('Script está vazio. Por favor, gere a copy primeiro.');
       }
 
-      setGenerationStage("video");
-      addLog("VIDEO_STARTED");
-      console.log(
-        `[Video Generation] Starting with Aspect Ratio: ${config.format.aspectRatio}`,
-      );
+      setGenerationStage('video');
+      addLog('VIDEO_STARTED');
+      console.log(`[Video Generation] Starting with Aspect Ratio: ${config.format.aspectRatio}`);
 
       // If we are in 'square' mode, we generate at native aspect ratio and then crop locally
       // to support the manual cropOffset.
       let requestedRatioForHeyGen = config.format.aspectRatio;
-      if (config.avatar.avatarFormat === "square") {
+      if (config.avatar.avatarFormat === 'square') {
         // Determine native ratio - we default to Horizontal 16:9 as HeyGen metadata is unreliable
-        const avatarObj = heygenAvatars.find(
-          (a) => a.avatar_id === config.avatar.faceId,
-        );
-        const isHorizontal = avatarObj?.aspect_ratio !== "9:16";
-        requestedRatioForHeyGen = isHorizontal ? "16:9" : "9:16";
+        const avatarObj = heygenAvatars.find((a) => a.avatar_id === config.avatar.faceId);
+        const isHorizontal = avatarObj?.aspect_ratio !== '9:16';
+        requestedRatioForHeyGen = isHorizontal ? '16:9' : '9:16';
       }
 
       const startTime = Date.now();
@@ -4945,21 +4705,19 @@ export default function App() {
         aspectRatio: requestedRatioForHeyGen,
         scale: config.avatar.scale || 1.0,
         useNativeFallback: useNativeFallback,
-        title: isTestMode
-          ? `Test Clip - ${Date.now()}`
-          : `Video Ad - ${config.angle}`,
+        title: isTestMode ? `Test Clip - ${Date.now()}` : `Video Ad - ${config.angle}`,
       };
-      const response = await fetch("/api/heygen/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/heygen/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(finalPayload),
       });
 
       if (!response.ok) {
-        let errorMsg = "Erro ao iniciar geração do vídeo.";
+        let errorMsg = 'Erro ao iniciar geração do vídeo.';
         try {
-          const contentType = response.headers.get("content-type");
-          if (contentType && contentType.includes("application/json")) {
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
             const errorData = await response.json();
             errorMsg = errorData.error || errorMsg;
           } else {
@@ -4972,12 +4730,10 @@ export default function App() {
         throw new Error(errorMsg);
       }
 
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
         const text = await response.text();
-        throw new Error(
-          `Resposta inválida do servidor: ${text.substring(0, 100)}`,
-        );
+        throw new Error(`Resposta inválida do servidor: ${text.substring(0, 100)}`);
       }
 
       const { videoId, remainingCredits } = await response.json();
@@ -4986,8 +4742,8 @@ export default function App() {
       // Save initial metadata for persistence across refresh
       const initialMetadata = {
         videoId,
-        url: "",
-        status: "pending",
+        url: '',
+        status: 'pending',
         createdAt: new Date().toISOString(),
         avatarId: config.avatar.faceId,
         voiceId: config.avatar.voiceId,
@@ -5002,13 +4758,13 @@ export default function App() {
       // Auto-save immediately to persist videoId
       handleSaveProject({
         lastVideoMetadata: initialMetadata,
-        generationStage: "video",
+        generationStage: 'video',
       });
 
       const initialOp = {
         id: videoId,
-        status: "pending",
-        displayStatus: "Queued",
+        status: 'pending',
+        displayStatus: 'Queued',
         progress: 0,
         startTime,
         requestSentTime: new Date(startTime).toLocaleTimeString(),
@@ -5016,7 +4772,7 @@ export default function App() {
         processingStartTime: null,
         totalTime: 0,
         pollCount: 0,
-        lastStatus: "pending",
+        lastStatus: 'pending',
         lastStatusChangeTime: startTime,
         isStuck: false,
         stuckReason: null,
@@ -5026,46 +4782,44 @@ export default function App() {
       // Start Polling
       startPolling(videoId);
     } catch (err: any) {
-      console.error("Pipeline error:", err);
-      const msg = err.message || "Erro na pipeline de geração.";
-      if (msg.includes("quota") || msg.includes("balance")) {
+      console.error('Pipeline error:', err);
+      const msg = err.message || 'Erro na pipeline de geração.';
+      if (msg.includes('quota') || msg.includes('balance')) {
         setProviderError({
-          provider: "HeyGen",
-          message:
-            "HeyGen quota/balance exceeded. Please top up or wait before generating again.",
+          provider: 'HeyGen',
+          message: 'HeyGen quota/balance exceeded. Please top up or wait before generating again.',
         });
       } else {
-        setProviderError({ provider: "HeyGen", message: msg });
+        setProviderError({ provider: 'HeyGen', message: msg });
       }
       setLoading(false);
     }
   };
 
   const runAIEditGeneration = async (
-    level: "low" | "medium" | "high" | "very-low" = "medium",
+    level: 'low' | 'medium' | 'high' | 'very-low' = 'medium'
   ): Promise<TimelineEdit[] | null> => {
     if (!config.copy.generatedScript && !videoUrl) {
-      toast.error("Gere o roteiro ou o vídeo primeiro!");
+      toast.error('Gere o roteiro ou o vídeo primeiro!');
       return null;
     }
 
     setLoading(true);
-    setGenerationStage("edit");
+    setGenerationStage('edit');
     try {
-      let timelineText = "";
+      let timelineText = '';
 
-      const finalScript =
-        config.lastVideoMetadata?.script || config.copy.generatedScript;
+      const finalScript = config.lastVideoMetadata?.script || config.copy.generatedScript;
 
       if (videoUrl && useVideoAnalysis) {
-        toast.loading("Analisando vídeo com IA...", { id: "ai-edit" });
+        toast.loading('Analisando vídeo com IA...', { id: 'ai-edit' });
         try {
           const response = await fetch(videoUrl);
           const blob = await response.blob();
           const base64 = await new Promise<string>((resolve, reject) => {
             const reader = new FileReader();
             reader.onloadend = () => {
-              const base64String = (reader.result as string).split(",")[1];
+              const base64String = (reader.result as string).split(',')[1];
               resolve(base64String);
             };
             reader.onerror = reject;
@@ -5077,43 +4831,31 @@ export default function App() {
             finalScript,
             duration,
             undefined,
-            level,
+            level
           );
-          toast.success("Vídeo analisado com sucesso!", { id: "ai-edit" });
+          toast.success('Vídeo analisado com sucesso!', { id: 'ai-edit' });
         } catch (err) {
-          console.error("Video analysis failed, falling back to script:", err);
-          toast.error("Falha ao analisar vídeo. Usando roteiro.", {
-            id: "ai-edit",
+          console.error('Video analysis failed, falling back to script:', err);
+          toast.error('Falha ao analisar vídeo. Usando roteiro.', {
+            id: 'ai-edit',
           });
-          timelineText = await generateEditingTimeline(
-            finalScript,
-            duration,
-            undefined,
-            level,
-          );
+          timelineText = await generateEditingTimeline(finalScript, duration, undefined, level);
         }
       } else {
-        timelineText = await generateEditingTimeline(
-          finalScript,
-          duration,
-          undefined,
-          level,
-        );
+        timelineText = await generateEditingTimeline(finalScript, duration, undefined, level);
       }
 
-      const lines = timelineText
-        .split("\n")
-        .filter((line) => line.trim() && line.includes("|"));
+      const lines = timelineText.split('\n').filter((line) => line.trim() && line.includes('|'));
       const newEdits: TimelineEdit[] = lines
         .map((line): TimelineEdit | null => {
-          const parts = line.split("|");
+          const parts = line.split('|');
           if (parts.length < 2) return null;
 
           const timePart = parts[0].trim();
           const contentPart = parts[1].trim();
 
           const startTimeStr = timePart.split(/[–-]/)[0].trim();
-          const timeParts = startTimeStr.split(":").map(Number);
+          const timeParts = startTimeStr.split(':').map(Number);
           let timestamp = 0;
           if (timeParts.length === 3) {
             timestamp = timeParts[0] * 3600 + timeParts[1] * 60 + timeParts[2];
@@ -5124,45 +4866,38 @@ export default function App() {
           }
 
           const phraseMatch = contentPart.match(/[“"'](.+?)[”"']/);
-          const phrase = phraseMatch ? phraseMatch[1] : "";
+          const phrase = phraseMatch ? phraseMatch[1] : '';
 
-          let instruction = contentPart.split("→")[1]?.trim() || contentPart;
-          let aiPrompt = "";
+          let instruction = contentPart.split('→')[1]?.trim() || contentPart;
+          let aiPrompt = '';
 
-          if (instruction.includes("[PROMPT:")) {
-            const parts = instruction.split("[PROMPT:");
+          if (instruction.includes('[PROMPT:')) {
+            const parts = instruction.split('[PROMPT:');
             instruction = parts[0].trim();
-            aiPrompt = parts[1].split("]")[0].trim();
+            aiPrompt = parts[1].split(']')[0].trim();
           }
 
-          let type: "transition" | "image" | "text" | "sound" = "transition";
+          let type: 'transition' | 'image' | 'text' | 'sound' = 'transition';
           const lowerInstruction = instruction.toLowerCase();
           const lowerPrompt = aiPrompt.toLowerCase();
 
           const isVideoAI =
-            lowerInstruction.includes("ia") ||
-            lowerInstruction.includes("clipe") ||
-            lowerInstruction.includes("veo") ||
-            lowerInstruction.includes("gerar") ||
-            lowerPrompt.includes("cinematic") ||
-            lowerPrompt.includes("shot");
+            lowerInstruction.includes('ia') ||
+            lowerInstruction.includes('clipe') ||
+            lowerInstruction.includes('veo') ||
+            lowerInstruction.includes('gerar') ||
+            lowerPrompt.includes('cinematic') ||
+            lowerPrompt.includes('shot');
 
           const isTechnical =
-            lowerInstruction.includes("zoom") ||
-            lowerInstruction.includes("aproximar");
+            lowerInstruction.includes('zoom') || lowerInstruction.includes('aproximar');
 
           if (isVideoAI && !isTechnical) {
-            type = "image";
-          } else if (
-            lowerInstruction.includes("texto") ||
-            lowerInstruction.includes("legenda")
-          ) {
-            type = "text";
-          } else if (
-            lowerInstruction.includes("som") ||
-            lowerInstruction.includes("efeito")
-          ) {
-            type = "sound";
+            type = 'image';
+          } else if (lowerInstruction.includes('texto') || lowerInstruction.includes('legenda')) {
+            type = 'text';
+          } else if (lowerInstruction.includes('som') || lowerInstruction.includes('efeito')) {
+            type = 'sound';
           }
 
           return {
@@ -5178,7 +4913,7 @@ export default function App() {
 
       return newEdits;
     } catch (err) {
-      console.error("AI Edit Generation failed:", err);
+      console.error('AI Edit Generation failed:', err);
       return null;
     } finally {
       setLoading(false);
@@ -5187,24 +4922,22 @@ export default function App() {
 
   const performSplitVideo = async (edits: TimelineEdit[]) => {
     if (!videoUrl) return;
-    const cutPoints = (edits || [])
-      .map((e) => e.timestamp)
-      .sort((a, b) => a - b);
+    const cutPoints = (edits || []).map((e) => e.timestamp).sort((a, b) => a - b);
 
     setLoading(true);
     try {
-      toast.loading("Processando cortes no vídeo...", { id: "split-video" });
-      const response = await fetch("/api/video/split", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      toast.loading('Processando cortes no vídeo...', { id: 'split-video' });
+      const response = await fetch('/api/video/split', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ videoUrl, cutPoints }),
       });
 
       if (!response.ok) {
-        let errorMsg = "Falha ao processar cortes.";
+        let errorMsg = 'Falha ao processar cortes.';
         try {
-          const contentType = response.headers.get("content-type");
-          if (contentType && contentType.includes("application/json")) {
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
             const errorData = await response.json();
             errorMsg = errorData.error || errorData.message || errorMsg;
           } else {
@@ -5217,12 +4950,10 @@ export default function App() {
         throw new Error(errorMsg);
       }
 
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
         const text = await response.text();
-        throw new Error(
-          `Resposta inválida do servidor: ${text.substring(0, 100)}`,
-        );
+        throw new Error(`Resposta inválida do servidor: ${text.substring(0, 100)}`);
       }
       const data = await response.json();
       const sortedEdits = [...edits].sort((a, b) => a.timestamp - b.timestamp);
@@ -5237,7 +4968,7 @@ export default function App() {
         const segmentUrl = data.segments[segIdx]; // segment is the URL string
         if (segmentUrl) {
           const cacheParam = `t=${Date.now()}`;
-          const finalUrl = segmentUrl.includes("?")
+          const finalUrl = segmentUrl.includes('?')
             ? `${segmentUrl}&${cacheParam}`
             : `${segmentUrl}?${cacheParam}`;
           return {
@@ -5257,12 +4988,12 @@ export default function App() {
         },
       }));
 
-      toast.success("Vídeo fatiado e timeline atualizada!", {
-        id: "split-video",
+      toast.success('Vídeo fatiado e timeline atualizada!', {
+        id: 'split-video',
       });
     } catch (err) {
-      console.error("Video split failed:", err);
-      toast.error("Erro ao cortar vídeo.");
+      console.error('Video split failed:', err);
+      toast.error('Erro ao cortar vídeo.');
     } finally {
       setLoading(false);
     }
@@ -5272,35 +5003,34 @@ export default function App() {
     if (!videoUrl || !config.copy.generatedScript) return;
 
     setLoading(true);
-    setGenerationStage("edit");
+    setGenerationStage('edit');
     setHasGeneratedEdits(false);
     setIsEditApproved(false);
 
     try {
-      toast.loading("Analisando vídeo para inserção de B-rolls...", {
-        id: "ai-edit",
+      toast.loading('Analisando vídeo para inserção de B-rolls...', {
+        id: 'ai-edit',
       });
 
       const analysisResult = await generateVeoTimelineFromVideo(
         videoUrl,
         config.format.duration,
-        process.env.GEMINI_API_KEY,
+        process.env.GEMINI_API_KEY
       );
 
-      if (!analysisResult) throw new Error("Falha na análise da IA.");
+      if (!analysisResult) throw new Error('Falha na análise da IA.');
 
       const edits = await parseVeoEdits(analysisResult);
 
       if (!edits || edits.length === 0) {
-        toast.error("Nenhuma cena sugerida pelo Gemini.", { id: "ai-edit" });
-        console.log("Analysis raw result:", analysisResult);
+        toast.error('Nenhuma cena sugerida pelo Gemini.', { id: 'ai-edit' });
+        console.log('Analysis raw result:', analysisResult);
         return;
       }
 
-      toast.success(
-        `Identificado ${edits.length} pontos para B-roll! Aprovação pendente.`,
-        { id: "ai-edit" },
-      );
+      toast.success(`Identificado ${edits.length} pontos para B-roll! Aprovação pendente.`, {
+        id: 'ai-edit',
+      });
 
       // Update config with draft edits (not generating yet)
       const draftEdits = edits.map((e) => ({
@@ -5315,8 +5045,8 @@ export default function App() {
 
       setHasGeneratedEdits(true);
     } catch (err) {
-      console.error("Analysis Workflow failed:", err);
-      toast.error("Falha ao analisar vídeo.");
+      console.error('Analysis Workflow failed:', err);
+      toast.error('Falha ao analisar vídeo.');
     } finally {
       setLoading(false);
     }
@@ -5326,11 +5056,10 @@ export default function App() {
     const edit = config.edit.timelineEdits?.find((e) => e.id === editId);
     if (!edit || !edit.aiPrompt || edit.isGenerating) return;
 
-    const selectedModel =
-      VEO_MODELS.find((m) => m.id === config.edit.veoModel) || VEO_MODELS[0];
-    const isRunway = (selectedModel as any).engine === "runway";
+    const selectedModel = VEO_MODELS.find((m) => m.id === config.edit.veoModel) || VEO_MODELS[0];
+    const isRunway = (selectedModel as any).engine === 'runway';
 
-    toast.loading(`Iniciando ${isRunway ? "Runway" : "VEO"}...`, {
+    toast.loading(`Iniciando ${isRunway ? 'Runway' : 'VEO'}...`, {
       id: `veo-${editId}`,
     });
 
@@ -5339,16 +5068,16 @@ export default function App() {
       edit: {
         ...prev.edit,
         timelineEdits: prev.edit.timelineEdits?.map((e) =>
-          e.id === editId ? { ...e, isGenerating: true, isApproved: true } : e,
+          e.id === editId ? { ...e, isGenerating: true, isApproved: true } : e
         ),
       },
     }));
 
     try {
       if (isRunway) {
-        const response = await fetch("/api/runway/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+        const response = await fetch('/api/runway/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             promptText: edit.aiPrompt,
             duration: edit.duration || 5,
@@ -5359,7 +5088,7 @@ export default function App() {
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || "Falha ao iniciar Runway.");
+          throw new Error(errorData.error || 'Falha ao iniciar Runway.');
         }
         const data = await response.json();
         pollRunwayStatus(editId, data.taskId);
@@ -5367,37 +5096,33 @@ export default function App() {
         const apiKey =
           platformApiKey ||
           (window as any).process?.env?.GEMINI_API_KEY ||
-          (typeof process !== "undefined"
-            ? process.env.GEMINI_API_KEY
-            : undefined);
+          (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined);
         const op = await generateVideoFromPrompt(
           edit.aiPrompt,
           config.format.aspectRatio,
           apiKey,
-          selectedModel.id,
+          selectedModel.id
         );
         setConfig((prev) => ({
           ...prev,
           edit: {
             ...prev.edit,
             timelineEdits: prev.edit.timelineEdits?.map((e) =>
-              e.id === editId ? { ...e, videoOp: op } : e,
+              e.id === editId ? { ...e, videoOp: op } : e
             ),
           },
         }));
         pollSingleVeoStatus(editId, op);
       }
     } catch (err) {
-      console.error("Generation Start Failed:", err);
+      console.error('Generation Start Failed:', err);
       toast.error(`Falha ao iniciar geração.`, { id: `veo-${editId}` });
       setConfig((prev) => ({
         ...prev,
         edit: {
           ...prev.edit,
           timelineEdits: prev.edit.timelineEdits?.map((e) =>
-            e.id === editId
-              ? { ...e, isGenerating: false, isApproved: false }
-              : e,
+            e.id === editId ? { ...e, isGenerating: false, isApproved: false } : e
           ),
         },
       }));
@@ -5413,47 +5138,43 @@ export default function App() {
       attempts++;
 
       if (!taskId) {
-        console.error("[Runway Polling] taskId is missing");
+        console.error('[Runway Polling] taskId is missing');
         done = true;
         break;
       }
 
       try {
         const response = await fetch(`/api/runway/status/${taskId}`);
-        if (!response.ok) throw new Error("Status check failed");
+        if (!response.ok) throw new Error('Status check failed');
         const data = await response.json();
 
-        if (data.status === "SUCCEEDED" && data.videoUrl) {
+        if (data.status === 'SUCCEEDED' && data.videoUrl) {
           done = true;
           setConfig((prev) => ({
             ...prev,
             edit: {
               ...prev.edit,
               timelineEdits: prev.edit.timelineEdits?.map((e) =>
-                e.id === editId
-                  ? { ...e, isGenerating: false, videoUrl: data.videoUrl }
-                  : e,
+                e.id === editId ? { ...e, isGenerating: false, videoUrl: data.videoUrl } : e
               ),
             },
           }));
           toast.success(`Cena Runway gerada!`, { id: `veo-${editId}` });
-        } else if (data.status === "FAILED") {
+        } else if (data.status === 'FAILED') {
           done = true;
-          toast.error("Geração Runway falhou.", { id: `veo-${editId}` });
+          toast.error('Geração Runway falhou.', { id: `veo-${editId}` });
           setConfig((prev) => ({
             ...prev,
             edit: {
               ...prev.edit,
               timelineEdits: prev.edit.timelineEdits?.map((e) =>
-                e.id === editId
-                  ? { ...e, isGenerating: false, value: "Erro na Runway" }
-                  : e,
+                e.id === editId ? { ...e, isGenerating: false, value: 'Erro na Runway' } : e
               ),
             },
           }));
         }
       } catch (err) {
-        console.error("Runway polling error:", err);
+        console.error('Runway polling error:', err);
       }
 
       if (!done) await new Promise((resolve) => setTimeout(resolve, 5000));
@@ -5471,9 +5192,7 @@ export default function App() {
         const apiKey =
           platformApiKey ||
           (window as any).process?.env?.GEMINI_API_KEY ||
-          (typeof process !== "undefined"
-            ? process.env.GEMINI_API_KEY
-            : undefined);
+          (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined);
         const status = await checkVideoStatus(op, apiKey);
 
         if (status.done) {
@@ -5486,7 +5205,7 @@ export default function App() {
               edit: {
                 ...prev.edit,
                 timelineEdits: prev.edit.timelineEdits?.map((e) =>
-                  e.id === editId ? { ...e, isGenerating: false, videoUrl } : e,
+                  e.id === editId ? { ...e, isGenerating: false, videoUrl } : e
                 ),
               },
             }));
@@ -5501,16 +5220,16 @@ export default function App() {
                     ? {
                         ...e,
                         isGenerating: false,
-                        value: "Bloqueado pelo Filtro",
+                        value: 'Bloqueado pelo Filtro',
                       }
-                    : e,
+                    : e
                 ),
               },
             }));
           }
-        } else if (status.error && status.state === "ERROR") {
+        } else if (status.error && status.state === 'ERROR') {
           // We only stop on definitive errors, not transient polling issues
-          console.error("PollSingleVeoStatus error:", status.error);
+          console.error('PollSingleVeoStatus error:', status.error);
         }
       } catch (err) {}
 
@@ -5523,13 +5242,13 @@ export default function App() {
 
     setLoading(true);
     try {
-      toast.loading("Montando vídeo final com B-rolls e áudio original...", {
-        id: "assemble",
+      toast.loading('Montando vídeo final com B-rolls e áudio original...', {
+        id: 'assemble',
       });
 
-      const response = await fetch("/api/video/assemble", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/video/assemble', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           originalVideoUrl: videoUrl,
           timelineEdits: config.edit.timelineEdits.filter((e) => e.videoUrl),
@@ -5540,10 +5259,10 @@ export default function App() {
       });
 
       if (!response.ok) {
-        let errorMsg = "Falha na montagem do vídeo.";
+        let errorMsg = 'Falha na montagem do vídeo.';
         try {
-          const contentType = response.headers.get("content-type");
-          if (contentType && contentType.includes("application/json")) {
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
             const errorData = await response.json();
             errorMsg = errorData.error || errorData.message || errorMsg;
           } else {
@@ -5556,17 +5275,15 @@ export default function App() {
         throw new Error(errorMsg);
       }
 
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
         const text = await response.text();
-        throw new Error(
-          `Resposta inválida do servidor: ${text.substring(0, 100)}`,
-        );
+        throw new Error(`Resposta inválida do servidor: ${text.substring(0, 100)}`);
       }
       const data = await response.json();
       if (data.url) {
         setVideoUrl(data.url);
-        toast.success("Edição concluída com sucesso!", { id: "assemble" });
+        toast.success('Edição concluída com sucesso!', { id: 'assemble' });
         setIsEditApproved(true);
 
         const newVideo = {
@@ -5584,8 +5301,8 @@ export default function App() {
         }));
       }
     } catch (err) {
-      console.error("Assembly failed:", err);
-      toast.error("Erro ao montar vídeo final.");
+      console.error('Assembly failed:', err);
+      toast.error('Erro ao montar vídeo final.');
     } finally {
       setLoading(false);
     }
@@ -5593,40 +5310,39 @@ export default function App() {
 
   const handleMagicEditWorkflow = async () => {
     if (!videoUrl) {
-      toast.error("Carregue um vídeo primeiro!");
+      toast.error('Carregue um vídeo primeiro!');
       return;
     }
 
     const prevAnalysis = useVideoAnalysis;
     setUseVideoAnalysis(true);
 
-    toast.loading("Iniciando Fluxo Mágico de Edição...", { id: "magic" });
+    toast.loading('Iniciando Fluxo Mágico de Edição...', { id: 'magic' });
 
     try {
       const newEdits = await runAIEditGeneration();
       if (!newEdits || newEdits.length === 0) {
-        throw new Error("Não foi possível gerar pontos de edição.");
+        throw new Error('Não foi possível gerar pontos de edição.');
       }
 
       // Ensure there is an edit at 0s
       const finalEdits = [...newEdits];
       if (!finalEdits.find((e) => e.timestamp === 0)) {
-        const finalScript =
-          config.lastVideoMetadata?.script || config.copy.generatedScript;
+        const finalScript = config.lastVideoMetadata?.script || config.copy.generatedScript;
         finalEdits.unshift({
-          id: "start-edit",
+          id: 'start-edit',
           timestamp: 0,
-          type: "transition",
-          value: "Início do vídeo",
-          phrase: finalScript?.split(" ")[0] || "",
+          type: 'transition',
+          value: 'Início do vídeo',
+          phrase: finalScript?.split(' ')[0] || '',
         });
       }
 
       await performSplitVideo(finalEdits);
-      toast.success("Edição Mágica concluída!", { id: "magic" });
+      toast.success('Edição Mágica concluída!', { id: 'magic' });
     } catch (err: any) {
-      console.error("Magic edit failed:", err);
-      toast.error(err.message || "Falha no Fluxo Mágico.", { id: "magic" });
+      console.error('Magic edit failed:', err);
+      toast.error(err.message || 'Falha no Fluxo Mágico.', { id: 'magic' });
     } finally {
       setUseVideoAnalysis(prevAnalysis);
     }
@@ -5640,14 +5356,14 @@ export default function App() {
     const newEdit: TimelineEdit = {
       id: Math.random().toString(36).substr(2, 9),
       timestamp: currentTime,
-      type: "transition",
-      value: "fade",
+      type: 'transition',
+      value: 'fade',
       aspectRatio: config.format.aspectRatio,
     };
     setConfig((prev) => {
       const updatedEdits = [...(prev.edit.timelineEdits || []), newEdit];
       const updatedVideos = (prev.videos || []).map((v) =>
-        v.url === videoUrl ? { ...v, timelineEdits: updatedEdits } : v,
+        v.url === videoUrl ? { ...v, timelineEdits: updatedEdits } : v
       );
       return {
         ...prev,
@@ -5661,11 +5377,9 @@ export default function App() {
 
   const handleRemoveTimelineEdit = (id: string) => {
     setConfig((prev) => {
-      const updatedEdits = (prev.edit.timelineEdits || []).filter(
-        (e) => e.id !== id,
-      );
+      const updatedEdits = (prev.edit.timelineEdits || []).filter((e) => e.id !== id);
       const updatedVideos = (prev.videos || []).map((v) =>
-        v.url === videoUrl ? { ...v, timelineEdits: updatedEdits } : v,
+        v.url === videoUrl ? { ...v, timelineEdits: updatedEdits } : v
       );
       return {
         ...prev,
@@ -5679,7 +5393,7 @@ export default function App() {
   const handleClearAllEdits = () => {
     setConfig((prev) => {
       const updatedVideos = (prev.videos || []).map((v) =>
-        v.url === videoUrl ? { ...v, timelineEdits: [] } : v,
+        v.url === videoUrl ? { ...v, timelineEdits: [] } : v
       );
       return {
         ...prev,
@@ -5688,7 +5402,7 @@ export default function App() {
       };
     });
     setShowClearConfirm(false);
-    toast.success("Todas as edições foram removidas");
+    toast.success('Todas as edições foram removidas');
     handleSaveTimeline();
   };
 
@@ -5697,21 +5411,21 @@ export default function App() {
     if (!edit || (!edit.value && !edit.aiPrompt)) return;
 
     if (!edit.videoUrl) {
-      toast.error("Processar e Fatiar o vídeo principal primeiro!", {
+      toast.error('Processar e Fatiar o vídeo principal primeiro!', {
         id: `process-${editId}`,
       });
       return;
     }
 
     handleUpdateTimelineEdit(editId, { isProcessing: true });
-    toast.loading("IA analisando instruções técnicas...", {
+    toast.loading('IA analisando instruções técnicas...', {
       id: `process-${editId}`,
     });
 
     try {
       const promptToUse = edit.aiPrompt || edit.value;
       if (!promptToUse || promptToUse.trim().length === 0) {
-        toast.error("Instrução técnica vazia.", { id: `process-${editId}` });
+        toast.error('Instrução técnica vazia.', { id: `process-${editId}` });
         handleUpdateTimelineEdit(editId, { isProcessing: false });
         return;
       }
@@ -5725,27 +5439,24 @@ export default function App() {
         previewMetadata: metadata,
       });
 
-      toast.success("Edição técnica visualizada!", { id: `process-${editId}` });
+      toast.success('Edição técnica visualizada!', { id: `process-${editId}` });
       handleSaveTimeline();
     } catch (err) {
-      console.error("Failed to process technical edit:", err);
-      toast.error("Erro ao processar instruções de edição.", {
+      console.error('Failed to process technical edit:', err);
+      toast.error('Erro ao processar instruções de edição.', {
         id: `process-${editId}`,
       });
       handleUpdateTimelineEdit(editId, { isProcessing: false });
     }
   };
 
-  const handleUpdateTimelineEdit = (
-    id: string,
-    updates: Partial<TimelineEdit>,
-  ) => {
+  const handleUpdateTimelineEdit = (id: string, updates: Partial<TimelineEdit>) => {
     setConfig((prev) => {
       const updatedEdits = (prev.edit.timelineEdits || []).map((e) =>
-        e.id === id ? { ...e, ...updates } : e,
+        e.id === id ? { ...e, ...updates } : e
       );
       const updatedVideos = (prev.videos || []).map((v) =>
-        v.url === videoUrl ? { ...v, timelineEdits: updatedEdits } : v,
+        v.url === videoUrl ? { ...v, timelineEdits: updatedEdits } : v
       );
       return {
         ...prev,
@@ -5759,7 +5470,7 @@ export default function App() {
     try {
       // Sort edits by timestamp before saving to ensure sequence
       const sortedEdits = [...(config.edit.timelineEdits || [])].sort(
-        (a, b) => a.timestamp - b.timestamp,
+        (a, b) => a.timestamp - b.timestamp
       );
 
       const updatedConfig = {
@@ -5772,7 +5483,7 @@ export default function App() {
 
       await handleSaveProject(updatedConfig);
     } catch (err) {
-      console.error("Failed to save timeline:", err);
+      console.error('Failed to save timeline:', err);
     }
   };
 
@@ -5786,7 +5497,7 @@ export default function App() {
     try {
       const promptToUse = edit.aiPrompt || edit.value;
       console.log(`[AI Video] Generating video for prompt: ${promptToUse}`);
-      toast.loading("Gerando vídeo IA para este clipe...", {
+      toast.loading('Gerando vídeo IA para este clipe...', {
         id: `gen-video-${editId}`,
       });
 
@@ -5794,22 +5505,18 @@ export default function App() {
       const apiKeyForGen =
         platformApiKey ||
         (window as any).process?.env?.GEMINI_API_KEY ||
-        (typeof process !== "undefined"
-          ? process.env.GEMINI_API_KEY
-          : undefined);
+        (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined);
       const operation = await generateVideoFromPrompt(
         promptToUse,
         config.format.aspectRatio,
-        apiKeyForGen,
+        apiKeyForGen
       );
 
       if (!operation) {
-        throw new Error(
-          "Não foi possível obter os detalhes da operação de vídeo.",
-        );
+        throw new Error('Não foi possível obter os detalhes da operação de vídeo.');
       }
 
-      console.log("[App] Video generation operation started:", operation);
+      console.log('[App] Video generation operation started:', operation);
       handleUpdateTimelineEdit(editId, { videoOp: operation });
 
       // Start polling for this specific video
@@ -5822,9 +5529,7 @@ export default function App() {
           const apiKey =
             platformApiKey ||
             (window as any).process?.env?.GEMINI_API_KEY ||
-            (typeof process !== "undefined"
-              ? process.env.GEMINI_API_KEY
-              : undefined);
+            (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined);
           const status = await checkVideoStatus(operation, apiKey);
           const state = status.state;
 
@@ -5833,45 +5538,38 @@ export default function App() {
             const resultUrl = status.url;
 
             if (resultUrl) {
-              const authorizedUrl = getAuthorizedUrl(
-                resultUrl,
-                platformApiKey || undefined,
-              );
+              const authorizedUrl = getAuthorizedUrl(resultUrl, platformApiKey || undefined);
               handleUpdateTimelineEdit(editId, {
                 processedVideoUrl: authorizedUrl ?? undefined,
                 isGenerating: false,
                 videoOp: null,
               });
-              toast.success("Vídeo gerado com sucesso!", {
+              toast.success('Vídeo gerado com sucesso!', {
                 id: `gen-video-${editId}`,
               });
               handleSaveTimeline();
             } else {
               console.error(
-                "[AI Video] Full status object for missing URL:",
-                JSON.stringify(status, null, 2),
+                '[AI Video] Full status object for missing URL:',
+                JSON.stringify(status, null, 2)
               );
-              throw new Error(
-                "URL do vídeo resultante não encontrada no objeto de resposta.",
-              );
+              throw new Error('URL do vídeo resultante não encontrada no objeto de resposta.');
             }
-          } else if (state === "FAILED" || (status.done && status.error)) {
+          } else if (state === 'FAILED' || (status.done && status.error)) {
             clearInterval(pollInterval);
             handleUpdateTimelineEdit(editId, {
               isGenerating: false,
               videoOp: null,
             });
-            toast.error(
-              `Falha na geração: ${status.error || "Erro desconhecido"}`,
-            );
+            toast.error(`Falha na geração: ${status.error || 'Erro desconhecido'}`);
           }
         } catch (err: any) {
-          console.error("[AI Video] Polling exception:", err);
+          console.error('[AI Video] Polling exception:', err);
         }
       }, 5000);
     } catch (err) {
-      console.error("Video generation for edit failed:", err);
-      toast.error("Erro ao iniciar geração de vídeo.", {
+      console.error('Video generation for edit failed:', err);
+      toast.error('Erro ao iniciar geração de vídeo.', {
         id: `gen-video-${editId}`,
       });
       handleUpdateTimelineEdit(editId, { isGenerating: false });
@@ -5885,25 +5583,20 @@ export default function App() {
     }
     setLoading(false);
     setVideoOp((prev: any) =>
-      prev
-        ? { ...prev, status: "cancelled", displayStatus: "Cancelado" }
-        : null,
+      prev ? { ...prev, status: 'cancelled', displayStatus: 'Cancelado' } : null
     );
-    addLog("VIDEO_CANCELLED_BY_USER");
-    toast.error("Geração cancelada pelo usuário.");
+    addLog('VIDEO_CANCELLED_BY_USER');
+    toast.error('Geração cancelada pelo usuário.');
   };
 
   const canNavigateTo = (stepId: Step) => {
-    if (stepId === "projects" || stepId === "integrations") return true;
+    if (stepId === 'projects' || stepId === 'integrations') return true;
     if (!currentProjectId) {
-      toast.error(
-        "Por favor, selecione um projeto primeiro em 'Meus Projetos'.",
-        {
-          icon: "📁",
-          duration: 4000,
-        },
-      );
-      setCurrentStep("projects");
+      toast.error("Por favor, selecione um projeto primeiro em 'Meus Projetos'.", {
+        icon: '📁',
+        duration: 4000,
+      });
+      setCurrentStep('projects');
       return false;
     }
     return true;
@@ -5932,15 +5625,12 @@ export default function App() {
     if (!url) return;
     const audio = new Audio(url);
     audio.play().catch((err) => {
-      console.error("Error playing voice sample:", err);
-      setError("Não foi possível reproduzir a amostra de voz.");
+      console.error('Error playing voice sample:', err);
+      setError('Não foi possível reproduzir a amostra de voz.');
     });
   };
 
-  const handlePlayVoiceCardSample = async (
-    voiceId: string,
-    previewUrl?: string,
-  ) => {
+  const handlePlayVoiceCardSample = async (voiceId: string, previewUrl?: string) => {
     if (playingVoiceId) return;
 
     // Determine which language to use for the preview
@@ -5948,28 +5638,25 @@ export default function App() {
     // 2. Fallback to the suggested language from copywriting
     // 3. Default to Portuguese
     const langMap: Record<string, string> = {
-      Inglês: "English",
-      Espanhol: "Spanish",
-      "Português (Brasileiro)": "Portuguese",
+      Inglês: 'English',
+      Espanhol: 'Spanish',
+      'Português (Brasileiro)': 'Portuguese',
     };
-    const suggestedLang =
-      config.copy.answers.language || "Português (Brasileiro)";
-    const suggestedVal = langMap[suggestedLang] || "Portuguese";
+    const suggestedLang = config.copy.answers.language || 'Português (Brasileiro)';
+    const suggestedVal = langMap[suggestedLang] || 'Portuguese';
     const activeLangVal = config.voiceSettings?.language || suggestedVal;
 
     setPlayingVoiceId(voiceId);
     try {
-      let previewText = "Olá! Esta é uma prévia da minha voz.";
-      if (activeLangVal === "English")
-        previewText = "Hello! This is a preview of my voice.";
-      if (activeLangVal === "Spanish")
-        previewText = "¡Hola! Esta es una vista previa de mi voz.";
+      let previewText = 'Olá! Esta é uma prévia da minha voz.';
+      if (activeLangVal === 'English') previewText = 'Hello! This is a preview of my voice.';
+      if (activeLangVal === 'Spanish') previewText = '¡Hola! Esta es una vista previa de mi voz.';
 
-      const apiKey = (window as any).process?.env?.API_KEY || "";
+      const apiKey = (window as any).process?.env?.API_KEY || '';
       const result = await generateVoice(previewText, voiceId, apiKey);
 
       if (result && result.arrayBuffer) {
-        const blob = new Blob([result.arrayBuffer], { type: "audio/mpeg" });
+        const blob = new Blob([result.arrayBuffer], { type: 'audio/mpeg' });
         const url = URL.createObjectURL(blob);
         const audio = new Audio(url);
         audio.play();
@@ -5981,27 +5668,25 @@ export default function App() {
           setPlayingVoiceId(null);
         };
       } else {
-        throw new Error("No audio data");
+        throw new Error('No audio data');
       }
     } catch (error: any) {
-      console.error("Preview Error:", error);
+      console.error('Preview Error:', error);
       const msg = error.message || String(error);
       const isBusy =
-        msg.includes("heavy traffic") ||
-        msg.includes("system_busy") ||
-        msg.includes("busy");
+        msg.includes('heavy traffic') || msg.includes('system_busy') || msg.includes('busy');
 
       // Fallback to static preview url if generation fails
       if (previewUrl) {
         if (isBusy) {
-          toast("Servidor ocupado, usando prévia padrão...");
+          toast('Servidor ocupado, usando prévia padrão...');
         }
         handlePlaySample(previewUrl);
       } else {
         if (isBusy) {
-          toast.error("Servidor ElevenLabs ocupado. Tente novamente em 1 min.");
+          toast.error('Servidor ElevenLabs ocupado. Tente novamente em 1 min.');
         } else {
-          toast.error("Erro ao gerar prévia da voz.");
+          toast.error('Erro ao gerar prévia da voz.');
         }
       }
       setPlayingVoiceId(null);
@@ -6010,7 +5695,7 @@ export default function App() {
 
   const handlePreviewVoice = async (voiceId: string) => {
     if (!isOnline) {
-      setError("Você está offline. Verifique sua conexão com a internet.");
+      setError('Você está offline. Verifique sua conexão com a internet.');
       return;
     }
     if (!hasApiKey) {
@@ -6021,34 +5706,24 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const apiKey = (window as any).process?.env?.API_KEY || "";
-      const previewText = (config.copy.generatedScript || "").includes(
-        "[AVATAR]:",
-      )
-        ? config.copy.generatedScript
-            .split("[AVATAR]:")[1]
-            .split("[SCENE]:")[0]
-            .trim()
-        : config.copy.generatedScript ||
-          "Olá! Esta é uma prévia da minha voz para o seu anúncio.";
+      const apiKey = (window as any).process?.env?.API_KEY || '';
+      const previewText = (config.copy.generatedScript || '').includes('[AVATAR]:')
+        ? config.copy.generatedScript.split('[AVATAR]:')[1].split('[SCENE]:')[0].trim()
+        : config.copy.generatedScript || 'Olá! Esta é uma prévia da minha voz para o seu anúncio.';
 
       const result = await generateVoice(previewText, voiceId, apiKey);
       if (result && result.arrayBuffer) {
         if (audioUrl) URL.revokeObjectURL(audioUrl);
-        const blob = new Blob([result.arrayBuffer], { type: "audio/mpeg" });
+        const blob = new Blob([result.arrayBuffer], { type: 'audio/mpeg' });
         const url = result.persistentUrl || URL.createObjectURL(blob);
         setAudioUrl(url);
 
         const audio = new Audio(url);
-        audio
-          .play()
-          .catch((err) => console.error("Error playing preview:", err));
+        audio.play().catch((err) => console.error('Error playing preview:', err));
       }
     } catch (err: any) {
-      console.error("Voice preview error:", err);
-      setError(
-        err.message || "Erro ao gerar prévia da voz. Verifique sua conexão.",
-      );
+      console.error('Voice preview error:', err);
+      setError(err.message || 'Erro ao gerar prévia da voz. Verifique sua conexão.');
     } finally {
       setLoading(false);
     }
@@ -6059,14 +5734,14 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch("/api/elevenlabs/config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/elevenlabs/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ apiKey: elevenLabsKey }),
       });
-      if (!response.ok) throw new Error("Falha ao salvar a chave API.");
-      toast.success("Chave API do ElevenLabs atualizada com sucesso!");
-      setElevenLabsKey("");
+      if (!response.ok) throw new Error('Falha ao salvar a chave API.');
+      toast.success('Chave API do ElevenLabs atualizada com sucesso!');
+      setElevenLabsKey('');
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -6075,31 +5750,29 @@ export default function App() {
   };
 
   const handleTestElevenLabsConnection = async () => {
-    setTestStatus({ status: "loading" });
+    setTestStatus({ status: 'loading' });
     try {
-      const response = await fetch("/api/elevenlabs/health");
-      const contentType = response.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
+      const response = await fetch('/api/elevenlabs/health');
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
         const data = await response.json();
-        if (response.ok && data.status === "ok") {
+        if (response.ok && data.status === 'ok') {
           setTestStatus({
-            status: "success",
+            status: 'success',
             message: `Conectado! Plano: ${data.tier}`,
           });
         } else {
           setTestStatus({
-            status: "error",
-            message: data.message || "Falha na conexão.",
+            status: 'error',
+            message: data.message || 'Falha na conexão.',
           });
         }
       } else {
         const text = await response.text();
-        throw new Error(
-          `Resposta inválida do servidor: ${text.substring(0, 100)}`,
-        );
+        throw new Error(`Resposta inválida do servidor: ${text.substring(0, 100)}`);
       }
     } catch (err: any) {
-      setTestStatus({ status: "error", message: err.message });
+      setTestStatus({ status: 'error', message: err.message });
     }
   };
 
@@ -6108,15 +5781,14 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch("/api/heygen/config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/heygen/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ apiKey: heygenKey }),
       });
-      if (!response.ok)
-        throw new Error("Falha ao salvar a chave API do HeyGen.");
-      toast.success("Chave API do HeyGen atualizada com sucesso!");
-      setHeygenKey("");
+      if (!response.ok) throw new Error('Falha ao salvar a chave API do HeyGen.');
+      toast.success('Chave API do HeyGen atualizada com sucesso!');
+      setHeygenKey('');
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -6125,31 +5797,82 @@ export default function App() {
   };
 
   const handleTestHeyGenConnection = async () => {
-    setHeygenTestStatus({ status: "loading" });
+    setHeygenTestStatus({ status: 'loading' });
     try {
-      const response = await fetch("/api/heygen/health");
-      const contentType = response.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
+      const response = await fetch('/api/heygen/health');
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
         const data = await response.json();
-        if (response.ok && data.status === "ok") {
+        if (response.ok && data.status === 'ok') {
           setHeygenTestStatus({
-            status: "success",
+            status: 'success',
             message: `Conectado! Quota: ${data.quota}`,
           });
         } else {
           setHeygenTestStatus({
-            status: "error",
-            message: data.message || "Falha na conexão.",
+            status: 'error',
+            message: data.message || 'Falha na conexão.',
           });
         }
       } else {
         const text = await response.text();
-        throw new Error(
-          `Resposta inválida do servidor: ${text.substring(0, 100)}`,
-        );
+        throw new Error(`Resposta inválida do servidor: ${text.substring(0, 100)}`);
       }
     } catch (err: any) {
-      setHeygenTestStatus({ status: "error", message: err.message });
+      setHeygenTestStatus({ status: 'error', message: err.message });
+    }
+  };
+
+  const handleSaveGeminiKey = async () => {
+    if (!geminiKey) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/gemini/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: geminiKey }),
+      });
+      if (!response.ok) throw new Error('Falha ao salvar a chave API do Gemini.');
+      // Make the new key available to existing Gemini call sites without
+      // forcing a page reload — they all read window.process.env.GEMINI_API_KEY.
+      const w = window as any;
+      w.process = w.process || { env: {} };
+      w.process.env = w.process.env || {};
+      w.process.env.GEMINI_API_KEY = geminiKey;
+      toast.success('Chave API do Gemini atualizada com sucesso!');
+      setGeminiKey('');
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTestGeminiConnection = async () => {
+    setGeminiTestStatus({ status: 'loading' });
+    try {
+      const response = await fetch('/api/gemini/health');
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const data = await response.json();
+        if (response.ok && data.status === 'ok') {
+          setGeminiTestStatus({
+            status: 'success',
+            message: data.message || 'Conectado!',
+          });
+        } else {
+          setGeminiTestStatus({
+            status: 'error',
+            message: data.message || 'Falha na conexão.',
+          });
+        }
+      } else {
+        const text = await response.text();
+        throw new Error(`Resposta inválida do servidor: ${text.substring(0, 100)}`);
+      }
+    } catch (err: any) {
+      setGeminiTestStatus({ status: 'error', message: err.message });
     }
   };
 
@@ -6158,15 +5881,14 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch("/api/runway/config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/runway/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ apiKey: runwayKey }),
       });
-      if (!response.ok)
-        throw new Error("Falha ao salvar a chave API da Runway.");
-      toast.success("Chave API da Runway atualizada com sucesso!");
-      setRunwayKey("");
+      if (!response.ok) throw new Error('Falha ao salvar a chave API da Runway.');
+      toast.success('Chave API da Runway atualizada com sucesso!');
+      setRunwayKey('');
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -6175,61 +5897,59 @@ export default function App() {
   };
 
   const handleTestRunwayConnection = async () => {
-    setRunwayTestStatus({ status: "loading" });
+    setRunwayTestStatus({ status: 'loading' });
     try {
-      const response = await fetch("/api/runway/health");
-      const contentType = response.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
+      const response = await fetch('/api/runway/health');
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
         const data = await response.json();
-        if (response.ok && data.status === "ok") {
+        if (response.ok && data.status === 'ok') {
           setRunwayTestStatus({
-            status: "success",
-            message: data.message || "Conectado com sucesso!",
+            status: 'success',
+            message: data.message || 'Conectado com sucesso!',
           });
         } else {
           setRunwayTestStatus({
-            status: "error",
-            message: data.message || "Falha na conexão.",
+            status: 'error',
+            message: data.message || 'Falha na conexão.',
           });
         }
       } else {
         const text = await response.text();
-        throw new Error(
-          `Resposta inválida do servidor: ${text.substring(0, 100)}`,
-        );
+        throw new Error(`Resposta inválida do servidor: ${text.substring(0, 100)}`);
       }
     } catch (err: any) {
-      setRunwayTestStatus({ status: "error", message: err.message });
+      setRunwayTestStatus({ status: 'error', message: err.message });
     }
   };
 
   const handleTestAssemblyAIConnection = async () => {
-    setAssemblyTestStatus({ status: "loading" });
+    setAssemblyTestStatus({ status: 'loading' });
     try {
-      const response = await fetch("/api/assemblyai/health");
-      if (!response.ok) throw new Error("Falha na conexão com AssemblyAI");
+      const response = await fetch('/api/assemblyai/health');
+      if (!response.ok) throw new Error('Falha na conexão com AssemblyAI');
       const data = await response.json();
       setAssemblyTestStatus({
-        status: "success",
-        message: data.message || "Conectado com sucesso!",
+        status: 'success',
+        message: data.message || 'Conectado com sucesso!',
       });
     } catch (err: any) {
-      setAssemblyTestStatus({ status: "error", message: err.message });
+      setAssemblyTestStatus({ status: 'error', message: err.message });
     }
   };
 
   const handleTestZapCapConnection = async () => {
-    setZapcapTestStatus({ status: "loading" });
+    setZapcapTestStatus({ status: 'loading' });
     try {
-      const response = await fetch("/api/zapcap/health");
-      if (!response.ok) throw new Error("Falha na conexão com ZapCap");
+      const response = await fetch('/api/zapcap/health');
+      if (!response.ok) throw new Error('Falha na conexão com ZapCap');
       const data = await response.json();
       setZapcapTestStatus({
-        status: "success",
-        message: data.message || "Conectado com sucesso!",
+        status: 'success',
+        message: data.message || 'Conectado com sucesso!',
       });
     } catch (err: any) {
-      setZapcapTestStatus({ status: "error", message: err.message });
+      setZapcapTestStatus({ status: 'error', message: err.message });
     }
   };
 
@@ -6255,9 +5975,7 @@ export default function App() {
                 <ArrowLeft size={20} />
               </button>
               <div>
-                <h2 className="text-3xl font-black text-gray-900 tracking-tight">
-                  {project.name}
-                </h2>
+                <h2 className="text-3xl font-black text-gray-900 tracking-tight">{project.name}</h2>
                 <p className="text-sm text-gray-400 font-medium">
                   Gerencie as versões e conteúdos deste projeto.
                 </p>
@@ -6287,8 +6005,7 @@ export default function App() {
             <div className="p-8 border-b border-gray-50 bg-gray-50/30">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                  <Tag size={14} /> Subprojetos / Versões (
-                  {project.variants?.length || 0})
+                  <Tag size={14} /> Subprojetos / Versões ({project.variants?.length || 0})
                 </h3>
                 <button
                   onClick={() => handleNewSubproject(project)}
@@ -6320,9 +6037,7 @@ export default function App() {
                   ))
                 ) : (
                   <div className="p-12 text-center bg-white rounded-3xl border-2 border-dashed border-gray-100">
-                    <p className="text-gray-400 font-bold">
-                      Nenhuma versão arquivada ainda.
-                    </p>
+                    <p className="text-gray-400 font-bold">Nenhuma versão arquivada ainda.</p>
                   </div>
                 )}
               </div>
@@ -6345,26 +6060,22 @@ export default function App() {
                     </h4>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {Object.entries(viewingVariant.config.copy.answers).map(
-                      ([key, value]) => {
-                        if (key === "existingCopy" || !value) return null;
-                        return (
-                          <div
-                            key={key}
-                            className="p-4 bg-gray-50 rounded-2xl border border-gray-100"
-                          >
-                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">
-                              {key}
-                            </p>
-                            <p className="text-sm font-bold text-gray-700">
-                              {Array.isArray(value)
-                                ? value.join(", ")
-                                : String(value)}
-                            </p>
-                          </div>
-                        );
-                      },
-                    )}
+                    {Object.entries(viewingVariant.config.copy.answers).map(([key, value]) => {
+                      if (key === 'existingCopy' || !value) return null;
+                      return (
+                        <div
+                          key={key}
+                          className="p-4 bg-gray-50 rounded-2xl border border-gray-100"
+                        >
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">
+                            {key}
+                          </p>
+                          <p className="text-sm font-bold text-gray-700">
+                            {Array.isArray(value) ? value.join(', ') : String(value)}
+                          </p>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -6388,35 +6099,38 @@ export default function App() {
                         <video
                           src={
                             getAuthorizedUrl(
-                              viewingVariant.config.videoUrl || "",
-                              platformApiKey || undefined,
+                              viewingVariant.config.videoUrl || '',
+                              platformApiKey || undefined
                             ) || undefined
                           }
                           controls
                           className="w-full h-full object-contain"
                           referrerPolicy={
                             viewingVariant.config.videoUrl?.includes(
-                              "generativelanguage.googleapis.com",
+                              'generativelanguage.googleapis.com'
                             )
-                              ? "no-referrer"
+                              ? 'no-referrer'
                               : undefined
                           }
                           crossOrigin={
                             viewingVariant.config.videoUrl?.includes(
-                              "generativelanguage.googleapis.com",
+                              'generativelanguage.googleapis.com'
                             )
-                              ? "anonymous"
+                              ? 'anonymous'
                               : undefined
                           }
                           onError={(e) => {
-                            if (viewingVariant.config.videoUrl?.startsWith("/generated/")) {
-                              console.warn("[Video Expired] Viewing Variant:", viewingVariant.config.videoUrl);
-                              e.currentTarget.style.display = "none";
+                            if (viewingVariant.config.videoUrl?.startsWith('/generated/')) {
+                              console.warn(
+                                '[Video Expired] Viewing Variant:',
+                                viewingVariant.config.videoUrl
+                              );
+                              e.currentTarget.style.display = 'none';
                             } else {
                               console.error(
-                                "[Video Error] Viewing Variant:",
+                                '[Video Error] Viewing Variant:',
                                 e.currentTarget.error?.message,
-                                viewingVariant.config.videoUrl,
+                                viewingVariant.config.videoUrl
                               );
                             }
                           }}
@@ -6428,13 +6142,11 @@ export default function App() {
                   {viewingVariant.config.copy.generatedScript ? (
                     <div className="space-y-6">
                       {viewingVariant.config.copy.generatedHooks &&
-                        viewingVariant.config.copy.generatedHooks.length >
-                          0 && (
+                        viewingVariant.config.copy.generatedHooks.length > 0 && (
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             {viewingVariant.config.copy.generatedHooks.map(
                               (hook: any, i: number) => {
-                                const hookText =
-                                  typeof hook === "object" ? hook.texto : hook;
+                                const hookText = typeof hook === 'object' ? hook.texto : hook;
                                 return (
                                   <div
                                     key={`variant-hook-${i}-${hookText}`}
@@ -6448,7 +6160,7 @@ export default function App() {
                                     </p>
                                   </div>
                                 );
-                              },
+                              }
                             )}
                           </div>
                         )}
@@ -6496,12 +6208,8 @@ export default function App() {
       <div className="max-w-[1600px] mx-auto space-y-8">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-2xl font-black text-gray-900 tracking-tight">
-              Meus Projetos
-            </h3>
-            <p className="text-gray-500 text-sm">
-              Gerencie seus projetos e criações.
-            </p>
+            <h3 className="text-2xl font-black text-gray-900 tracking-tight">Meus Projetos</h3>
+            <p className="text-gray-500 text-sm">Gerencie seus projetos e criações.</p>
           </div>
           <button
             onClick={() => setShowNewProjectModal(true)}
@@ -6519,9 +6227,7 @@ export default function App() {
                 <Layout size={32} />
               </div>
               <div>
-                <p className="text-lg font-bold text-gray-900">
-                  Nenhum projeto encontrado
-                </p>
+                <p className="text-lg font-bold text-gray-900">Nenhum projeto encontrado</p>
                 <p className="text-sm text-gray-400">
                   Comece criando seu primeiro projeto agora mesmo.
                 </p>
@@ -6539,18 +6245,18 @@ export default function App() {
                 key={project.id}
                 className={`group p-6 bg-white rounded-[32px] border-4 transition-all hover:shadow-xl hover:scale-[1.02] cursor-pointer ${
                   currentProjectId === project.id
-                    ? "border-blue-600 shadow-blue-50"
-                    : "border-gray-50 hover:border-blue-100"
+                    ? 'border-blue-600 shadow-blue-50'
+                    : 'border-gray-50 hover:border-blue-100'
                 }`}
                 onClick={() => setViewingProjectId(project.id)}
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                    {project.type === "complete" ? (
+                    {project.type === 'complete' ? (
                       <Video size={24} />
-                    ) : project.type === "copy" ? (
+                    ) : project.type === 'copy' ? (
                       <Edit3 size={24} />
-                    ) : project.type === "video" ? (
+                    ) : project.type === 'video' ? (
                       <Play size={24} />
                     ) : (
                       <Maximize size={24} />
@@ -6568,28 +6274,25 @@ export default function App() {
                   </button>
                 </div>
 
-                <h4 className="text-lg font-black text-gray-900 mb-1 truncate">
-                  {project.name}
-                </h4>
+                <h4 className="text-lg font-black text-gray-900 mb-1 truncate">{project.name}</h4>
                 <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-4">
-                  {project.type === "complete"
-                    ? "Projeto Completo"
-                    : project.type === "copy"
-                      ? "Apenas Copy"
-                      : project.type === "video"
-                        ? "Apenas Vídeo"
-                        : "Edição de Vídeo"}
+                  {project.type === 'complete'
+                    ? 'Projeto Completo'
+                    : project.type === 'copy'
+                      ? 'Apenas Copy'
+                      : project.type === 'video'
+                        ? 'Apenas Vídeo'
+                        : 'Edição de Vídeo'}
                 </p>
 
                 <div className="flex items-center justify-between pt-4 border-t border-gray-50">
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                     {project.createdAt?.toDate
                       ? project.createdAt.toDate().toLocaleDateString()
-                      : "Recentemente"}
+                      : 'Recentemente'}
                   </span>
                   <div className="flex items-center gap-1 text-blue-600 font-bold text-xs">
-                    Ver Subprojetos ({project.variants?.length || 0}){" "}
-                    <ChevronRight size={14} />
+                    Ver Subprojetos ({project.variants?.length || 0}) <ChevronRight size={14} />
                   </div>
                 </div>
               </div>
@@ -6626,7 +6329,7 @@ export default function App() {
               </label>
               <input
                 type="text"
-                value={newProjectName || ""}
+                value={newProjectName || ''}
                 onChange={(e) => setNewProjectName(e.target.value)}
                 placeholder="Ex: Campanha de Verão"
                 className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none text-sm font-bold"
@@ -6635,11 +6338,11 @@ export default function App() {
 
             {/* Projeto Completo — destaque */}
             <button
-              onClick={() => setNewProjectType("complete")}
+              onClick={() => setNewProjectType('complete')}
               className={`w-full p-5 rounded-2xl border-2 text-left transition-all ${
-                newProjectType === "complete"
-                  ? "border-blue-600 bg-blue-50"
-                  : "border-gray-100 hover:border-blue-200"
+                newProjectType === 'complete'
+                  ? 'border-blue-600 bg-blue-50'
+                  : 'border-gray-100 hover:border-blue-200'
               }`}
             >
               <div className="flex items-center gap-3">
@@ -6659,22 +6362,22 @@ export default function App() {
             <div className="grid grid-cols-3 gap-3">
               {[
                 {
-                  id: "copy",
-                  icon: "✏️",
-                  label: "Roteiro",
-                  desc: "Criar ou melhorar",
+                  id: 'copy',
+                  icon: '✏️',
+                  label: 'Roteiro',
+                  desc: 'Criar ou melhorar',
                 },
                 {
-                  id: "video",
-                  icon: "📹",
-                  label: "Vídeo",
-                  desc: "Avatar + Voz",
+                  id: 'video',
+                  icon: '📹',
+                  label: 'Vídeo',
+                  desc: 'Avatar + Voz',
                 },
                 {
-                  id: "editing",
-                  icon: "✂️",
-                  label: "Edição",
-                  desc: "Editar vídeo",
+                  id: 'editing',
+                  icon: '✂️',
+                  label: 'Edição',
+                  desc: 'Editar vídeo',
                 },
               ].map((type) => (
                 <button
@@ -6682,8 +6385,8 @@ export default function App() {
                   onClick={() => setNewProjectType(type.id as any)}
                   className={`p-3 rounded-2xl border-2 text-center transition-all ${
                     newProjectType === type.id
-                      ? "border-blue-600 bg-blue-50"
-                      : "border-gray-100 hover:border-blue-200"
+                      ? 'border-blue-600 bg-blue-50'
+                      : 'border-gray-100 hover:border-blue-200'
                   }`}
                 >
                   <div className="text-xl mb-1">{type.icon}</div>
@@ -6698,26 +6401,26 @@ export default function App() {
             </div>
 
             {/* Sub-opções de copy — aparecem apenas quando 'copy' está selecionado */}
-            {newProjectType === "copy" && (
+            {newProjectType === 'copy' && (
               <div className="bg-blue-50 rounded-2xl p-4 space-y-2 border border-blue-100 animate-in fade-in slide-in-from-top-2 duration-300">
                 <p className="text-[10px] font-black text-blue-700 uppercase tracking-widest mb-2">
                   Como deseja começar?
                 </p>
                 {[
                   {
-                    id: "zero",
-                    label: "Criar do zero",
-                    desc: "A IA cria o roteiro respondendo perguntas",
+                    id: 'zero',
+                    label: 'Criar do zero',
+                    desc: 'A IA cria o roteiro respondendo perguntas',
                   },
                   {
-                    id: "improve",
-                    label: "Já tenho, quero melhorar",
-                    desc: "Tenho um rascunho e quero aperfeiçoar",
+                    id: 'improve',
+                    label: 'Já tenho, quero melhorar',
+                    desc: 'Tenho um rascunho e quero aperfeiçoar',
                   },
                   {
-                    id: "ready",
-                    label: "Já está pronta",
-                    desc: "Só quero otimizar para o ElevenLabs",
+                    id: 'ready',
+                    label: 'Já está pronta',
+                    desc: 'Só quero otimizar para o ElevenLabs',
                   },
                 ].map((opt) => (
                   <button
@@ -6725,16 +6428,12 @@ export default function App() {
                     onClick={() => setCopySubMode(opt.id as any)}
                     className={`w-full p-3 rounded-xl border text-left transition-all ${
                       copySubMode === opt.id
-                        ? "border-blue-500 bg-white shadow-sm"
-                        : "border-transparent hover:bg-white/50"
+                        ? 'border-blue-500 bg-white shadow-sm'
+                        : 'border-transparent hover:bg-white/50'
                     }`}
                   >
-                    <p className="text-xs font-bold text-gray-900">
-                      {opt.label}
-                    </p>
-                    <p className="text-[10px] text-gray-500 font-medium">
-                      {opt.desc}
-                    </p>
+                    <p className="text-xs font-bold text-gray-900">{opt.label}</p>
+                    <p className="text-[10px] text-gray-500 font-medium">{opt.desc}</p>
                   </button>
                 ))}
               </div>
@@ -6753,11 +6452,7 @@ export default function App() {
               disabled={isSaving || !newProjectName.trim()}
               className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              {isSaving ? (
-                <Loader2 className="animate-spin" size={16} />
-              ) : (
-                "Criar Projeto"
-              )}
+              {isSaving ? <Loader2 className="animate-spin" size={16} /> : 'Criar Projeto'}
             </button>
           </div>
         </motion.div>
@@ -6783,7 +6478,7 @@ export default function App() {
                 </p>
               </div>
             </div>
-            {userRole === "admin" && (
+            {userRole === 'admin' && (
               <div className="flex items-center gap-2 px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold">
                 <Shield size={12} />
                 MODO ADMIN
@@ -6799,9 +6494,7 @@ export default function App() {
                     <Volume2 size={20} />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-gray-900">
-                      ElevenLabs TTS
-                    </p>
+                    <p className="text-sm font-bold text-gray-900">ElevenLabs TTS</p>
                     <p className="text-[10px] text-gray-500 uppercase font-bold">
                       Vozes de Alta Fidelidade
                     </p>
@@ -6810,10 +6503,10 @@ export default function App() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleTestElevenLabsConnection}
-                    disabled={testStatus.status === "loading"}
+                    disabled={testStatus.status === 'loading'}
                     className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-50 transition-all flex items-center gap-2"
                   >
-                    {testStatus.status === "loading" ? (
+                    {testStatus.status === 'loading' ? (
                       <Loader2 size={14} className="animate-spin" />
                     ) : (
                       <Play size={14} />
@@ -6822,25 +6515,25 @@ export default function App() {
                   </button>
                   <div
                     className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold ${
-                      testStatus.status === "success"
-                        ? "bg-green-100 text-green-700"
-                        : testStatus.status === "error"
-                          ? "bg-red-100 text-red-700"
-                          : "bg-blue-100 text-blue-700"
+                      testStatus.status === 'success'
+                        ? 'bg-green-100 text-green-700'
+                        : testStatus.status === 'error'
+                          ? 'bg-red-100 text-red-700'
+                          : 'bg-blue-100 text-blue-700'
                     }`}
                   >
-                    {testStatus.status === "success" ? (
+                    {testStatus.status === 'success' ? (
                       <CheckCircle2 size={12} />
-                    ) : testStatus.status === "error" ? (
+                    ) : testStatus.status === 'error' ? (
                       <AlertCircle size={12} />
                     ) : (
                       <RefreshCw size={12} />
                     )}
-                    {testStatus.status === "success"
-                      ? "CONECTADO"
-                      : testStatus.status === "error"
-                        ? "ERRO"
-                        : "VERIFICAR"}
+                    {testStatus.status === 'success'
+                      ? 'CONECTADO'
+                      : testStatus.status === 'error'
+                        ? 'ERRO'
+                        : 'VERIFICAR'}
                   </div>
                 </div>
               </div>
@@ -6848,16 +6541,16 @@ export default function App() {
               {testStatus.message && (
                 <p
                   className={`text-[10px] font-bold uppercase tracking-wider px-3 py-2 rounded-lg ${
-                    testStatus.status === "success"
-                      ? "bg-green-50 text-green-600"
-                      : "bg-red-50 text-red-600"
+                    testStatus.status === 'success'
+                      ? 'bg-green-50 text-green-600'
+                      : 'bg-red-50 text-red-600'
                   }`}
                 >
                   {testStatus.message}
                 </p>
               )}
 
-              {userRole === "admin" && (
+              {userRole === 'admin' && (
                 <div className="pt-4 border-t border-gray-200 space-y-4">
                   <div className="flex items-center gap-2 text-amber-600">
                     <Key size={14} />
@@ -6868,9 +6561,9 @@ export default function App() {
                   <div className="flex gap-2">
                     <div className="relative flex-1">
                       <input
-                        type={showKey ? "text" : "password"}
+                        type={showKey ? 'text' : 'password'}
                         placeholder="Insira a nova ELEVENLABS_API_KEY"
-                        value={elevenLabsKey || ""}
+                        value={elevenLabsKey || ''}
                         onChange={(e) => setElevenLabsKey(e.target.value)}
                         className="w-full p-4 bg-white border-2 border-gray-200 rounded-2xl focus:border-blue-600 outline-none text-sm transition-all pr-12"
                       />
@@ -6886,16 +6579,12 @@ export default function App() {
                       disabled={loading || !elevenLabsKey}
                       className="px-6 bg-gray-900 text-white rounded-2xl font-bold hover:bg-black transition-all disabled:opacity-50"
                     >
-                      {loading ? (
-                        <Loader2 size={18} className="animate-spin" />
-                      ) : (
-                        "Salvar"
-                      )}
+                      {loading ? <Loader2 size={18} className="animate-spin" /> : 'Salvar'}
                     </button>
                   </div>
                   <p className="text-[10px] text-gray-400 font-medium">
-                    ⚠️ Esta chave será salva no servidor e usada para todas as
-                    gerações de voz da plataforma.
+                    ⚠️ Esta chave será salva no servidor e usada para todas as gerações de voz da
+                    plataforma.
                   </p>
                 </div>
               )}
@@ -6908,9 +6597,7 @@ export default function App() {
                     <User size={20} />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-gray-900">
-                      HeyGen Avatars
-                    </p>
+                    <p className="text-sm font-bold text-gray-900">HeyGen Avatars</p>
                     <p className="text-[10px] text-gray-500 uppercase font-bold">
                       Vídeos com Avatares AI
                     </p>
@@ -6919,10 +6606,10 @@ export default function App() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleTestHeyGenConnection}
-                    disabled={heygenTestStatus.status === "loading"}
+                    disabled={heygenTestStatus.status === 'loading'}
                     className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-50 transition-all flex items-center gap-2"
                   >
-                    {heygenTestStatus.status === "loading" ? (
+                    {heygenTestStatus.status === 'loading' ? (
                       <Loader2 size={14} className="animate-spin" />
                     ) : (
                       <Play size={14} />
@@ -6931,25 +6618,25 @@ export default function App() {
                   </button>
                   <div
                     className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold ${
-                      heygenTestStatus.status === "success"
-                        ? "bg-green-100 text-green-700"
-                        : heygenTestStatus.status === "error"
-                          ? "bg-red-100 text-red-700"
-                          : "bg-blue-100 text-blue-700"
+                      heygenTestStatus.status === 'success'
+                        ? 'bg-green-100 text-green-700'
+                        : heygenTestStatus.status === 'error'
+                          ? 'bg-red-100 text-red-700'
+                          : 'bg-blue-100 text-blue-700'
                     }`}
                   >
-                    {heygenTestStatus.status === "success" ? (
+                    {heygenTestStatus.status === 'success' ? (
                       <CheckCircle2 size={12} />
-                    ) : heygenTestStatus.status === "error" ? (
+                    ) : heygenTestStatus.status === 'error' ? (
                       <AlertCircle size={12} />
                     ) : (
                       <RefreshCw size={12} />
                     )}
-                    {heygenTestStatus.status === "success"
-                      ? "CONECTADO"
-                      : heygenTestStatus.status === "error"
-                        ? "ERRO"
-                        : "VERIFICAR"}
+                    {heygenTestStatus.status === 'success'
+                      ? 'CONECTADO'
+                      : heygenTestStatus.status === 'error'
+                        ? 'ERRO'
+                        : 'VERIFICAR'}
                   </div>
                 </div>
               </div>
@@ -6957,16 +6644,16 @@ export default function App() {
               {heygenTestStatus.message && (
                 <p
                   className={`text-[10px] font-bold uppercase tracking-wider px-3 py-2 rounded-lg ${
-                    heygenTestStatus.status === "success"
-                      ? "bg-green-50 text-green-600"
-                      : "bg-red-50 text-red-600"
+                    heygenTestStatus.status === 'success'
+                      ? 'bg-green-50 text-green-600'
+                      : 'bg-red-50 text-red-600'
                   }`}
                 >
                   {heygenTestStatus.message}
                 </p>
               )}
 
-              {userRole === "admin" && (
+              {userRole === 'admin' && (
                 <div className="pt-4 border-t border-gray-200 space-y-4">
                   <div className="flex items-center gap-2 text-amber-600">
                     <Key size={14} />
@@ -6977,9 +6664,9 @@ export default function App() {
                   <div className="flex gap-2">
                     <div className="relative flex-1">
                       <input
-                        type={heygenShowKey ? "text" : "password"}
+                        type={heygenShowKey ? 'text' : 'password'}
                         placeholder="Insira a nova HEYGEN_API_KEY"
-                        value={heygenKey || ""}
+                        value={heygenKey || ''}
                         onChange={(e) => setHeygenKey(e.target.value)}
                         className="w-full p-4 bg-white border-2 border-gray-200 rounded-2xl focus:border-blue-600 outline-none text-sm transition-all pr-12"
                       />
@@ -6987,11 +6674,7 @@ export default function App() {
                         onClick={() => setHeygenShowKey(!heygenShowKey)}
                         className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                       >
-                        {heygenShowKey ? (
-                          <EyeOff size={18} />
-                        ) : (
-                          <Eye size={18} />
-                        )}
+                        {heygenShowKey ? <EyeOff size={18} /> : <Eye size={18} />}
                       </button>
                     </div>
                     <button
@@ -6999,16 +6682,12 @@ export default function App() {
                       disabled={loading || !heygenKey}
                       className="px-6 bg-gray-900 text-white rounded-2xl font-bold hover:bg-black transition-all disabled:opacity-50"
                     >
-                      {loading ? (
-                        <Loader2 size={18} className="animate-spin" />
-                      ) : (
-                        "Salvar"
-                      )}
+                      {loading ? <Loader2 size={18} className="animate-spin" /> : 'Salvar'}
                     </button>
                   </div>
                   <p className="text-[10px] text-gray-400 font-medium">
-                    ⚠️ Esta chave será salva no servidor e usada para todas as
-                    gerações de vídeo da plataforma.
+                    ⚠️ Esta chave será salva no servidor e usada para todas as gerações de vídeo da
+                    plataforma.
                   </p>
                 </div>
               )}
@@ -7021,9 +6700,7 @@ export default function App() {
                     <Sparkles size={20} />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-gray-900">
-                      Runway Gen-3 Alpha
-                    </p>
+                    <p className="text-sm font-bold text-gray-900">Runway Gen-3 Alpha</p>
                     <p className="text-[10px] text-gray-500 uppercase font-bold">
                       Vídeos Cinematográficos
                     </p>
@@ -7032,10 +6709,10 @@ export default function App() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleTestRunwayConnection}
-                    disabled={runwayTestStatus.status === "loading"}
+                    disabled={runwayTestStatus.status === 'loading'}
                     className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-50 transition-all flex items-center gap-2"
                   >
-                    {runwayTestStatus.status === "loading" ? (
+                    {runwayTestStatus.status === 'loading' ? (
                       <Loader2 size={14} className="animate-spin" />
                     ) : (
                       <Play size={14} />
@@ -7044,25 +6721,25 @@ export default function App() {
                   </button>
                   <div
                     className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold ${
-                      runwayTestStatus.status === "success"
-                        ? "bg-green-100 text-green-700"
-                        : runwayTestStatus.status === "error"
-                          ? "bg-red-100 text-red-700"
-                          : "bg-blue-100 text-blue-700"
+                      runwayTestStatus.status === 'success'
+                        ? 'bg-green-100 text-green-700'
+                        : runwayTestStatus.status === 'error'
+                          ? 'bg-red-100 text-red-700'
+                          : 'bg-blue-100 text-blue-700'
                     }`}
                   >
-                    {runwayTestStatus.status === "success" ? (
+                    {runwayTestStatus.status === 'success' ? (
                       <CheckCircle2 size={12} />
-                    ) : runwayTestStatus.status === "error" ? (
+                    ) : runwayTestStatus.status === 'error' ? (
                       <AlertCircle size={12} />
                     ) : (
                       <RefreshCw size={12} />
                     )}
-                    {runwayTestStatus.status === "success"
-                      ? "CONECTADO"
-                      : runwayTestStatus.status === "error"
-                        ? "ERRO"
-                        : "VERIFICAR"}
+                    {runwayTestStatus.status === 'success'
+                      ? 'CONECTADO'
+                      : runwayTestStatus.status === 'error'
+                        ? 'ERRO'
+                        : 'VERIFICAR'}
                   </div>
                 </div>
               </div>
@@ -7070,16 +6747,16 @@ export default function App() {
               {runwayTestStatus.message && (
                 <p
                   className={`text-[10px] font-bold uppercase tracking-wider px-3 py-2 rounded-lg ${
-                    runwayTestStatus.status === "success"
-                      ? "bg-green-50 text-green-600"
-                      : "bg-red-50 text-red-600"
+                    runwayTestStatus.status === 'success'
+                      ? 'bg-green-50 text-green-600'
+                      : 'bg-red-50 text-red-600'
                   }`}
                 >
                   {runwayTestStatus.message}
                 </p>
               )}
 
-              {userRole === "admin" && (
+              {userRole === 'admin' && (
                 <div className="pt-4 border-t border-gray-200 space-y-4">
                   <div className="flex items-center gap-2 text-amber-600">
                     <Key size={14} />
@@ -7090,9 +6767,9 @@ export default function App() {
                   <div className="flex gap-2">
                     <div className="relative flex-1">
                       <input
-                        type={runwayShowKey ? "text" : "password"}
+                        type={runwayShowKey ? 'text' : 'password'}
                         placeholder="Insira a nova RUNWAY_API_KEY"
-                        value={runwayKey || ""}
+                        value={runwayKey || ''}
                         onChange={(e) => setRunwayKey(e.target.value)}
                         className="w-full p-4 bg-white border-2 border-gray-100 rounded-2xl focus:border-blue-600 outline-none text-sm transition-all pr-12"
                       />
@@ -7100,11 +6777,7 @@ export default function App() {
                         onClick={() => setRunwayShowKey(!runwayShowKey)}
                         className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                       >
-                        {runwayShowKey ? (
-                          <EyeOff size={18} />
-                        ) : (
-                          <Eye size={18} />
-                        )}
+                        {runwayShowKey ? <EyeOff size={18} /> : <Eye size={18} />}
                       </button>
                     </div>
                     <button
@@ -7112,16 +6785,116 @@ export default function App() {
                       disabled={loading || !runwayKey}
                       className="px-6 bg-gray-900 text-white rounded-2xl font-bold hover:bg-black transition-all disabled:opacity-50"
                     >
-                      {loading ? (
-                        <Loader2 size={18} className="animate-spin" />
-                      ) : (
-                        "Salvar"
-                      )}
+                      {loading ? <Loader2 size={18} className="animate-spin" /> : 'Salvar'}
                     </button>
                   </div>
                   <p className="text-[10px] text-gray-400 font-medium">
-                    ⚠️ Esta chave será salva no servidor e usada para todas as
-                    gerações de vídeo Runway da plataforma.
+                    ⚠️ Esta chave será salva no servidor e usada para todas as gerações de vídeo
+                    Runway da plataforma.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Gemini Integration Card */}
+            <div className="p-6 bg-gray-50 rounded-2xl border-2 border-gray-100 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center">
+                    <Sparkles size={20} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-gray-900">Google Gemini</p>
+                    <p className="text-[10px] text-gray-500 uppercase font-bold">
+                      IA Generativa de Copy + Hooks
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleTestGeminiConnection}
+                    disabled={geminiTestStatus.status === 'loading'}
+                    className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-50 transition-all flex items-center gap-2"
+                  >
+                    {geminiTestStatus.status === 'loading' ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Play size={14} />
+                    )}
+                    Testar Conexão
+                  </button>
+                  <div
+                    className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold ${
+                      geminiTestStatus.status === 'success'
+                        ? 'bg-green-100 text-green-700'
+                        : geminiTestStatus.status === 'error'
+                          ? 'bg-red-100 text-red-700'
+                          : 'bg-blue-100 text-blue-700'
+                    }`}
+                  >
+                    {geminiTestStatus.status === 'success' ? (
+                      <CheckCircle2 size={12} />
+                    ) : geminiTestStatus.status === 'error' ? (
+                      <AlertCircle size={12} />
+                    ) : (
+                      <RefreshCw size={12} />
+                    )}
+                    {geminiTestStatus.status === 'success'
+                      ? 'CONECTADO'
+                      : geminiTestStatus.status === 'error'
+                        ? 'ERRO'
+                        : 'VERIFICAR'}
+                  </div>
+                </div>
+              </div>
+
+              {geminiTestStatus.message && (
+                <p
+                  className={`text-[10px] font-bold uppercase tracking-wider px-3 py-2 rounded-lg ${
+                    geminiTestStatus.status === 'success'
+                      ? 'bg-green-50 text-green-600'
+                      : 'bg-red-50 text-red-600'
+                  }`}
+                >
+                  {geminiTestStatus.message}
+                </p>
+              )}
+
+              {userRole === 'admin' && (
+                <div className="pt-4 border-t border-gray-200 space-y-4">
+                  <div className="flex items-center gap-2 text-amber-600">
+                    <Key size={14} />
+                    <span className="text-[10px] font-bold uppercase tracking-widest">
+                      Gerenciar API Key (Admin Only)
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type={geminiShowKey ? 'text' : 'password'}
+                        placeholder="Insira a nova GEMINI_API_KEY"
+                        value={geminiKey || ''}
+                        onChange={(e) => setGeminiKey(e.target.value)}
+                        className="w-full p-4 bg-white border-2 border-gray-200 rounded-2xl focus:border-blue-600 outline-none text-sm transition-all pr-12"
+                      />
+                      <button
+                        onClick={() => setGeminiShowKey(!geminiShowKey)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        {geminiShowKey ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                    <button
+                      onClick={handleSaveGeminiKey}
+                      disabled={loading || !geminiKey}
+                      className="px-6 bg-gray-900 text-white rounded-2xl font-bold hover:bg-black transition-all disabled:opacity-50"
+                    >
+                      {loading ? <Loader2 size={18} className="animate-spin" /> : 'Salvar'}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-gray-400 font-medium">
+                    ⚠️ Esta chave será salva no servidor e usada para geração de copy, hooks e
+                    roteiros via Google Gemini.
                   </p>
                 </div>
               )}
@@ -7135,9 +6908,7 @@ export default function App() {
                     <Zap size={20} />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-gray-900">
-                      AssemblyAI
-                    </p>
+                    <p className="text-sm font-bold text-gray-900">AssemblyAI</p>
                     <p className="text-[10px] text-gray-500 uppercase font-bold">
                       Transcrição + Análise Neural
                     </p>
@@ -7146,10 +6917,10 @@ export default function App() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleTestAssemblyAIConnection}
-                    disabled={assemblyTestStatus.status === "loading"}
+                    disabled={assemblyTestStatus.status === 'loading'}
                     className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-50 transition-all flex items-center gap-2"
                   >
-                    {assemblyTestStatus.status === "loading" ? (
+                    {assemblyTestStatus.status === 'loading' ? (
                       <Loader2 size={14} className="animate-spin" />
                     ) : (
                       <Play size={14} />
@@ -7158,34 +6929,34 @@ export default function App() {
                   </button>
                   <div
                     className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold ${
-                      assemblyTestStatus.status === "success"
-                        ? "bg-green-100 text-green-700"
-                        : assemblyTestStatus.status === "error"
-                          ? "bg-red-100 text-red-700"
-                          : "bg-blue-100 text-blue-700"
+                      assemblyTestStatus.status === 'success'
+                        ? 'bg-green-100 text-green-700'
+                        : assemblyTestStatus.status === 'error'
+                          ? 'bg-red-100 text-red-700'
+                          : 'bg-blue-100 text-blue-700'
                     }`}
                   >
-                    {assemblyTestStatus.status === "success" ? (
+                    {assemblyTestStatus.status === 'success' ? (
                       <CheckCircle2 size={12} />
-                    ) : assemblyTestStatus.status === "error" ? (
+                    ) : assemblyTestStatus.status === 'error' ? (
                       <AlertCircle size={12} />
                     ) : (
                       <RefreshCw size={12} />
                     )}
-                    {assemblyTestStatus.status === "success"
-                      ? "CONECTADO"
-                      : assemblyTestStatus.status === "error"
-                        ? "ERRO"
-                        : "VERIFICAR"}
+                    {assemblyTestStatus.status === 'success'
+                      ? 'CONECTADO'
+                      : assemblyTestStatus.status === 'error'
+                        ? 'ERRO'
+                        : 'VERIFICAR'}
                   </div>
                 </div>
               </div>
               {assemblyTestStatus.message && (
                 <p
                   className={`text-[10px] font-bold uppercase tracking-wider px-3 py-2 rounded-lg ${
-                    assemblyTestStatus.status === "success"
-                      ? "bg-green-50 text-green-600"
-                      : "bg-red-50 text-red-600"
+                    assemblyTestStatus.status === 'success'
+                      ? 'bg-green-50 text-green-600'
+                      : 'bg-red-50 text-red-600'
                   }`}
                 >
                   {assemblyTestStatus.message}
@@ -7201,9 +6972,7 @@ export default function App() {
                     <Film size={20} />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-gray-900">
-                      ZapCap Engine
-                    </p>
+                    <p className="text-sm font-bold text-gray-900">ZapCap Engine</p>
                     <p className="text-[10px] text-gray-500 uppercase font-bold">
                       Legendas + Edição Automática
                     </p>
@@ -7212,10 +6981,10 @@ export default function App() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleTestZapCapConnection}
-                    disabled={zapcapTestStatus.status === "loading"}
+                    disabled={zapcapTestStatus.status === 'loading'}
                     className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-50 transition-all flex items-center gap-2"
                   >
-                    {zapcapTestStatus.status === "loading" ? (
+                    {zapcapTestStatus.status === 'loading' ? (
                       <Loader2 size={14} className="animate-spin" />
                     ) : (
                       <Play size={14} />
@@ -7224,34 +6993,34 @@ export default function App() {
                   </button>
                   <div
                     className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold ${
-                      zapcapTestStatus.status === "success"
-                        ? "bg-green-100 text-green-700"
-                        : zapcapTestStatus.status === "error"
-                          ? "bg-red-100 text-red-700"
-                          : "bg-blue-100 text-blue-700"
+                      zapcapTestStatus.status === 'success'
+                        ? 'bg-green-100 text-green-700'
+                        : zapcapTestStatus.status === 'error'
+                          ? 'bg-red-100 text-red-700'
+                          : 'bg-blue-100 text-blue-700'
                     }`}
                   >
-                    {zapcapTestStatus.status === "success" ? (
+                    {zapcapTestStatus.status === 'success' ? (
                       <CheckCircle2 size={12} />
-                    ) : zapcapTestStatus.status === "error" ? (
+                    ) : zapcapTestStatus.status === 'error' ? (
                       <AlertCircle size={12} />
                     ) : (
                       <RefreshCw size={12} />
                     )}
-                    {zapcapTestStatus.status === "success"
-                      ? "CONECTADO"
-                      : zapcapTestStatus.status === "error"
-                        ? "ERRO"
-                        : "VERIFICAR"}
+                    {zapcapTestStatus.status === 'success'
+                      ? 'CONECTADO'
+                      : zapcapTestStatus.status === 'error'
+                        ? 'ERRO'
+                        : 'VERIFICAR'}
                   </div>
                 </div>
               </div>
               {zapcapTestStatus.message && (
                 <p
                   className={`text-[10px] font-bold uppercase tracking-wider px-3 py-2 rounded-lg ${
-                    zapcapTestStatus.status === "success"
-                      ? "bg-green-50 text-green-600"
-                      : "bg-red-50 text-red-600"
+                    zapcapTestStatus.status === 'success'
+                      ? 'bg-green-50 text-green-600'
+                      : 'bg-red-50 text-red-600'
                   }`}
                 >
                   {zapcapTestStatus.message}
@@ -7263,14 +7032,11 @@ export default function App() {
           <div className="p-6 bg-blue-50 rounded-3xl border border-blue-100">
             <div className="flex items-center gap-3 mb-2">
               <Sparkles className="text-blue-600" size={18} />
-              <h4 className="font-bold text-blue-900 text-sm">
-                Sistema de Créditos
-              </h4>
+              <h4 className="font-bold text-blue-900 text-sm">Sistema de Créditos</h4>
             </div>
             <p className="text-xs text-blue-700 leading-relaxed">
-              Sua conta possui <strong>{credits} créditos</strong> disponíveis.
-              Cada geração de voz consome créditos proporcionalmente ao tamanho
-              do texto (1 crédito por 10 caracteres).
+              Sua conta possui <strong>{credits} créditos</strong> disponíveis. Cada geração de voz
+              consome créditos proporcionalmente ao tamanho do texto (1 crédito por 10 caracteres).
             </p>
           </div>
         </div>
@@ -7280,54 +7046,93 @@ export default function App() {
 
   const renderPersonaStep = () => {
     const categoryOptions = [
-      "Infoproduto", "Produto físico", "SaaS", "Serviço local",
-      "Saúde/Bem-estar", "Estética", "Educação", "Finanças",
-      "Negócios", "Relacionamento", "Carreira", "Pets",
-      "Maternidade", "Consultoria", "E-commerce", "Afiliados",
-      "Aplicativo", "B2B", "Outro",
+      'Infoproduto',
+      'Produto físico',
+      'SaaS',
+      'Serviço local',
+      'Saúde/Bem-estar',
+      'Estética',
+      'Educação',
+      'Finanças',
+      'Negócios',
+      'Relacionamento',
+      'Carreira',
+      'Pets',
+      'Maternidade',
+      'Consultoria',
+      'E-commerce',
+      'Afiliados',
+      'Aplicativo',
+      'B2B',
+      'Outro',
     ];
 
     const urgencyOptions = [
-      { value: "Crítica", label: "🔥 Crítica", desc: "dor física/financeira agora" },
-      { value: "Alta", label: "⚡ Alta", desc: "afeta o dia a dia" },
-      { value: "Média", label: "⏳ Média", desc: "incomoda mas tolera" },
-      { value: "Baixa", label: "💭 Baixa", desc: "curiosidade/melhoria" },
+      { value: 'Crítica', label: '🔥 Crítica', desc: 'dor física/financeira agora' },
+      { value: 'Alta', label: '⚡ Alta', desc: 'afeta o dia a dia' },
+      { value: 'Média', label: '⏳ Média', desc: 'incomoda mas tolera' },
+      { value: 'Baixa', label: '💭 Baixa', desc: 'curiosidade/melhoria' },
     ];
 
     const differentialOptions = [
-      "Mais rápido", "Mais simples", "Mais barato", "Personalizado",
-      "Usa IA", "Tem acompanhamento", "Método próprio", "Prova científica",
-      "Garantia", "Resultado prático", "Natural", "Pra iniciantes",
-      "Pra avançados", "Único no mercado", "Recomendado por especialistas",
+      'Mais rápido',
+      'Mais simples',
+      'Mais barato',
+      'Personalizado',
+      'Usa IA',
+      'Tem acompanhamento',
+      'Método próprio',
+      'Prova científica',
+      'Garantia',
+      'Resultado prático',
+      'Natural',
+      'Pra iniciantes',
+      'Pra avançados',
+      'Único no mercado',
+      'Recomendado por especialistas',
     ];
 
     const triedBeforeOptions = [
-      "Outros cursos", "Remédios", "Aplicativos", "Planilhas", "Dietas",
-      "Academia", "Consultorias", "Vídeos grátis", "Produtos concorrentes",
-      "Dicas de internet", "Profissionais", "Métodos caseiros", "Nada ainda",
+      'Outros cursos',
+      'Remédios',
+      'Aplicativos',
+      'Planilhas',
+      'Dietas',
+      'Academia',
+      'Consultorias',
+      'Vídeos grátis',
+      'Produtos concorrentes',
+      'Dicas de internet',
+      'Profissionais',
+      'Métodos caseiros',
+      'Nada ainda',
     ];
 
     const payingCapacityOptions = [
-      "Baixa (até R$200)", "Média (R$200-1.000)", "Alta (R$1.000-5.000)",
-      "Premium (acima R$5.000)", "Recorrente (mensal/assinatura)", "Não sei ainda",
+      'Baixa (até R$200)',
+      'Média (R$200-1.000)',
+      'Alta (R$1.000-5.000)',
+      'Premium (acima R$5.000)',
+      'Recorrente (mensal/assinatura)',
+      'Não sei ainda',
     ];
 
     const hiddenDesireOptions = [
-      { emoji: "🏆", label: "Ser admirado(a) e respeitado(a)" },
-      { emoji: "💪", label: "Provar que consegue (pra si ou pros outros)" },
-      { emoji: "✨", label: "Recuperar autoestima e autoconfiança" },
-      { emoji: "🌹", label: "Parecer/sentir-se mais jovem ou atraente" },
-      { emoji: "🕊️", label: "Liberdade (financeira, de tempo, de chefe)" },
-      { emoji: "👑", label: "Ter controle sobre a própria vida" },
-      { emoji: "🎯", label: "Parar de depender de outras pessoas" },
-      { emoji: "🏅", label: "Sentir orgulho de si mesmo" },
-      { emoji: "👨‍👩‍👧", label: "Conexão com filhos/família/parceiro(a)" },
-      { emoji: "😌", label: "Paz de espírito / fim da ansiedade" },
-      { emoji: "🌟", label: "Reconhecimento profissional ou social" },
-      { emoji: "💰", label: "Status / sentir-se 'alguém'" },
-      { emoji: "🦋", label: "Recomeço / virar de página na vida" },
-      { emoji: "🛡️", label: "Segurança e estabilidade" },
-      { emoji: "❤️", label: "Ser amado(a) / desejado(a)" },
+      { emoji: '🏆', label: 'Ser admirado(a) e respeitado(a)' },
+      { emoji: '💪', label: 'Provar que consegue (pra si ou pros outros)' },
+      { emoji: '✨', label: 'Recuperar autoestima e autoconfiança' },
+      { emoji: '🌹', label: 'Parecer/sentir-se mais jovem ou atraente' },
+      { emoji: '🕊️', label: 'Liberdade (financeira, de tempo, de chefe)' },
+      { emoji: '👑', label: 'Ter controle sobre a própria vida' },
+      { emoji: '🎯', label: 'Parar de depender de outras pessoas' },
+      { emoji: '🏅', label: 'Sentir orgulho de si mesmo' },
+      { emoji: '👨‍👩‍👧', label: 'Conexão com filhos/família/parceiro(a)' },
+      { emoji: '😌', label: 'Paz de espírito / fim da ansiedade' },
+      { emoji: '🌟', label: 'Reconhecimento profissional ou social' },
+      { emoji: '💰', label: "Status / sentir-se 'alguém'" },
+      { emoji: '🦋', label: 'Recomeço / virar de página na vida' },
+      { emoji: '🛡️', label: 'Segurança e estabilidade' },
+      { emoji: '❤️', label: 'Ser amado(a) / desejado(a)' },
     ];
 
     const a = config.copy.answers;
@@ -7347,19 +7152,19 @@ export default function App() {
         }
         next = [...current, value];
       }
-      updateConfig("copy", "answers", field, next);
+      updateConfig('copy', 'answers', field, next);
     };
 
     const allRequired =
-      (a.product || "").trim().length > 0 &&
-      (a.category || "").trim().length > 0 &&
-      (a.whatItDoes || "").trim().length > 0 &&
-      (a.transformationFrom || "").trim().length > 0 &&
-      (a.transformationTo || "").trim().length > 0 &&
-      (a.urgency || "").trim().length > 0 &&
+      (a.product || '').trim().length > 0 &&
+      (a.category || '').trim().length > 0 &&
+      (a.whatItDoes || '').trim().length > 0 &&
+      (a.transformationFrom || '').trim().length > 0 &&
+      (a.transformationTo || '').trim().length > 0 &&
+      (a.urgency || '').trim().length > 0 &&
       differentials.length > 0 &&
       personaTriedBefore.length > 0 &&
-      (a.payingCapacity || "").trim().length > 0 &&
+      (a.payingCapacity || '').trim().length > 0 &&
       hiddenDesires.length > 0;
 
     const personas: any[] = generatedPersona?.personas || [];
@@ -7372,7 +7177,8 @@ export default function App() {
             Identificar Persona
           </h3>
           <p className="text-gray-500 text-sm mt-1">
-            Responda 9 perguntas — a IA gera 3 personas com nível de consciência. Escolha uma para continuar.
+            Responda 9 perguntas — a IA gera 3 personas com nível de consciência. Escolha uma para
+            continuar.
           </p>
         </div>
 
@@ -7390,8 +7196,8 @@ export default function App() {
             <label className="text-sm font-black text-gray-900">1. O que você está vendendo?</label>
             <input
               type="text"
-              value={a.product || ""}
-              onChange={(e) => updateConfig("copy", "answers", "product", e.target.value)}
+              value={a.product || ''}
+              onChange={(e) => updateConfig('copy', 'answers', 'product', e.target.value)}
               placeholder="Ex: Suplemento natural pra neuropatia"
               className="w-full px-4 py-3 border-2 border-gray-100 rounded-2xl focus:border-blue-600 focus:outline-none text-sm"
             />
@@ -7404,12 +7210,12 @@ export default function App() {
               {categoryOptions.map((cat) => (
                 <button
                   key={cat}
-                  onClick={() => updateConfig("copy", "answers", "category", cat)}
+                  onClick={() => updateConfig('copy', 'answers', 'category', cat)}
                   className={cn(
-                    "px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all",
+                    'px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all',
                     a.category === cat
-                      ? "bg-blue-600 text-white border-blue-600"
-                      : "bg-white text-gray-700 border-gray-200 hover:border-blue-300",
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-gray-700 border-gray-200 hover:border-blue-300'
                   )}
                 >
                   {cat}
@@ -7420,11 +7226,13 @@ export default function App() {
 
           {/* P3 */}
           <div className="space-y-2">
-            <label className="text-sm font-black text-gray-900">3. Em uma frase, o que ele faz?</label>
+            <label className="text-sm font-black text-gray-900">
+              3. Em uma frase, o que ele faz?
+            </label>
             <input
               type="text"
-              value={a.whatItDoes || ""}
-              onChange={(e) => updateConfig("copy", "answers", "whatItDoes", e.target.value)}
+              value={a.whatItDoes || ''}
+              onChange={(e) => updateConfig('copy', 'answers', 'whatItDoes', e.target.value)}
               placeholder="Ex: Reduz queimação e formigamento causados por nervos danificados"
               className="w-full px-4 py-3 border-2 border-gray-100 rounded-2xl focus:border-blue-600 focus:outline-none text-sm"
             />
@@ -7435,21 +7243,29 @@ export default function App() {
             <label className="text-sm font-black text-gray-900">4. Transformação prometida</label>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">De:</span>
+                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                  De:
+                </span>
                 <input
                   type="text"
-                  value={a.transformationFrom || ""}
-                  onChange={(e) => updateConfig("copy", "answers", "transformationFrom", e.target.value)}
+                  value={a.transformationFrom || ''}
+                  onChange={(e) =>
+                    updateConfig('copy', 'answers', 'transformationFrom', e.target.value)
+                  }
                   placeholder="Ex: acordando com pés ardendo"
                   className="w-full px-4 py-3 border-2 border-gray-100 rounded-2xl focus:border-blue-600 focus:outline-none text-sm"
                 />
               </div>
               <div>
-                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Para:</span>
+                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                  Para:
+                </span>
                 <input
                   type="text"
-                  value={a.transformationTo || ""}
-                  onChange={(e) => updateConfig("copy", "answers", "transformationTo", e.target.value)}
+                  value={a.transformationTo || ''}
+                  onChange={(e) =>
+                    updateConfig('copy', 'answers', 'transformationTo', e.target.value)
+                  }
                   placeholder="Ex: dormindo a noite inteira"
                   className="w-full px-4 py-3 border-2 border-gray-100 rounded-2xl focus:border-blue-600 focus:outline-none text-sm"
                 />
@@ -7459,10 +7275,12 @@ export default function App() {
 
           {/* Comentário opcional */}
           <details className="text-sm">
-            <summary className="cursor-pointer text-blue-600 font-bold text-xs uppercase tracking-widest">+ Adicionar contexto sobre o produto (opcional)</summary>
+            <summary className="cursor-pointer text-blue-600 font-bold text-xs uppercase tracking-widest">
+              + Adicionar contexto sobre o produto (opcional)
+            </summary>
             <textarea
-              value={a.productComment || ""}
-              onChange={(e) => updateConfig("copy", "answers", "productComment", e.target.value)}
+              value={a.productComment || ''}
+              onChange={(e) => updateConfig('copy', 'answers', 'productComment', e.target.value)}
               placeholder="Algo específico que a IA precisa saber sobre o produto?"
               rows={2}
               className="mt-2 w-full px-4 py-3 border-2 border-gray-100 rounded-2xl focus:border-blue-600 focus:outline-none text-sm resize-none"
@@ -7481,17 +7299,19 @@ export default function App() {
 
           {/* P5 — Urgência */}
           <div className="space-y-2">
-            <label className="text-sm font-black text-gray-900">5. Quão urgente é o problema pra quem compra?</label>
+            <label className="text-sm font-black text-gray-900">
+              5. Quão urgente é o problema pra quem compra?
+            </label>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               {urgencyOptions.map((opt) => (
                 <button
                   key={opt.value}
-                  onClick={() => updateConfig("copy", "answers", "urgency", opt.value)}
+                  onClick={() => updateConfig('copy', 'answers', 'urgency', opt.value)}
                   className={cn(
-                    "p-3 rounded-2xl border-2 transition-all text-left",
+                    'p-3 rounded-2xl border-2 transition-all text-left',
                     a.urgency === opt.value
-                      ? "bg-blue-50 border-blue-600"
-                      : "bg-white border-gray-100 hover:border-blue-200",
+                      ? 'bg-blue-50 border-blue-600'
+                      : 'bg-white border-gray-100 hover:border-blue-200'
                   )}
                 >
                   <div className="text-sm font-black text-gray-900">{opt.label}</div>
@@ -7511,12 +7331,12 @@ export default function App() {
               {differentialOptions.map((d) => (
                 <button
                   key={d}
-                  onClick={() => toggleArrayValue("differentials", d, 5)}
+                  onClick={() => toggleArrayValue('differentials', d, 5)}
                   className={cn(
-                    "px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all",
+                    'px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all',
                     differentials.includes(d)
-                      ? "bg-blue-600 text-white border-blue-600"
-                      : "bg-white text-gray-700 border-gray-200 hover:border-blue-300",
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-gray-700 border-gray-200 hover:border-blue-300'
                   )}
                 >
                   {d}
@@ -7526,10 +7346,12 @@ export default function App() {
           </div>
 
           <details className="text-sm">
-            <summary className="cursor-pointer text-blue-600 font-bold text-xs uppercase tracking-widest">+ Adicionar contexto sobre o problema (opcional)</summary>
+            <summary className="cursor-pointer text-blue-600 font-bold text-xs uppercase tracking-widest">
+              + Adicionar contexto sobre o problema (opcional)
+            </summary>
             <textarea
-              value={a.problemComment || ""}
-              onChange={(e) => updateConfig("copy", "answers", "problemComment", e.target.value)}
+              value={a.problemComment || ''}
+              onChange={(e) => updateConfig('copy', 'answers', 'problemComment', e.target.value)}
               rows={2}
               className="mt-2 w-full px-4 py-3 border-2 border-gray-100 rounded-2xl focus:border-blue-600 focus:outline-none text-sm resize-none"
             />
@@ -7555,12 +7377,12 @@ export default function App() {
               {triedBeforeOptions.map((t) => (
                 <button
                   key={t}
-                  onClick={() => toggleArrayValue("personaTriedBefore", t, 5)}
+                  onClick={() => toggleArrayValue('personaTriedBefore', t, 5)}
                   className={cn(
-                    "px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all",
+                    'px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all',
                     personaTriedBefore.includes(t)
-                      ? "bg-blue-600 text-white border-blue-600"
-                      : "bg-white text-gray-700 border-gray-200 hover:border-blue-300",
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-gray-700 border-gray-200 hover:border-blue-300'
                   )}
                 >
                   {t}
@@ -7571,17 +7393,19 @@ export default function App() {
 
           {/* P8 — Capacidade de pagar */}
           <div className="space-y-2">
-            <label className="text-sm font-black text-gray-900">8. Capacidade de pagar do cliente típico</label>
+            <label className="text-sm font-black text-gray-900">
+              8. Capacidade de pagar do cliente típico
+            </label>
             <div className="flex flex-wrap gap-2">
               {payingCapacityOptions.map((p) => (
                 <button
                   key={p}
-                  onClick={() => updateConfig("copy", "answers", "payingCapacity", p)}
+                  onClick={() => updateConfig('copy', 'answers', 'payingCapacity', p)}
                   className={cn(
-                    "px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all",
+                    'px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all',
                     a.payingCapacity === p
-                      ? "bg-blue-600 text-white border-blue-600"
-                      : "bg-white text-gray-700 border-gray-200 hover:border-blue-300",
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-gray-700 border-gray-200 hover:border-blue-300'
                   )}
                 >
                   {p}
@@ -7597,18 +7421,20 @@ export default function App() {
               <span className="text-[10px] text-gray-400 font-bold ml-2">(escolha 1-3)</span>
             </label>
             <p className="text-xs text-gray-500 italic leading-relaxed">
-              Não é o que o produto faz na superfície (ex: "perder peso") — é o que a pessoa REALMENTE quer ao resolver o problema (ex: "ser admirada nas fotos", "se sentir desejada de novo"). Pense no que ela diria se ninguém estivesse ouvindo.
+              Não é o que o produto faz na superfície (ex: "perder peso") — é o que a pessoa
+              REALMENTE quer ao resolver o problema (ex: "ser admirada nas fotos", "se sentir
+              desejada de novo"). Pense no que ela diria se ninguém estivesse ouvindo.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">
               {hiddenDesireOptions.map((d) => (
                 <button
                   key={d.label}
-                  onClick={() => toggleArrayValue("hiddenDesires", d.label, 3)}
+                  onClick={() => toggleArrayValue('hiddenDesires', d.label, 3)}
                   className={cn(
-                    "p-3 rounded-2xl border-2 transition-all text-left flex items-start gap-2",
+                    'p-3 rounded-2xl border-2 transition-all text-left flex items-start gap-2',
                     hiddenDesires.includes(d.label)
-                      ? "bg-blue-50 border-blue-600"
-                      : "bg-white border-gray-100 hover:border-blue-200",
+                      ? 'bg-blue-50 border-blue-600'
+                      : 'bg-white border-gray-100 hover:border-blue-200'
                   )}
                 >
                   <span className="text-xl shrink-0">{d.emoji}</span>
@@ -7619,10 +7445,12 @@ export default function App() {
           </div>
 
           <details className="text-sm">
-            <summary className="cursor-pointer text-blue-600 font-bold text-xs uppercase tracking-widest">+ Adicionar contexto sobre o cliente (opcional)</summary>
+            <summary className="cursor-pointer text-blue-600 font-bold text-xs uppercase tracking-widest">
+              + Adicionar contexto sobre o cliente (opcional)
+            </summary>
             <textarea
-              value={a.clientComment || ""}
-              onChange={(e) => updateConfig("copy", "answers", "clientComment", e.target.value)}
+              value={a.clientComment || ''}
+              onChange={(e) => updateConfig('copy', 'answers', 'clientComment', e.target.value)}
               rows={2}
               className="mt-2 w-full px-4 py-3 border-2 border-gray-100 rounded-2xl focus:border-blue-600 focus:outline-none text-sm resize-none"
             />
@@ -7636,7 +7464,7 @@ export default function App() {
           className="w-full py-6 bg-blue-600 text-white rounded-[32px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-2xl shadow-blue-100 disabled:opacity-50 flex items-center justify-center gap-3 text-lg"
         >
           {loading ? <Loader2 className="animate-spin" size={24} /> : <Sparkles size={24} />}
-          {personas.length > 0 ? "Regerar 3 Personas" : "Gerar 3 Personas com IA"}
+          {personas.length > 0 ? 'Regerar 3 Personas' : 'Gerar 3 Personas com IA'}
         </button>
         {!allRequired && (
           <p className="text-center text-xs text-gray-400 font-bold uppercase tracking-widest">
@@ -7653,24 +7481,24 @@ export default function App() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {personas.map((p, idx) => {
                 const rankColor =
-                  p.rank === "principal" ? "blue" : p.rank === "secundaria" ? "purple" : "gray";
+                  p.rank === 'principal' ? 'blue' : p.rank === 'secundaria' ? 'purple' : 'gray';
                 return (
                   <div
                     key={idx}
                     className={cn(
-                      "bg-white p-6 rounded-[28px] border-4 shadow-sm space-y-3 flex flex-col",
-                      rankColor === "blue" && "border-blue-600",
-                      rankColor === "purple" && "border-purple-400",
-                      rankColor === "gray" && "border-gray-200",
+                      'bg-white p-6 rounded-[28px] border-4 shadow-sm space-y-3 flex flex-col',
+                      rankColor === 'blue' && 'border-blue-600',
+                      rankColor === 'purple' && 'border-purple-400',
+                      rankColor === 'gray' && 'border-gray-200'
                     )}
                   >
                     <div className="flex items-center justify-between">
                       <span
                         className={cn(
-                          "px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest",
-                          rankColor === "blue" && "bg-blue-600 text-white",
-                          rankColor === "purple" && "bg-purple-400 text-white",
-                          rankColor === "gray" && "bg-gray-200 text-gray-700",
+                          'px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest',
+                          rankColor === 'blue' && 'bg-blue-600 text-white',
+                          rankColor === 'purple' && 'bg-purple-400 text-white',
+                          rankColor === 'gray' && 'bg-gray-200 text-gray-700'
                         )}
                       >
                         {p.rank}
@@ -7687,38 +7515,97 @@ export default function App() {
                       <p className="text-[10px] font-black text-blue-900 uppercase tracking-widest mb-1">
                         🎯 Nível {p.awarenessLevel} de Consciência
                       </p>
-                      <p className="text-xs text-blue-800 leading-snug">
-                        {p.awarenessReason}
-                      </p>
+                      <p className="text-xs text-blue-800 leading-snug">{p.awarenessReason}</p>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-[10px]">
-                      <div className="text-gray-500"><strong className="text-gray-900">Idade:</strong> {p.age}</div>
-                      <div className="text-gray-500"><strong className="text-gray-900">Gênero:</strong> {p.gender}</div>
+                      <div className="text-gray-500">
+                        <strong className="text-gray-900">Idade:</strong> {p.age}
+                      </div>
+                      <div className="text-gray-500">
+                        <strong className="text-gray-900">Gênero:</strong> {p.gender}
+                      </div>
                     </div>
                     <div className="space-y-2 text-xs flex-1">
-                      <div><strong className="text-gray-900 block text-[10px] uppercase tracking-widest">Dor principal</strong> <span className="text-gray-700">{p.mainPain}</span></div>
-                      <div><strong className="text-gray-900 block text-[10px] uppercase tracking-widest">Desejo oculto</strong> <span className="text-gray-700">{p.hiddenDesire}</span></div>
-                      <div><strong className="text-gray-900 block text-[10px] uppercase tracking-widest">Medo dominante</strong> <span className="text-gray-700">{p.dominantFear}</span></div>
-                      <div><strong className="text-gray-900 block text-[10px] uppercase tracking-widest">Objeção principal</strong> <span className="text-gray-700">{p.mainObjection}</span></div>
-                      <div><strong className="text-gray-900 block text-[10px] uppercase tracking-widest">Gatilho emocional</strong> <span className="text-gray-700">{p.emotionalTrigger}</span></div>
-                      <div className="pt-2 border-t border-gray-100"><strong className="text-gray-900 block text-[10px] uppercase tracking-widest">Ângulo de vídeo</strong> <span className="text-gray-700">{p.recommendedVideoAngle}</span></div>
-                      <div><strong className="text-gray-900 block text-[10px] uppercase tracking-widest">Hook recomendado</strong> <span className="text-gray-700">{p.recommendedHookType}</span></div>
-                      <div><strong className="text-gray-900 block text-[10px] uppercase tracking-widest">Tom</strong> <span className="text-gray-700">{p.communicationTone}</span></div>
-                      <div><strong className="text-gray-900 block text-[10px] uppercase tracking-widest">Promessa</strong> <span className="text-gray-700">{p.strongestPromise}</span></div>
-                      <div><strong className="text-gray-900 block text-[10px] uppercase tracking-widest">CTA</strong> <span className="text-gray-700">{p.recommendedCTA}</span></div>
-                      <div className="pt-2 border-t border-gray-100"><strong className="text-gray-900 block text-[10px] uppercase tracking-widest">Por que é {p.rank}?</strong> <span className="text-gray-700 italic">{p.whyMainOrSecondaryOrTertiary}</span></div>
+                      <div>
+                        <strong className="text-gray-900 block text-[10px] uppercase tracking-widest">
+                          Dor principal
+                        </strong>{' '}
+                        <span className="text-gray-700">{p.mainPain}</span>
+                      </div>
+                      <div>
+                        <strong className="text-gray-900 block text-[10px] uppercase tracking-widest">
+                          Desejo oculto
+                        </strong>{' '}
+                        <span className="text-gray-700">{p.hiddenDesire}</span>
+                      </div>
+                      <div>
+                        <strong className="text-gray-900 block text-[10px] uppercase tracking-widest">
+                          Medo dominante
+                        </strong>{' '}
+                        <span className="text-gray-700">{p.dominantFear}</span>
+                      </div>
+                      <div>
+                        <strong className="text-gray-900 block text-[10px] uppercase tracking-widest">
+                          Objeção principal
+                        </strong>{' '}
+                        <span className="text-gray-700">{p.mainObjection}</span>
+                      </div>
+                      <div>
+                        <strong className="text-gray-900 block text-[10px] uppercase tracking-widest">
+                          Gatilho emocional
+                        </strong>{' '}
+                        <span className="text-gray-700">{p.emotionalTrigger}</span>
+                      </div>
+                      <div className="pt-2 border-t border-gray-100">
+                        <strong className="text-gray-900 block text-[10px] uppercase tracking-widest">
+                          Ângulo de vídeo
+                        </strong>{' '}
+                        <span className="text-gray-700">{p.recommendedVideoAngle}</span>
+                      </div>
+                      <div>
+                        <strong className="text-gray-900 block text-[10px] uppercase tracking-widest">
+                          Hook recomendado
+                        </strong>{' '}
+                        <span className="text-gray-700">{p.recommendedHookType}</span>
+                      </div>
+                      <div>
+                        <strong className="text-gray-900 block text-[10px] uppercase tracking-widest">
+                          Tom
+                        </strong>{' '}
+                        <span className="text-gray-700">{p.communicationTone}</span>
+                      </div>
+                      <div>
+                        <strong className="text-gray-900 block text-[10px] uppercase tracking-widest">
+                          Promessa
+                        </strong>{' '}
+                        <span className="text-gray-700">{p.strongestPromise}</span>
+                      </div>
+                      <div>
+                        <strong className="text-gray-900 block text-[10px] uppercase tracking-widest">
+                          CTA
+                        </strong>{' '}
+                        <span className="text-gray-700">{p.recommendedCTA}</span>
+                      </div>
+                      <div className="pt-2 border-t border-gray-100">
+                        <strong className="text-gray-900 block text-[10px] uppercase tracking-widest">
+                          Por que é {p.rank}?
+                        </strong>{' '}
+                        <span className="text-gray-700 italic">
+                          {p.whyMainOrSecondaryOrTertiary}
+                        </span>
+                      </div>
                     </div>
                     <button
                       onClick={() => handleSelectPersona(p)}
                       disabled={!personasSaved}
                       className={cn(
-                        "w-full mt-3 py-3 rounded-2xl font-black uppercase tracking-widest text-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed",
-                        rankColor === "blue" && "bg-blue-600 text-white hover:bg-blue-700",
-                        rankColor === "purple" && "bg-purple-500 text-white hover:bg-purple-600",
-                        rankColor === "gray" && "bg-gray-900 text-white hover:bg-black",
+                        'w-full mt-3 py-3 rounded-2xl font-black uppercase tracking-widest text-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed',
+                        rankColor === 'blue' && 'bg-blue-600 text-white hover:bg-blue-700',
+                        rankColor === 'purple' && 'bg-purple-500 text-white hover:bg-purple-600',
+                        rankColor === 'gray' && 'bg-gray-900 text-white hover:bg-black'
                       )}
                     >
-                      {personasSaved ? "Enviar este Persona pra Copy →" : "🔒 Salve os 3 primeiro"}
+                      {personasSaved ? 'Enviar este Persona pra Copy →' : '🔒 Salve os 3 primeiro'}
                     </button>
                   </div>
                 );
@@ -7734,13 +7621,10 @@ export default function App() {
               >
                 {personasSaved ? (
                   <>
-                    <CheckCircle2 size={20} />
-                    3 Personas Salvos no Projeto
+                    <CheckCircle2 size={20} />3 Personas Salvos no Projeto
                   </>
                 ) : (
-                  <>
-                    💾 Salvar os 3 Personas no Projeto
-                  </>
+                  <>💾 Salvar os 3 Personas no Projeto</>
                 )}
               </button>
               {personasSaved && (
@@ -7756,51 +7640,37 @@ export default function App() {
   };
 
   const renderCopyStep = () => {
-    const awarenessLevel = (
-      config.copy.answers.awarenessLevel || ""
-    ).toString();
-    const awarenessNum = parseInt(awarenessLevel.split("-")[0]) || 0;
+    const awarenessLevel = (config.copy.answers.awarenessLevel || '').toString();
+    const awarenessNum = parseInt(awarenessLevel.split('-')[0]) || 0;
 
     const isRecommended = (section: string, value: string) => {
       if (!awarenessNum) return false;
 
-      if (section === "emotion") {
+      if (section === 'emotion') {
         if (awarenessNum <= 2)
-          return [
-            "Frustração",
-            "Curiosidade",
-            "Medo de julgamento",
-            "Confusão",
-          ].includes(value);
+          return ['Frustração', 'Curiosidade', 'Medo de julgamento', 'Confusão'].includes(value);
         if (awarenessNum <= 4)
-          return ["Esperança", "Alívio", "Desejo de reconhecimento"].includes(
-            value,
-          );
-        return [
-          "Urgência",
-          "Ambição",
-          "Desejo de controle",
-          "Exclusividade",
-        ].includes(value);
+          return ['Esperança', 'Alívio', 'Desejo de reconhecimento'].includes(value);
+        return ['Urgência', 'Ambição', 'Desejo de controle', 'Exclusividade'].includes(value);
       }
 
-      if (section === "angleIdea") {
+      if (section === 'angleIdea') {
         if (awarenessNum <= 2)
           return [
-            "Você está fazendo errado",
-            "Ninguém te contou isso",
-            "Isso está te sabotando",
+            'Você está fazendo errado',
+            'Ninguém te contou isso',
+            'Isso está te sabotando',
           ].includes(value);
         if (awarenessNum <= 4)
           return [
-            "O problema não é o que você pensa",
-            "Existe uma forma mais simples",
-            "Você está sendo mal orientado",
+            'O problema não é o que você pensa',
+            'Existe uma forma mais simples',
+            'Você está sendo mal orientado',
           ].includes(value);
         return [
-          "Você está focando no lugar errado",
-          "Resultado imediato",
-          "A solução definitiva",
+          'Você está focando no lugar errado',
+          'Resultado imediato',
+          'A solução definitiva',
         ].includes(value);
       }
 
@@ -7809,212 +7679,209 @@ export default function App() {
 
     const sections = [
       {
-        title: "AUDIÊNCIA",
+        title: 'AUDIÊNCIA',
         questions: [
           {
-            id: "language",
-            label: "Idioma",
-            type: "select",
-            options: ["Português (Brasileiro)", "Inglês", "Espanhol"],
+            id: 'language',
+            label: 'Idioma',
+            type: 'select',
+            options: ['Português (Brasileiro)', 'Inglês', 'Espanhol'],
           },
           {
-            id: "audience",
-            label: "Público (quem vai ver)",
-            type: "text",
-            placeholder: "ex: Mães ocupadas",
+            id: 'audience',
+            label: 'Público (quem vai ver)',
+            type: 'text',
+            placeholder: 'ex: Mães ocupadas',
           },
           {
-            id: "age",
-            label: "Idade",
-            type: "multi-select",
-            options: ["18-24", "25-34", "35-44", "45-54", "55+"],
+            id: 'age',
+            label: 'Idade',
+            type: 'multi-select',
+            options: ['18-24', '25-34', '35-44', '45-54', '55+'],
           },
           {
-            id: "situation",
-            label: "Situação atual",
-            type: "text",
-            placeholder: "ex: Tentando emagrecer sem sucesso",
+            id: 'situation',
+            label: 'Situação atual',
+            type: 'text',
+            placeholder: 'ex: Tentando emagrecer sem sucesso',
           },
           {
-            id: "painPoints",
-            label: "Problema principal",
-            type: "text",
-            placeholder: "ex: Falta de tempo para exercícios",
+            id: 'painPoints',
+            label: 'Problema principal',
+            type: 'text',
+            placeholder: 'ex: Falta de tempo para exercícios',
           },
           {
-            id: "triedBefore",
-            label: "O que já tentou",
-            type: "text",
-            placeholder: "ex: Dietas restritivas, academia",
+            id: 'triedBefore',
+            label: 'O que já tentou',
+            type: 'text',
+            placeholder: 'ex: Dietas restritivas, academia',
           },
           {
-            id: "mainObjection",
-            label: "Objeção principal do cliente",
-            type: "text",
-            placeholder: "ex: Já tentei tudo, não confio mais",
+            id: 'mainObjection',
+            label: 'Objeção principal do cliente',
+            type: 'text',
+            placeholder: 'ex: Já tentei tudo, não confio mais',
           },
           {
-            id: "hiddenDesire",
-            label: "Desejo profundo (não o resultado superficial)",
-            type: "text",
-            placeholder: "ex: Voltar a dançar com o marido nas festas",
+            id: 'hiddenDesire',
+            label: 'Desejo profundo (não o resultado superficial)',
+            type: 'text',
+            placeholder: 'ex: Voltar a dançar com o marido nas festas',
           },
         ],
       },
       {
-        title: "PRODUTO",
+        title: 'PRODUTO',
         questions: [
           {
-            id: "productName",
-            label: "Nome do produto/serviço",
-            type: "text",
-            placeholder: "ex: Curso de Marketing Digital",
+            id: 'productName',
+            label: 'Nome do produto/serviço',
+            type: 'text',
+            placeholder: 'ex: Curso de Marketing Digital',
           },
           {
-            id: "productProblem",
-            label: "Qual problema resolve?",
-            type: "text",
-            placeholder: "ex: Pessoas que não sabem vender online",
+            id: 'productProblem',
+            label: 'Qual problema resolve?',
+            type: 'text',
+            placeholder: 'ex: Pessoas que não sabem vender online',
           },
           {
-            id: "productResult",
-            label: "Resultado concreto que entrega",
-            type: "text",
-            placeholder: "ex: Primeira venda em 30 dias",
+            id: 'productResult',
+            label: 'Resultado concreto que entrega',
+            type: 'text',
+            placeholder: 'ex: Primeira venda em 30 dias',
           },
           {
-            id: "uniqueMechanism",
-            label: "Mecanismo único (o que torna diferente)",
-            type: "text",
-            placeholder: "ex: Sistema exclusivo em 3 etapas",
+            id: 'uniqueMechanism',
+            label: 'Mecanismo único (o que torna diferente)',
+            type: 'text',
+            placeholder: 'ex: Sistema exclusivo em 3 etapas',
           },
           {
-            id: "socialProof",
-            label: "Prova social (depoimento, número, resultado)",
-            type: "text",
-            placeholder: "ex: Mais de 500 alunos com primeira venda",
+            id: 'socialProof',
+            label: 'Prova social (depoimento, número, resultado)',
+            type: 'text',
+            placeholder: 'ex: Mais de 500 alunos com primeira venda',
           },
         ],
       },
       {
-        title: "TIPO DE OFERTA",
+        title: 'TIPO DE OFERTA',
         questions: [
           {
-            id: "businessModel",
-            label: "Qual o modelo da sua oferta?",
-            type: "select",
+            id: 'businessModel',
+            label: 'Qual o modelo da sua oferta?',
+            type: 'select',
             options: [
-              "Plataforma com acesso contínuo (sem turmas)",
-              "Curso com turmas específicas (com data de início)",
-              "Mentoria / consultoria com vagas limitadas",
-              "Produto físico",
-              "Serviço sob demanda",
-              "SaaS / assinatura",
-              "Outro (campo livre)",
+              'Plataforma com acesso contínuo (sem turmas)',
+              'Curso com turmas específicas (com data de início)',
+              'Mentoria / consultoria com vagas limitadas',
+              'Produto físico',
+              'Serviço sob demanda',
+              'SaaS / assinatura',
+              'Outro (campo livre)',
             ],
           },
           {
-            id: "nextClassDate",
-            label: "Data da próxima turma",
-            type: "date",
+            id: 'nextClassDate',
+            label: 'Data da próxima turma',
+            type: 'date',
             condition: (ans: any) =>
-              ans.businessModel ===
-              "Curso com turmas específicas (com data de início)",
+              ans.businessModel === 'Curso com turmas específicas (com data de início)',
           },
           {
-            id: "slotsAvailable",
-            label: "Quantas vagas disponíveis",
-            type: "number",
+            id: 'slotsAvailable',
+            label: 'Quantas vagas disponíveis',
+            type: 'number',
             condition: (ans: any) =>
               [
-                "Curso com turmas específicas (com data de início)",
-                "Mentoria / consultoria com vagas limitadas",
+                'Curso com turmas específicas (com data de início)',
+                'Mentoria / consultoria com vagas limitadas',
               ].includes(ans.businessModel),
           },
           {
-            id: "promoDetails",
-            label: "Tem alguma promoção/desconto com prazo?",
-            type: "text",
-            placeholder: "Ex: 20% OFF até amanhã",
-            condition: (ans: any) => ans.businessModel === "SaaS / assinatura",
+            id: 'promoDetails',
+            label: 'Tem alguma promoção/desconto com prazo?',
+            type: 'text',
+            placeholder: 'Ex: 20% OFF até amanhã',
+            condition: (ans: any) => ans.businessModel === 'SaaS / assinatura',
           },
           {
-            id: "limitedStock",
-            label: "Estoque limitado?",
-            type: "select",
-            options: ["Sim", "Não"],
-            condition: (ans: any) => ans.businessModel === "Produto físico",
+            id: 'limitedStock',
+            label: 'Estoque limitado?',
+            type: 'select',
+            options: ['Sim', 'Não'],
+            condition: (ans: any) => ans.businessModel === 'Produto físico',
           },
         ],
       },
       {
-        title: "EMOÇÃO PRINCIPAL",
+        title: 'EMOÇÃO PRINCIPAL',
         questions: [
           {
-            id: "emotion",
-            label: "Emoção",
-            type: "select",
+            id: 'emotion',
+            label: 'Emoção',
+            type: 'select',
             options: [
-              "Frustração",
-              "Vergonha",
-              "Ansiedade",
-              "Medo de julgamento",
-              "Insegurança",
-              "Raiva leve",
-              "Confusão",
-              "Cansaço",
-              "Desmotivação",
-              "Ambição",
-              "Desejo de reconhecimento",
-              "Desejo de controle",
-              "Exclusividade",
-              "Esperança",
-              "Alívio",
+              'Frustração',
+              'Vergonha',
+              'Ansiedade',
+              'Medo de julgamento',
+              'Insegurança',
+              'Raiva leve',
+              'Confusão',
+              'Cansaço',
+              'Desmotivação',
+              'Ambição',
+              'Desejo de reconhecimento',
+              'Desejo de controle',
+              'Exclusividade',
+              'Esperança',
+              'Alívio',
             ],
           },
         ],
       },
       {
-        title: "ÂNGULO DA COPY",
+        title: 'ÂNGULO DA COPY',
         questions: [
           {
-            id: "angleIdea",
-            label: "Ângulo",
-            type: "select",
+            id: 'angleIdea',
+            label: 'Ângulo',
+            type: 'select',
             options: [
-              "Você está fazendo errado",
-              "Não é culpa sua",
-              "Ninguém te contou isso",
-              "O problema não é o que você pensa",
-              "Existe uma forma mais simples",
-              "Você está sendo mal orientado",
-              "Isso está te sabotando",
-              "Você está focando no lugar errado",
-              "Resultado imediato",
-              "A solução definitiva",
+              'Você está fazendo errado',
+              'Não é culpa sua',
+              'Ninguém te contou isso',
+              'O problema não é o que você pensa',
+              'Existe uma forma mais simples',
+              'Você está sendo mal orientado',
+              'Isso está te sabotando',
+              'Você está focando no lugar errado',
+              'Resultado imediato',
+              'A solução definitiva',
             ],
           },
           {
-            id: "basePhrase",
-            label: "Frase base",
-            type: "text",
-            placeholder: "O verdadeiro problema não é ____, é ____",
+            id: 'basePhrase',
+            label: 'Frase base',
+            type: 'text',
+            placeholder: 'O verdadeiro problema não é ____, é ____',
           },
         ],
       },
     ];
 
     const modes = [
-      { id: "questions", label: "Gerar com IA (Q&A)", icon: Sparkles },
-      { id: "improve", label: "Melhorar minha copy", icon: RefreshCw },
-      { id: "as-is", label: "Usar como está", icon: CheckCircle2 },
+      { id: 'questions', label: 'Gerar com IA (Q&A)', icon: Sparkles },
+      { id: 'improve', label: 'Melhorar minha copy', icon: RefreshCw },
+      { id: 'as-is', label: 'Usar como está', icon: CheckCircle2 },
     ];
 
     const firstHook = config.copy.generatedHooks?.[0];
-    const firstHookText =
-      typeof firstHook === "object" ? firstHook.texto : firstHook;
-    const charCount =
-      config.copy.generatedScript.length + (firstHookText?.length || 0);
+    const firstHookText = typeof firstHook === 'object' ? firstHook.texto : firstHook;
+    const charCount = config.copy.generatedScript.length + (firstHookText?.length || 0);
     const estimatedTime = Math.ceil(charCount / 15); // Rough estimate: 15 chars per second
 
     return (
@@ -8031,33 +7898,31 @@ export default function App() {
           </div>
         )}
 
-        {copyDiscoveryMode === "unknown" && !isProjectLoading && (
+        {copyDiscoveryMode === 'unknown' && !isProjectLoading && (
           <div className="flex flex-col items-center justify-center min-h-[400px] space-y-8 max-w-lg mx-auto text-center animate-in fade-in zoom-in duration-500">
             <div className="space-y-2">
               <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tight">
                 Antes de criar sua copy...
               </h2>
               <p className="text-sm text-gray-500">
-                Precisamos saber quem vai assistir este vídeo. Isso garante uma
-                copy muito mais eficaz.
+                Precisamos saber quem vai assistir este vídeo. Isso garante uma copy muito mais
+                eficaz.
               </p>
             </div>
 
             <div className="w-full space-y-3">
               <button
                 onClick={() => {
-                  setCopyDiscoveryMode("known");
+                  setCopyDiscoveryMode('known');
                   setConfig((prev) => ({
                     ...prev,
-                    copy: { ...prev.copy, discoveryMode: "known" },
+                    copy: { ...prev.copy, discoveryMode: 'known' },
                   }));
                 }}
                 className="w-full p-5 rounded-2xl border-2 border-gray-100 hover:border-blue-300 text-left transition-all bg-white group shadow-sm hover:shadow-md"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl group-hover:scale-110 transition-transform">
-                    ✅
-                  </span>
+                  <span className="text-2xl group-hover:scale-110 transition-transform">✅</span>
                   <div>
                     <p className="font-black text-gray-900 uppercase italic">
                       Já sei quem é meu cliente
@@ -8071,14 +7936,12 @@ export default function App() {
 
               <button
                 onClick={() => {
-                  setCurrentStep("persona");
+                  setCurrentStep('persona');
                 }}
                 className="w-full p-5 rounded-2xl border-2 border-gray-100 hover:border-blue-300 text-left transition-all bg-white group shadow-sm hover:shadow-md"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl group-hover:scale-110 transition-transform">
-                    🔍
-                  </span>
+                  <span className="text-2xl group-hover:scale-110 transition-transform">🔍</span>
                   <div>
                     <p className="font-black text-gray-900 uppercase italic">
                       Me ajuda a descobrir
@@ -8094,7 +7957,7 @@ export default function App() {
         )}
 
         {/* Card do Persona Ativo — só aparece no modo questions com persona selecionado */}
-        {config.copy.mode === "questions" &&
+        {config.copy.mode === 'questions' &&
           config.copy?.answers?.selectedPersonaFull &&
           (() => {
             let activePersona: any = null;
@@ -8114,9 +7977,7 @@ export default function App() {
                       <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">
                         Persona Ativo
                       </p>
-                      <h4 className="text-xl font-black text-gray-900">
-                        {activePersona.name}
-                      </h4>
+                      <h4 className="text-xl font-black text-gray-900">{activePersona.name}</h4>
                     </div>
                   </div>
                   <span className="px-3 py-1 bg-blue-600 text-white rounded-full text-[10px] font-black uppercase tracking-widest">
@@ -8166,20 +8027,21 @@ export default function App() {
                     className="flex-1 py-3 px-6 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 flex items-center justify-center gap-2"
                   >
                     <Sparkles size={16} />
-                    {copyFieldsApplied ? "Re-Atualizar Campos da Copy" : "Atualizar Campos da Copy"}
+                    {copyFieldsApplied ? 'Re-Atualizar Campos da Copy' : 'Atualizar Campos da Copy'}
                   </button>
                 </div>
 
                 {!copyFieldsApplied && (
                   <p className="text-center text-[10px] text-blue-700 font-bold uppercase tracking-widest">
-                    Clique em "Atualizar Campos da Copy" para preencher os campos abaixo automaticamente
+                    Clique em "Atualizar Campos da Copy" para preencher os campos abaixo
+                    automaticamente
                   </p>
                 )}
               </div>
             );
           })()}
 
-        {copyDiscoveryMode === "discovering" && (
+        {copyDiscoveryMode === 'discovering' && (
           <div className="max-w-lg mx-auto space-y-6 animate-in fade-in slide-in-from-top-4 duration-500">
             {!generatedPersona && (
               <>
@@ -8189,9 +8051,7 @@ export default function App() {
                     <div
                       key={i}
                       className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${
-                        i <= discoveryStep
-                          ? "bg-blue-600 shadow-sm shadow-blue-200"
-                          : "bg-gray-100"
+                        i <= discoveryStep ? 'bg-blue-600 shadow-sm shadow-blue-200' : 'bg-gray-100'
                       }`}
                     />
                   ))}
@@ -8200,39 +8060,38 @@ export default function App() {
                 {/* Perguntas sequenciais */}
                 {[
                   {
-                    id: "product",
-                    label: "Qual é o seu produto ou serviço?",
-                    placeholder:
-                      "Ex: Curso online de finanças pessoais para iniciantes",
-                    hint: "Descreva em uma frase clara o que você vende",
+                    id: 'product',
+                    label: 'Qual é o seu produto ou serviço?',
+                    placeholder: 'Ex: Curso online de finanças pessoais para iniciantes',
+                    hint: 'Descreva em uma frase clara o que você vende',
                   },
                   {
-                    id: "problem",
-                    label: "Qual problema ele resolve?",
+                    id: 'problem',
+                    label: 'Qual problema ele resolve?',
                     placeholder:
-                      "Ex: Pessoas que vivem no vermelho e não sabem por onde começar a organizar o dinheiro",
-                    hint: "Foque no problema real, não na solução",
+                      'Ex: Pessoas que vivem no vermelho e não sabem por onde começar a organizar o dinheiro',
+                    hint: 'Foque no problema real, não na solução',
                   },
                   {
-                    id: "result",
-                    label: "Qual resultado concreto ele entrega?",
+                    id: 'result',
+                    label: 'Qual resultado concreto ele entrega?',
                     placeholder:
-                      "Ex: Em 30 dias a pessoa consegue quitar dívidas e começar a poupar",
-                    hint: "Seja específico — números e tempo ajudam",
+                      'Ex: Em 30 dias a pessoa consegue quitar dívidas e começar a poupar',
+                    hint: 'Seja específico — números e tempo ajudam',
                   },
                   {
-                    id: "customer",
-                    label: "Já vendeu para alguém? Descreva essa pessoa.",
+                    id: 'customer',
+                    label: 'Já vendeu para alguém? Descreva essa pessoa.',
                     placeholder:
-                      "Ex: Mulher de 35 anos, trabalha como CLT, tem dois filhos, sempre no limite do cartão",
-                    hint: "Se nunca vendeu, descreva quem você imagina que compraria",
+                      'Ex: Mulher de 35 anos, trabalha como CLT, tem dois filhos, sempre no limite do cartão',
+                    hint: 'Se nunca vendeu, descreva quem você imagina que compraria',
                   },
                   {
-                    id: "benefit",
-                    label: "Quem se beneficia MAIS do seu produto?",
+                    id: 'benefit',
+                    label: 'Quem se beneficia MAIS do seu produto?',
                     placeholder:
-                      "Ex: Pessoas entre 30-45 anos que ganham bem mas não conseguem guardar dinheiro",
-                    hint: "Pense em quem teria a maior transformação",
+                      'Ex: Pessoas entre 30-45 anos que ganham bem mas não conseguem guardar dinheiro',
+                    hint: 'Pense em quem teria a maior transformação',
                   },
                 ].map(
                   (q, idx) =>
@@ -8258,7 +8117,7 @@ export default function App() {
                         <AutoResizeTextarea
                           className="w-full p-6 bg-gray-50 rounded-[32px] border-2 border-transparent focus:border-blue-400 focus:bg-white outline-none text-sm transition-all font-medium"
                           placeholder={q.placeholder}
-                          value={discoveryAnswers[q.id] || ""}
+                          value={discoveryAnswers[q.id] || ''}
                           onChange={(e: any) =>
                             setDiscoveryAnswers((prev) => ({
                               ...prev,
@@ -8286,31 +8145,27 @@ export default function App() {
                                 handleGeneratePersona(discoveryAnswers);
                               }
                             }}
-                            disabled={
-                              !discoveryAnswers[q.id]?.trim() || loading
-                            }
+                            disabled={!discoveryAnswers[q.id]?.trim() || loading}
                             className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 disabled:opacity-40 flex items-center justify-center gap-2"
                           >
                             {loading ? (
                               <Loader2 className="animate-spin" size={16} />
                             ) : idx < 4 ? (
-                              "Próxima →"
+                              'Próxima →'
                             ) : (
-                              "✨ Descobrir meu cliente ideal"
+                              '✨ Descobrir meu cliente ideal'
                             )}
                           </button>
                         </div>
                       </div>
-                    ),
+                    )
                 )}
               </>
             )}
-
-
           </div>
         )}
 
-        {(copyDiscoveryMode === "known" || copyDiscoveryMode === "done") && (
+        {(copyDiscoveryMode === 'known' || copyDiscoveryMode === 'done') && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="flex flex-wrap gap-3 mb-8">
               {modes.map((m) => (
@@ -8324,9 +8179,9 @@ export default function App() {
                         copy: {
                           ...prev.copy,
                           mode: newMode,
-                          generatedScript: "",
-                          optimizedScript: "",
-                          finalScript: "",
+                          generatedScript: '',
+                          optimizedScript: '',
+                          finalScript: '',
                         },
                       }));
                       setHasUnsavedCopyChanges(false);
@@ -8335,21 +8190,21 @@ export default function App() {
                   }}
                   className={`flex-1 min-w-[150px] p-6 rounded-3xl border-2 transition-all flex flex-col items-center gap-3 ${
                     config.copy.mode === m.id
-                      ? "border-blue-600 bg-blue-50 shadow-lg shadow-blue-50"
-                      : "border-gray-100 hover:border-gray-200 bg-white"
+                      ? 'border-blue-600 bg-blue-50 shadow-lg shadow-blue-50'
+                      : 'border-gray-100 hover:border-gray-200 bg-white'
                   }`}
                 >
                   <div
                     className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
                       config.copy.mode === m.id
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-50 text-gray-400"
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-50 text-gray-400'
                     }`}
                   >
                     <m.icon size={24} />
                   </div>
                   <span
-                    className={`text-sm font-black uppercase tracking-tight ${config.copy.mode === m.id ? "text-blue-900" : "text-gray-500"}`}
+                    className={`text-sm font-black uppercase tracking-tight ${config.copy.mode === m.id ? 'text-blue-900' : 'text-gray-500'}`}
                   >
                     {m.label}
                   </span>
@@ -8357,7 +8212,7 @@ export default function App() {
               ))}
             </div>
 
-            {config.copy.mode === "as-is" ? (
+            {config.copy.mode === 'as-is' ? (
               !config.copy.generatedScript ? (
                 <div className="space-y-6 animate-in fade-in duration-500">
                   <div className="p-10 bg-white rounded-[48px] border-4 border-blue-50 shadow-2xl space-y-6">
@@ -8368,7 +8223,7 @@ export default function App() {
                       <AutoResizeTextarea
                         className="w-full p-8 rounded-[32px] border-2 border-gray-100 focus:border-blue-600 focus:ring-0 outline-none transition-all text-sm leading-relaxed bg-gray-50 font-medium"
                         placeholder="Cole sua copy aqui..."
-                        value={config.copy.answers["pastedCopy"] || ""}
+                        value={config.copy.answers['pastedCopy'] || ''}
                         onChange={(e: any) => {
                           setConfig((prev) => ({
                             ...prev,
@@ -8387,18 +8242,15 @@ export default function App() {
 
                     <button
                       onClick={() => {
-                        const textoColado =
-                          config.copy.answers["pastedCopy"] || "";
+                        const textoColado = config.copy.answers['pastedCopy'] || '';
                         setConfig((prev) => ({
                           ...prev,
                           copy: { ...prev.copy, generatedScript: textoColado },
                         }));
                         setHasUnsavedCopyChanges(false);
-                        toast.success("Copy salva com sucesso!");
+                        toast.success('Copy salva com sucesso!');
                       }}
-                      disabled={
-                        (config.copy.answers["pastedCopy"]?.length || 0) < 50
-                      }
+                      disabled={(config.copy.answers['pastedCopy']?.length || 0) < 50}
                       className="w-full py-6 bg-blue-600 text-white rounded-[32px] font-black text-xl uppercase tracking-widest hover:bg-blue-700 transition-all shadow-2xl shadow-blue-100 disabled:opacity-40"
                     >
                       Salvar e continuar
@@ -8406,7 +8258,7 @@ export default function App() {
                   </div>
                 </div>
               ) : null
-            ) : config.copy.mode === "improve" ? (
+            ) : config.copy.mode === 'improve' ? (
               <div className="p-8 bg-white rounded-[40px] border-4 border-blue-50 shadow-xl space-y-6">
                 <div className="space-y-2">
                   <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
@@ -8415,7 +8267,7 @@ export default function App() {
                   <AutoResizeTextarea
                     className="w-full p-6 rounded-3xl border-2 border-gray-100 focus:border-blue-600 focus:ring-0 outline-none transition-all text-sm leading-relaxed bg-gray-50 font-medium"
                     placeholder="Cole sua copy aqui..."
-                    value={config.copy.answers["existingCopy"] || ""}
+                    value={config.copy.answers['existingCopy'] || ''}
                     onChange={(e: any) => {
                       setConfig((prev) => ({
                         ...prev,
@@ -8447,46 +8299,32 @@ export default function App() {
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {(sections[0].questions || []).map((q) => {
-                      const awarenessLevel = (
-                        config.copy.answers.awarenessLevel || ""
-                      ).toString();
-                      if (q.id === "painPoints" && awarenessLevel === "1")
-                        return null;
-                      if (q.id === "triedBefore" && awarenessLevel === "1")
-                        return null;
+                      const awarenessLevel = (config.copy.answers.awarenessLevel || '').toString();
+                      if (q.id === 'painPoints' && awarenessLevel === '1') return null;
+                      if (q.id === 'triedBefore' && awarenessLevel === '1') return null;
                       return (
                         <div key={q.id} className="space-y-2">
                           <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
                             {q.label}
                           </label>
-                          {q.type === "multi-select" ? (
+                          {q.type === 'multi-select' ? (
                             <div className="flex flex-wrap gap-2">
                               {(q.options || []).map((opt) => {
-                                const isSelected = (
-                                  config.copy.answers[q.id] || []
-                                ).includes(opt);
+                                const isSelected = (config.copy.answers[q.id] || []).includes(opt);
                                 return (
                                   <button
                                     key={opt}
                                     onClick={() => {
-                                      const current =
-                                        config.copy.answers[q.id] || [];
+                                      const current = config.copy.answers[q.id] || [];
                                       const next = isSelected
-                                        ? current.filter(
-                                            (i: string) => i !== opt,
-                                          )
+                                        ? current.filter((i: string) => i !== opt)
                                         : [...current, opt];
-                                      updateConfig(
-                                        "copy",
-                                        "answers",
-                                        q.id,
-                                        next,
-                                      );
+                                      updateConfig('copy', 'answers', q.id, next);
                                     }}
                                     className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border-2 ${
                                       isSelected
-                                        ? "bg-blue-600 border-blue-600 text-white shadow-md"
-                                        : "bg-white border-gray-100 text-gray-500 hover:border-gray-200"
+                                        ? 'bg-blue-600 border-blue-600 text-white shadow-md'
+                                        : 'bg-white border-gray-100 text-gray-500 hover:border-gray-200'
                                     }`}
                                   >
                                     {opt}
@@ -8494,20 +8332,13 @@ export default function App() {
                                 );
                               })}
                             </div>
-                          ) : q.type === "select" ? (
+                          ) : q.type === 'select' ? (
                             <div className="relative">
                               <select
                                 className="w-full p-4 rounded-2xl border-2 border-gray-100 outline-none transition-all text-sm font-bold appearance-none bg-gray-50 focus:border-blue-600 focus:bg-white"
-                                value={
-                                  (config.copy.answers[q.id] as string) || ""
-                                }
+                                value={(config.copy.answers[q.id] as string) || ''}
                                 onChange={(e) =>
-                                  updateConfig(
-                                    "copy",
-                                    "answers",
-                                    q.id,
-                                    e.target.value,
-                                  )
+                                  updateConfig('copy', 'answers', q.id, e.target.value)
                                 }
                               >
                                 <option value="">Selecione...</option>
@@ -8526,14 +8357,9 @@ export default function App() {
                             <AutoResizeTextarea
                               className="w-full p-4 rounded-2xl border-2 border-gray-100 focus:border-blue-600 focus:bg-white outline-none transition-all text-sm font-bold bg-gray-50"
                               placeholder={q.placeholder}
-                              value={config.copy.answers[q.id] || ""}
+                              value={config.copy.answers[q.id] || ''}
                               onChange={(e: any) =>
-                                updateConfig(
-                                  "copy",
-                                  "answers",
-                                  q.id,
-                                  e.target.value,
-                                )
+                                updateConfig('copy', 'answers', q.id, e.target.value)
                               }
                             />
                           )}
@@ -8556,52 +8382,48 @@ export default function App() {
                   <div className="space-y-3">
                     {[
                       {
-                        id: "1",
-                        emoji: "🔴",
-                        label: "Inconsciente",
-                        desc: "Não sabe que tem o problema",
+                        id: '1',
+                        emoji: '🔴',
+                        label: 'Inconsciente',
+                        desc: 'Não sabe que tem o problema',
                       },
                       {
-                        id: "2",
-                        emoji: "🟠",
-                        label: "Consciente do Problema",
-                        desc: "Sabe que sofre mas não sabe a causa",
+                        id: '2',
+                        emoji: '🟠',
+                        label: 'Consciente do Problema',
+                        desc: 'Sabe que sofre mas não sabe a causa',
                       },
                       {
-                        id: "3",
-                        emoji: "🟡",
-                        label: "Consciente da Solução",
-                        desc: "Busca uma solução mas não sabe qual",
+                        id: '3',
+                        emoji: '🟡',
+                        label: 'Consciente da Solução',
+                        desc: 'Busca uma solução mas não sabe qual',
                       },
                       {
-                        id: "4",
-                        emoji: "🟢",
-                        label: "Consciente do Produto",
-                        desc: "Compara você com concorrentes",
+                        id: '4',
+                        emoji: '🟢',
+                        label: 'Consciente do Produto',
+                        desc: 'Compara você com concorrentes',
                       },
                       {
-                        id: "5",
-                        emoji: "⚡",
-                        label: "Totalmente Consciente",
-                        desc: "Pronto para comprar",
+                        id: '5',
+                        emoji: '⚡',
+                        label: 'Totalmente Consciente',
+                        desc: 'Pronto para comprar',
                       },
                     ].map((nivel) => (
                       <button
                         key={nivel.id}
                         onClick={() => {
-                          const hasGeneratedCopy =
-                            !!config.copy.generatedScript;
-                          if (
-                            hasGeneratedCopy &&
-                            config.copy.answers.awarenessLevel !== nivel.id
-                          ) {
+                          const hasGeneratedCopy = !!config.copy.generatedScript;
+                          if (hasGeneratedCopy && config.copy.answers.awarenessLevel !== nivel.id) {
                             setPendingAwarenessLevel(nivel.id);
                             setShowAwarenessChangeModal(true);
                           } else {
                             applyAwarenessLevelChange(nivel.id);
                           }
                         }}
-                        className={`w-full p-4 rounded-2xl border-2 text-left transition-all flex items-center gap-4 ${config.copy.answers.awarenessLevel === nivel.id ? "border-blue-600 bg-blue-50 shadow-sm" : "border-gray-50 hover:border-blue-100 bg-gray-50/30"}`}
+                        className={`w-full p-4 rounded-2xl border-2 text-left transition-all flex items-center gap-4 ${config.copy.answers.awarenessLevel === nivel.id ? 'border-blue-600 bg-blue-50 shadow-sm' : 'border-gray-50 hover:border-blue-100 bg-gray-50/30'}`}
                       >
                         <span className="text-2xl">{nivel.emoji}</span>
                         <div className="flex-1">
@@ -8610,9 +8432,8 @@ export default function App() {
                               {nivel.label}
                             </p>
                             {config.copy.answers.discoveredPersona &&
-                              JSON.parse(
-                                config.copy.answers.discoveredPersona || "{}",
-                              ).awarenessLevel === nivel.id && (
+                              JSON.parse(config.copy.answers.discoveredPersona || '{}')
+                                .awarenessLevel === nivel.id && (
                                 <span className="text-[9px] bg-blue-600 text-white font-black uppercase tracking-widest px-2 py-1 rounded-full shadow-lg shadow-blue-100 animate-pulse">
                                   ⭐ Recomendado
                                 </span>
@@ -8651,26 +8472,20 @@ export default function App() {
                       <div className="relative">
                         <select
                           className="w-full p-4 rounded-2xl border-2 border-gray-100 outline-none transition-all text-sm font-bold appearance-none bg-gray-50 focus:border-blue-600 focus:bg-white"
-                          value={config.copy.answers.estiloAnuncio || ""}
+                          value={config.copy.answers.estiloAnuncio || ''}
                           onChange={(e) =>
-                            updateConfig(
-                              "copy",
-                              "answers",
-                              "estiloAnuncio",
-                              e.target.value,
-                            )
+                            updateConfig('copy', 'answers', 'estiloAnuncio', e.target.value)
                           }
                         >
                           <option value="">Selecione...</option>
                           {AD_STYLES.map((style) => {
                             const recs = getRecomendedEstilo(
-                              config.copy.answers.awarenessLevel || "",
+                              config.copy.answers.awarenessLevel || ''
                             );
                             const isRec = recs.includes(style.label);
                             return (
                               <option key={style.id} value={style.label}>
-                                {style.emoji} {style.label}{" "}
-                                {isRec ? "⭐ (Recomendado)" : ""}
+                                {style.emoji} {style.label} {isRec ? '⭐ (Recomendado)' : ''}
                               </option>
                             );
                           })}
@@ -8689,101 +8504,55 @@ export default function App() {
                   const isRecommended = (qId: string, val: string) => {
                     const answers = config.copy.answers;
                     const level = answers.awarenessLevel;
-                    const levelChar = (level || "").charAt(0);
-                    const estilo = answers.estiloAnuncio || "";
+                    const levelChar = (level || '').charAt(0);
+                    const estilo = answers.estiloAnuncio || '';
 
-                    if (qId === "angleIdea") {
-                      if (levelChar === "1" || levelChar === "2")
+                    if (qId === 'angleIdea') {
+                      if (levelChar === '1' || levelChar === '2')
+                        return ['Não é culpa sua', 'Você está fazendo errado'].includes(val);
+                      if (levelChar === '3')
                         return [
-                          "Não é culpa sua",
-                          "Você está fazendo errado",
+                          'Existe uma forma mais simples',
+                          'O problema não é o que você pensa',
                         ].includes(val);
-                      if (levelChar === "3")
-                        return [
-                          "Existe uma forma mais simples",
-                          "O problema não é o que você pensa",
-                        ].includes(val);
-                      if (levelChar === "4" || levelChar === "5")
-                        return [
-                          "Resultado imediato",
-                          "A solução definitiva",
-                        ].includes(val);
+                      if (levelChar === '4' || levelChar === '5')
+                        return ['Resultado imediato', 'A solução definitiva'].includes(val);
                     }
 
-                    if (qId === "emotion") {
+                    if (qId === 'emotion') {
                       const scores: Record<string, number> = {};
                       const addScore = (ems: string[], weight: number) => {
-                        ems.forEach(
-                          (e) => (scores[e] = (scores[e] || 0) + weight),
-                        );
+                        ems.forEach((e) => (scores[e] = (scores[e] || 0) + weight));
                       };
 
                       // 1. Nível de Consciência (Base - NOVAS REGRAS)
                       const baseMap: Record<string, string[]> = {
-                        "1": ["Confusão", "Desmotivação", "Cansaço"],
-                        "2": [
-                          "Frustração",
-                          "Vergonha",
-                          "Ansiedade",
-                          "Medo de julgamento",
-                        ],
-                        "3": [
-                          "Esperança",
-                          "Cansaço",
-                          "Confusão",
-                          "Desejo de controle",
-                        ],
-                        "4": [
-                          "Insegurança",
-                          "Desejo de reconhecimento",
-                          "Ambição",
-                        ],
-                        "5": ["Exclusividade", "Alívio", "Ambição"],
+                        '1': ['Confusão', 'Desmotivação', 'Cansaço'],
+                        '2': ['Frustração', 'Vergonha', 'Ansiedade', 'Medo de julgamento'],
+                        '3': ['Esperança', 'Cansaço', 'Confusão', 'Desejo de controle'],
+                        '4': ['Insegurança', 'Desejo de reconhecimento', 'Ambição'],
+                        '5': ['Exclusividade', 'Alívio', 'Ambição'],
                       };
                       if (baseMap[levelChar]) addScore(baseMap[levelChar], 2);
 
                       // 2. Estilo do Anúncio (Multiplicador Forte)
                       const estiloLower = estilo.toLowerCase();
 
-                      if (estiloLower.includes("problema"))
+                      if (estiloLower.includes('problema'))
+                        addScore(['Frustração', 'Ansiedade', 'Cansaço', 'Confusão'], 3);
+                      if (estiloLower.includes('prova social'))
                         addScore(
-                          ["Frustração", "Ansiedade", "Cansaço", "Confusão"],
-                          3,
+                          ['Esperança', 'Alívio', 'Desejo de reconhecimento', 'Exclusividade'],
+                          3
                         );
-                      if (estiloLower.includes("prova social"))
-                        addScore(
-                          [
-                            "Esperança",
-                            "Alívio",
-                            "Desejo de reconhecimento",
-                            "Exclusividade",
-                          ],
-                          3,
-                        );
-                      if (
-                        estiloLower.includes("urgência") ||
-                        estiloLower.includes("escassez")
-                      )
-                        addScore(
-                          [
-                            "Ansiedade",
-                            "Medo de julgamento",
-                            "Desejo de controle",
-                          ],
-                          3,
-                        );
-                      if (estiloLower.includes("inspirador"))
-                        addScore(["Esperança", "Ambição", "Alívio"], 3);
-                      if (estiloLower.includes("curiosidade"))
-                        addScore(
-                          ["Confusão", "Desejo de controle", "Insegurança"],
-                          3,
-                        );
-                      if (estiloLower.includes("storytelling"))
-                        addScore(
-                          ["Esperança", "Frustração", "Ansiedade", "Alívio"],
-                          3,
-                        );
+                      if (estiloLower.includes('urgência') || estiloLower.includes('escassez'))
+                        addScore(['Ansiedade', 'Medo de julgamento', 'Desejo de controle'], 3);
+                      if (estiloLower.includes('inspirador'))
+                        addScore(['Esperança', 'Ambição', 'Alívio'], 3);
+                      if (estiloLower.includes('curiosidade'))
+                        addScore(['Confusão', 'Desejo de controle', 'Insegurança'], 3);
+                      if (estiloLower.includes('storytelling'))
+                        addScore(['Esperança', 'Frustração', 'Ansiedade', 'Alívio'], 3);
 
                       const topEmotions = Object.entries(scores)
                         .sort((a, b) => b[1] - a[1])
@@ -8811,49 +8580,37 @@ export default function App() {
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {(section.questions || []).map((q: any) => {
-                          if (q.condition && !q.condition(config.copy.answers))
-                            return null;
+                          if (q.condition && !q.condition(config.copy.answers)) return null;
 
                           return (
                             <div key={q.id} className="space-y-2">
                               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center justify-between">
                                 {q.label}
-                                {q.type === "select" &&
+                                {q.type === 'select' &&
                                   config.copy.answers[q.id] &&
-                                  isRecommended(
-                                    q.id,
-                                    config.copy.answers[q.id],
-                                  ) && (
+                                  isRecommended(q.id, config.copy.answers[q.id]) && (
                                     <span className="text-[9px] bg-green-100 text-green-600 px-2 py-0.5 rounded-full">
                                       Recomendado
                                     </span>
                                   )}
                               </label>
-                              {q.type === "select" ? (
+                              {q.type === 'select' ? (
                                 <div className="relative">
                                   <select
                                     className="w-full p-4 rounded-2xl border-2 border-gray-100 outline-none transition-all text-sm font-bold appearance-none bg-gray-50 focus:border-blue-600 focus:bg-white"
                                     value={
                                       (config.copy.answers[
                                         q.id as keyof typeof config.copy.answers
-                                      ] as string) || ""
+                                      ] as string) || ''
                                     }
                                     onChange={(e) =>
-                                      updateConfig(
-                                        "copy",
-                                        "answers",
-                                        q.id,
-                                        e.target.value,
-                                      )
+                                      updateConfig('copy', 'answers', q.id, e.target.value)
                                     }
                                   >
                                     <option value="">Selecione...</option>
                                     {(q.options || []).map((opt) => (
                                       <option key={opt} value={opt}>
-                                        {opt}{" "}
-                                        {isRecommended(q.id, opt)
-                                          ? "⭐ (Recomendado)"
-                                          : ""}
+                                        {opt} {isRecommended(q.id, opt) ? '⭐ (Recomendado)' : ''}
                                       </option>
                                     ))}
                                   </select>
@@ -8862,25 +8619,20 @@ export default function App() {
                                     size={16}
                                   />
                                 </div>
-                              ) : q.type === "date" ? (
+                              ) : q.type === 'date' ? (
                                 <input
                                   type="date"
                                   className="w-full p-4 rounded-2xl border-2 border-gray-100 focus:border-blue-600 focus:bg-white outline-none transition-all text-sm font-bold bg-gray-50 uppercase"
                                   value={
                                     (config.copy.answers[
                                       q.id as keyof typeof config.copy.answers
-                                    ] as string) || ""
+                                    ] as string) || ''
                                   }
                                   onChange={(e) =>
-                                    updateConfig(
-                                      "copy",
-                                      "answers",
-                                      q.id,
-                                      e.target.value,
-                                    )
+                                    updateConfig('copy', 'answers', q.id, e.target.value)
                                   }
                                 />
-                              ) : q.type === "number" ? (
+                              ) : q.type === 'number' ? (
                                 <input
                                   type="number"
                                   className="w-full p-4 rounded-2xl border-2 border-gray-100 focus:border-blue-600 focus:bg-white outline-none transition-all text-sm font-bold bg-gray-50"
@@ -8888,15 +8640,10 @@ export default function App() {
                                   value={
                                     (config.copy.answers[
                                       q.id as keyof typeof config.copy.answers
-                                    ] as string) || ""
+                                    ] as string) || ''
                                   }
                                   onChange={(e) =>
-                                    updateConfig(
-                                      "copy",
-                                      "answers",
-                                      q.id,
-                                      e.target.value,
-                                    )
+                                    updateConfig('copy', 'answers', q.id, e.target.value)
                                   }
                                 />
                               ) : (
@@ -8906,15 +8653,10 @@ export default function App() {
                                   value={
                                     (config.copy.answers[
                                       q.id as keyof typeof config.copy.answers
-                                    ] as string) || ""
+                                    ] as string) || ''
                                   }
                                   onChange={(e: any) =>
-                                    updateConfig(
-                                      "copy",
-                                      "answers",
-                                      q.id,
-                                      e.target.value,
-                                    )
+                                    updateConfig('copy', 'answers', q.id, e.target.value)
                                   }
                                 />
                               )}
@@ -8943,79 +8685,66 @@ export default function App() {
                     <div className="space-y-2">
                       {[
                         {
-                          id: "video",
-                          emoji: "🎥",
-                          label: "Assistir a um vídeo explicativo",
-                          desc: "Ideal para público que ainda não te conhece",
-                          levels: ["1", "2", "3"],
+                          id: 'video',
+                          emoji: '🎥',
+                          label: 'Assistir a um vídeo explicativo',
+                          desc: 'Ideal para público que ainda não te conhece',
+                          levels: ['1', '2', '3'],
                         },
                         {
-                          id: "article",
-                          emoji: "📄",
-                          label: "Ler um artigo ou conteúdo",
-                          desc: "Educa o público antes de vender",
-                          levels: ["1", "2", "3"],
+                          id: 'article',
+                          emoji: '📄',
+                          label: 'Ler um artigo ou conteúdo',
+                          desc: 'Educa o público antes de vender',
+                          levels: ['1', '2', '3'],
                         },
                         {
-                          id: "salespage",
-                          emoji: "🛒",
-                          label: "Página de vendas direta",
-                          desc: "Para quem já conhece e está pronto",
-                          levels: ["4", "5"],
+                          id: 'salespage',
+                          emoji: '🛒',
+                          label: 'Página de vendas direta',
+                          desc: 'Para quem já conhece e está pronto',
+                          levels: ['4', '5'],
                         },
                         {
-                          id: "whatsapp",
-                          emoji: "💬",
-                          label: "WhatsApp ou formulário",
-                          desc: "Contato direto para qualificar",
-                          levels: ["4"],
+                          id: 'whatsapp',
+                          emoji: '💬',
+                          label: 'WhatsApp ou formulário',
+                          desc: 'Contato direto para qualificar',
+                          levels: ['4'],
                         },
                         {
-                          id: "checkout",
-                          emoji: "⚡",
-                          label: "Direto para o checkout",
-                          desc: "Compra imediata — remarketing",
-                          levels: ["5"],
+                          id: 'checkout',
+                          emoji: '⚡',
+                          label: 'Direto para o checkout',
+                          desc: 'Compra imediata — remarketing',
+                          levels: ['5'],
                         },
                       ].map((destino) => {
-                        const currentLevel = (
-                          config.copy.answers.awarenessLevel || ""
-                        ).charAt(0);
-                        const isRecommended =
-                          destino.levels.includes(currentLevel);
+                        const currentLevel = (config.copy.answers.awarenessLevel || '').charAt(0);
+                        const isRecommended = destino.levels.includes(currentLevel);
                         return (
                           <button
                             key={destino.id}
                             onClick={() =>
-                              updateConfig(
-                                "copy",
-                                "answers",
-                                "clickDestination",
-                                destino.id,
-                              )
+                              updateConfig('copy', 'answers', 'clickDestination', destino.id)
                             }
                             className={`w-full p-3 rounded-2xl border-2 text-left transition-all flex items-center gap-3 ${
-                              config.copy.answers.clickDestination ===
-                              destino.id
-                                ? "border-blue-600 bg-blue-50"
-                                : "border-gray-100 hover:border-blue-200"
+                              config.copy.answers.clickDestination === destino.id
+                                ? 'border-blue-600 bg-blue-50'
+                                : 'border-gray-100 hover:border-blue-200'
                             }`}
                           >
                             <span className="text-xl">{destino.emoji}</span>
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
-                                <p className="text-sm font-bold text-gray-900">
-                                  {destino.label}
-                                </p>
+                                <p className="text-sm font-bold text-gray-900">{destino.label}</p>
                                 {isRecommended && (
                                   <span className="text-[10px] bg-blue-100 text-blue-700 font-bold px-2 py-0.5 rounded-full">
                                     ⭐
                                   </span>
                                 )}
                               </div>
-                              <p className="text-[10px] text-gray-400">
-                                {destino.desc}
-                              </p>
+                              <p className="text-[10px] text-gray-400">{destino.desc}</p>
                             </div>
                           </button>
                         );
@@ -9028,14 +8757,9 @@ export default function App() {
                       </label>
                       <AutoResizeTextarea
                         placeholder="Escreva aqui se quiser um destino diferente..."
-                        value={config.copy.answers.clickDestinationCustom || ""}
+                        value={config.copy.answers.clickDestinationCustom || ''}
                         onChange={(e: any) =>
-                          updateConfig(
-                            "copy",
-                            "answers",
-                            "clickDestinationCustom",
-                            e.target.value,
-                          )
+                          updateConfig('copy', 'answers', 'clickDestinationCustom', e.target.value)
                         }
                         className="w-full mt-1 p-3 bg-gray-50 rounded-xl border border-gray-100 text-sm outline-none focus:border-blue-400"
                       />
@@ -9059,55 +8783,44 @@ export default function App() {
                     </label>
                     <div className="space-y-3">
                       <button
-                        onClick={() =>
-                          updateConfig("copy", "answers", "ctaMode", "auto")
-                        }
+                        onClick={() => updateConfig('copy', 'answers', 'ctaMode', 'auto')}
                         className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${
-                          config.copy.answers.ctaMode === "auto" ||
-                          !config.copy.answers.ctaMode
-                            ? "border-blue-600 bg-blue-50"
-                            : "border-gray-100 hover:border-blue-200"
+                          config.copy.answers.ctaMode === 'auto' || !config.copy.answers.ctaMode
+                            ? 'border-blue-600 bg-blue-50'
+                            : 'border-gray-100 hover:border-blue-200'
                         }`}
                       >
                         <p className="text-sm font-bold text-gray-900">
                           ✨ Deixar a IA criar o CTA
                         </p>
                         <p className="text-[10px] text-gray-400 mt-0.5">
-                          A IA vai criar o melhor CTA baseado no nível de
-                          consciência e destino do clique
+                          A IA vai criar o melhor CTA baseado no nível de consciência e destino do
+                          clique
                         </p>
                       </button>
 
                       <button
-                        onClick={() =>
-                          updateConfig("copy", "answers", "ctaMode", "custom")
-                        }
+                        onClick={() => updateConfig('copy', 'answers', 'ctaMode', 'custom')}
                         className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${
-                          config.copy.answers.ctaMode === "custom"
-                            ? "border-blue-600 bg-blue-50"
-                            : "border-gray-100 hover:border-blue-200"
+                          config.copy.answers.ctaMode === 'custom'
+                            ? 'border-blue-600 bg-blue-50'
+                            : 'border-gray-100 hover:border-blue-200'
                         }`}
                       >
                         <p className="text-sm font-bold text-gray-900">
                           ✏️ Escrever meu próprio CTA
                         </p>
                         <p className="text-[10px] text-gray-400 mt-0.5">
-                          Você controla exatamente o que será dito no final do
-                          anúncio
+                          Você controla exatamente o que será dito no final do anúncio
                         </p>
                       </button>
 
-                      {config.copy.answers.ctaMode === "custom" && (
+                      {config.copy.answers.ctaMode === 'custom' && (
                         <AutoResizeTextarea
                           placeholder='Ex: Clique no botão "Watch More" abaixo agora e assista ao vídeo completo...'
-                          value={config.copy.answers.ctaCustom || ""}
+                          value={config.copy.answers.ctaCustom || ''}
                           onChange={(e: any) =>
-                            updateConfig(
-                              "copy",
-                              "answers",
-                              "ctaCustom",
-                              e.target.value,
-                            )
+                            updateConfig('copy', 'answers', 'ctaCustom', e.target.value)
                           }
                           className="w-full mt-1 p-3 bg-gray-50 rounded-xl border border-gray-100 text-sm outline-none focus:border-blue-400"
                         />
@@ -9118,7 +8831,7 @@ export default function App() {
               </div>
             )}
 
-            {config.copy.mode !== "as-is" && (
+            {config.copy.mode !== 'as-is' && (
               <div className="bg-white p-8 rounded-[40px] border-2 border-gray-100 shadow-xl space-y-8 mt-12">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600">
@@ -9147,20 +8860,10 @@ export default function App() {
                       </div>
                       <div className="p-6 bg-blue-50/50 rounded-3xl border-2 border-blue-100 shadow-sm hover:shadow-md transition-all">
                         <h5 className="text-2xl font-black text-blue-900 mb-2">
-                          {
-                            getRecomendacaoTempo(
-                              config.copy.answers.awarenessLevel,
-                            )?.faixaSegundos
-                          }
+                          {getRecomendacaoTempo(config.copy.answers.awarenessLevel)?.faixaSegundos}
                         </h5>
                         <p className="text-sm font-medium text-blue-800/70 leading-relaxed italic">
-                          "
-                          {
-                            getRecomendacaoTempo(
-                              config.copy.answers.awarenessLevel,
-                            )?.frase
-                          }
-                          "
+                          "{getRecomendacaoTempo(config.copy.answers.awarenessLevel)?.frase}"
                         </p>
                       </div>
                     </div>
@@ -9187,8 +8890,8 @@ export default function App() {
                           }}
                           className={`py-3 px-1 rounded-xl border-2 transition-all text-xs font-black uppercase tracking-tighter ${
                             config.copy.targetWordCount === opt.words
-                              ? "border-blue-600 bg-blue-600 text-white shadow-lg shadow-blue-100 scale-105"
-                              : "border-gray-100 bg-gray-50 text-gray-600 hover:border-blue-200 hover:bg-white"
+                              ? 'border-blue-600 bg-blue-600 text-white shadow-lg shadow-blue-100 scale-105'
+                              : 'border-gray-100 bg-gray-50 text-gray-600 hover:border-blue-200 hover:bg-white'
                           }`}
                         >
                           {opt.label}
@@ -9201,7 +8904,7 @@ export default function App() {
                         <p className="text-sm font-bold text-gray-600">
                           {config.copy.targetWordCount
                             ? `✍️ ${config.copy.targetWordCount} palavras`
-                            : "Dica: 150 palavras"}
+                            : 'Dica: 150 palavras'}
                         </p>
                       </div>
                     </div>
@@ -9210,7 +8913,7 @@ export default function App() {
               </div>
             )}
 
-            {config.copy.mode !== "as-is" && (
+            {config.copy.mode !== 'as-is' && (
               <div className="flex justify-center mt-12">
                 <button
                   onClick={handleGenerateCopy}
@@ -9222,9 +8925,7 @@ export default function App() {
                   ) : (
                     <Sparkles size={32} className="animate-pulse" />
                   )}
-                  {config.copy.generatedScript
-                    ? "✨ Regerar Copy com IA"
-                    : "✨ Gerar Copy com IA"}
+                  {config.copy.generatedScript ? '✨ Regerar Copy com IA' : '✨ Gerar Copy com IA'}
                 </button>
               </div>
             )}
@@ -9235,174 +8936,161 @@ export default function App() {
                 animate={{ opacity: 1, y: 0 }}
                 className="space-y-8 mt-16"
               >
+                <div className="grid grid-cols-1 gap-6">
+                  {config.copy.finalScript && (
+                    <div className="bg-green-50 p-6 rounded-[32px] border-2 border-green-100 flex items-center justify-between gap-6 animate-in fade-in slide-in-from-top-4 duration-500">
+                      <div className="flex items-center gap-4">
+                        <div className="p-3 bg-green-600 text-white rounded-2xl">
+                          <CheckCircle2 size={24} />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black text-green-600 uppercase tracking-widest mb-1">
+                            Cópia Final Salva
+                          </p>
+                          <p className="text-sm font-bold text-gray-900 line-clamp-1 opacity-70">
+                            A copy completa com hook e script foi salva.
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(config.copy.finalScript || '');
+                          toast.success('Cópia copiada!');
+                        }}
+                        className="px-6 py-2 bg-white text-green-600 rounded-xl text-[10px] font-black uppercase tracking-widest border border-green-100 hover:bg-green-100 transition-all whitespace-nowrap"
+                      >
+                        Copiar
+                      </button>
+                    </div>
+                  )}
 
-                    <div className="grid grid-cols-1 gap-6">
-
-                      {config.copy.finalScript && (
-                        <div className="bg-green-50 p-6 rounded-[32px] border-2 border-green-100 flex items-center justify-between gap-6 animate-in fade-in slide-in-from-top-4 duration-500">
-                          <div className="flex items-center gap-4">
-                            <div className="p-3 bg-green-600 text-white rounded-2xl">
-                              <CheckCircle2 size={24} />
-                            </div>
-                            <div>
-                              <p className="text-[10px] font-black text-green-600 uppercase tracking-widest mb-1">
-                                Cópia Final Salva
-                              </p>
-                              <p className="text-sm font-bold text-gray-900 line-clamp-1 opacity-70">
-                                A copy completa com hook e script foi salva.
-                              </p>
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText(
-                                config.copy.finalScript || "",
-                              );
-                              toast.success("Cópia copiada!");
-                            }}
-                            className="px-6 py-2 bg-white text-green-600 rounded-xl text-[10px] font-black uppercase tracking-widest border border-green-100 hover:bg-green-100 transition-all whitespace-nowrap"
-                          >
-                            Copiar
-                          </button>
+                  {config.copy.generatedScript && (
+                    <div className="bg-white p-8 rounded-[40px] border-2 border-gray-100 shadow-xl space-y-6">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Edit3 className="text-blue-600" size={20} />
+                          <h4 className="font-black text-gray-900 uppercase tracking-widest text-xs">
+                            Copy Original
+                          </h4>
+                        </div>
+                        <button
+                          onClick={() =>
+                            setConfig((prev) => ({
+                              ...prev,
+                              copy: { ...prev.copy, generatedScript: '' },
+                            }))
+                          }
+                          className="text-[10px] font-black text-red-500 hover:underline uppercase tracking-widest"
+                        >
+                          Limpar
+                        </button>
+                      </div>
+                      <AutoResizeTextarea
+                        className="w-full p-8 bg-gray-50 rounded-[32px] border-2 border-transparent focus:border-blue-600 focus:bg-white outline-none text-gray-700 leading-relaxed font-mono text-sm transition-all"
+                        value={config.copy.generatedScript || ''}
+                        onChange={(e: any) => {
+                          setConfig((prev) => ({
+                            ...prev,
+                            copy: {
+                              ...prev.copy,
+                              generatedScript: e.target.value,
+                              optimizedScript: '',
+                            },
+                          }));
+                          setHasUnsavedCopyChanges(true);
+                        }}
+                        minHeight="300px"
+                      />
+                      {config.copy.generatedScript && (
+                        <div className="text-xs text-gray-400 text-right mt-2">
+                          ✍️ {countWords(config.copy.generatedScript)} palavras
                         </div>
                       )}
 
-                      {config.copy.generatedScript && (
-                        <div className="bg-white p-8 rounded-[40px] border-2 border-gray-100 shadow-xl space-y-6">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <Edit3 className="text-blue-600" size={20} />
-                              <h4 className="font-black text-gray-900 uppercase tracking-widest text-xs">
-                                Copy Original
-                              </h4>
-                            </div>
-                            <button
-                              onClick={() =>
+                      <div className="flex flex-col items-center gap-4 pt-4">
+                        <div className="flex items-center gap-4 w-full">
+                          <button
+                            onClick={async () => {
+                              try {
+                                const selectedHookText = config.copy.hookSelecionado;
+                                const generatedCopy = config.copy.generatedScript;
+                                const finalScript = generatedCopy; // hook já está incluído pelo Claude
+
                                 setConfig((prev) => ({
                                   ...prev,
-                                  copy: { ...prev.copy, generatedScript: "" },
-                                }))
+                                  copy: {
+                                    ...prev.copy,
+                                    finalScript: finalScript,
+                                  },
+                                }));
+
+                                // Salvar no Firestore se o projeto existe
+                                if (currentProjectId) {
+                                  await updateDoc(doc(db, 'projects', currentProjectId), {
+                                    'config.copy.finalScript': finalScript,
+                                    'config.copy.hookSelecionado': selectedHookText,
+                                    updatedAt: serverTimestamp(),
+                                  });
+                                  // Also call the standard save logic to keep everything in sync
+                                  await handleSaveProject();
+                                }
+
+                                toast.success('Copy salva com sucesso!');
+                              } catch (error) {
+                                console.error('Erro ao salvar:', error);
+                                toast.error('Erro ao salvar a copy');
                               }
-                              className="text-[10px] font-black text-red-500 hover:underline uppercase tracking-widest"
-                            >
-                              Limpar
-                            </button>
-                          </div>
-                          <AutoResizeTextarea
-                            className="w-full p-8 bg-gray-50 rounded-[32px] border-2 border-transparent focus:border-blue-600 focus:bg-white outline-none text-gray-700 leading-relaxed font-mono text-sm transition-all"
-                            value={config.copy.generatedScript || ""}
-                            onChange={(e: any) => {
-                              setConfig((prev) => ({
-                                ...prev,
-                                copy: {
-                                  ...prev.copy,
-                                  generatedScript: e.target.value,
-                                  optimizedScript: "",
-                                },
-                              }));
-                              setHasUnsavedCopyChanges(true);
                             }}
-                            minHeight="300px"
-                          />
-                          {config.copy.generatedScript && (
-                            <div className="text-xs text-gray-400 text-right mt-2">
-                              ✍️ {countWords(config.copy.generatedScript)}{" "}
-                              palavras
-                            </div>
-                          )}
-
-                          <div className="flex flex-col items-center gap-4 pt-4">
-                            <div className="flex items-center gap-4 w-full">
-                              <button
-                                onClick={async () => {
-                                  try {
-                                    const selectedHookText =
-                                      config.copy.hookSelecionado;
-                                    const generatedCopy =
-                                      config.copy.generatedScript;
-                                    const finalScript = generatedCopy; // hook já está incluído pelo Claude
-
-                                    setConfig((prev) => ({
-                                      ...prev,
-                                      copy: {
-                                        ...prev.copy,
-                                        finalScript: finalScript,
-                                      },
-                                    }));
-
-                                    // Salvar no Firestore se o projeto existe
-                                    if (currentProjectId) {
-                                      await updateDoc(
-                                        doc(db, "projects", currentProjectId),
-                                        {
-                                          "config.copy.finalScript":
-                                            finalScript,
-                                          "config.copy.hookSelecionado":
-                                            selectedHookText,
-                                          updatedAt: serverTimestamp(),
-                                        },
-                                      );
-                                      // Also call the standard save logic to keep everything in sync
-                                      await handleSaveProject();
-                                    }
-
-                                    toast.success("Copy salva com sucesso!");
-                                  } catch (error) {
-                                    console.error("Erro ao salvar:", error);
-                                    toast.error("Erro ao salvar a copy");
-                                  }
-                                }}
-                                disabled={isSaving || !hasUnsavedCopyChanges}
-                                className={`flex-1 py-4 rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 transition-all shadow-lg ${
-                                  hasUnsavedCopyChanges
-                                    ? "bg-green-600 text-white hover:bg-green-700 shadow-green-100"
-                                    : "bg-gray-100 text-gray-400 cursor-not-allowed shadow-none"
-                                }`}
-                              >
-                                {isSaving ? (
-                                  <Loader2 className="animate-spin" size={18} />
-                                ) : (
-                                  <CheckCircle2 size={18} />
-                                )}
-                                Salvar
-                              </button>
-                            </div>
-                          </div>
+                            disabled={isSaving || !hasUnsavedCopyChanges}
+                            className={`flex-1 py-4 rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 transition-all shadow-lg ${
+                              hasUnsavedCopyChanges
+                                ? 'bg-green-600 text-white hover:bg-green-700 shadow-green-100'
+                                : 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none'
+                            }`}
+                          >
+                            {isSaving ? (
+                              <Loader2 className="animate-spin" size={18} />
+                            ) : (
+                              <CheckCircle2 size={18} />
+                            )}
+                            Salvar
+                          </button>
                         </div>
-                      )}
-
-                      {config.copy.generatedScript &&
-                        !hasUnsavedCopyChanges && (
-                          <div className="flex flex-wrap justify-center gap-4 pt-12">
-                            <button
-                              onClick={() => {
-                                setVoiceSource("copy");
-                                setCurrentStep("voz-premium");
-                              }}
-                              className="flex items-center gap-3 px-12 py-6 bg-gray-900 text-white rounded-[32px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-2xl shadow-gray-200 group"
-                            >
-                              Configurar Voz do Anúncio
-                              <ChevronRight
-                                size={24}
-                                className="group-hover:translate-x-1 transition-transform"
-                              />
-                            </button>
-                            <button
-                              onClick={() => {
-                                setCurrentStep("hook-visual");
-                              }}
-                              className="flex items-center gap-3 px-12 py-6 bg-white text-gray-900 border-2 border-gray-900 rounded-[32px] font-black uppercase tracking-widest hover:bg-gray-100 transition-all shadow-2xl shadow-gray-200 group"
-                            >
-                              Gerar Hook Visual
-                              <ChevronRight
-                                size={24}
-                                className="group-hover:translate-x-1 transition-transform"
-                              />
-                            </button>
-                          </div>
-                        )}
+                      </div>
                     </div>
-                  </motion.div>
+                  )}
+
+                  {config.copy.generatedScript && !hasUnsavedCopyChanges && (
+                    <div className="flex flex-wrap justify-center gap-4 pt-12">
+                      <button
+                        onClick={() => {
+                          setVoiceSource('copy');
+                          setCurrentStep('voz-premium');
+                        }}
+                        className="flex items-center gap-3 px-12 py-6 bg-gray-900 text-white rounded-[32px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-2xl shadow-gray-200 group"
+                      >
+                        Configurar Voz do Anúncio
+                        <ChevronRight
+                          size={24}
+                          className="group-hover:translate-x-1 transition-transform"
+                        />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setCurrentStep('hook-visual');
+                        }}
+                        className="flex items-center gap-3 px-12 py-6 bg-white text-gray-900 border-2 border-gray-900 rounded-[32px] font-black uppercase tracking-widest hover:bg-gray-100 transition-all shadow-2xl shadow-gray-200 group"
+                      >
+                        Gerar Hook Visual
+                        <ChevronRight
+                          size={24}
+                          className="group-hover:translate-x-1 transition-transform"
+                        />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
             )}
           </div>
         )}
@@ -9414,7 +9102,7 @@ export default function App() {
     // Map persona gender/age to voice characteristics
     // Persona gender: 'Homem' or 'Mulher'
     // Persona age: 'young', 'adult', 'mature'
-    const targetGender = gender === "Mulher" ? "female" : "male";
+    const targetGender = gender === 'Mulher' ? 'female' : 'male';
     const targetAge = age.toLowerCase(); // 'young', 'adult', 'mature'
 
     console.log(`[Voice Suggestion] Target: ${targetGender}, ${targetAge}`);
@@ -9422,44 +9110,37 @@ export default function App() {
     // Find first voice that matches
     const suggested = elevenLabsVoices.find((v) => {
       const labels = v.labels || {};
-      const vGender = labels.gender?.toLowerCase() || "";
-      const vAge = labels.age?.toLowerCase() || "";
+      const vGender = labels.gender?.toLowerCase() || '';
+      const vAge = labels.age?.toLowerCase() || '';
 
       console.log(`[Voice Suggestion] Checking ${v.name}: ${vGender}, ${vAge}`);
 
       return vGender.includes(targetGender) && vAge.includes(targetAge);
     });
 
-    console.log(`[Voice Suggestion] Selected: ${suggested?.name || "None"}`);
+    console.log(`[Voice Suggestion] Selected: ${suggested?.name || 'None'}`);
     return suggested ? suggested.voice_id : null;
   };
 
   const renderVoiceStep = () => {
-    const awarenessLevel = (
-      config.copy.answers.awarenessLevel || ""
-    ).toString();
-    const awarenessNum = parseInt(awarenessLevel.split("-")[0]) || 0;
-    const personaGender = config.copy.answers.personaGender || "";
+    const awarenessLevel = (config.copy.answers.awarenessLevel || '').toString();
+    const awarenessNum = parseInt(awarenessLevel.split('-')[0]) || 0;
+    const personaGender = config.copy.answers.personaGender || '';
     const project = projects.find((p) => p.id === currentProjectId);
 
     // Recommendations logic
     const recommendedGender =
-      personaGender === "Homem"
-        ? "male"
-        : personaGender === "Mulher"
-          ? "female"
-          : "";
+      personaGender === 'Homem' ? 'male' : personaGender === 'Mulher' ? 'female' : '';
 
-    let recommendedFilter = "";
-    if (awarenessNum >= 1 && awarenessNum <= 2)
-      recommendedFilter = "Amigável / Natural";
+    let recommendedFilter = '';
+    if (awarenessNum >= 1 && awarenessNum <= 2) recommendedFilter = 'Amigável / Natural';
     else if (awarenessNum >= 3 && awarenessNum <= 4)
-      recommendedFilter = "Profissional / Autoridade";
+      recommendedFilter = 'Profissional / Autoridade';
     else if (awarenessNum >= 5 && awarenessNum <= 6)
-      recommendedFilter = "Profissional / Autoridade";
+      recommendedFilter = 'Profissional / Autoridade';
 
-    const recommendedAccent = "american";
-    const recommendedAge = awarenessNum >= 4 ? "middle aged" : "young";
+    const recommendedAccent = 'american';
+    const recommendedAge = awarenessNum >= 4 ? 'middle aged' : 'young';
 
     const filteredVoices = elevenLabsVoices.filter((v) => {
       // Search Filter
@@ -9467,46 +9148,39 @@ export default function App() {
       const labels = v.labels || {};
       const allLabelsText = Object.entries(labels)
         .map(([k, val]) => `${k} ${val}`)
-        .join(" ")
+        .join(' ')
         .toLowerCase();
 
       const searchPool = `${name} ${allLabelsText}`;
-      const matchesSearch =
-        !voiceSearch || searchPool.includes(voiceSearch.toLowerCase());
+      const matchesSearch = !voiceSearch || searchPool.includes(voiceSearch.toLowerCase());
       if (!matchesSearch) return false;
 
       // Gender Match (Case Insensitive)
-      const voiceGender = (labels.gender || "").toLowerCase().trim();
+      const voiceGender = (labels.gender || '').toLowerCase().trim();
       const filterGender =
-        config.voiceSettings?.gender === "all"
-          ? ""
-          : (config.voiceSettings?.gender || recommendedGender)
-              .toLowerCase()
-              .trim();
-      const matchesGender =
-        !filterGender || voiceGender === filterGender || voiceGender === "";
+        config.voiceSettings?.gender === 'all'
+          ? ''
+          : (config.voiceSettings?.gender || recommendedGender).toLowerCase().trim();
+      const matchesGender = !filterGender || voiceGender === filterGender || voiceGender === '';
 
       // Age Match
-      const voiceAge = (labels.age || "")
-        .toLowerCase()
-        .replace(/[-_]/g, " ")
-        .trim();
+      const voiceAge = (labels.age || '').toLowerCase().replace(/[-_]/g, ' ').trim();
       let filterAge =
-        config.voiceSettings?.age === "all"
-          ? ""
+        config.voiceSettings?.age === 'all'
+          ? ''
           : (config.voiceSettings?.age || recommendedAge)
               .toLowerCase()
-              .replace(/[-_]/g, " ")
+              .replace(/[-_]/g, ' ')
               .trim();
-      if (filterAge === "adult") filterAge = "middle aged";
+      if (filterAge === 'adult') filterAge = 'middle aged';
 
       const matchesAge =
         !filterAge ||
         voiceAge.includes(filterAge) ||
         filterAge.includes(voiceAge) ||
-        (filterAge === "middle aged" && voiceAge === "adult") ||
-        (filterAge === "young" && voiceAge === "youthful") ||
-        voiceAge === "";
+        (filterAge === 'middle aged' && voiceAge === 'adult') ||
+        (filterAge === 'young' && voiceAge === 'youthful') ||
+        voiceAge === '';
 
       // Language Match
       const matchesLang = true;
@@ -9524,7 +9198,7 @@ export default function App() {
     });
 
     // Fallback: if strict filtering hides everything, just show all voices that match the search
-    let finalVoices =
+    const finalVoices =
       filteredVoices.length > 0
         ? filteredVoices
         : elevenLabsVoices.filter((v) => {
@@ -9533,11 +9207,9 @@ export default function App() {
             const labels = v.labels || {};
             const allLabelsText = Object.entries(labels)
               .map(([k, val]) => `${k} ${val}`)
-              .join(" ")
+              .join(' ')
               .toLowerCase();
-            return `${name} ${allLabelsText}`.includes(
-              voiceSearch.toLowerCase(),
-            );
+            return `${name} ${allLabelsText}`.includes(voiceSearch.toLowerCase());
           });
 
     return (
@@ -9572,15 +9244,12 @@ export default function App() {
                 </span>
               </div>
               <h2 className="text-4xl font-black text-gray-900 tracking-tight">
-                {project?.name || "Projeto Sem Nome"}
+                {project?.name || 'Projeto Sem Nome'}
               </h2>
               <div className="flex items-center gap-3">
                 <p className="text-gray-500 font-medium flex items-center gap-2">
                   <Sparkles size={16} className="text-amber-500" />
-                  Foco:{" "}
-                  <span className="text-gray-900 font-bold">
-                    {awarenessLevel || "Geral"}
-                  </span>
+                  Foco: <span className="text-gray-900 font-bold">{awarenessLevel || 'Geral'}</span>
                 </p>
                 <button
                   onClick={() => {
@@ -9590,8 +9259,8 @@ export default function App() {
                     setVideoUrl(null);
                     setVideoStoragePath(null);
                     setVideoOp(null);
-                    setGenerationStage("idle");
-                    toast.success("Iniciando nova versão para este projeto!");
+                    setGenerationStage('idle');
+                    toast.success('Iniciando nova versão para este projeto!');
                   }}
                   className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-blue-100 hover:bg-blue-100 transition-all"
                 >
@@ -9605,17 +9274,17 @@ export default function App() {
                   setConfig((prev) => ({
                     ...prev,
                     voiceSettings: {
-                      gender: "",
-                      filter: "",
-                      accent: "",
-                      age: "",
-                      language: "",
-                      stability: "Equilibrada",
-                      speed: "Normal",
+                      gender: '',
+                      filter: '',
+                      accent: '',
+                      age: '',
+                      language: '',
+                      stability: 'Equilibrada',
+                      speed: 'Normal',
                       isSatisfied: false,
                     },
                   }));
-                  setVoiceSearch("");
+                  setVoiceSearch('');
                 }}
                 className="p-4 bg-white border-2 border-gray-100 rounded-2xl text-gray-400 hover:text-red-500 hover:border-red-100 transition-all"
                 title="Resetar Filtros"
@@ -9635,35 +9304,34 @@ export default function App() {
                 </label>
                 {recommendedGender && (
                   <span className="text-[8px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100 uppercase">
-                    Sugerido: {recommendedGender === "male" ? "Masc." : "Fem."}
+                    Sugerido: {recommendedGender === 'male' ? 'Masc.' : 'Fem.'}
                   </span>
                 )}
               </div>
               <div className="flex gap-2">
-                {["male", "female"].map((g) => (
+                {['male', 'female'].map((g) => (
                   <button
                     key={g}
                     onClick={() =>
                       setConfig((prev) => {
-                        const current =
-                          prev.voiceSettings?.gender || recommendedGender;
+                        const current = prev.voiceSettings?.gender || recommendedGender;
                         return {
                           ...prev,
                           voiceSettings: {
                             ...prev.voiceSettings!,
-                            gender: current === g ? "all" : g,
+                            gender: current === g ? 'all' : g,
                           },
                         };
                       })
                     }
                     className={`flex-1 py-3 rounded-xl font-bold text-xs transition-all border-2 relative ${
-                      (config.voiceSettings?.gender || recommendedGender) ===
-                        g && config.voiceSettings?.gender !== "all"
-                        ? "border-blue-600 bg-blue-50 text-blue-700"
-                        : "border-gray-100 text-gray-500 hover:border-gray-200"
+                      (config.voiceSettings?.gender || recommendedGender) === g &&
+                      config.voiceSettings?.gender !== 'all'
+                        ? 'border-blue-600 bg-blue-50 text-blue-700'
+                        : 'border-gray-100 text-gray-500 hover:border-gray-200'
                     }`}
                   >
-                    {g === "male" ? "Masc." : "Fem."}
+                    {g === 'male' ? 'Masc.' : 'Fem.'}
                   </button>
                 ))}
               </div>
@@ -9676,46 +9344,43 @@ export default function App() {
                   Idioma
                 </label>
                 <span className="text-[8px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100 uppercase">
-                  Sugerido:{" "}
-                  {config.copy.answers.language || "Português (Brasileiro)"}
+                  Sugerido: {config.copy.answers.language || 'Português (Brasileiro)'}
                 </span>
               </div>
               <div className="flex gap-1">
-                {["Inglês", "Espanhol", "Português (Brasileiro)"].map((l) => {
+                {['Inglês', 'Espanhol', 'Português (Brasileiro)'].map((l) => {
                   const langMap: Record<string, string> = {
-                    Inglês: "English",
-                    Espanhol: "Spanish",
-                    "Português (Brasileiro)": "Portuguese",
+                    Inglês: 'English',
+                    Espanhol: 'Spanish',
+                    'Português (Brasileiro)': 'Portuguese',
                   };
                   const val = langMap[l];
-                  const suggestedLang =
-                    config.copy.answers.language || "Português (Brasileiro)";
-                  const suggestedVal = langMap[suggestedLang] || "Portuguese";
+                  const suggestedLang = config.copy.answers.language || 'Português (Brasileiro)';
+                  const suggestedVal = langMap[suggestedLang] || 'Portuguese';
 
                   return (
                     <button
                       key={l}
                       onClick={() =>
                         setConfig((prev) => {
-                          const current =
-                            prev.voiceSettings?.language || suggestedVal;
+                          const current = prev.voiceSettings?.language || suggestedVal;
                           return {
                             ...prev,
                             voiceSettings: {
                               ...prev.voiceSettings!,
-                              language: current === val ? "all" : val,
+                              language: current === val ? 'all' : val,
                             },
                           };
                         })
                       }
                       className={`flex-1 py-3 rounded-xl font-bold text-[9px] uppercase tracking-tighter transition-all border-2 relative ${
-                        (config.voiceSettings?.language || suggestedVal) ===
-                          val && config.voiceSettings?.language !== "all"
-                          ? "border-blue-600 bg-blue-50 text-blue-700"
-                          : "border-gray-100 text-gray-500 hover:border-gray-200"
+                        (config.voiceSettings?.language || suggestedVal) === val &&
+                        config.voiceSettings?.language !== 'all'
+                          ? 'border-blue-600 bg-blue-50 text-blue-700'
+                          : 'border-gray-100 text-gray-500 hover:border-gray-200'
                       }`}
                     >
-                      {l.split(" ")[0]}
+                      {l.split(' ')[0]}
                     </button>
                   );
                 })}
@@ -9730,39 +9395,34 @@ export default function App() {
                 </label>
                 {recommendedAge && (
                   <span className="text-[8px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100 uppercase">
-                    Sugerido: {recommendedAge === "young" ? "Jovem" : "Adulto"}
+                    Sugerido: {recommendedAge === 'young' ? 'Jovem' : 'Adulto'}
                   </span>
                 )}
               </div>
               <div className="flex gap-1">
-                {["young", "middle aged", "old"].map((a) => (
+                {['young', 'middle aged', 'old'].map((a) => (
                   <button
                     key={a}
                     onClick={() =>
                       setConfig((prev) => {
-                        const current =
-                          prev.voiceSettings?.age || recommendedAge;
+                        const current = prev.voiceSettings?.age || recommendedAge;
                         return {
                           ...prev,
                           voiceSettings: {
                             ...prev.voiceSettings!,
-                            age: current === a ? "all" : a,
+                            age: current === a ? 'all' : a,
                           },
                         };
                       })
                     }
                     className={`flex-1 py-3 rounded-xl font-bold text-[9px] uppercase tracking-tighter transition-all border-2 relative ${
                       (config.voiceSettings?.age || recommendedAge) === a &&
-                      config.voiceSettings?.age !== "all"
-                        ? "border-blue-600 bg-blue-50 text-blue-700"
-                        : "border-gray-100 text-gray-500 hover:border-gray-200"
+                      config.voiceSettings?.age !== 'all'
+                        ? 'border-blue-600 bg-blue-50 text-blue-700'
+                        : 'border-gray-100 text-gray-500 hover:border-gray-200'
                     }`}
                   >
-                    {a === "young"
-                      ? "Jovem"
-                      : a === "middle aged"
-                        ? "Adulto"
-                        : "Sênior"}
+                    {a === 'young' ? 'Jovem' : a === 'middle aged' ? 'Adulto' : 'Sênior'}
                   </button>
                 ))}
               </div>
@@ -9777,7 +9437,7 @@ export default function App() {
               <input
                 type="text"
                 placeholder="Buscar voz por nome ou característica (ex: calmo, animado, profissional)..."
-                value={voiceSearch || ""}
+                value={voiceSearch || ''}
                 onChange={(e) => setVoiceSearch(e.target.value)}
                 className="w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-transparent focus:border-blue-600 focus:bg-white rounded-2xl outline-none transition-all text-sm font-bold"
               />
@@ -9803,25 +9463,24 @@ export default function App() {
               {/* Voice Confirmation Section */}
               {(() => {
                 const selectedVoiceObj = elevenLabsVoices.find(
-                  (v) => v.voice_id === config.avatar.voiceId,
+                  (v) => v.voice_id === config.avatar.voiceId
                 );
                 if (!selectedVoiceObj || !config.avatar.voiceId) return null;
 
                 const langMapRev: Record<string, string> = {
-                  English: "Inglês",
-                  Spanish: "Espanhol",
-                  Portuguese: "Português (Brasileiro)",
+                  English: 'Inglês',
+                  Spanish: 'Espanhol',
+                  Portuguese: 'Português (Brasileiro)',
                 };
                 const activeLangVal =
                   config.voiceSettings?.language ||
                   {
-                    Inglês: "English",
-                    Espanhol: "Spanish",
-                    "Português (Brasileiro)": "Portuguese",
-                  }[config.copy.answers.language || "Português (Brasileiro)"] ||
-                  "Portuguese";
-                const displayLang =
-                  langMapRev[activeLangVal] || "Português (Brasileiro)";
+                    Inglês: 'English',
+                    Espanhol: 'Spanish',
+                    'Português (Brasileiro)': 'Portuguese',
+                  }[config.copy.answers.language || 'Português (Brasileiro)'] ||
+                  'Portuguese';
+                const displayLang = langMapRev[activeLangVal] || 'Português (Brasileiro)';
 
                 return (
                   <div className="flex-1 flex items-center justify-center w-full md:w-auto">
@@ -9831,29 +9490,23 @@ export default function App() {
                           Voz Selecionada
                         </span>
                         <span className="text-sm font-black text-gray-900">
-                          {selectedVoiceObj.name}{" "}
-                          <span className="text-gray-400 font-medium">
-                            ({displayLang})
-                          </span>
+                          {selectedVoiceObj.name}{' '}
+                          <span className="text-gray-400 font-medium">({displayLang})</span>
                         </span>
                       </div>
                       <button
                         onClick={() => setIsVoiceConfirmed(!isVoiceConfirmed)}
                         className={`flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-bold text-xs transition-all w-full sm:w-auto ${
                           isVoiceConfirmed
-                            ? "bg-green-100 text-green-700 border-2 border-green-200"
-                            : "bg-white text-gray-600 border-2 border-gray-200 hover:border-blue-300 hover:text-blue-600"
+                            ? 'bg-green-100 text-green-700 border-2 border-green-200'
+                            : 'bg-white text-gray-600 border-2 border-gray-200 hover:border-blue-300 hover:text-blue-600'
                         }`}
                       >
                         <CheckCircle2
                           size={16}
-                          className={
-                            isVoiceConfirmed
-                              ? "text-green-600"
-                              : "text-gray-400"
-                          }
+                          className={isVoiceConfirmed ? 'text-green-600' : 'text-gray-400'}
                         />
-                        {isVoiceConfirmed ? "Confirmado" : "Confirmar Escolha"}
+                        {isVoiceConfirmed ? 'Confirmado' : 'Confirmar Escolha'}
                       </button>
                     </div>
                   </div>
@@ -9863,9 +9516,7 @@ export default function App() {
               <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
                 <button
                   onClick={handleGenerateAudio}
-                  disabled={
-                    loading || !config.avatar.voiceId || !isVoiceConfirmed
-                  }
+                  disabled={loading || !config.avatar.voiceId || !isVoiceConfirmed}
                   className="w-full md:w-auto px-12 py-5 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-blue-700 disabled:opacity-50 transition-all shadow-xl shadow-blue-100"
                 >
                   {loading ? (
@@ -9885,25 +9536,25 @@ export default function App() {
                     Histórico de Áudios
                   </h4>
                   <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-2 py-1 rounded-lg">
-                    {audios.length} {audios.length === 1 ? "Áudio" : "Áudios"}
+                    {audios.length} {audios.length === 1 ? 'Áudio' : 'Áudios'}
                   </span>
                 </div>
                 <div className="grid grid-cols-1 gap-3">
                   {audios.map((audio, idx) => (
                     <div
-                      key={`variant-audio-${idx}-${audio.url || "no-url"}`}
+                      key={`variant-audio-${idx}-${audio.url || 'no-url'}`}
                       className={`p-4 rounded-[24px] border-2 transition-all flex flex-col md:flex-row items-center justify-between gap-4 ${
                         audioUrl === audio.url
-                          ? "border-blue-600 bg-blue-50 shadow-md"
-                          : "border-gray-100 bg-white hover:border-gray-200"
+                          ? 'border-blue-600 bg-blue-50 shadow-md'
+                          : 'border-gray-100 bg-white hover:border-gray-200'
                       }`}
                     >
                       <div className="flex items-center gap-4">
                         <div
                           className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
                             audioUrl === audio.url
-                              ? "bg-blue-600 text-white shadow-lg shadow-blue-100"
-                              : "bg-gray-100 text-gray-400"
+                              ? 'bg-blue-600 text-white shadow-lg shadow-blue-100'
+                              : 'bg-gray-100 text-gray-400'
                           }`}
                         >
                           <Volume2 size={24} />
@@ -9920,16 +9571,15 @@ export default function App() {
                             )}
                           </div>
                           <p className="text-[10px] text-gray-500 font-medium mt-0.5">
-                            Voz:{" "}
+                            Voz:{' '}
                             <span className="text-gray-900 font-bold">
-                              {elevenLabsVoices.find(
-                                (v) => v.voice_id === audio.voiceId,
-                              )?.name || "Voz"}
-                            </span>{" "}
-                            •{" "}
+                              {elevenLabsVoices.find((v) => v.voice_id === audio.voiceId)?.name ||
+                                'Voz'}
+                            </span>{' '}
+                            •{' '}
                             {new Date(audio.createdAt).toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
+                              hour: '2-digit',
+                              minute: '2-digit',
                             })}
                           </p>
                         </div>
@@ -9950,15 +9600,15 @@ export default function App() {
                                 audioUrl: audio.url,
                                 audioStoragePath: audio.storagePath,
                               }));
-                              toast.success("Áudio selecionado como ativo!");
+                              toast.success('Áudio selecionado como ativo!');
                             }}
                             className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
                               audioUrl === audio.url
-                                ? "bg-blue-600 text-white shadow-lg shadow-blue-100"
-                                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                                ? 'bg-blue-600 text-white shadow-lg shadow-blue-100'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                             }`}
                           >
-                            {audioUrl === audio.url ? "Ativo" : "Selecionar"}
+                            {audioUrl === audio.url ? 'Ativo' : 'Selecionar'}
                           </button>
                         </div>
                       </div>
@@ -9978,9 +9628,7 @@ export default function App() {
                     {finalVoices.length}
                   </span>
                 </h3>
-                {loadingVoices && (
-                  <Loader2 className="animate-spin text-blue-600" size={20} />
-                )}
+                {loadingVoices && <Loader2 className="animate-spin text-blue-600" size={20} />}
               </div>
 
               {finalVoices.length > 0 ? (
@@ -10003,13 +9651,13 @@ export default function App() {
                         setVideoUrl(null);
                         setVideoStoragePath(null);
                         setVideoOp(null);
-                        setGenerationStage("idle");
+                        setGenerationStage('idle');
                         setIsVoiceConfirmed(false);
                       }}
                       className={`group p-6 rounded-[32px] border-2 transition-all cursor-pointer relative overflow-hidden ${
                         config.avatar.voiceId === v.voice_id
-                          ? "border-blue-600 bg-blue-50 shadow-lg shadow-blue-100"
-                          : "border-white bg-white hover:border-blue-100 hover:shadow-xl shadow-sm"
+                          ? 'border-blue-600 bg-blue-50 shadow-lg shadow-blue-100'
+                          : 'border-white bg-white hover:border-blue-100 hover:shadow-xl shadow-sm'
                       }`}
                     >
                       {idx < 3 && (
@@ -10020,9 +9668,9 @@ export default function App() {
                       <div className="flex items-center justify-between mb-4 relative z-10">
                         <div
                           className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all ${
-                            v.labels?.gender === "male"
-                              ? "bg-blue-100 text-blue-600"
-                              : "bg-pink-100 text-pink-600"
+                            v.labels?.gender === 'male'
+                              ? 'bg-blue-100 text-blue-600'
+                              : 'bg-pink-100 text-pink-600'
                           }`}
                         >
                           <User size={28} />
@@ -10030,19 +9678,13 @@ export default function App() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            handlePlayVoiceCardSample(
-                              v.voice_id,
-                              v.preview_url,
-                            );
+                            handlePlayVoiceCardSample(v.voice_id, v.preview_url);
                           }}
                           disabled={playingVoiceId === v.voice_id}
                           className="w-12 h-12 rounded-2xl bg-gray-50 text-gray-400 hover:text-blue-600 hover:bg-white hover:shadow-md transition-all flex items-center justify-center border border-gray-100 disabled:opacity-50"
                         >
                           {playingVoiceId === v.voice_id ? (
-                            <Loader2
-                              size={20}
-                              className="animate-spin text-blue-600"
-                            />
+                            <Loader2 size={20} className="animate-spin text-blue-600" />
                           ) : (
                             <Play size={20} fill="currentColor" />
                           )}
@@ -10050,20 +9692,16 @@ export default function App() {
                       </div>
 
                       <div className="space-y-1 relative z-10">
-                        <h4 className="font-black text-gray-900 text-lg">
-                          {v.name}
-                        </h4>
+                        <h4 className="font-black text-gray-900 text-lg">{v.name}</h4>
                         <div className="flex flex-wrap gap-1">
-                          {Object.entries(v.labels || {}).map(
-                            ([key, value]) => (
-                              <span
-                                key={key}
-                                className="px-2 py-0.5 bg-gray-100 text-gray-400 rounded-md text-[8px] font-black uppercase tracking-widest"
-                              >
-                                {String(value)}
-                              </span>
-                            ),
-                          )}
+                          {Object.entries(v.labels || {}).map(([key, value]) => (
+                            <span
+                              key={key}
+                              className="px-2 py-0.5 bg-gray-100 text-gray-400 rounded-md text-[8px] font-black uppercase tracking-widest"
+                            >
+                              {String(value)}
+                            </span>
+                          ))}
                         </div>
                       </div>
 
@@ -10085,8 +9723,8 @@ export default function App() {
                       Nenhuma voz encontrada
                     </h4>
                     <p className="text-gray-400 max-w-xs mx-auto text-sm font-medium">
-                      Tente ajustar os filtros ou clique no botão abaixo para
-                      carregar todas as vozes disponíveis.
+                      Tente ajustar os filtros ou clique no botão abaixo para carregar todas as
+                      vozes disponíveis.
                     </p>
                   </div>
                   <button
@@ -10094,17 +9732,17 @@ export default function App() {
                       setConfig((prev) => ({
                         ...prev,
                         voiceSettings: {
-                          gender: "",
-                          filter: "",
-                          accent: "",
-                          age: "",
-                          language: "",
-                          stability: "Equilibrada",
-                          speed: "Normal",
+                          gender: '',
+                          filter: '',
+                          accent: '',
+                          age: '',
+                          language: '',
+                          stability: 'Equilibrada',
+                          speed: 'Normal',
                           isSatisfied: false,
                         },
                       }));
-                      setVoiceSearch("");
+                      setVoiceSearch('');
                     }}
                     className="px-8 py-4 bg-gray-900 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-black transition-all"
                   >
@@ -10125,22 +9763,16 @@ export default function App() {
                     <CheckCircle2 size={24} />
                   </div>
                   <div>
-                    <p className="font-black uppercase tracking-widest text-xs">
-                      Áudio Gerado!
-                    </p>
+                    <p className="font-black uppercase tracking-widest text-xs">Áudio Gerado!</p>
                     <p className="text-sm font-medium opacity-75">
                       Sua narração está pronta para o avatar.
                     </p>
                   </div>
                 </div>
                 <div className="flex flex-col md:flex-row items-center gap-4 flex-1">
-                  <audio
-                    src={audioUrl || undefined}
-                    controls
-                    className="w-full md:w-96 h-10"
-                  />
+                  <audio src={audioUrl || undefined} controls className="w-full md:w-96 h-10" />
                   <button
-                    onClick={() => setCurrentStep("avatar")}
+                    onClick={() => setCurrentStep('avatar')}
                     className="w-full md:w-auto px-8 py-3 bg-green-600 text-white rounded-xl font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-green-700 transition-all shadow-lg shadow-green-100"
                   >
                     Continuar para Avatar
@@ -10158,9 +9790,7 @@ export default function App() {
   const renderAvatarStep = () => {
     let filteredAvatars = heygenAvatars.filter((a) => {
       const enrichment = AVATAR_ENRICHMENT[a.avatar_id] || {};
-      const matchesSearch = a.avatar_name
-        .toLowerCase()
-        .includes(avatarSearch.toLowerCase());
+      const matchesSearch = a.avatar_name.toLowerCase().includes(avatarSearch.toLowerCase());
       const matchesGender =
         !avatarFilters.gender ||
         a.gender?.toLowerCase() === avatarFilters.gender.toLowerCase() ||
@@ -10171,34 +9801,22 @@ export default function App() {
 
       const checkNameMatch = (
         selectedItems: string[],
-        filterType: keyof typeof HEYGEN_NAME_KEYWORDS,
+        filterType: keyof typeof HEYGEN_NAME_KEYWORDS
       ) => {
         if (selectedItems.length === 0) return true;
         const nameToCheck = avatarName.toLowerCase();
         return selectedItems.some((selectedItem) => {
-          const keywords =
-            (HEYGEN_NAME_KEYWORDS[filterType] as any)[selectedItem] || [];
-          return keywords.some((kw: string) =>
-            nameToCheck.includes(kw.toLowerCase()),
-          );
+          const keywords = (HEYGEN_NAME_KEYWORDS[filterType] as any)[selectedItem] || [];
+          return keywords.some((kw: string) => nameToCheck.includes(kw.toLowerCase()));
         });
       };
 
       // Best effort matching
-      const matchesAge = checkNameMatch(avatarFilters.ages, "ages");
-      const matchesStyle = checkNameMatch(avatarFilters.styles, "styles");
-      const matchesEthnicity = checkNameMatch(
-        avatarFilters.ethnicities,
-        "ethnicities",
-      );
+      const matchesAge = checkNameMatch(avatarFilters.ages, 'ages');
+      const matchesStyle = checkNameMatch(avatarFilters.styles, 'styles');
+      const matchesEthnicity = checkNameMatch(avatarFilters.ethnicities, 'ethnicities');
 
-      return (
-        matchesSearch &&
-        matchesGender &&
-        matchesAge &&
-        matchesStyle &&
-        matchesEthnicity
-      );
+      return matchesSearch && matchesGender && matchesAge && matchesStyle && matchesEthnicity;
     });
 
     // Fallback: If strict filtering returns zero, but we HAVE selected filters,
@@ -10225,22 +9843,21 @@ export default function App() {
     }
 
     filteredAvatars = filteredAvatars.sort((a, b) => {
-      if (avatarFilters.sort === "name")
-        return a.avatar_name.localeCompare(b.avatar_name);
-      if (avatarFilters.sort === "ads") {
+      if (avatarFilters.sort === 'name') return a.avatar_name.localeCompare(b.avatar_name);
+      if (avatarFilters.sort === 'ads') {
         const enrichmentA = AVATAR_ENRICHMENT[a.avatar_id] || {};
         const enrichmentB = AVATAR_ENRICHMENT[b.avatar_id] || {};
-        const aIsAds = enrichmentA.type === "realistic";
-        const bIsAds = enrichmentB.type === "realistic";
+        const aIsAds = enrichmentA.type === 'realistic';
+        const bIsAds = enrichmentB.type === 'realistic';
         if (aIsAds && !bIsAds) return -1;
         if (!aIsAds && bIsAds) return 1;
         return a.avatar_name.localeCompare(b.avatar_name);
       }
-      if (avatarFilters.sort === "natural") {
+      if (avatarFilters.sort === 'natural') {
         const enrichmentA = AVATAR_ENRICHMENT[a.avatar_id] || {};
         const enrichmentB = AVATAR_ENRICHMENT[b.avatar_id] || {};
-        const aIsNatural = enrichmentA.type === "realistic";
-        const bIsNatural = enrichmentB.type === "realistic";
+        const aIsNatural = enrichmentA.type === 'realistic';
+        const bIsNatural = enrichmentB.type === 'realistic';
         if (aIsNatural && !bIsNatural) return -1;
         if (!aIsNatural && bIsNatural) return 1;
         return a.avatar_name.localeCompare(b.avatar_name);
@@ -10260,9 +9877,7 @@ export default function App() {
               <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest">
                 Áudio Aprovado
               </h3>
-              <span className="ml-auto text-xs text-gray-400">
-                vindo da Voz Premium
-              </span>
+              <span className="ml-auto text-xs text-gray-400">vindo da Voz Premium</span>
             </div>
             <div className="flex items-center gap-2">
               <audio controls src={config.audioUrl} className="w-full flex-1" />
@@ -10281,8 +9896,7 @@ export default function App() {
               </button>
             </div>
             <p className="text-[10px] text-gray-400 mt-2 italic">
-              Este áudio será usado para gerar o avatar. Para trocar, volte à
-              aba Voz Premium.
+              Este áudio será usado para gerar o avatar. Para trocar, volte à aba Voz Premium.
             </p>
           </div>
         )}
@@ -10297,12 +9911,12 @@ export default function App() {
               </div>
               <div className="space-y-2">
                 <h3 className="text-2xl font-black text-white uppercase tracking-tight">
-                  {videoOp?.displayStatus || "Iniciando..."}
+                  {videoOp?.displayStatus || 'Iniciando...'}
                 </h3>
                 <p className="text-blue-200 font-medium text-sm">
                   {videoOp?.progress
                     ? `Progresso: ${videoOp.progress}%`
-                    : "Estamos preparando seu avatar..."}
+                    : 'Estamos preparando seu avatar...'}
                 </p>
               </div>
               {videoOp?.progress !== undefined && (
@@ -10326,9 +9940,9 @@ export default function App() {
                     setConfig((prev) => ({
                       ...prev,
                       lastVideoMetadata: null,
-                      generationStage: "idle",
+                      generationStage: 'idle',
                     }));
-                    toast.success("Geração interrompida.");
+                    toast.success('Geração interrompida.');
                   }}
                   className="px-6 py-3 bg-white/10 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-white/20 transition-all border border-white/10"
                 >
@@ -10376,9 +9990,8 @@ export default function App() {
 
               <div className="space-y-4">
                 <p className="text-sm text-gray-500 font-medium">
-                  Insira sua API Key do ElevenLabs para habilitar a geração de
-                  vozes. Você pode encontrar sua chave no perfil da sua conta
-                  ElevenLabs.
+                  Insira sua API Key do ElevenLabs para habilitar a geração de vozes. Você pode
+                  encontrar sua chave no perfil da sua conta ElevenLabs.
                 </p>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
@@ -10432,12 +10045,9 @@ export default function App() {
         {showDeleteHistoryVideoModal && videoToDelete && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
             <div className="bg-white rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl">
-              <h3 className="text-lg font-black text-gray-900">
-                Deletar do Histórico?
-              </h3>
+              <h3 className="text-lg font-black text-gray-900">Deletar do Histórico?</h3>
               <p className="text-sm text-gray-500">
-                Este vídeo será removido permanentemente do seu histórico e do
-                armazenamento.
+                Este vídeo será removido permanentemente do seu histórico e do armazenamento.
               </p>
               <div className="flex gap-3 pt-2">
                 <button
@@ -10476,8 +10086,8 @@ export default function App() {
                   Modo de Fallback (Diagnóstico)
                 </h4>
                 <p className="text-amber-700 text-sm font-medium">
-                  Se a geração com áudio externo falhar, use esta opção para
-                  testar com uma voz nativa do HeyGen.
+                  Se a geração com áudio externo falhar, use esta opção para testar com uma voz
+                  nativa do HeyGen.
                 </p>
               </div>
             </div>
@@ -10500,23 +10110,18 @@ export default function App() {
           >
             <div
               className={cn(
-                "bg-black rounded-[40px] overflow-hidden shadow-2xl border-4 border-white relative group mx-auto transition-all duration-500",
-                config.format.aspectRatio === "9:16"
-                  ? "aspect-[9/16] max-w-[400px]"
-                  : config.format.aspectRatio === "4:5"
-                    ? "aspect-[4/5] max-w-[450px]"
-                    : config.format.aspectRatio === "1:1"
-                      ? "aspect-square max-w-[500px]"
-                      : "aspect-video w-full",
+                'bg-black rounded-[40px] overflow-hidden shadow-2xl border-4 border-white relative group mx-auto transition-all duration-500',
+                config.format.aspectRatio === '9:16'
+                  ? 'aspect-[9/16] max-w-[400px]'
+                  : config.format.aspectRatio === '4:5'
+                    ? 'aspect-[4/5] max-w-[450px]'
+                    : config.format.aspectRatio === '1:1'
+                      ? 'aspect-square max-w-[500px]'
+                      : 'aspect-video w-full'
               )}
             >
               <video
-                src={
-                  getAuthorizedUrl(
-                    videoUrl || "",
-                    platformApiKey || undefined,
-                  ) || undefined
-                }
+                src={getAuthorizedUrl(videoUrl || '', platformApiKey || undefined) || undefined}
                 controls
                 className="w-full h-full object-contain"
               />
@@ -10542,12 +10147,9 @@ export default function App() {
             {showDeleteVideoModal && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
                 <div className="bg-white rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl">
-                  <h3 className="text-lg font-black text-gray-900">
-                    Deletar Vídeo?
-                  </h3>
+                  <h3 className="text-lg font-black text-gray-900">Deletar Vídeo?</h3>
                   <p className="text-sm text-gray-500">
-                    Esta ação não pode ser desfeita. O vídeo será removido do
-                    Firebase e do projeto.
+                    Esta ação não pode ser desfeita. O vídeo será removido do Firebase e do projeto.
                   </p>
                   <div className="flex gap-3 pt-2">
                     <button
@@ -10572,8 +10174,8 @@ export default function App() {
                 onClick={() => {
                   setVideoUrl(null);
                   setVideoStoragePath(null);
-                  setGenerationStage("avatar");
-                  setCurrentStep("avatar");
+                  setGenerationStage('avatar');
+                  setCurrentStep('avatar');
                   // Ensure current config for next video starts fresh but keeps previous videos history
                   setConfig((prev) => ({
                     ...prev,
@@ -10596,7 +10198,7 @@ export default function App() {
                 Regerar Atual
               </button>
               <button
-                onClick={() => setCurrentStep("edit2")}
+                onClick={() => setCurrentStep('edit2')}
                 className="flex-1 px-8 py-5 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-blue-700 transition-all flex items-center justify-center gap-3 shadow-xl shadow-blue-100"
               >
                 Continuar para Edição 2
@@ -10620,14 +10222,14 @@ export default function App() {
                 </p>
               </div>
               <span className="px-3 py-1 bg-gray-100 text-gray-500 rounded-full text-[10px] font-black uppercase tracking-widest">
-                {videos.length} {videos.length === 1 ? "Vídeo" : "Vídeos"}
+                {videos.length} {videos.length === 1 ? 'Vídeo' : 'Vídeos'}
               </span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
               {videos.map((video, idx) => (
                 <div
-                  key={`variant-video-${idx}-${video.url || "no-url"}`}
+                  key={`variant-video-${idx}-${video.url || 'no-url'}`}
                   onClick={() => {
                     setVideoUrl(video.url);
                     setVideoStoragePath(video.storagePath);
@@ -10637,8 +10239,7 @@ export default function App() {
                       videoStoragePath: video.storagePath,
                       format: {
                         ...prev.format,
-                        aspectRatio:
-                          (video.aspectRatio as any) || prev.format.aspectRatio,
+                        aspectRatio: (video.aspectRatio as any) || prev.format.aspectRatio,
                       },
                       avatar: {
                         ...prev.avatar,
@@ -10649,48 +10250,45 @@ export default function App() {
                         timelineEdits: (video as any).timelineEdits || [],
                       },
                     }));
-                    toast.success("Vídeo selecionado como ativo!");
+                    toast.success('Vídeo selecionado como ativo!');
                   }}
                   className={cn(
-                    "group relative rounded-[32px] border-2 transition-all cursor-pointer overflow-hidden flex flex-col",
+                    'group relative rounded-[32px] border-2 transition-all cursor-pointer overflow-hidden flex flex-col',
                     videoUrl === video.url
-                      ? "border-blue-600 bg-blue-50 shadow-lg"
-                      : "border-gray-100 bg-white hover:border-blue-200",
+                      ? 'border-blue-600 bg-blue-50 shadow-lg'
+                      : 'border-gray-100 bg-white hover:border-blue-200'
                   )}
                 >
                   <div
                     className={cn(
-                      "relative bg-black flex items-center justify-center w-full",
-                      getVideoAspectRatioClass(video),
+                      'relative bg-black flex items-center justify-center w-full',
+                      getVideoAspectRatioClass(video)
                     )}
                   >
                     <video
                       src={
-                        getAuthorizedUrl(
-                          video.url || "",
-                          platformApiKey || undefined,
-                        ) || undefined
+                        getAuthorizedUrl(video.url || '', platformApiKey || undefined) || undefined
                       }
                       className="w-full h-full object-contain opacity-80 group-hover:opacity-100 transition-opacity"
                       referrerPolicy={
-                        video.url?.includes("generativelanguage.googleapis.com")
-                          ? "no-referrer"
+                        video.url?.includes('generativelanguage.googleapis.com')
+                          ? 'no-referrer'
                           : undefined
                       }
                       crossOrigin={
-                        video.url?.includes("generativelanguage.googleapis.com")
-                          ? "anonymous"
+                        video.url?.includes('generativelanguage.googleapis.com')
+                          ? 'anonymous'
                           : undefined
                       }
                       onError={(e) => {
-                        if (video.url?.startsWith("/generated/")) {
-                          console.warn("[Video Expired] Grid Item:", video.url);
-                          e.currentTarget.style.display = "none";
+                        if (video.url?.startsWith('/generated/')) {
+                          console.warn('[Video Expired] Grid Item:', video.url);
+                          e.currentTarget.style.display = 'none';
                         } else {
                           console.error(
-                            "[Video Error] Grid Item:",
+                            '[Video Error] Grid Item:',
                             e.currentTarget.error?.message,
-                            video.url,
+                            video.url
                           );
                         }
                       }}
@@ -10705,7 +10303,7 @@ export default function App() {
                     )}
                     <div className="absolute bottom-2 left-2 flex gap-1">
                       <div className="px-2 py-0.5 bg-black/60 backdrop-blur-md text-white text-[8px] font-black rounded uppercase tracking-widest border border-white/10">
-                        {video.aspectRatio || "9:16"}
+                        {video.aspectRatio || '9:16'}
                       </div>
                       {video.scale && (
                         <div className="px-2 py-0.5 bg-blue-600/80 backdrop-blur-md text-white text-[8px] font-black rounded uppercase tracking-widest border border-blue-400/20">
@@ -10720,10 +10318,10 @@ export default function App() {
                         Vídeo {idx + 1}
                       </p>
                       <p className="text-[8px] text-gray-400 font-bold uppercase tracking-widest">
-                        {new Date(video.createdAt).toLocaleDateString()} •{" "}
+                        {new Date(video.createdAt).toLocaleDateString()} •{' '}
                         {new Date(video.createdAt).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
+                          hour: '2-digit',
+                          minute: '2-digit',
                         })}
                       </p>
                     </div>
@@ -10746,14 +10344,10 @@ export default function App() {
 
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-2xl font-black text-gray-900 tracking-tight">
-              Escolher Avatar
-            </h3>
+            <h3 className="text-2xl font-black text-gray-900 tracking-tight">Escolher Avatar</h3>
             <div className="flex items-center gap-2 px-4 py-2 bg-purple-50 rounded-xl border border-purple-100">
               <User size={16} className="text-purple-600" />
-              <span className="text-xs font-bold text-purple-700">
-                HeyGen Ativo
-              </span>
+              <span className="text-xs font-bold text-purple-700">HeyGen Ativo</span>
             </div>
           </div>
 
@@ -10767,7 +10361,7 @@ export default function App() {
                 <input
                   type="text"
                   placeholder="Buscar avatar por nome..."
-                  value={avatarSearch || ""}
+                  value={avatarSearch || ''}
                   onChange={(e) => setAvatarSearch(e.target.value)}
                   className="w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-transparent focus:border-blue-600 focus:bg-white rounded-2xl outline-none transition-all text-sm font-bold"
                 />
@@ -10779,7 +10373,7 @@ export default function App() {
                   size={16}
                 />
                 <select
-                  value={avatarFilters.gender || ""}
+                  value={avatarFilters.gender || ''}
                   onChange={(e) =>
                     setAvatarFilters((prev) => ({
                       ...prev,
@@ -10800,7 +10394,7 @@ export default function App() {
                   size={16}
                 />
                 <select
-                  value={avatarFilters.sort || "name"}
+                  value={avatarFilters.sort || 'name'}
                   onChange={(e) =>
                     setAvatarFilters((prev) => ({
                       ...prev,
@@ -10824,28 +10418,26 @@ export default function App() {
                     Estilo (Style)
                   </h4>
                   <div className="flex flex-wrap gap-2">
-                    {["Professional", "Lifestyle", "UGC", "Community"].map(
-                      (style) => (
-                        <button
-                          key={style}
-                          onClick={() =>
-                            setAvatarFilters((prev) => ({
-                              ...prev,
-                              styles: prev.styles.includes(style)
-                                ? prev.styles.filter((s) => s !== style)
-                                : [...prev.styles, style],
-                            }))
-                          }
-                          className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border-2 ${
-                            avatarFilters.styles.includes(style)
-                              ? "bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-200"
-                              : "bg-white border-gray-100 text-gray-400 hover:border-gray-200"
-                          }`}
-                        >
-                          {style}
-                        </button>
-                      ),
-                    )}
+                    {['Professional', 'Lifestyle', 'UGC', 'Community'].map((style) => (
+                      <button
+                        key={style}
+                        onClick={() =>
+                          setAvatarFilters((prev) => ({
+                            ...prev,
+                            styles: prev.styles.includes(style)
+                              ? prev.styles.filter((s) => s !== style)
+                              : [...prev.styles, style],
+                          }))
+                        }
+                        className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border-2 ${
+                          avatarFilters.styles.includes(style)
+                            ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-200'
+                            : 'bg-white border-gray-100 text-gray-400 hover:border-gray-200'
+                        }`}
+                      >
+                        {style}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
@@ -10855,33 +10447,28 @@ export default function App() {
                     Etnia (Ethnicity)
                   </h4>
                   <div className="flex flex-wrap gap-2">
-                    {[
-                      "White",
-                      "Asian",
-                      "South Asian",
-                      "Latino",
-                      "Middle Eastern",
-                      "Black",
-                    ].map((eth) => (
-                      <button
-                        key={eth}
-                        onClick={() =>
-                          setAvatarFilters((prev) => ({
-                            ...prev,
-                            ethnicities: prev.ethnicities.includes(eth)
-                              ? prev.ethnicities.filter((e) => e !== eth)
-                              : [...prev.ethnicities, eth],
-                          }))
-                        }
-                        className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border-2 ${
-                          avatarFilters.ethnicities.includes(eth)
-                            ? "bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-200"
-                            : "bg-white border-gray-100 text-gray-400 hover:border-gray-200"
-                        }`}
-                      >
-                        {eth}
-                      </button>
-                    ))}
+                    {['White', 'Asian', 'South Asian', 'Latino', 'Middle Eastern', 'Black'].map(
+                      (eth) => (
+                        <button
+                          key={eth}
+                          onClick={() =>
+                            setAvatarFilters((prev) => ({
+                              ...prev,
+                              ethnicities: prev.ethnicities.includes(eth)
+                                ? prev.ethnicities.filter((e) => e !== eth)
+                                : [...prev.ethnicities, eth],
+                            }))
+                          }
+                          className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border-2 ${
+                            avatarFilters.ethnicities.includes(eth)
+                              ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-200'
+                              : 'bg-white border-gray-100 text-gray-400 hover:border-gray-200'
+                          }`}
+                        >
+                          {eth}
+                        </button>
+                      )
+                    )}
                   </div>
                 </div>
 
@@ -10891,7 +10478,7 @@ export default function App() {
                     Idade (Age)
                   </h4>
                   <div className="flex flex-wrap gap-2">
-                    {["Young Adult", "Middle Aged", "Elderly"].map((age) => (
+                    {['Young Adult', 'Middle Aged', 'Elderly'].map((age) => (
                       <button
                         key={age}
                         onClick={() =>
@@ -10904,8 +10491,8 @@ export default function App() {
                         }
                         className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all border-2 ${
                           avatarFilters.ages.includes(age)
-                            ? "bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-200"
-                            : "bg-white border-gray-100 text-gray-400 hover:border-gray-200"
+                            ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-200'
+                            : 'bg-white border-gray-100 text-gray-400 hover:border-gray-200'
                         }`}
                       >
                         {age}
@@ -10922,13 +10509,13 @@ export default function App() {
                 avatarFilters.ethnicities.length > 0) && (
                 <button
                   onClick={() => {
-                    setAvatarSearch("");
+                    setAvatarSearch('');
                     setAvatarFilters({
-                      gender: "",
+                      gender: '',
                       ages: [],
                       styles: [],
                       ethnicities: [],
-                      sort: "name",
+                      sort: 'name',
                     });
                   }}
                   className="ml-auto text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"
@@ -10992,8 +10579,8 @@ export default function App() {
                   onClick={() => setIsTestMode(!isTestMode)}
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all border-2 ${
                     isTestMode
-                      ? "bg-amber-50 border-amber-200 text-amber-700 shadow-sm"
-                      : "bg-white border-gray-100 text-gray-400 hover:border-gray-200"
+                      ? 'bg-amber-50 border-amber-200 text-amber-700 shadow-sm'
+                      : 'bg-white border-gray-100 text-gray-400 hover:border-gray-200'
                   }`}
                 >
                   <Tag size={12} />
@@ -11015,19 +10602,17 @@ export default function App() {
                       Vídeo Atualizado
                     </span>
                     <span className="text-[8px] font-bold opacity-70">
-                      Gerado em{" "}
-                      {new Date(
-                        config.lastVideoMetadata?.createdAt || "",
-                      ).toLocaleString()}
+                      Gerado em{' '}
+                      {new Date(config.lastVideoMetadata?.createdAt || '').toLocaleString()}
                     </span>
                   </div>
                 </div>
               )}
               {(loading ||
                 (videoOp &&
-                  videoOp.status !== "completed" &&
-                  videoOp.status !== "failed" &&
-                  videoOp.status !== "cancelled")) && (
+                  videoOp.status !== 'completed' &&
+                  videoOp.status !== 'failed' &&
+                  videoOp.status !== 'cancelled')) && (
                 <button
                   onClick={handleCancelGeneration}
                   className="w-full md:w-auto px-8 py-5 bg-red-50 text-red-600 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-red-100 transition-all border-2 border-red-100"
@@ -11037,9 +10622,9 @@ export default function App() {
                 </button>
               )}
 
-              {(videoOp?.status === "cancelled" ||
+              {(videoOp?.status === 'cancelled' ||
                 videoOp?.isStuck ||
-                videoOp?.status === "failed") && (
+                videoOp?.status === 'failed') && (
                 <button
                   onClick={() => handleGenerateVideo(true)}
                   className="w-full md:w-auto px-8 py-5 bg-amber-500 text-white rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-amber-600 transition-all shadow-lg shadow-amber-100"
@@ -11056,24 +10641,24 @@ export default function App() {
                   !config.avatar.faceId ||
                   (!audioUrl && !isTestMode) ||
                   (videoOp &&
-                    videoOp.status !== "completed" &&
-                    videoOp.status !== "failed" &&
-                    videoOp.status !== "cancelled" &&
+                    videoOp.status !== 'completed' &&
+                    videoOp.status !== 'failed' &&
+                    videoOp.status !== 'cancelled' &&
                     !videoOp.isStuck)
                 }
                 className="w-full md:w-auto px-12 py-5 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-blue-700 disabled:opacity-50 transition-all shadow-xl shadow-blue-100"
               >
                 {loading ||
                 (videoOp &&
-                  videoOp.status !== "completed" &&
-                  videoOp.status !== "failed" &&
-                  videoOp.status !== "cancelled" &&
+                  videoOp.status !== 'completed' &&
+                  videoOp.status !== 'failed' &&
+                  videoOp.status !== 'cancelled' &&
                   !videoOp.isStuck) ? (
                   <Loader2 className="animate-spin" size={20} />
                 ) : (
                   <Sparkles size={20} />
                 )}
-                {videoUrl ? "Regerar Avatar" : "Gerar Avatar"}
+                {videoUrl ? 'Regerar Avatar' : 'Gerar Avatar'}
               </button>
             </div>
           </div>
@@ -11082,7 +10667,7 @@ export default function App() {
           {videoOp && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
+              animate={{ opacity: 1, height: 'auto' }}
               className="mt-6 p-6 bg-gray-900 rounded-[32px] border-2 border-gray-800 overflow-hidden"
             >
               <div className="flex flex-col md:flex-row gap-8">
@@ -11094,13 +10679,13 @@ export default function App() {
                     <div className="flex items-center gap-2">
                       <span
                         className={`w-2 h-2 rounded-full animate-pulse ${
-                          videoOp.status === "processing"
-                            ? "bg-green-500"
-                            : videoOp.status === "failed"
-                              ? "bg-red-500"
-                              : videoOp.status === "completed"
-                                ? "bg-blue-500"
-                                : "bg-amber-500"
+                          videoOp.status === 'processing'
+                            ? 'bg-green-500'
+                            : videoOp.status === 'failed'
+                              ? 'bg-red-500'
+                              : videoOp.status === 'completed'
+                                ? 'bg-blue-500'
+                                : 'bg-amber-500'
                         }`}
                       />
                       <span className="text-xs font-black text-white uppercase tracking-widest">
@@ -11114,17 +10699,13 @@ export default function App() {
                       <p className="text-[8px] font-black text-gray-500 uppercase tracking-widest mb-1">
                         ID do Vídeo
                       </p>
-                      <p className="text-[10px] font-mono text-blue-400 truncate">
-                        {videoOp.id}
-                      </p>
+                      <p className="text-[10px] font-mono text-blue-400 truncate">{videoOp.id}</p>
                     </div>
                     <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
                       <p className="text-[8px] font-black text-gray-500 uppercase tracking-widest mb-1">
                         Progresso
                       </p>
-                      <p className="text-lg font-black text-white">
-                        {videoOp.progress}%
-                      </p>
+                      <p className="text-lg font-black text-white">{videoOp.progress}%</p>
                     </div>
                   </div>
 
@@ -11152,33 +10733,25 @@ export default function App() {
                       <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">
                         Fila (Queue)
                       </p>
-                      <p className="text-xl font-black text-white">
-                        {videoOp.queuedTime || 0}s
-                      </p>
+                      <p className="text-xl font-black text-white">{videoOp.queuedTime || 0}s</p>
                     </div>
                     <div className="space-y-1">
                       <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">
                         Renderização
                       </p>
-                      <p className="text-xl font-black text-white">
-                        {videoOp.renderTime || 0}s
-                      </p>
+                      <p className="text-xl font-black text-white">{videoOp.renderTime || 0}s</p>
                     </div>
                     <div className="space-y-1">
                       <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">
                         Total Decorrido
                       </p>
-                      <p className="text-xl font-black text-blue-400">
-                        {videoOp.totalTime || 0}s
-                      </p>
+                      <p className="text-xl font-black text-blue-400">{videoOp.totalTime || 0}s</p>
                     </div>
                     <div className="space-y-1">
                       <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">
                         Polls (Consultas)
                       </p>
-                      <p className="text-xl font-black text-gray-500">
-                        {videoOp.pollCount || 0}
-                      </p>
+                      <p className="text-xl font-black text-gray-500">{videoOp.pollCount || 0}</p>
                     </div>
                   </div>
                   <div className="pt-2 border-t border-white/5">
@@ -11194,15 +10767,13 @@ export default function App() {
           <div className="flex items-center justify-between px-2">
             <div className="flex flex-col gap-1">
               <p className="text-sm font-bold text-gray-500">
-                Exibindo{" "}
-                <span className="text-blue-600">{filteredAvatars.length}</span>{" "}
-                avatares encontrados
+                Exibindo <span className="text-blue-600">{filteredAvatars.length}</span> avatares
+                encontrados
               </p>
               {isFallbackActive && (
                 <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest animate-pulse flex items-center gap-1">
                   <AlertCircle size={10} />
-                  Nenhum resultado exato. Exibindo todos para facilitar sua
-                  busca.
+                  Nenhum resultado exato. Exibindo todos para facilitar sua busca.
                 </p>
               )}
             </div>
@@ -11221,16 +10792,14 @@ export default function App() {
                 <AlertCircle size={32} />
               </div>
               <div className="space-y-2">
-                <p className="text-red-900 font-black text-xl">
-                  Erro ao carregar avatares
-                </p>
+                <p className="text-red-900 font-black text-xl">Erro ao carregar avatares</p>
                 <p className="text-red-600 font-medium">{avatarError}</p>
               </div>
               <button
                 onClick={() => {
                   setHeygenAvatars([]);
-                  setCurrentStep("integrations");
-                  setTimeout(() => setCurrentStep("avatar"), 100);
+                  setCurrentStep('integrations');
+                  setTimeout(() => setCurrentStep('avatar'), 100);
                 }}
                 className="px-8 py-4 bg-red-600 text-white rounded-2xl font-black hover:bg-red-700 transition-all"
               >
@@ -11253,7 +10822,7 @@ export default function App() {
                         // Deselect if already selected
                         setConfig((prev) => ({
                           ...prev,
-                          avatar: { ...prev.avatar, faceId: "" },
+                          avatar: { ...prev.avatar, faceId: '' },
                           videoUrl: null,
                           videoStoragePath: null,
                         }));
@@ -11276,9 +10845,9 @@ export default function App() {
                       setPreviewAvatar(a);
 
                       const isHorizontal =
-                        a.aspect_ratio === "16:9" ||
-                        a.avatar_id?.toLowerCase().includes("horizontal") ||
-                        a.avatar_id?.toLowerCase().includes("landscape");
+                        a.aspect_ratio === '16:9' ||
+                        a.avatar_id?.toLowerCase().includes('horizontal') ||
+                        a.avatar_id?.toLowerCase().includes('landscape');
 
                       // Only reset format/crop when SWITCHING to a different avatar.
                       // Clicking the already-selected avatar should preserve the user's
@@ -11292,20 +10861,20 @@ export default function App() {
                           ...prev,
                           avatar: {
                             ...prev.avatar,
-                            avatarFormat: "original",
+                            avatarFormat: 'original',
                             cropOffset: 0,
                           },
                           format: {
                             ...prev.format,
-                            aspectRatio: isHorizontal ? "16:9" : "9:16",
+                            aspectRatio: isHorizontal ? '16:9' : '9:16',
                           },
                         };
                       });
                     }}
                     className={`group relative aspect-[3/4] rounded-[32px] overflow-hidden border-4 transition-all ${
                       config.avatar.faceId === a.avatar_id
-                        ? "border-blue-600 scale-[1.02] shadow-2xl shadow-blue-100"
-                        : "border-transparent hover:border-gray-200 shadow-sm"
+                        ? 'border-blue-600 scale-[1.02] shadow-2xl shadow-blue-100'
+                        : 'border-transparent hover:border-gray-200 shadow-sm'
                     }`}
                   >
                     <img
@@ -11321,11 +10890,7 @@ export default function App() {
                         <div className="flex flex-wrap gap-1">
                           {age && (
                             <span className="px-2 py-0.5 bg-white/20 backdrop-blur-md text-white rounded-md text-[8px] font-black uppercase tracking-tighter">
-                              {age === "young"
-                                ? "Jovem"
-                                : age === "adult"
-                                  ? "Adulto"
-                                  : "Maduro"}
+                              {age === 'young' ? 'Jovem' : age === 'adult' ? 'Adulto' : 'Maduro'}
                             </span>
                           )}
                           {a.avatar_type && (
@@ -11380,35 +10945,34 @@ export default function App() {
 
                     {(() => {
                       // Default to horizontal (16:9) as HeyGen metadata is unreliable
-                      const isHorizontal =
-                        previewAvatar.aspect_ratio !== "9:16";
+                      const isHorizontal = previewAvatar.aspect_ratio !== '9:16';
 
                       return (
                         <div
                           className={cn(
-                            "relative transition-all duration-700 shadow-2xl rounded-2xl overflow-hidden ring-1 ring-white/10",
-                            config.avatar.avatarFormat === "square"
-                              ? "aspect-square h-[80%] max-w-full"
+                            'relative transition-all duration-700 shadow-2xl rounded-2xl overflow-hidden ring-1 ring-white/10',
+                            config.avatar.avatarFormat === 'square'
+                              ? 'aspect-square h-[80%] max-w-full'
                               : isHorizontal
-                                ? "aspect-video w-[90%] max-h-[80%]"
-                                : "aspect-[9/16] h-[90%] max-w-full",
+                                ? 'aspect-video w-[90%] max-h-[80%]'
+                                : 'aspect-[9/16] h-[90%] max-w-full'
                           )}
                         >
                           <p className="w-full h-full transition-all duration-1000 ease-in-out">
                             <img
                               src={previewAvatar.preview_image_url || undefined}
                               className={cn(
-                                "w-full h-full transition-all duration-500 ease-in-out",
-                                config.avatar.avatarFormat === "square"
-                                  ? "object-cover"
-                                  : "object-contain",
+                                'w-full h-full transition-all duration-500 ease-in-out',
+                                config.avatar.avatarFormat === 'square'
+                                  ? 'object-cover'
+                                  : 'object-contain'
                               )}
                               style={
-                                config.avatar.avatarFormat === "square"
+                                config.avatar.avatarFormat === 'square'
                                   ? {
                                       objectPosition:
-                                        config.format.aspectRatio === "9:16" ||
-                                        config.format.aspectRatio === "1:1"
+                                        config.format.aspectRatio === '9:16' ||
+                                        config.format.aspectRatio === '1:1'
                                           ? `${50 + (config.avatar.cropOffset || 0)}% 50%`
                                           : `50% ${50 + (config.avatar.cropOffset || 0)}%`,
                                     }
@@ -11427,23 +10991,17 @@ export default function App() {
                             <div className="flex items-center gap-2 px-3 py-1.5 bg-black/60 backdrop-blur-md text-white rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/10">
                               {isHorizontal ? (
                                 <>
-                                  <Monitor
-                                    size={12}
-                                    className="text-blue-400"
-                                  />
+                                  <Monitor size={12} className="text-blue-400" />
                                   Horizontal (16:9)
                                 </>
                               ) : (
                                 <>
-                                  <Smartphone
-                                    size={12}
-                                    className="text-purple-400"
-                                  />
+                                  <Smartphone size={12} className="text-purple-400" />
                                   Vertical (9:16)
                                 </>
                               )}
                             </div>
-                            {config.avatar.avatarFormat === "square" && (
+                            {config.avatar.avatarFormat === 'square' && (
                               <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-600/60 backdrop-blur-md text-white rounded-xl text-[10px] font-black uppercase tracking-widest border border-blue-400/20 animate-pulse">
                                 <Square size={12} />
                                 Adaptado para Quadrado
@@ -11468,10 +11026,10 @@ export default function App() {
                           {previewAvatar.avatar_name}
                         </h3>
                         <p className="text-gray-500 font-medium leading-relaxed">
-                          Ideal para{" "}
-                          {previewAvatar.avatar_type === "realistic"
-                            ? "anúncios de alta conversão"
-                            : "conteúdos naturais e autênticos"}
+                          Ideal para{' '}
+                          {previewAvatar.avatar_type === 'realistic'
+                            ? 'anúncios de alta conversão'
+                            : 'conteúdos naturais e autênticos'}
                           .
                         </p>
                       </div>
@@ -11488,15 +11046,15 @@ export default function App() {
                         <div className="grid grid-cols-2 gap-3">
                           {[
                             {
-                              id: "original",
-                              label: "Original",
-                              desc: "Nativo",
+                              id: 'original',
+                              label: 'Original',
+                              desc: 'Nativo',
                               icon: Scan,
                             },
                             {
-                              id: "square",
-                              label: "1:1",
-                              desc: "Square",
+                              id: 'square',
+                              label: '1:1',
+                              desc: 'Square',
                               icon: Square,
                             },
                           ].map((opt) => (
@@ -11504,15 +11062,10 @@ export default function App() {
                               key={opt.id}
                               onClick={() => {
                                 // Default to horizontal (16:9) as HeyGen metadata is unreliable
-                                const isHorizontal =
-                                  previewAvatar.aspect_ratio !== "9:16";
+                                const isHorizontal = previewAvatar.aspect_ratio !== '9:16';
 
                                 const newRatio =
-                                  opt.id === "original"
-                                    ? isHorizontal
-                                      ? "16:9"
-                                      : "9:16"
-                                    : "1:1";
+                                  opt.id === 'original' ? (isHorizontal ? '16:9' : '9:16') : '1:1';
 
                                 setConfig((prev) => ({
                                   ...prev,
@@ -11527,12 +11080,11 @@ export default function App() {
                                 }));
                               }}
                               className={cn(
-                                "p-3 rounded-[20px] border-2 text-left transition-all group/opt relative overflow-hidden",
+                                'p-3 rounded-[20px] border-2 text-left transition-all group/opt relative overflow-hidden',
                                 config.avatar.avatarFormat === opt.id ||
-                                  (!config.avatar.avatarFormat &&
-                                    opt.id === "original")
-                                  ? "border-blue-600 bg-blue-50 text-blue-700 shadow-sm"
-                                  : "border-gray-100 text-gray-500 hover:border-gray-200 hover:bg-gray-50",
+                                  (!config.avatar.avatarFormat && opt.id === 'original')
+                                  ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-sm'
+                                  : 'border-gray-100 text-gray-500 hover:border-gray-200 hover:bg-gray-50'
                               )}
                             >
                               <div className="flex items-center gap-2 mb-1">
@@ -11540,9 +11092,7 @@ export default function App() {
                                   size={14}
                                   className="opacity-60 group-hover/opt:opacity-100 transition-opacity"
                                 />
-                                <p className="font-black text-xs leading-none">
-                                  {opt.label}
-                                </p>
+                                <p className="font-black text-xs leading-none">{opt.label}</p>
                               </div>
                               <p className="text-[8px] font-bold opacity-60 uppercase tracking-widest">
                                 {opt.desc}
@@ -11560,20 +11110,17 @@ export default function App() {
                           </h5>
                         </div>
 
-                        {config.avatar.avatarFormat === "square" && (
+                        {config.avatar.avatarFormat === 'square' && (
                           <div className="space-y-4 pt-2">
                             {(() => {
                               // Default to horizontal (16:9) as HeyGen metadata is unreliable
-                              const isHorizontal =
-                                previewAvatar.aspect_ratio !== "9:16";
+                              const isHorizontal = previewAvatar.aspect_ratio !== '9:16';
 
                               return (
                                 <div className="space-y-3">
                                   <div className="flex justify-between items-center">
                                     <label className="text-[10px] font-black text-amber-900 uppercase tracking-widest">
-                                      {isHorizontal
-                                        ? "Posição Horizontal"
-                                        : "Posição Vertical"}
+                                      {isHorizontal ? 'Posição Horizontal' : 'Posição Vertical'}
                                     </label>
                                     <button
                                       onClick={() =>
@@ -11608,13 +11155,9 @@ export default function App() {
                                     className="w-full h-2 bg-amber-200 rounded-lg appearance-none cursor-pointer accent-amber-600"
                                   />
                                   <div className="flex justify-between text-[8px] text-amber-600/60 font-black uppercase tracking-tighter">
-                                    <span>
-                                      {isHorizontal ? "Esquerda" : "Topo"}
-                                    </span>
+                                    <span>{isHorizontal ? 'Esquerda' : 'Topo'}</span>
                                     <span>Centro (IA)</span>
-                                    <span>
-                                      {isHorizontal ? "Direita" : "Base"}
-                                    </span>
+                                    <span>{isHorizontal ? 'Direita' : 'Base'}</span>
                                   </div>
                                 </div>
                               );
@@ -11623,9 +11166,9 @@ export default function App() {
                         )}
 
                         <p className="text-[11px] text-amber-700 font-medium leading-relaxed">
-                          {config.avatar.avatarFormat === "square"
-                            ? "Use o controle acima para ajustar o foco manualmente. O IA centraliza no sujeito por padrão."
-                            : "Ao selecionar **Square**, o enquadramento é ajustado para formato quadrado preservando a altura ou largura original do sujeito conforme a orientação nativa."}
+                          {config.avatar.avatarFormat === 'square'
+                            ? 'Use o controle acima para ajustar o foco manualmente. O IA centraliza no sujeito por padrão.'
+                            : 'Ao selecionar **Square**, o enquadramento é ajustado para formato quadrado preservando a altura ou largura original do sujeito conforme a orientação nativa.'}
                         </p>
                       </div>
                     </div>
@@ -11633,14 +11176,12 @@ export default function App() {
                     <div className="pt-10 space-y-4">
                       <button
                         onClick={() => {
-                          if (
-                            config.avatar.faceId === previewAvatar.avatar_id
-                          ) {
+                          if (config.avatar.faceId === previewAvatar.avatar_id) {
                             setConfig((prev) => ({
                               ...prev,
-                              avatar: { ...prev.avatar, faceId: "" },
+                              avatar: { ...prev.avatar, faceId: '' },
                             }));
-                            toast.success("Avatar removido.");
+                            toast.success('Avatar removido.');
                           } else {
                             setConfig((prev) => ({
                               ...prev,
@@ -11649,16 +11190,14 @@ export default function App() {
                                 faceId: previewAvatar.avatar_id,
                               },
                             }));
-                            toast.success(
-                              `${previewAvatar.avatar_name} selecionado!`,
-                            );
+                            toast.success(`${previewAvatar.avatar_name} selecionado!`);
                           }
                         }}
                         className={cn(
-                          "w-full py-6 rounded-[24px] font-black uppercase tracking-[0.2em] text-xs transition-all flex items-center justify-center gap-3 active:scale-95",
+                          'w-full py-6 rounded-[24px] font-black uppercase tracking-[0.2em] text-xs transition-all flex items-center justify-center gap-3 active:scale-95',
                           config.avatar.faceId === previewAvatar.avatar_id
-                            ? "bg-red-50 text-red-600 border-2 border-red-100 hover:bg-red-100"
-                            : "bg-blue-600 text-white shadow-2xl shadow-blue-100 hover:bg-blue-700",
+                            ? 'bg-red-50 text-red-600 border-2 border-red-100 hover:bg-red-100'
+                            : 'bg-blue-600 text-white shadow-2xl shadow-blue-100 hover:bg-blue-700'
                         )}
                       >
                         {config.avatar.faceId === previewAvatar.avatar_id ? (
@@ -11694,7 +11233,7 @@ export default function App() {
 
   const handleAnalyzeVideo = async () => {
     if (!videoUrl) {
-      toast.error("Nenhum vídeo carregado para análise.");
+      toast.error('Nenhum vídeo carregado para análise.');
       return;
     }
 
@@ -11705,20 +11244,18 @@ export default function App() {
         videoUrl,
         duration,
         (window as any).process?.env?.GEMINI_API_KEY ||
-          (typeof process !== "undefined"
-            ? process.env.GEMINI_API_KEY
-            : undefined),
+          (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined)
       );
 
       const newSegments: VideoSegment[] = suggestions.map((s: any) => ({
         id: `seg-${Date.now()}-${s.number}`,
         number: s.number,
-        type: s.type || "KEEP",
+        type: s.type || 'KEEP',
         startTime: s.startTime,
         endTime: s.endTime,
         transcript: s.transcript,
         reason: s.reason,
-        isApproved: s.type === "REPLACE", // Auto-approve suggested replacements for UX? Or leave false? User said "REPLACE" means strong candidate.
+        isApproved: s.type === 'REPLACE', // Auto-approve suggested replacements for UX? Or leave false? User said "REPLACE" means strong candidate.
         visualConcept: {
           ...s.visualConcept,
           useGeneratedVideo: false,
@@ -11743,9 +11280,9 @@ export default function App() {
         });
       }
 
-      toast.success("Vídeo analisado e segmentado com sucesso!");
+      toast.success('Vídeo analisado e segmentado com sucesso!');
     } catch (err: any) {
-      console.error("Analysis failed:", err);
+      console.error('Analysis failed:', err);
       toast.error(`Falha na análise: ${err.message}`);
     } finally {
       setLoading(false);
@@ -11755,7 +11292,7 @@ export default function App() {
   const handleApproveSegment = (segmentId: string, approved: boolean) => {
     setConfig((prev) => {
       const updatedSegments = prev.edit.segments?.map((s) =>
-        s.id === segmentId ? { ...s, isApproved: approved } : s,
+        s.id === segmentId ? { ...s, isApproved: approved } : s
       );
       const newConfig = {
         ...prev,
@@ -11776,15 +11313,13 @@ export default function App() {
     if (!segment) return;
     setLoading(true);
     try {
-      toast.loading("Otimizando briefing para imagem...", {
-        id: "image-prompt",
+      toast.loading('Otimizando briefing para imagem...', {
+        id: 'image-prompt',
       });
       const prompt = await generateImagePromptSuggestion(
         segment.transcript,
         (window as any).process?.env?.GEMINI_API_KEY ||
-          (typeof process !== "undefined"
-            ? process.env.GEMINI_API_KEY
-            : undefined),
+          (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined)
       );
       setConfig((prev) => {
         const updatedSegments = prev.edit.segments?.map((s) =>
@@ -11793,7 +11328,7 @@ export default function App() {
                 ...s,
                 visualConcept: { ...s.visualConcept, sceneDescription: prompt },
               }
-            : s,
+            : s
         );
 
         const newConfig = {
@@ -11810,24 +11345,24 @@ export default function App() {
 
         return newConfig;
       });
-      toast.success("Briefing sugerido com sucesso!");
+      toast.success('Briefing sugerido com sucesso!');
     } catch (err: any) {
-      toast.error("Erro ao sugerir briefing.");
+      toast.error('Erro ao sugerir briefing.');
     } finally {
       setLoading(false);
-      toast.dismiss("image-prompt");
+      toast.dismiss('image-prompt');
     }
   };
 
   const handleApproveImage = (segmentId: string) => {
     handleGenerateVideoPrompt(segmentId);
-    toast.success("Imagem aprovada! Gerando sugestão de movimento...");
+    toast.success('Imagem aprovada! Gerando sugestão de movimento...');
   };
 
   const handleApproveVideo = (segmentId: string) => {
     setConfig((prev) => {
       const updatedSegments = prev.edit.segments?.map((s) =>
-        s.id === segmentId ? { ...s, isApproved: true } : s,
+        s.id === segmentId ? { ...s, isApproved: true } : s
       );
       const newConfig = {
         ...prev,
@@ -11841,7 +11376,7 @@ export default function App() {
       }
       return newConfig;
     });
-    toast.success("Segmento aprovado para a composição final!");
+    toast.success('Segmento aprovado para a composição final!');
   };
 
   const handleGenerateVideoPrompt = async (segmentId: string) => {
@@ -11850,14 +11385,12 @@ export default function App() {
 
     setLoading(true);
     try {
-      toast.loading("Preparando prompt do vídeo...", { id: "video-prompt" });
+      toast.loading('Preparando prompt do vídeo...', { id: 'video-prompt' });
       const prompt = await generateVideoPromptSuggestion(
         segment.visualConcept.sceneDescription,
         segment.endTime - segment.startTime,
         (window as any).process?.env?.GEMINI_API_KEY ||
-          (typeof process !== "undefined"
-            ? process.env.GEMINI_API_KEY
-            : undefined),
+          (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined)
       );
 
       setConfig((prev) => {
@@ -11867,7 +11400,7 @@ export default function App() {
                 ...s,
                 visualConcept: { ...s.visualConcept, videoPrompt: prompt },
               }
-            : s,
+            : s
         );
         const newConfig = {
           ...prev,
@@ -11881,13 +11414,13 @@ export default function App() {
         }
         return newConfig;
       });
-      toast.success("Prompt do vídeo pronto para revisão!");
+      toast.success('Prompt do vídeo pronto para revisão!');
     } catch (err: any) {
-      console.error("Video prompt generation failed:", err);
+      console.error('Video prompt generation failed:', err);
       toast.error(`Erro ao gerar prompt: ${err.message}`);
     } finally {
       setLoading(false);
-      toast.dismiss("video-prompt");
+      toast.dismiss('video-prompt');
     }
   };
 
@@ -11900,7 +11433,7 @@ export default function App() {
       edit: {
         ...prev.edit,
         segments: prev.edit.segments?.map((s) =>
-          s.id === segmentId ? { ...s, isImageProcessing: true } : s,
+          s.id === segmentId ? { ...s, isImageProcessing: true } : s
         ),
       },
     }));
@@ -11908,26 +11441,20 @@ export default function App() {
     try {
       // Use sceneDescription which is editable by the user
       const rawImageUrl = await generateImageFromPrompt(
-        segment.visualConcept.sceneDescription ||
-          segment.visualConcept.imagePrompt,
+        segment.visualConcept.sceneDescription || segment.visualConcept.imagePrompt,
         config.format.aspectRatio,
         (window as any).process?.env?.GEMINI_API_KEY ||
-          (typeof process !== "undefined"
-            ? process.env.GEMINI_API_KEY
-            : undefined),
+          (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined)
       );
 
       let imageUrl = rawImageUrl;
       // Immediately upload to Firebase Storage to avoid Firestore document size limits
-      if (currentProjectId && user && rawImageUrl.startsWith("data:")) {
+      if (currentProjectId && user && rawImageUrl.startsWith('data:')) {
         try {
           const path = `video/${user.uid}/projects/${currentProjectId}/images/seg-${segmentId}-${Date.now()}.png`;
           imageUrl = await uploadBase64ToStorage(rawImageUrl, path);
         } catch (storageErr) {
-          console.error(
-            "Storage upload failed, keeping base64 as fallback:",
-            storageErr,
-          );
+          console.error('Storage upload failed, keeping base64 as fallback:', storageErr);
         }
       }
 
@@ -11939,7 +11466,7 @@ export default function App() {
                 isImageProcessing: false,
                 visualConcept: { ...s.visualConcept, imageUrl },
               }
-            : s,
+            : s
         );
         const newConfig = {
           ...prev,
@@ -11953,16 +11480,16 @@ export default function App() {
         }
         return newConfig;
       });
-      toast.success("Imagem gerada com sucesso!");
+      toast.success('Imagem gerada com sucesso!');
     } catch (err: any) {
-      console.error("Image generation failed:", err);
+      console.error('Image generation failed:', err);
       toast.error(`Erro ao gerar imagem: ${err.message}`);
       setConfig((prev) => ({
         ...prev,
         edit: {
           ...prev.edit,
           segments: prev.edit.segments?.map((s) =>
-            s.id === segmentId ? { ...s, isImageProcessing: false } : s,
+            s.id === segmentId ? { ...s, isImageProcessing: false } : s
           ),
         },
       }));
@@ -11980,16 +11507,13 @@ export default function App() {
         const hasKey = await aistudio.hasSelectedApiKey();
         if (!hasKey) {
           toast.error(
-            "Para gerar vídeos com VEO, você precisa selecionar uma chave de API paga do seu projeto Google Cloud.",
+            'Para gerar vídeos com VEO, você precisa selecionar uma chave de API paga do seu projeto Google Cloud.'
           );
           await aistudio.openSelectKey();
           // Assume success after dialog opens and proceed, as per skill guidelines
         }
       } catch (e) {
-        console.warn(
-          "AI Studio API Key selection check failed, proceeding with env key:",
-          e,
-        );
+        console.warn('AI Studio API Key selection check failed, proceeding with env key:', e);
       }
     }
 
@@ -11999,7 +11523,7 @@ export default function App() {
       edit: {
         ...prev.edit,
         segments: prev.edit.segments?.map((s) =>
-          s.id === segmentId ? { ...s, isProcessing: true } : s,
+          s.id === segmentId ? { ...s, isProcessing: true } : s
         ),
       },
     }));
@@ -12019,18 +11543,15 @@ export default function App() {
       if (!apiKeyToUse) {
         apiKeyToUse =
           g.process?.env?.GEMINI_API_KEY ||
-          (typeof process !== "undefined"
-            ? process.env.GEMINI_API_KEY
-            : undefined);
+          (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined);
       }
 
       // Use videoPrompt (editable) or fallback to sceneDescription
       const operation = await generateVideoFromPrompt(
-        segment.visualConcept.videoPrompt ||
-          segment.visualConcept.sceneDescription,
+        segment.visualConcept.videoPrompt || segment.visualConcept.sceneDescription,
         config.format.aspectRatio,
         apiKeyToUse,
-        config.edit.veoModel,
+        config.edit.veoModel
       );
 
       // Poll for completion
@@ -12040,9 +11561,7 @@ export default function App() {
       const poll = async () => {
         try {
           if (Date.now() - startTime > timeout) {
-            throw new Error(
-              "Timeout na geração do vídeo. Por favor, tente novamente.",
-            );
+            throw new Error('Timeout na geração do vídeo. Por favor, tente novamente.');
           }
 
           // Use the same key logic for polling
@@ -12055,9 +11574,7 @@ export default function App() {
           if (!activeApiKey) {
             activeApiKey =
               g.process?.env?.GEMINI_API_KEY ||
-              (typeof process !== "undefined"
-                ? process.env.GEMINI_API_KEY
-                : undefined);
+              (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined);
           }
 
           const status = await checkVideoStatus(operation, activeApiKey);
@@ -12070,9 +11587,7 @@ export default function App() {
 
             if (!videoUrl) {
               if (status.error) throw new Error(`VEO Error: ${status.error}`);
-              throw new Error(
-                "Vídeo pronto mas URL não encontrada (possível bloqueio de filtro).",
-              );
+              throw new Error('Vídeo pronto mas URL não encontrada (possível bloqueio de filtro).');
             }
 
             setConfig((prev) => {
@@ -12087,7 +11602,7 @@ export default function App() {
                         useGeneratedVideo: true,
                       },
                     }
-                  : s,
+                  : s
               );
               const newConfig = {
                 ...prev,
@@ -12101,21 +11616,21 @@ export default function App() {
               }
               return newConfig;
             });
-            toast.success("Vídeo gerado com sucesso!");
+            toast.success('Vídeo gerado com sucesso!');
             setLoading(false);
-          } else if (status.error && status.state === "ERROR") {
-            console.error("VEO error in segment generation:", status.error);
+          } else if (status.error && status.state === 'ERROR') {
+            console.error('VEO error in segment generation:', status.error);
             let msg = status.error;
-            if (msg.toLowerCase().includes("internal server issue")) {
+            if (msg.toLowerCase().includes('internal server issue')) {
               msg =
-                "Erro interno no servidor da Gemini. Isso geralmente acontece com prompts muito complexos ou específicos. Tente alterar levemente o texto do prompt e gerar novamente.";
+                'Erro interno no servidor da Gemini. Isso geralmente acontece com prompts muito complexos ou específicos. Tente alterar levemente o texto do prompt e gerar novamente.';
             } else if (
-              msg.toLowerCase().includes("quota") ||
-              msg.toLowerCase().includes("429") ||
-              msg.toLowerCase().includes("limit")
+              msg.toLowerCase().includes('quota') ||
+              msg.toLowerCase().includes('429') ||
+              msg.toLowerCase().includes('limit')
             ) {
               msg =
-                "Limite de quota do Gemini excedido. Por favor, aguarde alguns minutos antes de tentar novamente ou verifique seu plano de faturamento.";
+                'Limite de quota do Gemini excedido. Por favor, aguarde alguns minutos antes de tentar novamente ou verifique seu plano de faturamento.';
             }
             toast.error(msg, { duration: 6000 });
 
@@ -12125,20 +11640,18 @@ export default function App() {
               edit: {
                 ...prev.edit,
                 segments: prev.edit.segments?.map((s) =>
-                  s.id === segmentId ? { ...s, isProcessing: false } : s,
+                  s.id === segmentId ? { ...s, isProcessing: false } : s
                 ),
               },
             }));
             setLoading(false);
           } else {
-            console.log(
-              `[VEO Polling] Segment ${segmentId} - Status: ${status.state}`,
-            );
+            console.log(`[VEO Polling] Segment ${segmentId} - Status: ${status.state}`);
             setTimeout(poll, 2000);
           }
         } catch (err: any) {
-          console.error("Polling failed:", err);
-          toast.error(`Polling failed: ${err.message || "Erro desconhecido"}`);
+          console.error('Polling failed:', err);
+          toast.error(`Polling failed: ${err.message || 'Erro desconhecido'}`);
 
           // Clear processing state on error
           setConfig((prev) => ({
@@ -12146,7 +11659,7 @@ export default function App() {
             edit: {
               ...prev.edit,
               segments: prev.edit.segments?.map((s) =>
-                s.id === segmentId ? { ...s, isProcessing: false } : s,
+                s.id === segmentId ? { ...s, isProcessing: false } : s
               ),
             },
           }));
@@ -12154,12 +11667,12 @@ export default function App() {
         }
       };
 
-      toast.loading("Gerando vídeo por IA... Isso pode levar alguns minutos.", {
-        id: "veo-gen",
+      toast.loading('Gerando vídeo por IA... Isso pode levar alguns minutos.', {
+        id: 'veo-gen',
       });
       poll();
     } catch (err: any) {
-      console.error("Video generation failed:", err);
+      console.error('Video generation failed:', err);
       toast.error(`Erro ao gerar vídeo: ${err.message}`);
 
       // Clear processing state on initial failure
@@ -12168,7 +11681,7 @@ export default function App() {
         edit: {
           ...prev.edit,
           segments: prev.edit.segments?.map((s) =>
-            s.id === segmentId ? { ...s, isProcessing: false } : s,
+            s.id === segmentId ? { ...s, isProcessing: false } : s
           ),
         },
       }));
@@ -12178,43 +11691,37 @@ export default function App() {
 
   const handleStartAutoEdit = async () => {
     if (!videoUrl) {
-      toast.error("Nenhum vídeo disponível para analisar.");
+      toast.error('Nenhum vídeo disponível para analisar.');
       return;
     }
 
     setLoading(true);
     setAutoEditState({
-      status: "analyzing",
-      step: "Explorando conteúdo com AssemblyAI...",
+      status: 'analyzing',
+      step: 'Explorando conteúdo com AssemblyAI...',
       progress: 10,
-      editMode: "auto",
+      editMode: 'auto',
     });
 
     try {
-      toast.loading("Iniciando análise inteligente...", { id: "auto-edit" });
+      toast.loading('Iniciando análise inteligente...', { id: 'auto-edit' });
 
-      const authorizedUrl = getAuthorizedUrl(
-        videoUrl,
-        platformApiKey || undefined,
-      );
+      const authorizedUrl = getAuthorizedUrl(videoUrl, platformApiKey || undefined);
 
-      const response = await fetch("/api/assemblyai/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/assemblyai/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ videoUrl: authorizedUrl }),
       });
 
       if (!response.ok) {
-        let errorMsg = "Erro na análise AssemblyAI";
+        let errorMsg = 'Erro na análise AssemblyAI';
         try {
           const errData = await response.json();
           errorMsg = errData.details || errData.error || errorMsg;
         } catch (e) {
           const text = await response.text();
-          console.error(
-            "[AssemblyAI Fail] Non-JSON error:",
-            text.substring(0, 500),
-          );
+          console.error('[AssemblyAI Fail] Non-JSON error:', text.substring(0, 500));
           errorMsg = `Erro do servidor (Status ${response.status}): ${text.substring(0, 100)}...`;
         }
         throw new Error(errorMsg);
@@ -12223,7 +11730,7 @@ export default function App() {
       const analysis: AssemblyAnalysis = await response.json();
 
       // 1. Gerar candidatos a B-Roll (Sentences entre 2-8 segundos)
-      let candidates: BrollCandidate[] = [];
+      const candidates: BrollCandidate[] = [];
       const rawSentences = analysis.sentences || [];
       const rawHighlights = analysis.highlights || [];
 
@@ -12232,12 +11739,10 @@ export default function App() {
         if (duration >= 2 && duration <= 8) {
           // Calcular rank baseado nos highlights contidos na frase
           const relevantHighlights = rawHighlights.filter((h) =>
-            s.text.toLowerCase().includes(h.text.toLowerCase()),
+            s.text.toLowerCase().includes(h.text.toLowerCase())
           );
           const maxRank =
-            relevantHighlights.length > 0
-              ? Math.max(...relevantHighlights.map((h) => h.rank))
-              : 0;
+            relevantHighlights.length > 0 ? Math.max(...relevantHighlights.map((h) => h.rank)) : 0;
 
           candidates.push({
             id: `sent-${idx}`,
@@ -12254,33 +11759,25 @@ export default function App() {
       let finalCandidates: BrollCandidate[] = [];
 
       // Tentativa 1: Rank >= 0.7
-      const highRank = candidates
-        .filter((c) => c.rank >= 0.7)
-        .sort((a, b) => b.rank - a.rank);
+      const highRank = candidates.filter((c) => c.rank >= 0.7).sort((a, b) => b.rank - a.rank);
       if (highRank.length > 0) {
         finalCandidates = highRank.slice(0, 10);
       }
       // Tentativa 2: Rank >= 0.5
       else {
-        const medRank = candidates
-          .filter((c) => c.rank >= 0.5)
-          .sort((a, b) => b.rank - a.rank);
+        const medRank = candidates.filter((c) => c.rank >= 0.5).sort((a, b) => b.rank - a.rank);
         if (medRank.length > 0) {
           finalCandidates = medRank.slice(0, 8);
         }
         // Tentativa 3: Qualquer Rank (Sentences que contém qualquer highlight)
         else {
-          const anyRank = candidates
-            .filter((c) => c.rank > 0)
-            .sort((a, b) => b.rank - a.rank);
+          const anyRank = candidates.filter((c) => c.rank > 0).sort((a, b) => b.rank - a.rank);
           if (anyRank.length > 0) {
             finalCandidates = anyRank.slice(0, 6);
           }
           // Fallback: As 3 sentences mais longas (dentro de 2-8s)
           else {
-            finalCandidates = candidates
-              .sort((a, b) => b.duration - a.duration)
-              .slice(0, 3);
+            finalCandidates = candidates.sort((a, b) => b.duration - a.duration).slice(0, 3);
           }
         }
       }
@@ -12288,17 +11785,12 @@ export default function App() {
       const message =
         finalCandidates.length > 0
           ? `Encontramos ${finalCandidates.length} frases ideais para destacar seu conteúdo.`
-          : "Análise concluída. Nenhuma cena sugerida automaticamente.";
+          : 'Análise concluída. Nenhuma cena sugerida automaticamente.';
 
       // Calcular brollPercent recomendado
-      const totalBrollDuration = finalCandidates.reduce(
-        (sum, c) => sum + c.duration,
-        0,
-      );
+      const totalBrollDuration = finalCandidates.reduce((sum, c) => sum + c.duration, 0);
       const videoDuration = analysis.duration || 60;
-      const recommended = Math.round(
-        (totalBrollDuration / videoDuration) * 100,
-      );
+      const recommended = Math.round((totalBrollDuration / videoDuration) * 100);
       const safeRecommended = Math.min(70, Math.max(10, recommended));
 
       setRecommendedBrollPercent(safeRecommended);
@@ -12306,31 +11798,28 @@ export default function App() {
 
       setAutoEditState((prev) => ({
         ...prev,
-        status: "analyzed",
+        status: 'analyzed',
         analysis,
-        brollCandidates:
-          finalCandidates.length > 0
-            ? finalCandidates
-            : candidates.slice(0, 12),
+        brollCandidates: finalCandidates.length > 0 ? finalCandidates : candidates.slice(0, 12),
         selectedBrollIds: finalCandidates.map((c) => c.id), // PRÉ-MARCADO POR PADRÃO
         step: message,
         progress: 100,
       }));
 
-      toast.success("Análise concluída com sucesso!", { id: "auto-edit" });
+      toast.success('Análise concluída com sucesso!', { id: 'auto-edit' });
 
       if (zapCapTemplates.length === 0) {
         fetchZapCapTemplates();
       }
     } catch (err: any) {
-      console.error("Auto edit analysis failed:", err);
+      console.error('Auto edit analysis failed:', err);
       setAutoEditState((prev) => ({
         ...prev,
-        status: "error",
+        status: 'error',
         step: `Erro: ${err.message}`,
         progress: 0,
       }));
-      toast.error(`Falha na análise: ${err.message}`, { id: "auto-edit" });
+      toast.error(`Falha na análise: ${err.message}`, { id: 'auto-edit' });
     } finally {
       setLoading(false);
     }
@@ -12338,7 +11827,7 @@ export default function App() {
 
   const fetchZapCapTemplates = async () => {
     try {
-      const response = await fetch("/api/zapcap/templates");
+      const response = await fetch('/api/zapcap/templates');
       if (response.ok) {
         const data = await response.json();
         const templates = Array.isArray(data) ? data : data.templates || [];
@@ -12347,21 +11836,20 @@ export default function App() {
         }
       }
     } catch (err) {
-      console.error("Failed to fetch ZapCap templates:", err);
+      console.error('Failed to fetch ZapCap templates:', err);
     }
   };
 
   const getErrorMessage = (err: any) => {
-    if (!err) return "Erro desconhecido";
-    let msg =
-      typeof err === "string" ? err : err.message || JSON.stringify(err);
-    if (typeof msg === "string" && msg.trim().startsWith("{")) {
+    if (!err) return 'Erro desconhecido';
+    const msg = typeof err === 'string' ? err : err.message || JSON.stringify(err);
+    if (typeof msg === 'string' && msg.trim().startsWith('{')) {
       try {
         const parsed = JSON.parse(msg);
         return (
           parsed.error ||
           parsed.message ||
-          (typeof parsed === "string" ? parsed : JSON.stringify(parsed))
+          (typeof parsed === 'string' ? parsed : JSON.stringify(parsed))
         );
       } catch (e) {
         return msg;
@@ -12371,7 +11859,7 @@ export default function App() {
   };
 
   const handleRenderZapSimple = async () => {
-    console.log("[ZAP SIMPLE] Clicked", {
+    console.log('[ZAP SIMPLE] Clicked', {
       isRendering: isZapRenderingRef.current,
       videoUrl: zapVideoUrl?.substring(0, 60),
       templateId: zapTemplateId,
@@ -12379,11 +11867,11 @@ export default function App() {
     });
 
     if (isZapRenderingRef.current) {
-      console.warn("[ZAP SIMPLE] Blocked: already rendering");
+      console.warn('[ZAP SIMPLE] Blocked: already rendering');
       return;
     }
     if (!zapVideoUrl || !zapTemplateId) {
-      toast.error("Selecione um vídeo e um template para continuar.");
+      toast.error('Selecione um vídeo e um template para continuar.');
       return;
     }
 
@@ -12393,24 +11881,24 @@ export default function App() {
     const originalUrl = zapState.originalVideoUrl || zapVideoUrl;
     setZapState((prev) => ({
       ...prev,
-      status: "rendering",
-      step: "Enviando para o ZapCap...",
+      status: 'rendering',
+      step: 'Enviando para o ZapCap...',
       progress: 5,
       originalVideoUrl: originalUrl,
     }));
 
     try {
-      toast.loading("Iniciando renderização...", { id: "zap-simple-render" });
+      toast.loading('Iniciando renderização...', { id: 'zap-simple-render' });
 
       // Mapa de paletas de destaque
       const paletteMap: Record<string, { one: string; two: string; three: string }> = {
-        default: { one: "", two: "", three: "" }, // usa o padrão do template
-        viral_amarela: { one: "#FFD700", two: "#FFFFFF", three: "#FFA500" },
-        viral_vermelha: { one: "#FF3B30", two: "#FFFFFF", three: "#FFD700" },
-        viral_verde: { one: "#00FF7F", two: "#FFFFFF", three: "#FFD700" },
-        neon_vibrante: { one: "#FF00FF", two: "#00FFFF", three: "#FFFF00" },
-        sutil_cinza: { one: "#D3D3D3", two: "#FFFFFF", three: "#A9A9A9" },
-        classico_branco: { one: "#FFFFFF", two: "#FFD700", three: "#FFFFFF" },
+        default: { one: '', two: '', three: '' }, // usa o padrão do template
+        viral_amarela: { one: '#FFD700', two: '#FFFFFF', three: '#FFA500' },
+        viral_vermelha: { one: '#FF3B30', two: '#FFFFFF', three: '#FFD700' },
+        viral_verde: { one: '#00FF7F', two: '#FFFFFF', three: '#FFD700' },
+        neon_vibrante: { one: '#FF00FF', two: '#00FFFF', three: '#FFFF00' },
+        sutil_cinza: { one: '#D3D3D3', two: '#FFFFFF', three: '#A9A9A9' },
+        classico_branco: { one: '#FFFFFF', two: '#FFD700', three: '#FFFFFF' },
       };
       const selectedPalette = paletteMap[zapHighlightPalette] || paletteMap.default;
 
@@ -12430,7 +11918,7 @@ export default function App() {
         displayWords: zapDisplayWords,
       };
       // Cores de destaque só se NÃO for o padrão
-      if (zapHighlightPalette !== "default") {
+      if (zapHighlightPalette !== 'default') {
         payload.highlightColorOne = selectedPalette.one;
         payload.highlightColorTwo = selectedPalette.two;
         payload.highlightColorThree = selectedPalette.three;
@@ -12438,17 +11926,17 @@ export default function App() {
       // Formato de vídeo: por enquanto só registramos, não convertemos
       // (ZapCap usa o formato do vídeo de entrada)
 
-      console.log("[ZAP SIMPLE PAYLOAD]", payload);
+      console.log('[ZAP SIMPLE PAYLOAD]', payload);
 
-      const response = await fetch("/api/zapcap/edit-simple", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/zapcap/edit-simple', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
         const errData = await response.json();
-        throw new Error(errData.error || "Falha ao iniciar renderização");
+        throw new Error(errData.error || 'Falha ao iniciar renderização');
       }
 
       const data = await response.json();
@@ -12458,16 +11946,16 @@ export default function App() {
         ...prev,
         videoId,
         taskId,
-        step: "Processando legendas...",
+        step: 'Processando legendas...',
         progress: 15,
       }));
 
       startZapSimplePolling(videoId, taskId);
     } catch (err: any) {
-      console.error("[ZAP SIMPLE] failed:", err);
+      console.error('[ZAP SIMPLE] failed:', err);
       const errorMsg = getErrorMessage(err);
-      setZapState((prev) => ({ ...prev, status: "error", step: errorMsg }));
-      toast.error(`Erro: ${errorMsg}`, { id: "zap-simple-render" });
+      setZapState((prev) => ({ ...prev, status: 'error', step: errorMsg }));
+      toast.error(`Erro: ${errorMsg}`, { id: 'zap-simple-render' });
       setLoading(false);
       isZapRenderingRef.current = false;
     }
@@ -12490,25 +11978,23 @@ export default function App() {
           zapPollRef.current = null;
           setZapState((prev) => ({
             ...prev,
-            status: "error",
-            step: "Tempo limite excedido (10 min)",
+            status: 'error',
+            step: 'Tempo limite excedido (10 min)',
           }));
-          toast.error("Tempo limite excedido", { id: "zap-simple-render" });
+          toast.error('Tempo limite excedido', { id: 'zap-simple-render' });
           setLoading(false);
           return;
         }
 
-        const userId = auth.currentUser?.uid || "anonymous";
-        const response = await fetch(
-          `/api/zapcap/status/${videoId}/${taskId}?userId=${userId}`,
-        );
+        const userId = auth.currentUser?.uid || 'anonymous';
+        const response = await fetch(`/api/zapcap/status/${videoId}/${taskId}?userId=${userId}`);
         const data = await response.json();
         console.log(`[ZAP SIMPLE Poll] status=${data.status}`);
 
         if (!response.ok) {
-          const errorMsg = data.error || "Erro no servidor (Polling)";
-          setZapState((prev) => ({ ...prev, status: "error", step: errorMsg }));
-          toast.error(`Erro: ${errorMsg}`, { id: "zap-simple-render" });
+          const errorMsg = data.error || 'Erro no servidor (Polling)';
+          setZapState((prev) => ({ ...prev, status: 'error', step: errorMsg }));
+          toast.error(`Erro: ${errorMsg}`, { id: 'zap-simple-render' });
           isZapRenderingRef.current = false;
           clearInterval(zapPollRef.current!);
           zapPollRef.current = null;
@@ -12516,7 +12002,7 @@ export default function App() {
           return;
         }
 
-        if (data.status === "completed" && data.downloadUrl) {
+        if (data.status === 'completed' && data.downloadUrl) {
           alreadyCompleted = true;
           isZapRenderingRef.current = false;
           clearInterval(zapPollRef.current!);
@@ -12526,47 +12012,47 @@ export default function App() {
             const newVersions = [...(prev.versions || []), data.downloadUrl];
             return {
               ...prev,
-              status: "completed",
-              step: "Edição finalizada!",
+              status: 'completed',
+              step: 'Edição finalizada!',
               progress: 100,
               finalVideoUrl: data.downloadUrl,
               versions: newVersions,
             };
           });
 
-          toast.success("Vídeo editado com sucesso!", { id: "zap-simple-render" });
+          toast.success('Vídeo editado com sucesso!', { id: 'zap-simple-render' });
           setLoading(false);
-        } else if (data.status === "failed" || data.status === "error") {
+        } else if (data.status === 'failed' || data.status === 'error') {
           isZapRenderingRef.current = false;
           clearInterval(zapPollRef.current!);
           zapPollRef.current = null;
-          const errorMsg = data.error || "Falha no ZapCap";
-          setZapState((prev) => ({ ...prev, status: "error", step: errorMsg }));
-          toast.error(`Falha: ${errorMsg}`, { id: "zap-simple-render" });
+          const errorMsg = data.error || 'Falha no ZapCap';
+          setZapState((prev) => ({ ...prev, status: 'error', step: errorMsg }));
+          toast.error(`Falha: ${errorMsg}`, { id: 'zap-simple-render' });
           setLoading(false);
         } else {
-          let stepText = "Renderizando vídeo final...";
+          let stepText = 'Renderizando vídeo final...';
           let baseProgress = 50;
-          if (data.status === "processing" || data.status === "transcribing") {
-            stepText = "Transcrevendo e processando...";
+          if (data.status === 'processing' || data.status === 'transcribing') {
+            stepText = 'Transcrevendo e processando...';
             baseProgress = 30;
-          } else if (data.status === "rendering") {
-            stepText = "Aplicando legendas e b-rolls...";
+          } else if (data.status === 'rendering') {
+            stepText = 'Aplicando legendas e b-rolls...';
             baseProgress = 70;
-          } else if (data.status === "queued") {
-            stepText = "Na fila de espera...";
+          } else if (data.status === 'queued') {
+            stepText = 'Na fila de espera...';
             baseProgress = 10;
           }
           setZapState((prev) => ({ ...prev, step: stepText, progress: baseProgress }));
         }
       } catch (err: any) {
-        console.error("[ZAP SIMPLE Poll] error:", err);
+        console.error('[ZAP SIMPLE Poll] error:', err);
       }
     }, 3000);
   };
 
   const handleRenderZapCap = async () => {
-    console.log("[RENDER DEBUG] Clicked. State at click time:", {
+    console.log('[RENDER DEBUG] Clicked. State at click time:', {
       isRendering: isRenderingRef.current,
       videoUrl: videoUrl?.substring(0, 60),
       templateId: zapCapRenderConfig.templateId,
@@ -12576,17 +12062,17 @@ export default function App() {
       autoEditStatus: autoEditState.status,
     });
     if (isRenderingRef.current) {
-      console.warn("[RENDER DEBUG] Blocked: already rendering");
+      console.warn('[RENDER DEBUG] Blocked: already rendering');
       return;
     }
     if (!videoUrl || !zapCapRenderConfig.templateId) {
-      console.warn("[RENDER DEBUG] Blocked: missing videoUrl or templateId");
-      toast.error("Selecione um template para continuar.");
+      console.warn('[RENDER DEBUG] Blocked: missing videoUrl or templateId');
+      toast.error('Selecione um template para continuar.');
       return;
     }
 
     if ((autoEditState.versions?.length || 0) >= 3) {
-      toast.error("Limite de 3 versões atingido.");
+      toast.error('Limite de 3 versões atingido.');
       return;
     }
 
@@ -12597,24 +12083,23 @@ export default function App() {
 
     setAutoEditState((prev) => ({
       ...prev,
-      status: "rendering",
-      step: "Enviando para o ZapCap...",
+      status: 'rendering',
+      step: 'Enviando para o ZapCap...',
       progress: 5,
       originalVideoUrl: originalUrl,
     }));
 
     try {
-      toast.loading("Iniciando renderização...", { id: "zapcap-render" });
+      toast.loading('Iniciando renderização...', { id: 'zapcap-render' });
 
       // Identificar momentos selecionados (Automático vs Manual)
-      const brollMomentsToUse = (autoEditState.brollCandidates || []).filter(
-        (c) => (autoEditState.selectedBrollIds || []).includes(c.id),
+      const brollMomentsToUse = (autoEditState.brollCandidates || []).filter((c) =>
+        (autoEditState.selectedBrollIds || []).includes(c.id)
       );
 
-      console.log("[RENDER] brollPercent sendo enviado:", brollPercent);
+      console.log('[RENDER] brollPercent sendo enviado:', brollPercent);
 
-      const { transcript, byotTranscript, words, ...cleanConfig } =
-        zapCapRenderConfig as any;
+      const { transcript, byotTranscript, words, ...cleanConfig } = zapCapRenderConfig as any;
       const payload = {
         videoUrl,
         transcriptId: autoEditState.analysis?.transcriptId,
@@ -12632,26 +12117,26 @@ export default function App() {
             styleOptions: {
               fontSize: 46,
               fontWeight: 800,
-              fontShadow: "m",
-              stroke: "s",
-              strokeColor: "#000000",
+              fontShadow: 'm',
+              stroke: 's',
+              strokeColor: '#000000',
             },
           },
         },
       };
 
-      console.log("[RENDER PAYLOAD] campos enviados:", Object.keys(payload));
-      console.log("[RENDER PAYLOAD] config keys:", Object.keys(payload.config));
+      console.log('[RENDER PAYLOAD] campos enviados:', Object.keys(payload));
+      console.log('[RENDER PAYLOAD] config keys:', Object.keys(payload.config));
 
-      const response = await fetch("/api/zapcap/edit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/zapcap/edit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
         const errData = await response.json();
-        throw new Error(errData.error || "Falha ao iniciar renderização");
+        throw new Error(errData.error || 'Falha ao iniciar renderização');
       }
 
       const data = await response.json();
@@ -12659,8 +12144,8 @@ export default function App() {
 
       setAutoEditState((prev) => ({
         ...prev,
-        status: "rendering",
-        step: "Processando legendas...",
+        status: 'rendering',
+        step: 'Processando legendas...',
         videoId,
         taskId,
         progress: 15,
@@ -12668,14 +12153,14 @@ export default function App() {
 
       startZapCapPolling(videoId, taskId);
     } catch (err: any) {
-      console.error("ZapCap render failed:", err);
+      console.error('ZapCap render failed:', err);
       const errorMsg = getErrorMessage(err);
       setAutoEditState((prev) => ({
         ...prev,
-        status: "error",
+        status: 'error',
         step: errorMsg,
       }));
-      toast.error(`Erro: ${errorMsg}`, { id: "zapcap-render" });
+      toast.error(`Erro: ${errorMsg}`, { id: 'zapcap-render' });
       setLoading(false);
       isRenderingRef.current = false; // libera o lock SÓ em caso de erro
     }
@@ -12702,32 +12187,30 @@ export default function App() {
           zapcapPollRef.current = null;
           setAutoEditState((prev) => ({
             ...prev,
-            status: "error",
-            step: "Tempo limite excedido (10 min)",
+            status: 'error',
+            step: 'Tempo limite excedido (10 min)',
           }));
-          toast.error("Tempo limite excedido", { id: "zapcap-render" });
+          toast.error('Tempo limite excedido', { id: 'zapcap-render' });
           setLoading(false);
           return;
         }
 
-        const userId = auth.currentUser?.uid || "anonymous";
-        const response = await fetch(
-          `/api/zapcap/status/${videoId}/${taskId}?userId=${userId}`,
-        );
+        const userId = auth.currentUser?.uid || 'anonymous';
+        const response = await fetch(`/api/zapcap/status/${videoId}/${taskId}?userId=${userId}`);
         const data = await response.json();
         console.log(
-          `[Poll] videoId=${videoId} taskId=${taskId} status=${data.status} ok=${response.ok}`,
+          `[Poll] videoId=${videoId} taskId=${taskId} status=${data.status} ok=${response.ok}`
         );
 
         if (!response.ok) {
           console.error(`[Poll] Erro no polling:`, data);
-          const errorMsg = data.error || "Erro no servidor (Polling)";
+          const errorMsg = data.error || 'Erro no servidor (Polling)';
           setAutoEditState((prev) => ({
             ...prev,
-            status: "error",
+            status: 'error',
             step: errorMsg,
           }));
-          toast.error(`Erro no Status: ${errorMsg}`, { id: "zapcap-render" });
+          toast.error(`Erro no Status: ${errorMsg}`, { id: 'zapcap-render' });
           isRenderingRef.current = false;
           clearInterval(zapcapPollRef.current!);
           zapcapPollRef.current = null;
@@ -12737,7 +12220,7 @@ export default function App() {
 
         const status = data.status;
 
-        if (status === "completed" && data.downloadUrl) {
+        if (status === 'completed' && data.downloadUrl) {
           alreadyCompleted = true;
           isRenderingRef.current = false;
           clearInterval(zapcapPollRef.current!);
@@ -12748,43 +12231,41 @@ export default function App() {
             const newVersions = [...(prev.versions || []), data.downloadUrl];
             return {
               ...prev,
-              status: "completed",
-              step: "Edição finalizada!",
+              status: 'completed',
+              step: 'Edição finalizada!',
               progress: 100,
               finalVideoUrl: data.downloadUrl,
               versions: newVersions,
             };
           });
 
-          toast.success("Vídeo editado com sucesso!", { id: "zapcap-render" });
+          toast.success('Vídeo editado com sucesso!', { id: 'zapcap-render' });
           setLoading(false);
-        } else if (status === "failed" || status === "error") {
+        } else if (status === 'failed' || status === 'error') {
           isRenderingRef.current = false;
           clearInterval(zapcapPollRef.current!);
           zapcapPollRef.current = null;
-          const errorMsg = getErrorMessage(
-            data.error || "Falha no processamento do ZapCap",
-          );
+          const errorMsg = getErrorMessage(data.error || 'Falha no processamento do ZapCap');
           setAutoEditState((prev) => ({
             ...prev,
-            status: "error",
+            status: 'error',
             step: errorMsg,
           }));
-          toast.error(`Falha: ${errorMsg}`, { id: "zapcap-render" });
+          toast.error(`Falha: ${errorMsg}`, { id: 'zapcap-render' });
           setLoading(false);
         } else {
           // Mapear status para progresso e texto
-          let stepText = "Renderizando vídeo final...";
+          let stepText = 'Renderizando vídeo final...';
           let baseProgress = 50;
 
-          if (status === "processing" || status === "transcribing") {
-            stepText = "Processando legendas...";
+          if (status === 'processing' || status === 'transcribing') {
+            stepText = 'Processando legendas...';
             baseProgress = 20;
-          } else if (status === "rendering") {
-            stepText = "Renderizando vídeo final...";
+          } else if (status === 'rendering') {
+            stepText = 'Renderizando vídeo final...';
             baseProgress = 60;
-          } else if (status === "queued") {
-            stepText = "Na fila de espera...";
+          } else if (status === 'queued') {
+            stepText = 'Na fila de espera...';
             baseProgress = 10;
           }
 
@@ -12795,10 +12276,10 @@ export default function App() {
           }));
         }
       } catch (err: any) {
-        if (err.message && err.message.includes("Failed to fetch")) {
+        if (err.message && err.message.includes('Failed to fetch')) {
           // Ignore network errors (like load balancer timeouts or momentary drops)
         } else {
-          console.error("Polling error:", err);
+          console.error('Polling error:', err);
         }
       }
     }, 5000);
@@ -12816,24 +12297,24 @@ export default function App() {
 
   const handleApproveAndDownload = async (url: string) => {
     try {
-      toast.loading("Iniciando download...", { id: "download" });
+      toast.loading('Iniciando download...', { id: 'download' });
       const res = await fetch(url);
       const blob = await res.blob();
-      const a = document.createElement("a");
+      const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       a.download = `video_renderizado_v${autoEditState.versions?.length || 1}.mp4`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      toast.success("Download iniciado!", { id: "download" });
+      toast.success('Download iniciado!', { id: 'download' });
     } catch (err) {
-      toast.error("Erro ao baixar vídeo.", { id: "download" });
+      toast.error('Erro ao baixar vídeo.', { id: 'download' });
     }
   };
 
   const renderEditZapStep = () => {
-    const isCompleted = zapState.status === "completed";
-    const isRendering = zapState.status === "rendering" || zapState.status === "uploading";
+    const isCompleted = zapState.status === 'completed';
+    const isRendering = zapState.status === 'rendering' || zapState.status === 'uploading';
 
     // Lista de vídeos disponíveis (mesma fonte da Edição Premium)
     const availableVideos = (videos || []).filter((v) => v.url);
@@ -12880,10 +12361,10 @@ export default function App() {
                     setZapState((prev) => ({ ...prev, originalVideoUrl: v.url }));
                   }}
                   className={cn(
-                    "relative rounded-2xl overflow-hidden border-4 transition-all aspect-video bg-black",
+                    'relative rounded-2xl overflow-hidden border-4 transition-all aspect-video bg-black',
                     zapVideoUrl === v.url
-                      ? "border-yellow-500 ring-4 ring-yellow-100"
-                      : "border-gray-100 hover:border-yellow-200",
+                      ? 'border-yellow-500 ring-4 ring-yellow-100'
+                      : 'border-gray-100 hover:border-yellow-200'
                   )}
                 >
                   <video
@@ -12914,9 +12395,7 @@ export default function App() {
 
           {zapCapTemplates.length === 0 ? (
             <div className="p-8 text-center bg-gray-50 rounded-2xl">
-              <p className="text-sm text-gray-500 font-bold mb-3">
-                Carregando templates...
-              </p>
+              <p className="text-sm text-gray-500 font-bold mb-3">Carregando templates...</p>
               <button
                 onClick={fetchZapCapTemplates}
                 className="px-5 py-2 bg-yellow-500 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-yellow-600"
@@ -12931,10 +12410,10 @@ export default function App() {
                   key={`zap-tpl-${tpl.id}`}
                   onClick={() => setZapTemplateId(tpl.id)}
                   className={cn(
-                    "relative rounded-2xl overflow-hidden border-4 transition-all bg-black aspect-[9/16]",
+                    'relative rounded-2xl overflow-hidden border-4 transition-all bg-black aspect-[9/16]',
                     zapTemplateId === tpl.id
-                      ? "border-yellow-500 ring-4 ring-yellow-100"
-                      : "border-gray-100 hover:border-yellow-200",
+                      ? 'border-yellow-500 ring-4 ring-yellow-100'
+                      : 'border-gray-100 hover:border-yellow-200'
                   )}
                 >
                   {tpl.previewUrl ? (
@@ -12953,9 +12432,7 @@ export default function App() {
                     </div>
                   )}
                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
-                    <p className="text-white text-[10px] font-black truncate">
-                      {tpl.name}
-                    </p>
+                    <p className="text-white text-[10px] font-black truncate">{tpl.name}</p>
                   </div>
                   {zapTemplateId === tpl.id && (
                     <span className="absolute top-2 right-2 px-2 py-0.5 bg-yellow-500 text-white text-[9px] font-black rounded">
@@ -12984,18 +12461,18 @@ export default function App() {
             </label>
             <div className="flex flex-wrap gap-2">
               {[
-                { value: "en", label: "🇺🇸 Inglês" },
-                { value: "pt", label: "🇧🇷 Português" },
-                { value: "es", label: "🇪🇸 Espanhol" },
+                { value: 'en', label: '🇺🇸 Inglês' },
+                { value: 'pt', label: '🇧🇷 Português' },
+                { value: 'es', label: '🇪🇸 Espanhol' },
               ].map((lang) => (
                 <button
                   key={lang.value}
                   onClick={() => setZapLanguage(lang.value)}
                   className={cn(
-                    "px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all",
+                    'px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all',
                     zapLanguage === lang.value
-                      ? "bg-yellow-500 text-white border-yellow-500"
-                      : "bg-white text-gray-700 border-gray-200 hover:border-yellow-300",
+                      ? 'bg-yellow-500 text-white border-yellow-500'
+                      : 'bg-white text-gray-700 border-gray-200 hover:border-yellow-300'
                   )}
                 >
                   {lang.label}
@@ -13029,14 +12506,14 @@ export default function App() {
             <button
               onClick={() => setZapEmoji(!zapEmoji)}
               className={cn(
-                "p-3 rounded-2xl border-2 text-left transition-all",
+                'p-3 rounded-2xl border-2 text-left transition-all',
                 zapEmoji
-                  ? "bg-yellow-50 border-yellow-500"
-                  : "bg-white border-gray-100 hover:border-yellow-200",
+                  ? 'bg-yellow-50 border-yellow-500'
+                  : 'bg-white border-gray-100 hover:border-yellow-200'
               )}
             >
               <p className="text-sm font-black text-gray-900">
-                {zapEmoji ? "✅" : "⬜"} Emojis na Legenda
+                {zapEmoji ? '✅' : '⬜'} Emojis na Legenda
               </p>
               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
                 ZapCap insere emojis automaticamente
@@ -13046,14 +12523,14 @@ export default function App() {
             <button
               onClick={() => setZapAnimation(!zapAnimation)}
               className={cn(
-                "p-3 rounded-2xl border-2 text-left transition-all",
+                'p-3 rounded-2xl border-2 text-left transition-all',
                 zapAnimation
-                  ? "bg-yellow-50 border-yellow-500"
-                  : "bg-white border-gray-100 hover:border-yellow-200",
+                  ? 'bg-yellow-50 border-yellow-500'
+                  : 'bg-white border-gray-100 hover:border-yellow-200'
               )}
             >
               <p className="text-sm font-black text-gray-900">
-                {zapAnimation ? "✅" : "⬜"} Animação na Legenda
+                {zapAnimation ? '✅' : '⬜'} Animação na Legenda
               </p>
               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
                 Texto animado conforme o template
@@ -13063,14 +12540,14 @@ export default function App() {
             <button
               onClick={() => setZapEmphasizeKeywords(!zapEmphasizeKeywords)}
               className={cn(
-                "p-3 rounded-2xl border-2 text-left transition-all",
+                'p-3 rounded-2xl border-2 text-left transition-all',
                 zapEmphasizeKeywords
-                  ? "bg-yellow-50 border-yellow-500"
-                  : "bg-white border-gray-100 hover:border-yellow-200",
+                  ? 'bg-yellow-50 border-yellow-500'
+                  : 'bg-white border-gray-100 hover:border-yellow-200'
               )}
             >
               <p className="text-sm font-black text-gray-900">
-                {zapEmphasizeKeywords ? "✅" : "⬜"} Destacar Palavras-Chave
+                {zapEmphasizeKeywords ? '✅' : '⬜'} Destacar Palavras-Chave
               </p>
               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
                 ZapCap detecta e destaca palavras importantes
@@ -13080,14 +12557,14 @@ export default function App() {
             <button
               onClick={() => setZapFontUppercase(!zapFontUppercase)}
               className={cn(
-                "p-3 rounded-2xl border-2 text-left transition-all",
+                'p-3 rounded-2xl border-2 text-left transition-all',
                 zapFontUppercase
-                  ? "bg-yellow-50 border-yellow-500"
-                  : "bg-white border-gray-100 hover:border-yellow-200",
+                  ? 'bg-yellow-50 border-yellow-500'
+                  : 'bg-white border-gray-100 hover:border-yellow-200'
               )}
             >
               <p className="text-sm font-black text-gray-900">
-                {zapFontUppercase ? "✅" : "⬜"} Legenda em MAIÚSCULAS
+                {zapFontUppercase ? '✅' : '⬜'} Legenda em MAIÚSCULAS
               </p>
               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
                 Estilo viral / Hormozi
@@ -13102,19 +12579,19 @@ export default function App() {
             </label>
             <div className="flex flex-wrap gap-2">
               {[
-                { value: "auto", label: "🤖 Auto" },
-                { value: "9:16", label: "📱 9:16 (Vertical)" },
-                { value: "1:1", label: "⬜ 1:1 (Quadrado)" },
-                { value: "16:9", label: "🖥️ 16:9 (Horizontal)" },
+                { value: 'auto', label: '🤖 Auto' },
+                { value: '9:16', label: '📱 9:16 (Vertical)' },
+                { value: '1:1', label: '⬜ 1:1 (Quadrado)' },
+                { value: '16:9', label: '🖥️ 16:9 (Horizontal)' },
               ].map((fmt) => (
                 <button
                   key={fmt.value}
                   onClick={() => setZapVideoFormat(fmt.value as any)}
                   className={cn(
-                    "px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all",
+                    'px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all',
                     zapVideoFormat === fmt.value
-                      ? "bg-yellow-500 text-white border-yellow-500"
-                      : "bg-white text-gray-700 border-gray-200 hover:border-yellow-300",
+                      ? 'bg-yellow-500 text-white border-yellow-500'
+                      : 'bg-white text-gray-700 border-gray-200 hover:border-yellow-300'
                   )}
                 >
                   {fmt.label}
@@ -13193,21 +12670,41 @@ export default function App() {
             </label>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               {[
-                { value: "default", label: "Padrão do Template", colors: ["#999", "#999", "#999"] },
-                { value: "viral_amarela", label: "Viral Amarela", colors: ["#FFD700", "#FFFFFF", "#FFA500"] },
-                { value: "viral_vermelha", label: "Viral Vermelha", colors: ["#FF3B30", "#FFFFFF", "#FFD700"] },
-                { value: "viral_verde", label: "Viral Verde", colors: ["#00FF7F", "#FFFFFF", "#FFD700"] },
-                { value: "neon_vibrante", label: "Neon Vibrante", colors: ["#FF00FF", "#00FFFF", "#FFFF00"] },
-                { value: "sutil_cinza", label: "Sutil Cinza", colors: ["#D3D3D3", "#FFFFFF", "#A9A9A9"] },
+                { value: 'default', label: 'Padrão do Template', colors: ['#999', '#999', '#999'] },
+                {
+                  value: 'viral_amarela',
+                  label: 'Viral Amarela',
+                  colors: ['#FFD700', '#FFFFFF', '#FFA500'],
+                },
+                {
+                  value: 'viral_vermelha',
+                  label: 'Viral Vermelha',
+                  colors: ['#FF3B30', '#FFFFFF', '#FFD700'],
+                },
+                {
+                  value: 'viral_verde',
+                  label: 'Viral Verde',
+                  colors: ['#00FF7F', '#FFFFFF', '#FFD700'],
+                },
+                {
+                  value: 'neon_vibrante',
+                  label: 'Neon Vibrante',
+                  colors: ['#FF00FF', '#00FFFF', '#FFFF00'],
+                },
+                {
+                  value: 'sutil_cinza',
+                  label: 'Sutil Cinza',
+                  colors: ['#D3D3D3', '#FFFFFF', '#A9A9A9'],
+                },
               ].map((pal) => (
                 <button
                   key={pal.value}
                   onClick={() => setZapHighlightPalette(pal.value)}
                   className={cn(
-                    "p-3 rounded-2xl border-2 transition-all text-left",
+                    'p-3 rounded-2xl border-2 transition-all text-left',
                     zapHighlightPalette === pal.value
-                      ? "bg-yellow-50 border-yellow-500"
-                      : "bg-white border-gray-100 hover:border-yellow-200",
+                      ? 'bg-yellow-50 border-yellow-500'
+                      : 'bg-white border-gray-100 hover:border-yellow-200'
                   )}
                 >
                   <div className="flex gap-1 mb-2">
@@ -13230,7 +12727,7 @@ export default function App() {
             <label className="text-xs font-black text-gray-900 uppercase tracking-widest flex items-center justify-between">
               <span>Remoção de Silêncios</span>
               <span className="text-yellow-600">
-                {zapSilenceRemoval === 0 ? "Desligado" : zapSilenceRemoval.toFixed(1)}
+                {zapSilenceRemoval === 0 ? 'Desligado' : zapSilenceRemoval.toFixed(1)}
               </span>
             </label>
             <input
@@ -13243,7 +12740,8 @@ export default function App() {
               className="w-full"
             />
             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-              0 = desligado · 0.2-0.4 = corte suave · 0.5-0.7 = corte médio · 0.8-1 = corte agressivo
+              0 = desligado · 0.2-0.4 = corte suave · 0.5-0.7 = corte médio · 0.8-1 = corte
+              agressivo
             </p>
           </div>
         </div>
@@ -13251,18 +12749,13 @@ export default function App() {
         {/* BOTÃO GERAR */}
         <button
           onClick={handleRenderZapSimple}
-          disabled={
-            !zapVideoUrl ||
-            !zapTemplateId ||
-            isRendering ||
-            isZapRenderingRef.current
-          }
+          disabled={!zapVideoUrl || !zapTemplateId || isRendering || isZapRenderingRef.current}
           className="w-full py-6 bg-yellow-500 text-white rounded-[32px] font-black uppercase tracking-widest hover:bg-yellow-600 transition-all shadow-2xl shadow-yellow-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 text-lg"
         >
           {isRendering ? (
             <>
               <Loader2 className="animate-spin" size={24} />
-              {zapState.step || "Renderizando..."}
+              {zapState.step || 'Renderizando...'}
             </>
           ) : (
             <>
@@ -13311,10 +12804,8 @@ export default function App() {
                   <div className="relative bg-black rounded-[28px] overflow-hidden border-4 border-gray-100 aspect-[9/16]">
                     <video
                       src={
-                        getAuthorizedUrl(
-                          zapState.originalVideoUrl,
-                          platformApiKey || undefined,
-                        ) || undefined
+                        getAuthorizedUrl(zapState.originalVideoUrl, platformApiKey || undefined) ||
+                        undefined
                       }
                       className="w-full h-full object-contain"
                       controls
@@ -13331,10 +12822,7 @@ export default function App() {
                 <div key={`zap-v-${idx}-${vUrl}`} className="space-y-3">
                   <div className="relative bg-black rounded-[28px] overflow-hidden border-4 border-yellow-200 ring-4 ring-yellow-50 aspect-[9/16]">
                     <video
-                      src={
-                        getAuthorizedUrl(vUrl, platformApiKey || undefined) ||
-                        undefined
-                      }
+                      src={getAuthorizedUrl(vUrl, platformApiKey || undefined) || undefined}
                       className="w-full h-full object-contain"
                       controls
                       crossOrigin="anonymous"
@@ -13364,10 +12852,10 @@ export default function App() {
 
   const renderEdit2Step = () => {
     const isAnalyzed =
-      autoEditState.status === "analyzed" ||
-      autoEditState.status === "rendering" ||
-      autoEditState.status === "completed";
-    const isCompleted = autoEditState.status === "completed";
+      autoEditState.status === 'analyzed' ||
+      autoEditState.status === 'rendering' ||
+      autoEditState.status === 'completed';
+    const isCompleted = autoEditState.status === 'completed';
 
     return (
       <div className="max-w-[1200px] mx-auto p-6 space-y-10">
@@ -13390,169 +12878,165 @@ export default function App() {
 
         {/* PARTE 1 — Interface de Upload */}
         <div className="bg-white p-10 rounded-[48px] border-4 border-gray-50 shadow-2xl space-y-8 animate-in fade-in zoom-in duration-500">
-            <div className="flex flex-col items-center text-center gap-4">
-              <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center">
-                <Upload size={32} />
-              </div>
-              <div>
-                <h3 className="text-2xl font-black text-gray-900 uppercase italic tracking-tighter">
-                  Primeiro, vamos carregar seu vídeo
-                </h3>
-                <p className="text-gray-400 font-bold uppercase text-[10px] tracking-widest">
-                  Siga as instruções abaixo para iniciar a edição inteligente.
-                </p>
-              </div>
+          <div className="flex flex-col items-center text-center gap-4">
+            <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center">
+              <Upload size={32} />
             </div>
-
-            <div
-              onDragOver={(e) => {
-                e.preventDefault();
-                setIsDragging(true);
-              }}
-              onDragLeave={() => setIsDragging(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setIsDragging(false);
-                const file = e.dataTransfer.files?.[0];
-                if (file) handleUploadVideo(file);
-              }}
-              onClick={() => {
-                if (autoEditState.status === "uploading") return;
-                const input = document.createElement("input");
-                input.type = "file";
-                input.accept =
-                  "video/mp4,video/quicktime,video/x-msvideo,video/webm";
-                input.onchange = (e) => {
-                  const file = (e.target as HTMLInputElement).files?.[0];
-                  if (file) handleUploadVideo(file);
-                };
-                input.click();
-              }}
-              className={cn(
-                "relative border-4 border-dashed rounded-[32px] p-12 transition-all cursor-pointer flex flex-col items-center gap-6",
-                isDragging
-                  ? "border-blue-600 bg-blue-50 scale-[0.98]"
-                  : "border-gray-100 hover:border-blue-200 hover:bg-gray-50",
-                autoEditState.status === "uploading" &&
-                  "pointer-events-none opacity-50",
-              )}
-            >
-              <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-lg text-blue-600">
-                {autoEditState.status === "uploading" ? (
-                  <Loader2 className="animate-spin" size={40} />
-                ) : (
-                  <Upload size={40} />
-                )}
-              </div>
-
-              <div className="text-center space-y-2">
-                <p className="text-lg font-black text-gray-900 uppercase italic">
-                  {autoEditState.status === "uploading"
-                    ? `Carregando... ${Math.round(uploadProgress)}%`
-                    : "Arraste seu vídeo aqui ou clique para selecionar"}
-                </p>
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">
-                  MP4, MOV, AVI, WEBM • Máximo 3 minutos
-                </p>
-              </div>
-
-              {autoEditState.status === "uploading" && (
-                <div className="w-full max-w-md h-3 bg-gray-100 rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${uploadProgress}%` }}
-                    className="h-full bg-blue-600 shadow-lg shadow-blue-200"
-                  />
-                </div>
-              )}
-              {autoEditState.compressing && (
-                <div className="flex flex-col items-center gap-2">
-                  <span className="text-[10px] font-black text-blue-600 uppercase animate-pulse">
-                    Otimizando vídeo... ⚡
-                  </span>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center gap-4 text-gray-300">
-              <div className="flex-1 h-px bg-gray-100" />
-              <span className="text-[10px] font-black uppercase tracking-[0.5em]">
-                OU
-              </span>
-              <div className="flex-1 h-px bg-gray-100" />
-            </div>
-
-            <div className="space-y-4">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block text-center">
-                Escolha um vídeo já carregado
-              </label>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {userVideos.length > 0 ? (
-                  userVideos.map((video, idx) => {
-                    const isSelected = autoEditState.originalVideoUrl === video.url;
-                    return (
-                      <button
-                        key={`user-bib-video-${idx}-${video.url || "no-url"}`}
-                        onClick={async () => {
-                          setVideoUrl(video.url);
-                          const format = await detectVideoFormatFromUrl(video.url);
-                          setAutoEditState((prev) => ({
-                            ...prev,
-                            originalVideoUrl: video.url,
-                            videoFormat: format,
-                          }));
-                          toast.success(`Vídeo selecionado! Formato: ${format}`);
-                        }}
-                        className={cn(
-                          "relative rounded-2xl overflow-hidden border-2 transition-all text-left group flex flex-col",
-                          isSelected
-                            ? "border-blue-600 shadow-lg shadow-blue-100 ring-2 ring-blue-400 ring-offset-2"
-                            : "border-gray-100 hover:border-blue-300 hover:shadow-md",
-                        )}
-                      >
-                        {/* Thumbnail */}
-                        <div className="relative w-full aspect-video bg-black">
-                          <video
-                            src={video.url}
-                            className="w-full h-full object-cover"
-                            muted
-                            playsInline
-                            preload="metadata"
-                          />
-                          {/* Play overlay on hover */}
-                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30">
-                            <Play size={24} className="text-white fill-white" />
-                          </div>
-                          {/* Selected badge */}
-                          {isSelected && (
-                            <div className="absolute top-2 right-2 bg-blue-600 text-white rounded-full p-1 shadow-lg">
-                              <CheckCircle2 size={14} />
-                            </div>
-                          )}
-                          {/* "Em uso" label */}
-                          {isSelected && (
-                            <div className="absolute bottom-2 left-2 px-2 py-0.5 bg-blue-600 text-white text-[8px] font-black rounded uppercase tracking-widest">
-                              Em uso
-                            </div>
-                          )}
-                        </div>
-                        {/* Info */}
-                        <div className="p-2 bg-white">
-                          <p className="font-black text-gray-900 truncate text-[10px] uppercase italic">
-                            {video.name}
-                          </p>
-                        </div>
-                      </button>
-                    );
-                  })
-                ) : (
-                  <p className="col-span-full text-center py-8 text-gray-400 text-xs font-bold uppercase tracking-widest italic border-2 border-dashed border-gray-100 rounded-2xl">
-                    Nenhum vídeo encontrado na biblioteca
-                  </p>
-                )}
-              </div>
+            <div>
+              <h3 className="text-2xl font-black text-gray-900 uppercase italic tracking-tighter">
+                Primeiro, vamos carregar seu vídeo
+              </h3>
+              <p className="text-gray-400 font-bold uppercase text-[10px] tracking-widest">
+                Siga as instruções abaixo para iniciar a edição inteligente.
+              </p>
             </div>
           </div>
+
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              setIsDragging(true);
+            }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setIsDragging(false);
+              const file = e.dataTransfer.files?.[0];
+              if (file) handleUploadVideo(file);
+            }}
+            onClick={() => {
+              if (autoEditState.status === 'uploading') return;
+              const input = document.createElement('input');
+              input.type = 'file';
+              input.accept = 'video/mp4,video/quicktime,video/x-msvideo,video/webm';
+              input.onchange = (e) => {
+                const file = (e.target as HTMLInputElement).files?.[0];
+                if (file) handleUploadVideo(file);
+              };
+              input.click();
+            }}
+            className={cn(
+              'relative border-4 border-dashed rounded-[32px] p-12 transition-all cursor-pointer flex flex-col items-center gap-6',
+              isDragging
+                ? 'border-blue-600 bg-blue-50 scale-[0.98]'
+                : 'border-gray-100 hover:border-blue-200 hover:bg-gray-50',
+              autoEditState.status === 'uploading' && 'pointer-events-none opacity-50'
+            )}
+          >
+            <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-lg text-blue-600">
+              {autoEditState.status === 'uploading' ? (
+                <Loader2 className="animate-spin" size={40} />
+              ) : (
+                <Upload size={40} />
+              )}
+            </div>
+
+            <div className="text-center space-y-2">
+              <p className="text-lg font-black text-gray-900 uppercase italic">
+                {autoEditState.status === 'uploading'
+                  ? `Carregando... ${Math.round(uploadProgress)}%`
+                  : 'Arraste seu vídeo aqui ou clique para selecionar'}
+              </p>
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">
+                MP4, MOV, AVI, WEBM • Máximo 3 minutos
+              </p>
+            </div>
+
+            {autoEditState.status === 'uploading' && (
+              <div className="w-full max-w-md h-3 bg-gray-100 rounded-full overflow-hidden">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${uploadProgress}%` }}
+                  className="h-full bg-blue-600 shadow-lg shadow-blue-200"
+                />
+              </div>
+            )}
+            {autoEditState.compressing && (
+              <div className="flex flex-col items-center gap-2">
+                <span className="text-[10px] font-black text-blue-600 uppercase animate-pulse">
+                  Otimizando vídeo... ⚡
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-4 text-gray-300">
+            <div className="flex-1 h-px bg-gray-100" />
+            <span className="text-[10px] font-black uppercase tracking-[0.5em]">OU</span>
+            <div className="flex-1 h-px bg-gray-100" />
+          </div>
+
+          <div className="space-y-4">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block text-center">
+              Escolha um vídeo já carregado
+            </label>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {userVideos.length > 0 ? (
+                userVideos.map((video, idx) => {
+                  const isSelected = autoEditState.originalVideoUrl === video.url;
+                  return (
+                    <button
+                      key={`user-bib-video-${idx}-${video.url || 'no-url'}`}
+                      onClick={async () => {
+                        setVideoUrl(video.url);
+                        const format = await detectVideoFormatFromUrl(video.url);
+                        setAutoEditState((prev) => ({
+                          ...prev,
+                          originalVideoUrl: video.url,
+                          videoFormat: format,
+                        }));
+                        toast.success(`Vídeo selecionado! Formato: ${format}`);
+                      }}
+                      className={cn(
+                        'relative rounded-2xl overflow-hidden border-2 transition-all text-left group flex flex-col',
+                        isSelected
+                          ? 'border-blue-600 shadow-lg shadow-blue-100 ring-2 ring-blue-400 ring-offset-2'
+                          : 'border-gray-100 hover:border-blue-300 hover:shadow-md'
+                      )}
+                    >
+                      {/* Thumbnail */}
+                      <div className="relative w-full aspect-video bg-black">
+                        <video
+                          src={video.url}
+                          className="w-full h-full object-cover"
+                          muted
+                          playsInline
+                          preload="metadata"
+                        />
+                        {/* Play overlay on hover */}
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30">
+                          <Play size={24} className="text-white fill-white" />
+                        </div>
+                        {/* Selected badge */}
+                        {isSelected && (
+                          <div className="absolute top-2 right-2 bg-blue-600 text-white rounded-full p-1 shadow-lg">
+                            <CheckCircle2 size={14} />
+                          </div>
+                        )}
+                        {/* "Em uso" label */}
+                        {isSelected && (
+                          <div className="absolute bottom-2 left-2 px-2 py-0.5 bg-blue-600 text-white text-[8px] font-black rounded uppercase tracking-widest">
+                            Em uso
+                          </div>
+                        )}
+                      </div>
+                      {/* Info */}
+                      <div className="p-2 bg-white">
+                        <p className="font-black text-gray-900 truncate text-[10px] uppercase italic">
+                          {video.name}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })
+              ) : (
+                <p className="col-span-full text-center py-8 text-gray-400 text-xs font-bold uppercase tracking-widest italic border-2 border-dashed border-gray-100 rounded-2xl">
+                  Nenhum vídeo encontrado na biblioteca
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
 
         {autoEditState.originalVideoUrl && (
           <div className="bg-green-50 p-6 rounded-[32px] border-2 border-green-100 flex items-center justify-between gap-6 animate-in fade-in slide-in-from-top-4 duration-500">
@@ -13565,12 +13049,12 @@ export default function App() {
                   ✅ Vídeo carregado com sucesso
                 </h4>
                 <p className="text-[10px] font-bold text-green-600 uppercase tracking-widest">
-                  Formato detectado:{" "}
-                  {autoEditState.videoFormat === "9:16"
-                    ? "Vertical 9:16"
-                    : autoEditState.videoFormat === "16:9"
-                      ? "Horizontal 16:9"
-                      : "Quadrado 1:1"}
+                  Formato detectado:{' '}
+                  {autoEditState.videoFormat === '9:16'
+                    ? 'Vertical 9:16'
+                    : autoEditState.videoFormat === '16:9'
+                      ? 'Horizontal 16:9'
+                      : 'Quadrado 1:1'}
                 </p>
               </div>
             </div>
@@ -13604,31 +13088,31 @@ export default function App() {
                 {/* Original */}
                 <div
                   className={cn(
-                    "space-y-4 snap-start",
-                    autoEditState.videoFormat === "16:9"
-                      ? "min-w-[320px] max-w-[320px]"
-                      : "min-w-[240px] max-w-[240px]",
+                    'space-y-4 snap-start',
+                    autoEditState.videoFormat === '16:9'
+                      ? 'min-w-[320px] max-w-[320px]'
+                      : 'min-w-[240px] max-w-[240px]'
                   )}
                 >
                   <div
                     className={cn(
-                      "relative bg-black rounded-[32px] overflow-hidden shadow-2xl border-4 border-gray-100",
-                      autoEditState.videoFormat === "16:9"
-                        ? "aspect-video"
-                        : autoEditState.videoFormat === "1:1"
-                          ? "aspect-square"
-                          : "aspect-[9/16]",
+                      'relative bg-black rounded-[32px] overflow-hidden shadow-2xl border-4 border-gray-100',
+                      autoEditState.videoFormat === '16:9'
+                        ? 'aspect-video'
+                        : autoEditState.videoFormat === '1:1'
+                          ? 'aspect-square'
+                          : 'aspect-[9/16]'
                     )}
                   >
                     <video
                       src={
                         getAuthorizedUrl(
-                          autoEditState.originalVideoUrl || "",
-                          platformApiKey || undefined,
+                          autoEditState.originalVideoUrl || '',
+                          platformApiKey || undefined
                         ) || undefined
                       }
                       className="w-full h-full object-contain"
-                      style={{ objectFit: "contain", backgroundColor: "#000" }}
+                      style={{ objectFit: 'contain', backgroundColor: '#000' }}
                       crossOrigin="anonymous"
                     />
                     <div className="absolute top-4 left-4 bg-gray-900 text-white text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-widest">
@@ -13637,11 +13121,7 @@ export default function App() {
                   </div>
                   <div className="flex flex-col gap-2">
                     <button
-                      onClick={() =>
-                        handleApproveAndDownload(
-                          autoEditState.originalVideoUrl || "",
-                        )
-                      }
+                      onClick={() => handleApproveAndDownload(autoEditState.originalVideoUrl || '')}
                       className="w-full py-3 bg-gray-100 text-gray-900 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-200 flex items-center justify-center gap-2"
                     >
                       <Download size={12} />
@@ -13653,35 +13133,30 @@ export default function App() {
                 {/* Versions */}
                 {(autoEditState.versions || []).map((vUrl, idx) => (
                   <div
-                    key={`edit-version-${idx}-${vUrl || "no-url"}`}
+                    key={`edit-version-${idx}-${vUrl || 'no-url'}`}
                     className={cn(
-                      "space-y-4 snap-start",
-                      autoEditState.videoFormat === "16:9"
-                        ? "min-w-[320px] max-w-[320px]"
-                        : "min-w-[240px] max-w-[240px]",
+                      'space-y-4 snap-start',
+                      autoEditState.videoFormat === '16:9'
+                        ? 'min-w-[320px] max-w-[320px]'
+                        : 'min-w-[240px] max-w-[240px]'
                     )}
                   >
                     <div
                       className={cn(
-                        "relative bg-black rounded-[32px] overflow-hidden shadow-2xl border-4 border-blue-100 ring-8 ring-blue-50/50",
-                        autoEditState.videoFormat === "16:9"
-                          ? "aspect-video"
-                          : autoEditState.videoFormat === "1:1"
-                            ? "aspect-square"
-                            : "aspect-[9/16]",
+                        'relative bg-black rounded-[32px] overflow-hidden shadow-2xl border-4 border-blue-100 ring-8 ring-blue-50/50',
+                        autoEditState.videoFormat === '16:9'
+                          ? 'aspect-video'
+                          : autoEditState.videoFormat === '1:1'
+                            ? 'aspect-square'
+                            : 'aspect-[9/16]'
                       )}
                     >
                       <video
-                        src={
-                          getAuthorizedUrl(
-                            vUrl || "",
-                            platformApiKey || undefined,
-                          ) || undefined
-                        }
+                        src={getAuthorizedUrl(vUrl || '', platformApiKey || undefined) || undefined}
                         className="w-full h-full object-contain"
                         style={{
-                          objectFit: "contain",
-                          backgroundColor: "#000",
+                          objectFit: 'contain',
+                          backgroundColor: '#000',
                         }}
                         crossOrigin="anonymous"
                         controls
@@ -13715,21 +13190,15 @@ export default function App() {
                   Deseja criar outra versão?
                 </h3>
                 <p className="text-gray-400 font-bold uppercase text-[10px] tracking-widest">
-                  Altere o template ou densidade de b-roll e gere uma nova
-                  variação.
+                  Altere o template ou densidade de b-roll e gere uma nova variação.
                 </p>
               </div>
 
               <button
-                onClick={() =>
-                  setAutoEditState((prev) => ({ ...prev, status: "analyzed" }))
-                }
+                onClick={() => setAutoEditState((prev) => ({ ...prev, status: 'analyzed' }))}
                 className="px-12 py-5 bg-gray-900 text-white rounded-[24px] font-black uppercase text-xs tracking-[0.2em] hover:bg-black transition-all flex items-center justify-center gap-3 active:scale-95 shadow-xl"
               >
-                <RefreshCw
-                  size={18}
-                  className={loading ? "animate-spin" : ""}
-                />
+                <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
                 Configurar Nova Versão
               </button>
             </motion.div>
@@ -13741,21 +13210,16 @@ export default function App() {
               <div className="bg-gray-900 p-4 rounded-[40px] shadow-2xl relative group overflow-hidden border-8 border-gray-800">
                 <div
                   className={cn(
-                    "relative rounded-[32px] overflow-hidden bg-black w-full",
-                    autoEditState.videoFormat === "16:9"
-                      ? "aspect-video"
-                      : autoEditState.videoFormat === "1:1"
-                        ? "aspect-square"
-                        : "aspect-[9/16]",
+                    'relative rounded-[32px] overflow-hidden bg-black w-full',
+                    autoEditState.videoFormat === '16:9'
+                      ? 'aspect-video'
+                      : autoEditState.videoFormat === '1:1'
+                        ? 'aspect-square'
+                        : 'aspect-[9/16]'
                   )}
                 >
                   <video
-                    src={
-                      getAuthorizedUrl(
-                        videoUrl || "",
-                        platformApiKey || undefined,
-                      ) || undefined
-                    }
+                    src={getAuthorizedUrl(videoUrl || '', platformApiKey || undefined) || undefined}
                     controls
                     className="w-full h-full object-contain"
                     crossOrigin="anonymous"
@@ -13767,9 +13231,7 @@ export default function App() {
                   </p>
                   <div className="flex gap-2">
                     <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                    <span className="text-[10px] font-black text-green-500 uppercase">
-                      Live
-                    </span>
+                    <span className="text-[10px] font-black text-green-500 uppercase">Live</span>
                   </div>
                 </div>
               </div>
@@ -13781,11 +13243,7 @@ export default function App() {
                   disabled={loading || !videoUrl}
                   className="w-full py-8 bg-blue-600 text-white rounded-[32px] font-black uppercase text-lg tracking-widest hover:bg-blue-700 transition-all shadow-2xl shadow-blue-200 active:scale-95 disabled:opacity-50 flex flex-col items-center gap-3"
                 >
-                  {loading ? (
-                    <Loader2 className="animate-spin" size={32} />
-                  ) : (
-                    <Scan size={32} />
-                  )}
+                  {loading ? <Loader2 className="animate-spin" size={32} /> : <Scan size={32} />}
                   <span>Analisar com AssemblyAI</span>
                   <span className="text-[10px] font-bold opacity-60 normal-case">
                     Sentimentos • Capítulos • Momentos
@@ -13810,8 +13268,8 @@ export default function App() {
                   <button
                     onClick={() =>
                       setAutoEditState({
-                        status: "idle",
-                        step: "",
+                        status: 'idle',
+                        step: '',
                         progress: 0,
                         brollCandidates: [],
                         selectedBrollIds: [],
@@ -13828,8 +13286,7 @@ export default function App() {
 
             {/* Right Column: Configuration and Results */}
             <div className="lg:col-span-8 space-y-8">
-              {autoEditState.status === "analyzing" ||
-              autoEditState.status === "rendering" ? (
+              {autoEditState.status === 'analyzing' || autoEditState.status === 'rendering' ? (
                 <div className="bg-white p-16 rounded-[48px] border-4 border-gray-50 shadow-2xl flex flex-col items-center justify-center text-center gap-8">
                   <div className="relative">
                     <div className="w-32 h-32 rounded-full border-8 border-blue-50 border-t-blue-600 animate-spin" />
@@ -13839,9 +13296,9 @@ export default function App() {
                   </div>
                   <div className="space-y-4">
                     <h3 className="text-3xl font-black text-gray-900 uppercase italic tracking-tighter">
-                      {autoEditState.status === "analyzing"
-                        ? "IA Analisando..."
-                        : "IA Renderizando..."}
+                      {autoEditState.status === 'analyzing'
+                        ? 'IA Analisando...'
+                        : 'IA Renderizando...'}
                     </h3>
                     <div className="flex flex-col items-center gap-2">
                       <p className="text-gray-400 font-bold uppercase tracking-widest text-xs max-w-md">
@@ -13860,7 +13317,7 @@ export default function App() {
                     />
                   </div>
                 </div>
-              ) : autoEditState.status === "error" ? (
+              ) : autoEditState.status === 'error' ? (
                 <div className="bg-white p-16 rounded-[48px] border-4 border-red-50 shadow-2xl flex flex-col items-center justify-center text-center gap-8">
                   <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center text-red-600">
                     <AlertCircle size={48} />
@@ -13877,8 +13334,8 @@ export default function App() {
                     onClick={() =>
                       setAutoEditState((prev) => ({
                         ...prev,
-                        status: "analyzed",
-                        step: "",
+                        status: 'analyzed',
+                        step: '',
                         progress: 0,
                       }))
                     }
@@ -13887,7 +13344,7 @@ export default function App() {
                     Tentar Novamente
                   </button>
                 </div>
-              ) : autoEditState.status === "analyzed" ? (
+              ) : autoEditState.status === 'analyzed' ? (
                 <div className="bg-white p-8 rounded-[48px] border-4 border-gray-50 shadow-2xl space-y-12">
                   {/* ETAPA 1: B-Roll Mode */}
                   <div className="space-y-6">
@@ -13907,14 +13364,14 @@ export default function App() {
                           onClick={() =>
                             setAutoEditState((prev) => ({
                               ...prev,
-                              editMode: "auto",
+                              editMode: 'auto',
                             }))
                           }
                           className={cn(
-                            "px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                            autoEditState.editMode === "auto"
-                              ? "bg-white text-blue-600 shadow-lg"
-                              : "text-gray-400 hover:text-gray-600",
+                            'px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all',
+                            autoEditState.editMode === 'auto'
+                              ? 'bg-white text-blue-600 shadow-lg'
+                              : 'text-gray-400 hover:text-gray-600'
                           )}
                         >
                           Modo Automático
@@ -13923,14 +13380,14 @@ export default function App() {
                           onClick={() =>
                             setAutoEditState((prev) => ({
                               ...prev,
-                              editMode: "manual",
+                              editMode: 'manual',
                             }))
                           }
                           className={cn(
-                            "px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                            autoEditState.editMode === "manual"
-                              ? "bg-white text-blue-600 shadow-lg"
-                              : "text-gray-400 hover:text-gray-600",
+                            'px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all',
+                            autoEditState.editMode === 'manual'
+                              ? 'bg-white text-blue-600 shadow-lg'
+                              : 'text-gray-400 hover:text-gray-600'
                           )}
                         >
                           Modo Manual
@@ -13938,7 +13395,7 @@ export default function App() {
                       </div>
                     </div>
 
-                    {autoEditState.editMode === "auto" ? (
+                    {autoEditState.editMode === 'auto' ? (
                       <div className="p-8 bg-blue-50/50 border-2 border-dashed border-blue-100 rounded-[32px] flex flex-col items-center justify-center gap-3 text-center">
                         <Sparkles className="text-blue-600" size={32} />
                         <div>
@@ -13946,28 +13403,24 @@ export default function App() {
                             ⭐ IA selecionou os melhores momentos
                           </p>
                           <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">
-                            Encontramos{" "}
-                            {(autoEditState.selectedBrollIds || []).length}{" "}
-                            cenas ideais para ilustrar seu áudio
+                            Encontramos {(autoEditState.selectedBrollIds || []).length} cenas ideais
+                            para ilustrar seu áudio
                           </p>
                         </div>
                       </div>
                     ) : (
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 animate-in fade-in slide-in-from-top-2">
                         {autoEditState.brollCandidates.map((candidate) => {
-                          const isSelected =
-                            autoEditState.selectedBrollIds.includes(
-                              candidate.id,
-                            );
+                          const isSelected = autoEditState.selectedBrollIds.includes(candidate.id);
                           return (
                             <button
                               key={candidate.id}
                               onClick={() => toggleBrollSelection(candidate.id)}
                               className={cn(
-                                "flex flex-col p-4 rounded-2xl border-2 transition-all text-left relative group",
+                                'flex flex-col p-4 rounded-2xl border-2 transition-all text-left relative group',
                                 isSelected
-                                  ? "bg-blue-50 border-blue-600 shadow-sm"
-                                  : "bg-white border-gray-100 hover:border-gray-200",
+                                  ? 'bg-blue-50 border-blue-600 shadow-sm'
+                                  : 'bg-white border-gray-100 hover:border-gray-200'
                               )}
                             >
                               <div className="flex justify-between items-start mb-2">
@@ -13976,10 +13429,10 @@ export default function App() {
                                 </span>
                                 <span
                                   className={cn(
-                                    "text-[8px] font-black px-1.5 py-0.5 rounded uppercase",
+                                    'text-[8px] font-black px-1.5 py-0.5 rounded uppercase',
                                     candidate.rank >= 0.7
-                                      ? "bg-green-100 text-green-700"
-                                      : "bg-gray-100 text-gray-500",
+                                      ? 'bg-green-100 text-green-700'
+                                      : 'bg-gray-100 text-gray-500'
                                   )}
                                 >
                                   {Math.round(candidate.rank * 100)}%
@@ -14022,18 +13475,14 @@ export default function App() {
                             }))
                           }
                           className={cn(
-                            "relative aspect-video rounded-2xl border-4 transition-all overflow-hidden group",
+                            'relative aspect-video rounded-2xl border-4 transition-all overflow-hidden group',
                             zapCapRenderConfig.templateId === template.id
-                              ? "border-blue-600 scale-95 shadow-inner"
-                              : "border-gray-50 hover:border-blue-100",
+                              ? 'border-blue-600 scale-95 shadow-inner'
+                              : 'border-gray-50 hover:border-blue-100'
                           )}
                         >
                           <video
-                            src={
-                              template.previewUrl ||
-                              template.previews?.previewMp4 ||
-                              undefined
-                            }
+                            src={template.previewUrl || template.previews?.previewMp4 || undefined}
                             autoPlay
                             loop
                             muted
@@ -14076,18 +13525,18 @@ export default function App() {
                           }))
                         }
                         className={cn(
-                          "flex-1 py-5 rounded-[24px] border-2 transition-all flex flex-col items-center gap-2 group",
+                          'flex-1 py-5 rounded-[24px] border-2 transition-all flex flex-col items-center gap-2 group',
                           zapCapRenderConfig.animation
-                            ? "bg-gray-900 border-gray-900 text-white"
-                            : "bg-white border-gray-100 text-gray-400",
+                            ? 'bg-gray-900 border-gray-900 text-white'
+                            : 'bg-white border-gray-100 text-gray-400'
                         )}
                       >
                         <Zap
                           size={24}
                           className={
                             zapCapRenderConfig.animation
-                              ? "text-yellow-400 fill-yellow-400"
-                              : "text-gray-300"
+                              ? 'text-yellow-400 fill-yellow-400'
+                              : 'text-gray-300'
                           }
                         />
                         <span className="text-[10px] font-black uppercase tracking-widest">
@@ -14102,19 +13551,15 @@ export default function App() {
                           }))
                         }
                         className={cn(
-                          "flex-1 py-5 rounded-[24px] border-2 transition-all flex flex-col items-center gap-2 group",
+                          'flex-1 py-5 rounded-[24px] border-2 transition-all flex flex-col items-center gap-2 group',
                           zapCapRenderConfig.emoji
-                            ? "bg-gray-900 border-gray-900 text-white"
-                            : "bg-white border-gray-100 text-gray-400",
+                            ? 'bg-gray-900 border-gray-900 text-white'
+                            : 'bg-white border-gray-100 text-gray-400'
                         )}
                       >
                         <Smile
                           size={24}
-                          className={
-                            zapCapRenderConfig.emoji
-                              ? "text-blue-400"
-                              : "text-gray-300"
-                          }
+                          className={zapCapRenderConfig.emoji ? 'text-blue-400' : 'text-gray-300'}
                         />
                         <span className="text-[10px] font-black uppercase tracking-widest">
                           Emojis
@@ -14140,9 +13585,7 @@ export default function App() {
                           Densidade
                         </span>
                         <div className="flex items-center gap-2">
-                          <span className="text-2xl font-black text-blue-600">
-                            {brollPercent}%
-                          </span>
+                          <span className="text-2xl font-black text-blue-600">{brollPercent}%</span>
                           {brollPercent === recommendedBrollPercent && (
                             <span className="text-[8px] bg-blue-600 text-white px-2 py-0.5 rounded-full font-black uppercase">
                               Fiel ao áudio
@@ -14156,9 +13599,7 @@ export default function App() {
                           min={20}
                           max={70}
                           value={brollPercent}
-                          onChange={(e) =>
-                            setBrollPercent(Number(e.target.value))
-                          }
+                          onChange={(e) => setBrollPercent(Number(e.target.value))}
                           className="w-full h-3 bg-gray-200 rounded-full appearance-none cursor-pointer accent-blue-600"
                         />
                         <div className="flex justify-between mt-3 px-1">
@@ -14187,8 +13628,8 @@ export default function App() {
                         loading ||
                         isRenderingRef.current ||
                         !zapCapRenderConfig.templateId ||
-                        autoEditState.status === "rendering" ||
-                        autoEditState.status === "processing"
+                        autoEditState.status === 'rendering' ||
+                        autoEditState.status === 'processing'
                       }
                       className="w-full py-8 bg-blue-600 text-white rounded-[32px] font-black uppercase text-xl tracking-[0.2em] hover:bg-blue-700 transition-all shadow-2xl flex items-center justify-center gap-4 active:scale-95 disabled:opacity-50"
                     >
@@ -14225,33 +13666,28 @@ export default function App() {
   };
   const renderFinalStep = () => {
     const aspectRatioClass =
-      config.format.aspectRatio === "9:16"
-        ? "aspect-[9/16]"
-        : config.format.aspectRatio === "4:5"
-          ? "aspect-[4/5]"
-          : config.format.aspectRatio === "1:1"
-            ? "aspect-square"
-            : "aspect-[16/9]";
-    const maxWidthClass = isExpanded ? "max-w-4xl" : "max-w-[320px]";
+      config.format.aspectRatio === '9:16'
+        ? 'aspect-[9/16]'
+        : config.format.aspectRatio === '4:5'
+          ? 'aspect-[4/5]'
+          : config.format.aspectRatio === '1:1'
+            ? 'aspect-square'
+            : 'aspect-[16/9]';
+    const maxWidthClass = isExpanded ? 'max-w-4xl' : 'max-w-[320px]';
 
-    const avatarScript = (config.copy.generatedScript || "").includes(
-      "[AVATAR]:",
-    )
-      ? config.copy.generatedScript
-          .split("[AVATAR]:")[1]
-          .split("[SCENE]:")[0]
-          .trim()
-      : config.copy.generatedScript || "";
+    const avatarScript = (config.copy.generatedScript || '').includes('[AVATAR]:')
+      ? config.copy.generatedScript.split('[AVATAR]:')[1].split('[SCENE]:')[0].trim()
+      : config.copy.generatedScript || '';
 
     // Simple subtitle logic: split script into 5 parts for 10s
-    const words = avatarScript.split(" ");
+    const words = avatarScript.split(' ');
     const partSize = Math.ceil(words.length / 5);
     const subtitleParts = [
-      words.slice(0, partSize).join(" "),
-      words.slice(partSize, partSize * 2).join(" "),
-      words.slice(partSize * 2, partSize * 3).join(" "),
-      words.slice(partSize * 3, partSize * 4).join(" "),
-      words.slice(partSize * 4).join(" "),
+      words.slice(0, partSize).join(' '),
+      words.slice(partSize, partSize * 2).join(' '),
+      words.slice(partSize * 2, partSize * 3).join(' '),
+      words.slice(partSize * 3, partSize * 4).join(' '),
+      words.slice(partSize * 4).join(' '),
     ];
 
     const currentSubtitle =
@@ -14264,15 +13700,12 @@ export default function App() {
             : currentTime < 8
               ? subtitleParts[3]
               : subtitleParts[4];
-    const subtitleStyle = SUBTITLE_STYLES.find(
-      (s) => s.id === config.subtitles.style,
-    );
+    const subtitleStyle = SUBTITLE_STYLES.find((s) => s.id === config.subtitles.style);
 
     const posterUrl =
-      config.avatar.faceId === "custom"
+      config.avatar.faceId === 'custom'
         ? config.avatar.customFaceUrl || undefined
-        : heygenAvatars.find((a) => a.avatar_id === config.avatar.faceId)
-            ?.preview_image_url;
+        : heygenAvatars.find((a) => a.avatar_id === config.avatar.faceId)?.preview_image_url;
 
     return (
       <div className="space-y-8 max-w-[1600px] mx-auto text-center">
@@ -14284,31 +13717,26 @@ export default function App() {
               <video
                 ref={videoRef}
                 key={videoUrl}
-                src={
-                  getAuthorizedUrl(
-                    videoUrl || "",
-                    platformApiKey || undefined,
-                  ) || undefined
-                }
+                src={getAuthorizedUrl(videoUrl || '', platformApiKey || undefined) || undefined}
                 controls
                 muted
                 playsInline
                 poster={posterUrl}
                 className="w-full h-full object-contain bg-black"
                 referrerPolicy={
-                  videoUrl?.includes("generativelanguage.googleapis.com")
-                    ? "no-referrer"
+                  videoUrl?.includes('generativelanguage.googleapis.com')
+                    ? 'no-referrer'
                     : undefined
                 }
                 onError={(e) => {
-                  if (videoUrl?.startsWith("/generated/")) {
-                    console.warn("[Video Expired] Final Preview:", videoUrl);
-                    e.currentTarget.style.display = "none";
+                  if (videoUrl?.startsWith('/generated/')) {
+                    console.warn('[Video Expired] Final Preview:', videoUrl);
+                    e.currentTarget.style.display = 'none';
                   } else {
                     console.error(
-                      "[Video Error] Final Preview:",
+                      '[Video Error] Final Preview:',
                       e.currentTarget.error?.message,
-                      videoUrl,
+                      videoUrl
                     );
                   }
                 }}
@@ -14321,15 +13749,15 @@ export default function App() {
                   setDuration(video.duration);
                 }}
               />
-              {(generationStage === "completed" ||
-                generationStage === "subtitles" ||
-                generationStage === "edit") && (
+              {(generationStage === 'completed' ||
+                generationStage === 'subtitles' ||
+                generationStage === 'edit') && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                   <div className="max-w-[80%] text-center">
                     <div
-                      className={`inline-block px-4 py-2 rounded-lg backdrop-blur-md shadow-2xl ${subtitleStyle?.class || ""}`}
+                      className={`inline-block px-4 py-2 rounded-lg backdrop-blur-md shadow-2xl ${subtitleStyle?.class || ''}`}
                       style={{
-                        fontSize: isExpanded ? "2rem" : "1.2rem",
+                        fontSize: isExpanded ? '2rem' : '1.2rem',
                       }}
                     >
                       {currentSubtitle}
@@ -14341,27 +13769,22 @@ export default function App() {
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center p-8 text-gray-500">
               {loading ||
-              (videoOp &&
-                videoOp.status !== "completed" &&
-                videoOp.status !== "failed") ? (
+              (videoOp && videoOp.status !== 'completed' && videoOp.status !== 'failed') ? (
                 <>
-                  <Loader2
-                    className="animate-spin mb-4 text-blue-500"
-                    size={48}
-                  />
+                  <Loader2 className="animate-spin mb-4 text-blue-500" size={48} />
                   <p className="text-sm font-black text-white uppercase tracking-widest animate-pulse">
-                    {generationStage === "audio"
-                      ? "Gerando Voz..."
-                      : generationStage === "video"
-                        ? `Criando Vídeo (${videoOp?.displayStatus || "Iniciando"} - ${videoOp?.progress || 0}%)`
-                        : generationStage === "subtitles"
-                          ? "Adicionando Legendas..."
-                          : generationStage === "edit"
-                            ? "Aplicando Edições..."
-                            : "Iniciando Geração..."}
+                    {generationStage === 'audio'
+                      ? 'Gerando Voz...'
+                      : generationStage === 'video'
+                        ? `Criando Vídeo (${videoOp?.displayStatus || 'Iniciando'} - ${videoOp?.progress || 0}%)`
+                        : generationStage === 'subtitles'
+                          ? 'Adicionando Legendas...'
+                          : generationStage === 'edit'
+                            ? 'Aplicando Edições...'
+                            : 'Iniciando Geração...'}
                   </p>
 
-                  {generationStage === "video" && videoOp && (
+                  {generationStage === 'video' && videoOp && (
                     <div className="mt-4 space-y-2 w-full max-w-[240px]">
                       <div className="flex justify-between text-[10px] font-black text-gray-500 uppercase tracking-widest">
                         <span>Fila: {videoOp.queuedTime || 0}s</span>
@@ -14379,7 +13802,7 @@ export default function App() {
                         <span>
                           {videoOp.lastPoll
                             ? `Atualizado: ${new Date(videoOp.lastPoll).toLocaleTimeString()}`
-                            : ""}
+                            : ''}
                         </span>
                       </div>
                       {videoOp.error && (
@@ -14398,12 +13821,12 @@ export default function App() {
                     </div>
                   )}
 
-                  {generationStage === "video" && (
+                  {generationStage === 'video' && (
                     <p className="text-[10px] text-blue-400 font-bold uppercase tracking-widest mt-2">
                       Usando voz e script selecionados para gerar o vídeo
                     </p>
                   )}
-                  {generationStage === "audio_ready" && audioUrl && (
+                  {generationStage === 'audio_ready' && audioUrl && (
                     <div className="mt-6 space-y-4 w-full max-w-xs">
                       <div className="p-4 bg-white/10 rounded-2xl border border-white/20">
                         <p className="text-xs font-bold text-white mb-3 uppercase tracking-widest">
@@ -14432,7 +13855,7 @@ export default function App() {
                       </div>
                     </div>
                   )}
-                  {generationStage === "video_ready" && videoUrl && (
+                  {generationStage === 'video_ready' && videoUrl && (
                     <div className="mt-6 space-y-4 w-full max-w-xs">
                       <div className="flex gap-2 w-full">
                         <button
@@ -14461,12 +13884,10 @@ export default function App() {
                     ))}
                   </div>
                 </>
-              ) : videoOp?.status === "failed" ? (
+              ) : videoOp?.status === 'failed' ? (
                 <div className="text-center space-y-4">
                   <AlertCircle size={48} className="text-red-500 mx-auto" />
-                  <p className="text-red-400 font-bold">
-                    Falha na geração do vídeo
-                  </p>
+                  <p className="text-red-400 font-bold">Falha na geração do vídeo</p>
                   <button
                     onClick={handleGenerateVideo}
                     className="px-6 py-2 bg-red-600 text-white rounded-xl font-bold"
@@ -14484,8 +13905,8 @@ export default function App() {
                       Pronto para Gerar?
                     </h3>
                     <p className="text-sm text-gray-400 max-w-xs mx-auto">
-                      Clique no botão abaixo para iniciar a geração do vídeo com
-                      o avatar e voz selecionados.
+                      Clique no botão abaixo para iniciar a geração do vídeo com o avatar e voz
+                      selecionados.
                     </p>
                   </div>
                   <button
@@ -14507,22 +13928,17 @@ export default function App() {
           <button
             onClick={() => handleGenerateVideo()}
             disabled={
-              loading ||
-              (videoOp &&
-                videoOp.status !== "completed" &&
-                videoOp.status !== "failed")
+              loading || (videoOp && videoOp.status !== 'completed' && videoOp.status !== 'failed')
             }
             className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-blue-700 disabled:opacity-50 transition-all shadow-xl shadow-blue-200"
           >
             {loading ||
-            (videoOp &&
-              videoOp.status !== "completed" &&
-              videoOp.status !== "failed") ? (
+            (videoOp && videoOp.status !== 'completed' && videoOp.status !== 'failed') ? (
               <Loader2 className="animate-spin" />
             ) : (
               <Sparkles />
             )}
-            {videoUrl ? "Regerar Vídeo" : `Gerar Vídeo Final`}
+            {videoUrl ? 'Regerar Vídeo' : `Gerar Vídeo Final`}
           </button>
 
           {videoUrl && (
@@ -14544,17 +13960,15 @@ export default function App() {
             <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
               Ângulo
             </span>
-            <p className="text-sm font-bold text-gray-700 truncate">
-              {config.angle}
-            </p>
+            <p className="text-sm font-bold text-gray-700 truncate">{config.angle}</p>
           </div>
           <div className="p-4 bg-gray-50 rounded-xl">
             <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
               Avatar
             </span>
             <p className="text-sm font-bold text-gray-700 truncate">
-              {config.avatar.faceId === "custom"
-                ? "Personalizado"
+              {config.avatar.faceId === 'custom'
+                ? 'Personalizado'
                 : AVATARS.find((a) => a.id === config.avatar.faceId)?.name}
             </p>
           </div>
@@ -14563,7 +13977,7 @@ export default function App() {
               Edição
             </span>
             <p className="text-sm font-bold text-gray-700 truncate">
-              {config.edit.transition !== "none" ? "Com Efeitos" : "Básica"}
+              {config.edit.transition !== 'none' ? 'Com Efeitos' : 'Básica'}
             </p>
           </div>
           <div className="p-4 bg-gray-50 rounded-xl">
@@ -14571,7 +13985,7 @@ export default function App() {
               Trilha
             </span>
             <p className="text-sm font-bold text-gray-700 truncate">
-              {config.edit.backgroundMusic !== "none" ? "Ativa" : "Sem Música"}
+              {config.edit.backgroundMusic !== 'none' ? 'Ativa' : 'Sem Música'}
             </p>
           </div>
         </div>
@@ -14584,26 +13998,21 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      if (authMode === "signup") {
+      if (authMode === 'signup') {
         await createUserWithEmailAndPassword(auth, email, password);
       } else {
         await signInWithEmailAndPassword(auth, email, password);
       }
     } catch (err: any) {
-      console.error("Email Auth Error:", err);
-      let msg = "Erro na autenticação.";
-      if (err.code === "auth/email-already-in-use")
-        msg = "Este e-mail já está em uso.";
-      if (err.code === "auth/invalid-email") msg = "E-mail inválido.";
-      if (err.code === "auth/weak-password") msg = "Senha muito fraca.";
-      if (
-        err.code === "auth/user-not-found" ||
-        err.code === "auth/wrong-password"
-      )
-        msg = "E-mail ou senha incorretos.";
-      if (err.code === "auth/operation-not-allowed")
-        msg =
-          "O login por e-mail/senha não está habilitado no Console do Firebase.";
+      console.error('Email Auth Error:', err);
+      let msg = 'Erro na autenticação.';
+      if (err.code === 'auth/email-already-in-use') msg = 'Este e-mail já está em uso.';
+      if (err.code === 'auth/invalid-email') msg = 'E-mail inválido.';
+      if (err.code === 'auth/weak-password') msg = 'Senha muito fraca.';
+      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password')
+        msg = 'E-mail ou senha incorretos.';
+      if (err.code === 'auth/operation-not-allowed')
+        msg = 'O login por e-mail/senha não está habilitado no Console do Firebase.';
       setError(msg);
     } finally {
       setLoading(false);
@@ -14615,8 +14024,8 @@ export default function App() {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
     } catch (err) {
-      console.error("Login Error:", err);
-      setError("Falha ao entrar com Google.");
+      console.error('Login Error:', err);
+      setError('Falha ao entrar com Google.');
     }
   };
 
@@ -14624,7 +14033,7 @@ export default function App() {
     try {
       await signOut(auth);
     } catch (err) {
-      console.error("Logout Error:", err);
+      console.error('Logout Error:', err);
     }
   };
 
@@ -14644,13 +14053,9 @@ export default function App() {
             <Video size={32} />
           </div>
           <div className="space-y-1">
-            <h1 className="text-3xl font-black text-gray-900 tracking-tight uppercase">
-              Metavise
-            </h1>
+            <h1 className="text-3xl font-black text-gray-900 tracking-tight uppercase">Metavise</h1>
             <p className="text-sm text-gray-500 font-medium">
-              {authMode === "login"
-                ? "Entre na sua conta"
-                : "Crie sua conta gratuita"}
+              {authMode === 'login' ? 'Entre na sua conta' : 'Crie sua conta gratuita'}
             </p>
           </div>
 
@@ -14662,7 +14067,7 @@ export default function App() {
               <input
                 type="email"
                 required
-                value={email || ""}
+                value={email || ''}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="seu@email.com"
                 className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none text-sm"
@@ -14675,7 +14080,7 @@ export default function App() {
               <input
                 type="password"
                 required
-                value={password || ""}
+                value={password || ''}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none text-sm"
@@ -14695,10 +14100,10 @@ export default function App() {
             >
               {loading ? (
                 <Loader2 className="animate-spin" size={20} />
-              ) : authMode === "login" ? (
-                "Entrar"
+              ) : authMode === 'login' ? (
+                'Entrar'
               ) : (
-                "Cadastrar"
+                'Cadastrar'
               )}
             </button>
           </form>
@@ -14724,14 +14129,12 @@ export default function App() {
           </button>
 
           <p className="text-xs text-gray-500">
-            {authMode === "login" ? "Não tem uma conta?" : "Já tem uma conta?"}
+            {authMode === 'login' ? 'Não tem uma conta?' : 'Já tem uma conta?'}
             <button
-              onClick={() =>
-                setAuthMode(authMode === "login" ? "signup" : "login")
-              }
+              onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')}
               className="ml-1 text-blue-600 font-bold hover:underline"
             >
-              {authMode === "login" ? "Cadastre-se" : "Faça Login"}
+              {authMode === 'login' ? 'Cadastre-se' : 'Faça Login'}
             </button>
           </p>
         </div>
@@ -14749,9 +14152,7 @@ export default function App() {
               <Sparkles className="text-white" size={24} />
             </div>
             <div>
-              <h1 className="text-lg font-black tracking-tight text-gray-900">
-                METAVISE
-              </h1>
+              <h1 className="text-lg font-black tracking-tight text-gray-900">METAVISE</h1>
               <p className="text-[10px] font-bold text-blue-600 tracking-[0.2em] uppercase">
                 Criador de Anúncios
               </p>
@@ -14762,8 +14163,7 @@ export default function App() {
             <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-xl border border-gray-100">
               <Folder size={14} className="text-gray-400" />
               <span className="text-[10px] font-black text-gray-600 uppercase tracking-widest truncate max-w-[120px]">
-                {projects.find((p) => p.id === currentProjectId)?.name ||
-                  "Projeto Ativo"}
+                {projects.find((p) => p.id === currentProjectId)?.name || 'Projeto Ativo'}
               </span>
             </div>
           )}
@@ -14783,8 +14183,8 @@ export default function App() {
                     }}
                     className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all ${
                       isActive
-                        ? "bg-white text-blue-600 shadow-sm"
-                        : "text-gray-400 hover:text-gray-600"
+                        ? 'bg-white text-blue-600 shadow-sm'
+                        : 'text-gray-400 hover:text-gray-600'
                     }`}
                   >
                     <Icon size={16} />
@@ -14801,9 +14201,7 @@ export default function App() {
           <div className="flex items-center gap-4">
             <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-xl border border-blue-100">
               <Sparkles className="text-blue-600" size={16} />
-              <span className="text-sm font-black text-blue-700">
-                {credits}
-              </span>
+              <span className="text-sm font-black text-blue-700">{credits}</span>
               <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">
                 Créditos
               </span>
@@ -14834,10 +14232,7 @@ export default function App() {
         {error && (
           <div className="mb-6 p-4 bg-red-50 border-2 border-red-100 rounded-2xl flex items-center justify-between gap-3 text-red-700 text-sm">
             <span className="font-medium">{error}</span>
-            <button
-              onClick={() => setError(null)}
-              className="text-red-400 hover:text-red-600"
-            >
+            <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600">
               ✕
             </button>
           </div>
@@ -14865,8 +14260,7 @@ export default function App() {
             {STEPS.find((s) => s.id === currentStep)?.label}
           </h2>
           <p className="text-gray-500 mt-2">
-            Passo {STEPS.findIndex((s) => s.id === currentStep) + 1} de{" "}
-            {STEPS.length}
+            Passo {STEPS.findIndex((s) => s.id === currentStep) + 1} de {STEPS.length}
           </p>
         </div>
 
@@ -14878,26 +14272,24 @@ export default function App() {
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
           >
-            {currentStep === "integrations" && renderIntegrationsStep()}
-            {currentStep === "projects" && renderProjectsStep()}
-            {currentStep === "persona" && renderPersonaStep()}
-            {currentStep === "copy" && renderCopyStep()}
-            {currentStep === "hook-visual" && (
+            {currentStep === 'integrations' && renderIntegrationsStep()}
+            {currentStep === 'projects' && renderProjectsStep()}
+            {currentStep === 'persona' && renderPersonaStep()}
+            {currentStep === 'copy' && renderCopyStep()}
+            {currentStep === 'hook-visual' && (
               <HookVisualGenerator
-                approvedHook={config.copy.hookSelecionado || ""}
-                projectId={currentProjectId || "temp-project"}
+                approvedHook={config.copy.hookSelecionado || ''}
+                projectId={currentProjectId || 'temp-project'}
                 hookVisual={config.hookVisual}
-                onSave={(data) =>
-                  updateProjectHookVisual(currentProjectId || "", data)
-                }
+                onSave={(data) => updateProjectHookVisual(currentProjectId || '', data)}
                 language={config.copy?.answers?.language}
                 awarenessLevel={config.copy?.answers?.awarenessLevel}
-                approvedCopy={config.copy?.generatedScript || ""}
+                approvedCopy={config.copy?.generatedScript || ''}
                 hooksHistorico={config.copy?.hooksHistorico || []}
                 onDeleteHookFromHistory={(hook) => {
-                  const newHistorico = (
-                    config.copy?.hooksHistorico || []
-                  ).filter((h) => h.hook !== hook);
+                  const newHistorico = (config.copy?.hooksHistorico || []).filter(
+                    (h) => h.hook !== hook
+                  );
                   setConfig((prev) => ({
                     ...prev,
                     copy: { ...prev.copy, hooksHistorico: newHistorico },
@@ -14907,22 +14299,17 @@ export default function App() {
                   } as any);
                 }}
                 onGoToVoz={() => {
-                  setVoiceSource("hook");
-                  setCurrentStep("voz-premium");
+                  setVoiceSource('hook');
+                  setCurrentStep('voz-premium');
                 }}
-                onGoToAvatar={() => setCurrentStep("avatar")}
-                onGoToVideoIA={() => setCurrentStep("video-ia")}
+                onGoToAvatar={() => setCurrentStep('avatar')}
+                onGoToVideoIA={() => setCurrentStep('video-ia')}
                 onSaveHook={(hook) => {
                   const existing = config.copy?.hooksHistorico || [];
-                  const alreadyInHistory = existing.some(
-                    (h) => h.hook === hook,
-                  );
+                  const alreadyInHistory = existing.some((h) => h.hook === hook);
                   const newHistorico = alreadyInHistory
                     ? existing
-                    : [
-                        { hook, createdAt: new Date().toISOString() },
-                        ...existing,
-                      ].slice(0, 50);
+                    : [{ hook, createdAt: new Date().toISOString() }, ...existing].slice(0, 50);
                   setConfig((prev) => ({
                     ...prev,
                     copy: {
@@ -14941,10 +14328,9 @@ export default function App() {
                 }}
                 onProceedToVoice={() => {
                   const generatedCopy =
-                    config.copy?.optimizedScript ||
-                    config.copy?.generatedScript;
-                  const hook = (config.copy?.hookSelecionado || "").trim();
-                  let finalScriptToSave = config.copy?.finalScript || "";
+                    config.copy?.optimizedScript || config.copy?.generatedScript;
+                  const hook = (config.copy?.hookSelecionado || '').trim();
+                  let finalScriptToSave = config.copy?.finalScript || '';
                   if (generatedCopy && hook) {
                     const copyStart = generatedCopy
                       .trim()
@@ -14952,37 +14338,31 @@ export default function App() {
                       .toLowerCase();
                     const hookLower = hook.toLowerCase();
                     const alreadyHasHook = copyStart.includes(
-                      hookLower.substring(0, Math.min(40, hookLower.length)),
+                      hookLower.substring(0, Math.min(40, hookLower.length))
                     );
                     finalScriptToSave = alreadyHasHook
                       ? generatedCopy.trim()
-                      : hook + "\n\n" + generatedCopy.trim();
+                      : hook + '\n\n' + generatedCopy.trim();
                   } else if (hook && !generatedCopy) {
                     finalScriptToSave = hook;
                   }
-                  if (
-                    finalScriptToSave &&
-                    finalScriptToSave !== config.copy?.finalScript
-                  ) {
+                  if (finalScriptToSave && finalScriptToSave !== config.copy?.finalScript) {
                     setConfig((prev) => ({
                       ...prev,
                       copy: { ...prev.copy, finalScript: finalScriptToSave },
                     }));
                     setTimeout(() => handleSaveProject(), 50);
                   }
-                  setVoiceSource("hook");
-                  setCurrentStep("voz-premium");
+                  setVoiceSource('hook');
+                  setCurrentStep('voz-premium');
                 }}
               />
             )}
-            {currentStep === "video-ia" && (
+            {currentStep === 'video-ia' && (
               <div className="max-w-4xl mx-auto py-12 px-6">
-                <h2 className="text-3xl font-light text-gray-900 mb-4">
-                  Gerar Vídeo com IA
-                </h2>
+                <h2 className="text-3xl font-light text-gray-900 mb-4">Gerar Vídeo com IA</h2>
                 <p className="text-gray-500 mb-8">
-                  Em construção — vamos mover o fluxo de imagens + VEO para esta
-                  aba em breve.
+                  Em construção — vamos mover o fluxo de imagens + VEO para esta aba em breve.
                 </p>
                 <div className="p-12 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200 text-center">
                   <p className="text-gray-400 font-bold">
@@ -14991,25 +14371,23 @@ export default function App() {
                 </div>
               </div>
             )}
-            {currentStep === "voz-premium" && (
+            {currentStep === 'voz-premium' && (
               <VozPremium
                 approvedScript={
-                  voiceSource === "hook"
+                  voiceSource === 'hook'
                     ? config.copy?.hookSelecionado ||
                       config.copy?.finalScript ||
                       config.copy?.generatedScript ||
-                      ""
-                    : config.copy?.finalScript ||
-                      config.copy?.generatedScript ||
-                      ""
+                      ''
+                    : config.copy?.finalScript || config.copy?.generatedScript || ''
                 }
                 projectId={currentProjectId || undefined}
-                personaGender={config.copy?.answers?.personaGender || ""}
-                personaAge={config.copy?.answers?.personaAgePrimary || ""}
+                personaGender={config.copy?.answers?.personaGender || ''}
+                personaAge={config.copy?.answers?.personaAgePrimary || ''}
                 savedAudioUrl={config.audioUrl || undefined}
                 savedAudios={config.audios || []}
                 copyAnswers={config.copy?.answers || {}}
-                savedOptimizedScript={config.copy?.optimizedScript || ""}
+                savedOptimizedScript={config.copy?.optimizedScript || ''}
                 onApprovedScriptEdit={(edited) => {
                   setConfig((prev) => ({
                     ...prev,
@@ -15028,18 +14406,18 @@ export default function App() {
                     copy: { ...config.copy, optimizedScript: optimized },
                   } as any);
                 }}
-                onGoToVideo={() => setCurrentStep("avatar")}
+                onGoToVideo={() => setCurrentStep('avatar')}
                 onAudioReady={(audioUrl, voiceId, storagePath) => {
                   // CASO DELETE: audioUrl vazio = remover áudio ativo (não mexer no histórico)
                   if (!audioUrl) {
-                    setAudioUrl("");
+                    setAudioUrl('');
                     setConfig((prev) => ({
                       ...prev,
-                      audioUrl: "",
+                      audioUrl: '',
                       audioStoragePath: null,
                     }));
                     handleSaveProject({
-                      audioUrl: "",
+                      audioUrl: '',
                       audioStoragePath: null,
                     });
                     return;
@@ -15047,16 +14425,14 @@ export default function App() {
 
                   // CASO NORMAL: só adicionar se ainda não existir no histórico
                   const currentAudios = config.audios || audios || [];
-                  const existing = currentAudios.find(
-                    (a) => a.url === audioUrl,
-                  );
+                  const existing = currentAudios.find((a) => a.url === audioUrl);
                   let newAudios = currentAudios;
 
                   if (!existing) {
                     const newAudio = {
                       url: audioUrl,
                       storagePath: storagePath || null,
-                      voiceId: voiceId || "",
+                      voiceId: voiceId || '',
                       createdAt: new Date().toISOString(),
                     };
                     newAudios = [...currentAudios, newAudio];
@@ -15075,12 +14451,12 @@ export default function App() {
                     audioUrl,
                     audioStoragePath: storagePath || null,
                     audios: newAudios,
-                    ...(voiceId ? { "avatar.voiceId": voiceId } : {}),
+                    ...(voiceId ? { 'avatar.voiceId': voiceId } : {}),
                   });
                 }}
                 onDeleteAudioFromHistory={(
                   urlToDelete: string,
-                  storagePathToDelete: string | null,
+                  storagePathToDelete: string | null
                 ) => {
                   setAudioToDeleteFromHistory({
                     url: urlToDelete,
@@ -15089,11 +14465,11 @@ export default function App() {
                 }}
               />
             )}
-            {currentStep === "avatar" && renderAvatarStep()}
-            {currentStep === "edit-zap" && renderEditZapStep()}
-            {currentStep === "edit2" && renderEdit2Step()}
+            {currentStep === 'avatar' && renderAvatarStep()}
+            {currentStep === 'edit-zap' && renderEditZapStep()}
+            {currentStep === 'edit2' && renderEdit2Step()}
 
-            {currentStep === "final" && renderFinalStep()}
+            {currentStep === 'final' && renderFinalStep()}
           </motion.div>
         </AnimatePresence>
 
@@ -15108,7 +14484,7 @@ export default function App() {
             Voltar
           </button>
 
-          {currentStep !== "copy" && (
+          {currentStep !== 'copy' && (
             <div className="flex items-center gap-4">
               <button
                 onClick={() => handleSaveProject()}
@@ -15122,12 +14498,12 @@ export default function App() {
                 ) : (
                   <Download size={18} className="text-blue-500" />
                 )}
-                {currentProjectId ? "Salvar" : "Salvar Projeto"}
+                {currentProjectId ? 'Salvar' : 'Salvar Projeto'}
               </button>
 
               <button
                 onClick={nextStep}
-                disabled={currentStep === "final"}
+                disabled={currentStep === 'final'}
                 className="flex items-center gap-2 px-8 py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-black transition-all shadow-lg disabled:opacity-50"
               >
                 Continuar
@@ -15155,12 +14531,8 @@ export default function App() {
                 <Trash2 size={18} className="text-red-600" />
               </div>
               <div>
-                <h3 className="text-lg font-black text-gray-900">
-                  Deletar Áudio?
-                </h3>
-                <p className="text-sm text-gray-500 mt-0.5">
-                  Esta ação não pode ser desfeita.
-                </p>
+                <h3 className="text-lg font-black text-gray-900">Deletar Áudio?</h3>
+                <p className="text-sm text-gray-500 mt-0.5">Esta ação não pode ser desfeita.</p>
               </div>
             </div>
             <div className="flex gap-3 pt-2">
@@ -15199,12 +14571,8 @@ export default function App() {
                 <Trash2 size={18} className="text-red-600" />
               </div>
               <div>
-                <h3 className="text-lg font-black text-gray-900">
-                  Deletar áudio?
-                </h3>
-                <p className="text-sm text-gray-500 mt-0.5">
-                  Esta ação não pode ser desfeita.
-                </p>
+                <h3 className="text-lg font-black text-gray-900">Deletar áudio?</h3>
+                <p className="text-sm text-gray-500 mt-0.5">Esta ação não pode ser desfeita.</p>
               </div>
             </div>
             <div className="flex gap-3 pt-2">
@@ -15217,39 +14585,31 @@ export default function App() {
               <button
                 onClick={() => {
                   const urlToDelete = audioToDeleteFromHistory.url;
-                  const storagePathToDelete =
-                    audioToDeleteFromHistory.storagePath;
+                  const storagePathToDelete = audioToDeleteFromHistory.storagePath;
 
                   if (storagePathToDelete) {
                     safeDeleteObject(storagePathToDelete).catch(() => {});
                   }
 
                   const currentAudios = config.audios || audios || [];
-                  const newAudios = currentAudios.filter(
-                    (a) => a.url !== urlToDelete,
-                  );
+                  const newAudios = currentAudios.filter((a) => a.url !== urlToDelete);
 
                   setAudios(newAudios);
 
-                  const wasActive =
-                    audioUrl === urlToDelete || config.audioUrl === urlToDelete;
+                  const wasActive = audioUrl === urlToDelete || config.audioUrl === urlToDelete;
                   if (wasActive) {
-                    setAudioUrl("");
+                    setAudioUrl('');
                   }
 
                   setConfig((prev) => ({
                     ...prev,
                     audios: newAudios,
-                    ...(wasActive
-                      ? { audioUrl: "", audioStoragePath: null }
-                      : {}),
+                    ...(wasActive ? { audioUrl: '', audioStoragePath: null } : {}),
                   }));
 
                   handleSaveProject({
                     audios: newAudios,
-                    ...(wasActive
-                      ? { audioUrl: null, audioStoragePath: null }
-                      : {}),
+                    ...(wasActive ? { audioUrl: null, audioStoragePath: null } : {}),
                   });
 
                   setAudioToDeleteFromHistory(null);
@@ -15279,9 +14639,8 @@ export default function App() {
                 Mudar nível de consciência?
               </h3>
               <p className="text-sm text-gray-500 font-medium leading-relaxed">
-                As recomendações de Emoção, Ângulo, Destino do Clique e Tamanho
-                do Roteiro mudam conforme o nível. Confira os campos abaixo
-                depois e ajuste se quiser.
+                As recomendações de Emoção, Ângulo, Destino do Clique e Tamanho do Roteiro mudam
+                conforme o nível. Confira os campos abaixo depois e ajuste se quiser.
               </p>
             </div>
 
@@ -15329,18 +14688,17 @@ export default function App() {
             </div>
 
             <p className="text-sm text-gray-600 leading-relaxed mb-6 mt-2">
-              Antes de começar, queremos entender como você quer trabalhar o público desse subprojeto.
+              Antes de começar, queremos entender como você quer trabalhar o público desse
+              subprojeto.
             </p>
 
             <div className="space-y-3">
               <button
-                onClick={() => proceedNewSubproject(pendingNewSubproject, "known")}
+                onClick={() => proceedNewSubproject(pendingNewSubproject, 'known')}
                 className="w-full p-5 rounded-2xl border-2 border-gray-100 hover:border-blue-300 text-left transition-all bg-white group shadow-sm hover:shadow-md"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl group-hover:scale-110 transition-transform">
-                    ✅
-                  </span>
+                  <span className="text-2xl group-hover:scale-110 transition-transform">✅</span>
                   <div>
                     <p className="font-black text-gray-900 uppercase italic">
                       Já sei quem é meu cliente
@@ -15353,13 +14711,11 @@ export default function App() {
               </button>
 
               <button
-                onClick={() => proceedNewSubproject(pendingNewSubproject, "discover")}
+                onClick={() => proceedNewSubproject(pendingNewSubproject, 'discover')}
                 className="w-full p-5 rounded-2xl border-2 border-blue-200 hover:border-blue-500 text-left transition-all bg-blue-50 group shadow-sm hover:shadow-md"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl group-hover:scale-110 transition-transform">
-                    🔍
-                  </span>
+                  <span className="text-2xl group-hover:scale-110 transition-transform">🔍</span>
                   <div>
                     <p className="font-black text-gray-900 uppercase italic">
                       Me ajuda a descobrir
@@ -15383,199 +14739,229 @@ export default function App() {
       )}
 
       {/* Modal: Editar Persona */}
-      {showEditPersonaModal && config.copy?.answers?.selectedPersonaFull && (() => {
-        let editingPersona: any = null;
-        try {
-          editingPersona = JSON.parse(config.copy.answers.selectedPersonaFull);
-        } catch (e) {
-          return null;
-        }
-        const updatePersonaField = (field: string, value: any) => {
-          const updated = { ...editingPersona, [field]: value };
-          updateConfig("copy", "answers", "selectedPersonaFull", JSON.stringify(updated));
-        };
-        return (
-          <div
-            className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
-            onClick={() => setShowEditPersonaModal(false)}
-          >
+      {showEditPersonaModal &&
+        config.copy?.answers?.selectedPersonaFull &&
+        (() => {
+          let editingPersona: any = null;
+          try {
+            editingPersona = JSON.parse(config.copy.answers.selectedPersonaFull);
+          } catch (e) {
+            return null;
+          }
+          const updatePersonaField = (field: string, value: any) => {
+            const updated = { ...editingPersona, [field]: value };
+            updateConfig('copy', 'answers', 'selectedPersonaFull', JSON.stringify(updated));
+          };
+          return (
             <div
-              className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
+              className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+              onClick={() => setShowEditPersonaModal(false)}
             >
-              <div className="sticky top-0 bg-white border-b-2 border-gray-100 p-6 flex items-center justify-between z-10">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-blue-100 flex items-center justify-center">
-                    <Edit3 size={20} className="text-blue-600" />
+              <div
+                className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="sticky top-0 bg-white border-b-2 border-gray-100 p-6 flex items-center justify-between z-10">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-blue-100 flex items-center justify-center">
+                      <Edit3 size={20} className="text-blue-600" />
+                    </div>
+                    <h3 className="text-xl font-black text-gray-900">Editar Persona</h3>
                   </div>
-                  <h3 className="text-xl font-black text-gray-900">Editar Persona</h3>
+                  <button
+                    onClick={() => setShowEditPersonaModal(false)}
+                    className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+                  >
+                    <X size={20} className="text-gray-600" />
+                  </button>
                 </div>
-                <button
-                  onClick={() => setShowEditPersonaModal(false)}
-                  className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
-                >
-                  <X size={20} className="text-gray-600" />
-                </button>
-              </div>
 
-              <div className="p-6 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="p-6 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-black text-gray-700 uppercase tracking-widest">
+                        Nome simbólico
+                      </label>
+                      <input
+                        type="text"
+                        value={editingPersona.name || ''}
+                        onChange={(e) => updatePersonaField('name', e.target.value)}
+                        className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-black text-gray-700 uppercase tracking-widest">
+                        Idade
+                      </label>
+                      <input
+                        type="text"
+                        value={editingPersona.age || ''}
+                        onChange={(e) => updatePersonaField('age', e.target.value)}
+                        className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-black text-gray-700 uppercase tracking-widest">
+                        Gênero
+                      </label>
+                      <input
+                        type="text"
+                        value={editingPersona.gender || ''}
+                        onChange={(e) => updatePersonaField('gender', e.target.value)}
+                        className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-black text-gray-700 uppercase tracking-widest">
+                        Nível de Consciência (1-5)
+                      </label>
+                      <select
+                        value={editingPersona.awarenessLevel || '3'}
+                        onChange={(e) => updatePersonaField('awarenessLevel', e.target.value)}
+                        className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none"
+                      >
+                        <option value="1">1 — Inconsciente</option>
+                        <option value="2">2 — Consciente do problema</option>
+                        <option value="3">3 — Consciente da solução</option>
+                        <option value="4">4 — Consciente do produto</option>
+                        <option value="5">5 — Muito consciente</option>
+                      </select>
+                    </div>
+                  </div>
+
                   <div>
-                    <label className="text-xs font-black text-gray-700 uppercase tracking-widest">Nome simbólico</label>
+                    <label className="text-xs font-black text-gray-700 uppercase tracking-widest">
+                      Descrição
+                    </label>
+                    <textarea
+                      value={editingPersona.description || ''}
+                      onChange={(e) => updatePersonaField('description', e.target.value)}
+                      rows={2}
+                      className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none resize-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-black text-gray-700 uppercase tracking-widest">
+                      Situação atual
+                    </label>
+                    <textarea
+                      value={editingPersona.currentSituation || ''}
+                      onChange={(e) => updatePersonaField('currentSituation', e.target.value)}
+                      rows={2}
+                      className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none resize-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-black text-gray-700 uppercase tracking-widest">
+                      Dor principal
+                    </label>
+                    <textarea
+                      value={editingPersona.mainPain || ''}
+                      onChange={(e) => updatePersonaField('mainPain', e.target.value)}
+                      rows={2}
+                      className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none resize-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-black text-gray-700 uppercase tracking-widest">
+                      Desejo profundo
+                    </label>
+                    <textarea
+                      value={editingPersona.hiddenDesire || ''}
+                      onChange={(e) => updatePersonaField('hiddenDesire', e.target.value)}
+                      rows={2}
+                      className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none resize-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-black text-gray-700 uppercase tracking-widest">
+                      Medo dominante
+                    </label>
                     <input
                       type="text"
-                      value={editingPersona.name || ""}
-                      onChange={(e) => updatePersonaField("name", e.target.value)}
+                      value={editingPersona.dominantFear || ''}
+                      onChange={(e) => updatePersonaField('dominantFear', e.target.value)}
                       className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none"
                     />
                   </div>
+
                   <div>
-                    <label className="text-xs font-black text-gray-700 uppercase tracking-widest">Idade</label>
+                    <label className="text-xs font-black text-gray-700 uppercase tracking-widest">
+                      Objeção principal
+                    </label>
+                    <textarea
+                      value={editingPersona.mainObjection || ''}
+                      onChange={(e) => updatePersonaField('mainObjection', e.target.value)}
+                      rows={2}
+                      className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none resize-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-black text-gray-700 uppercase tracking-widest">
+                      Gatilho emocional
+                    </label>
+                    <textarea
+                      value={editingPersona.emotionalTrigger || ''}
+                      onChange={(e) => updatePersonaField('emotionalTrigger', e.target.value)}
+                      rows={2}
+                      className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none resize-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-black text-gray-700 uppercase tracking-widest">
+                      Promessa mais forte
+                    </label>
+                    <textarea
+                      value={editingPersona.strongestPromise || ''}
+                      onChange={(e) => updatePersonaField('strongestPromise', e.target.value)}
+                      rows={2}
+                      className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none resize-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-black text-gray-700 uppercase tracking-widest">
+                      Tom de comunicação
+                    </label>
                     <input
                       type="text"
-                      value={editingPersona.age || ""}
-                      onChange={(e) => updatePersonaField("age", e.target.value)}
+                      value={editingPersona.communicationTone || ''}
+                      onChange={(e) => updatePersonaField('communicationTone', e.target.value)}
                       className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none"
                     />
                   </div>
-                  <div>
-                    <label className="text-xs font-black text-gray-700 uppercase tracking-widest">Gênero</label>
-                    <input
-                      type="text"
-                      value={editingPersona.gender || ""}
-                      onChange={(e) => updatePersonaField("gender", e.target.value)}
-                      className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-black text-gray-700 uppercase tracking-widest">Nível de Consciência (1-5)</label>
-                    <select
-                      value={editingPersona.awarenessLevel || "3"}
-                      onChange={(e) => updatePersonaField("awarenessLevel", e.target.value)}
-                      className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none"
-                    >
-                      <option value="1">1 — Inconsciente</option>
-                      <option value="2">2 — Consciente do problema</option>
-                      <option value="3">3 — Consciente da solução</option>
-                      <option value="4">4 — Consciente do produto</option>
-                      <option value="5">5 — Muito consciente</option>
-                    </select>
-                  </div>
                 </div>
 
-                <div>
-                  <label className="text-xs font-black text-gray-700 uppercase tracking-widest">Descrição</label>
-                  <textarea
-                    value={editingPersona.description || ""}
-                    onChange={(e) => updatePersonaField("description", e.target.value)}
-                    rows={2}
-                    className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none resize-none"
-                  />
+                <div className="sticky bottom-0 bg-white border-t-2 border-gray-100 p-6 flex flex-col md:flex-row gap-3 justify-end">
+                  <button
+                    onClick={() => setShowEditPersonaModal(false)}
+                    className="px-6 py-3 bg-gray-100 text-gray-900 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-gray-200 transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowEditPersonaModal(false);
+                      setCopyFieldsApplied(false);
+                      toast.success(
+                        "Persona atualizado! Clique em 'Atualizar Campos da Copy' para aplicar."
+                      );
+                    }}
+                    className="px-6 py-3 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"
+                  >
+                    Salvar Alterações
+                  </button>
                 </div>
-
-                <div>
-                  <label className="text-xs font-black text-gray-700 uppercase tracking-widest">Situação atual</label>
-                  <textarea
-                    value={editingPersona.currentSituation || ""}
-                    onChange={(e) => updatePersonaField("currentSituation", e.target.value)}
-                    rows={2}
-                    className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none resize-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-black text-gray-700 uppercase tracking-widest">Dor principal</label>
-                  <textarea
-                    value={editingPersona.mainPain || ""}
-                    onChange={(e) => updatePersonaField("mainPain", e.target.value)}
-                    rows={2}
-                    className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none resize-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-black text-gray-700 uppercase tracking-widest">Desejo profundo</label>
-                  <textarea
-                    value={editingPersona.hiddenDesire || ""}
-                    onChange={(e) => updatePersonaField("hiddenDesire", e.target.value)}
-                    rows={2}
-                    className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none resize-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-black text-gray-700 uppercase tracking-widest">Medo dominante</label>
-                  <input
-                    type="text"
-                    value={editingPersona.dominantFear || ""}
-                    onChange={(e) => updatePersonaField("dominantFear", e.target.value)}
-                    className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-black text-gray-700 uppercase tracking-widest">Objeção principal</label>
-                  <textarea
-                    value={editingPersona.mainObjection || ""}
-                    onChange={(e) => updatePersonaField("mainObjection", e.target.value)}
-                    rows={2}
-                    className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none resize-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-black text-gray-700 uppercase tracking-widest">Gatilho emocional</label>
-                  <textarea
-                    value={editingPersona.emotionalTrigger || ""}
-                    onChange={(e) => updatePersonaField("emotionalTrigger", e.target.value)}
-                    rows={2}
-                    className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none resize-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-black text-gray-700 uppercase tracking-widest">Promessa mais forte</label>
-                  <textarea
-                    value={editingPersona.strongestPromise || ""}
-                    onChange={(e) => updatePersonaField("strongestPromise", e.target.value)}
-                    rows={2}
-                    className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none resize-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-black text-gray-700 uppercase tracking-widest">Tom de comunicação</label>
-                  <input
-                    type="text"
-                    value={editingPersona.communicationTone || ""}
-                    onChange={(e) => updatePersonaField("communicationTone", e.target.value)}
-                    className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="sticky bottom-0 bg-white border-t-2 border-gray-100 p-6 flex flex-col md:flex-row gap-3 justify-end">
-                <button
-                  onClick={() => setShowEditPersonaModal(false)}
-                  className="px-6 py-3 bg-gray-100 text-gray-900 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-gray-200 transition-all"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={() => {
-                    setShowEditPersonaModal(false);
-                    setCopyFieldsApplied(false);
-                    toast.success("Persona atualizado! Clique em 'Atualizar Campos da Copy' para aplicar.");
-                  }}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"
-                >
-                  Salvar Alterações
-                </button>
               </div>
             </div>
-          </div>
-        );
-      })()}
+          );
+        })()}
 
       {deleteProjectConfirmId && (
         <div
@@ -15591,11 +14977,10 @@ export default function App() {
                 <Trash2 size={24} className="text-red-600" />
               </div>
               <div>
-                <h3 className="text-xl font-black text-gray-900 mb-2">
-                  Excluir projeto?
-                </h3>
+                <h3 className="text-xl font-black text-gray-900 mb-2">Excluir projeto?</h3>
                 <p className="text-sm text-gray-600 leading-relaxed">
-                  Esta ação não pode ser desfeita. Todo o conteúdo deste projeto (copy, hooks, áudios, vídeos) será perdido permanentemente.
+                  Esta ação não pode ser desfeita. Todo o conteúdo deste projeto (copy, hooks,
+                  áudios, vídeos) será perdido permanentemente.
                 </p>
               </div>
             </div>

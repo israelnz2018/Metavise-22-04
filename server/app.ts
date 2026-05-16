@@ -18,6 +18,7 @@ import { elevenLabsRouter, elevenLabsPremiumRouter } from './routes/elevenlabs.r
 import { videoRouter } from './routes/video.routes.js';
 import { heygenRouter, heygenPremiumRouter } from './routes/heygen.routes.js';
 import { zapCapRouter, proxyImageRouter } from './routes/zapcap.routes.js';
+import { geminiRouter } from './routes/gemini.routes.js';
 
 // Builds and returns a fully wired Express app: middleware, routers, error
 // handler, and the dev/prod SPA pipeline. Does NOT call listen() — see
@@ -46,6 +47,7 @@ export async function createApp(): Promise<Express> {
   app.use('/api/heygen', heygenRouter);
   app.use('/api/heygen-premium', heygenPremiumRouter);
   app.use('/api/zapcap', zapCapRouter);
+  app.use('/api/gemini', geminiRouter);
   app.use('/api', proxyImageRouter);
 
   // /api/* 404 + global error handler must come last in the API chain.

@@ -41,6 +41,9 @@ export default [
       ...reactHooks.configs.recommended.rules,
       'react/react-in-jsx-scope': 'off',
       'react/prop-types': 'off',
+      // Browsers render literal " ' just fine — ESLint flagging this as an
+      // error is overkill for a private admin app. Demote to warn.
+      'react/no-unescaped-entities': 'warn',
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-unused-vars': [
