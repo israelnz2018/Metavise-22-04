@@ -490,19 +490,13 @@ zapCapRouter.post('/edit-simple', async (req, res) => {
     sourceAspectRatio: _sourceAspectRatio,
   } = req.body;
 
-  // TEMPORARY: ZapCap render failed twice in a row when b-rolls were
-  // requested (status went transcribing → rendering → failed even though
-  // payload was clean and transcripts succeeded). Force brollPercent=0
-  // for the next test so we isolate the b-roll feature as the cause.
-  // Once we confirm the render works without b-rolls, restore caller's
-  // value here.
-  const FORCE_NO_BROLL = true;
-  const effectiveBrollPercent = FORCE_NO_BROLL ? 0 : brollPercent;
-  if (FORCE_NO_BROLL && brollPercent > 0) {
-    console.warn(
-      `[ZapCap Simple] FORCE_NO_BROLL flag active — ignoring brollPercent=${brollPercent}, sending 0 to ZapCap.`
-    );
-  }
+  // Diagnostic note (kept for future reference): ZapCap's render step
+  // failed twice in a row at brollPercent=30 on a 5min+ source video,
+  // and immediately succeeded at brollPercent=0. The strain seems to be
+  // long source × many b-roll cuts. We respect the caller's value but
+  // the frontend now defaults to 10 and warns when the user goes above
+  // ~20. Restore caller's value verbatim.
+  const effectiveBrollPercent = brollPercent;
 
   const apiKey = getZapCapKey();
 

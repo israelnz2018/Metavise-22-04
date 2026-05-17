@@ -2323,7 +2323,7 @@ export default function App() {
   });
   const [zapVideoUrl, setZapVideoUrl] = useState<string | null>(null);
   const [zapTemplateId, setZapTemplateId] = useState<string>('');
-  const [zapBrollPercent, setZapBrollPercent] = useState<number>(0);
+  const [zapBrollPercent, setZapBrollPercent] = useState<number>(10);
   const [zapEmoji, setZapEmoji] = useState<boolean>(false);
   const [zapAnimation, setZapAnimation] = useState<boolean>(true);
   const [zapEmphasizeKeywords, setZapEmphasizeKeywords] = useState<boolean>(true);
@@ -2338,6 +2338,9 @@ export default function App() {
   const [zapHighlightPalette, setZapHighlightPalette] = useState<string>('default');
   const zapPollRef = useRef<NodeJS.Timeout | null>(null);
   const isZapRenderingRef = useRef(false);
+  // True while we're auto-retrying after a ZapCap failure with b-rolls
+  // disabled. Stops us from looping if the retry ALSO fails.
+  const zapAutoRetryRef = useRef(false);
 
   // Reset voice confirmation when voice or language changes
   useEffect(() => {
@@ -10730,12 +10733,17 @@ export default function App() {
     return msg;
   };
 
-  const handleRenderZapSimple = async () => {
+  const handleRenderZapSimple = async (overrideBrollPercent?: number) => {
+    // Allow callers (notably the auto-retry on failure) to force a
+    // different b-roll % than the slider currently shows.
+    const effectiveBrollPercent =
+      typeof overrideBrollPercent === 'number' ? overrideBrollPercent : zapBrollPercent;
     console.log('[ZAP SIMPLE] Clicked', {
       isRendering: isZapRenderingRef.current,
       videoUrl: zapVideoUrl?.substring(0, 60),
       templateId: zapTemplateId,
-      brollPercent: zapBrollPercent,
+      brollPercent: effectiveBrollPercent,
+      isAutoRetry: zapAutoRetryRef.current,
     });
 
     if (isZapRenderingRef.current) {
@@ -10785,7 +10793,7 @@ export default function App() {
       const payload: any = {
         videoUrl: zapVideoUrl,
         templateId: zapTemplateId,
-        brollPercent: zapBrollPercent,
+        brollPercent: effectiveBrollPercent,
         language: zapLanguage,
         emoji: zapEmoji,
         animation: zapAnimation,
@@ -10916,18 +10924,46 @@ export default function App() {
             },
           }));
 
-          toast.success('Vídeo editado com sucesso!', { id: 'zap-simple-render' });
+          // Reset the auto-retry guard so the NEXT user-initiated render
+          // can also auto-retry if it hits the same b-roll failure.
+          const wasAutoRetry = zapAutoRetryRef.current;
+          zapAutoRetryRef.current = false;
+          toast.success(
+            wasAutoRetry
+              ? 'Vídeo editado (sem b-rolls — primeira tentativa falhou).'
+              : 'Vídeo editado com sucesso!',
+            { id: 'zap-simple-render' }
+          );
           setLoading(false);
         } else if (data.status === 'failed' || data.status === 'error') {
           isZapRenderingRef.current = false;
           clearInterval(zapPollRef.current!);
           zapPollRef.current = null;
+
+          // Auto-retry once with b-rolls disabled — we confirmed empirically
+          // that ZapCap's render step fails on long videos when many b-rolls
+          // are stitched in. The retry without b-rolls produces a usable
+          // (legend-only) video so the user isn't left empty-handed.
+          const usedBroll = (zapBrollPercent ?? 0) > 0;
+          if (usedBroll && !zapAutoRetryRef.current) {
+            zapAutoRetryRef.current = true;
+            console.warn(
+              '[ZAP SIMPLE] Render falhou com b-rolls. Tentando novamente sem b-rolls automaticamente...'
+            );
+            toast.loading('B-roll causou falha — tentando de novo sem b-rolls...', {
+              id: 'zap-simple-render',
+              duration: 8000,
+            });
+            // Re-enter the same flow with brollPercent=0. handleRenderZapSimple
+            // sets isZapRenderingRef back to true and re-arms the poll loop.
+            handleRenderZapSimple(0);
+            return;
+          }
+
+          // Either no b-rolls were requested or the retry also failed.
+          // Surface the ZapCap task ID + actionable next steps.
+          zapAutoRetryRef.current = false;
           const baseMsg = data.error || 'Falha no ZapCap';
-          // Surface the ZapCap task ID so the user can paste it into ZapCap
-          // support, plus give actionable next steps for the generic
-          // "Something went wrong" render failure (which is the most common
-          // case in the wild — usually retry or a different template fixes
-          // it).
           const fullMsg = taskId
             ? `${baseMsg}\n\nTask ID (para suporte ZapCap): ${taskId}\n\nDicas: tente outro template, simplifique as opções (sem emoji/animação) ou aguarde uns minutos e tente novamente.`
             : baseMsg;
