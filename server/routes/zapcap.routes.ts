@@ -490,6 +490,20 @@ zapCapRouter.post('/edit-simple', async (req, res) => {
     sourceAspectRatio: _sourceAspectRatio,
   } = req.body;
 
+  // TEMPORARY: ZapCap render failed twice in a row when b-rolls were
+  // requested (status went transcribing → rendering → failed even though
+  // payload was clean and transcripts succeeded). Force brollPercent=0
+  // for the next test so we isolate the b-roll feature as the cause.
+  // Once we confirm the render works without b-rolls, restore caller's
+  // value here.
+  const FORCE_NO_BROLL = true;
+  const effectiveBrollPercent = FORCE_NO_BROLL ? 0 : brollPercent;
+  if (FORCE_NO_BROLL && brollPercent > 0) {
+    console.warn(
+      `[ZapCap Simple] FORCE_NO_BROLL flag active — ignoring brollPercent=${brollPercent}, sending 0 to ZapCap.`
+    );
+  }
+
   const apiKey = getZapCapKey();
 
   if (!apiKey) {
@@ -531,7 +545,7 @@ zapCapRouter.post('/edit-simple', async (req, res) => {
 
     logToFile(`[ZapCap Simple] Upload OK. Video ID: ${videoId}`);
 
-    const adjustedBrollPercent = Math.max(0, Math.min(100, brollPercent));
+    const adjustedBrollPercent = Math.max(0, Math.min(100, effectiveBrollPercent));
 
     const subsOptions: any = {
       emoji: emoji ?? false,

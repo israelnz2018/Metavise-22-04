@@ -2323,7 +2323,7 @@ export default function App() {
   });
   const [zapVideoUrl, setZapVideoUrl] = useState<string | null>(null);
   const [zapTemplateId, setZapTemplateId] = useState<string>('');
-  const [zapBrollPercent, setZapBrollPercent] = useState<number>(50);
+  const [zapBrollPercent, setZapBrollPercent] = useState<number>(0);
   const [zapEmoji, setZapEmoji] = useState<boolean>(false);
   const [zapAnimation, setZapAnimation] = useState<boolean>(true);
   const [zapEmphasizeKeywords, setZapEmphasizeKeywords] = useState<boolean>(true);
