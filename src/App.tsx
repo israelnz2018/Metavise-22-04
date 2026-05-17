@@ -9048,10 +9048,10 @@ export default function App() {
                 Regerar Atual
               </button>
               <button
-                onClick={() => setCurrentStep('edit2')}
+                onClick={() => setCurrentStep('edit-zap')}
                 className="flex-1 px-8 py-5 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-blue-700 transition-all flex items-center justify-center gap-3 shadow-xl shadow-blue-100"
               >
-                Continuar para Edição 2
+                Continuar para Edição Zap
                 <ChevronRight size={20} />
               </button>
             </div>
