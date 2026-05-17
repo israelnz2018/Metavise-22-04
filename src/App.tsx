@@ -3427,8 +3427,12 @@ export default function App() {
     // render (no useCallback), and we don't want to reset the timer just
     // because of an unrelated re-render. config + currentProjectId + user
     // are what should trigger a save.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config, currentProjectId, user, isProjectLoading]);
+
+    // videos / audios / videoUrl / audioUrl are top-level state arrays that
+    // handleSaveProject reads via closure; include them here so the timer
+    // also re-arms when only those change (e.g. ZapCap finishes and pushes
+    // the edited video into the videos array without touching config).
+  }, [config, videos, audios, videoUrl, audioUrl, currentProjectId, user, isProjectLoading]);
 
   const handleDeleteProject = (projectId: string) => {
     setDeleteProjectConfirmId(projectId);
@@ -10885,6 +10889,22 @@ export default function App() {
               versions: newVersions,
             };
           });
+
+          // Persist the edited video to the project state so it survives a
+          // reload and shows up in the project's history. Inherit the
+          // source video's aspectRatio so the thumbnail in the picker
+          // displays correctly.
+          const sourceVideo = (videos || []).find((v) => v.url === zapVideoUrl);
+          setVideos((prev) => [
+            ...prev,
+            {
+              url: data.downloadUrl,
+              storagePath: null,
+              createdAt: new Date().toISOString(),
+              aspectRatio: sourceVideo?.aspectRatio || '9:16',
+              editedBy: 'zapcap',
+            } as any,
+          ]);
 
           toast.success('Vídeo editado com sucesso!', { id: 'zap-simple-render' });
           setLoading(false);
