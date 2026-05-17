@@ -11603,15 +11603,15 @@ export default function App() {
             </label>
             <input
               type="range"
-              min="20"
-              max="100"
+              min="6"
+              max="80"
               step="2"
               value={zapFontSize}
               onChange={(e) => setZapFontSize(Number(e.target.value))}
               className="w-full"
             />
             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-              30-40 = pequeno · 46 = padrão · 60-80 = grande (estilo viral)
+              6-18 = bem pequeno · 24 = padrão · 30-40 = médio · 50-80 = grande (estilo viral)
             </p>
           </div>
 

@@ -513,7 +513,7 @@ zapCapRouter.post('/edit-simple', async (req, res) => {
     }
 
     const styleOptions: any = {
-      fontSize: fontSize && fontSize >= 20 && fontSize <= 100 ? fontSize : 46,
+      fontSize: fontSize && fontSize >= 6 && fontSize <= 80 ? fontSize : 24,
       fontWeight: 800,
       fontShadow: 'm',
       stroke: 's',
