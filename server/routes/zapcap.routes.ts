@@ -372,6 +372,11 @@ zapCapRouter.post('/edit-simple', async (req, res) => {
     highlightColorOne,
     highlightColorTwo,
     highlightColorThree,
+    // Source video aspect ratio so ZapCap renders the output canvas to
+    // match — otherwise 1:1 / 16:9 sources end up letterboxed inside a
+    // 9:16 frame and percentage-based subtitle positions land on the
+    // black bars.
+    sourceAspectRatio,
   } = req.body;
 
   const apiKey = getZapCapKey();
@@ -464,6 +469,17 @@ zapCapRouter.post('/edit-simple', async (req, res) => {
         },
       },
     };
+
+    // ZapCap names the output canvas field differently across docs/SDK
+    // versions. Send all three known shapes so whichever one this version
+    // of the API honors wins. If it ignores all of them, the post-process
+    // step (see below — taskToSourceAspect map + /status crop) cleans up
+    // the black bars after download.
+    if (sourceAspectRatio) {
+      taskPayload.aspectRatio = sourceAspectRatio;
+      taskPayload.outputAspectRatio = sourceAspectRatio;
+      renderOptions.aspectRatio = sourceAspectRatio;
+    }
 
     if (silenceRemoval && silenceRemoval > 0 && silenceRemoval <= 1) {
       taskPayload.autoCutSettings = {

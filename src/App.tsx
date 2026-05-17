@@ -10752,6 +10752,14 @@ export default function App() {
       };
       const selectedPalette = paletteMap[zapHighlightPalette] || paletteMap.default;
 
+      // Look up the selected source video's aspect ratio so ZapCap renders
+      // the output in the same shape. Otherwise its default template canvas
+      // (9:16) pads non-9:16 sources with black bars, and percentage-based
+      // subtitle positions ("60% from top") land on the black instead of
+      // on the visible content.
+      const selectedSourceVideo = (videos || []).find((v: any) => v.url === zapVideoUrl);
+      const sourceAspect = selectedSourceVideo?.aspectRatio || '9:16';
+
       const payload: any = {
         videoUrl: zapVideoUrl,
         templateId: zapTemplateId,
@@ -10766,6 +10774,9 @@ export default function App() {
         fontUppercase: zapFontUppercase,
         fontSize: zapFontSize,
         displayWords: zapDisplayWords,
+        // Aspect of the source video, forwarded to ZapCap so its output
+        // canvas matches and the subtitles land on the visible frame.
+        sourceAspectRatio: sourceAspect,
       };
       // Cores de destaque só se NÃO for o padrão
       if (zapHighlightPalette !== 'default') {
@@ -10773,8 +10784,6 @@ export default function App() {
         payload.highlightColorTwo = selectedPalette.two;
         payload.highlightColorThree = selectedPalette.three;
       }
-      // Formato de vídeo: por enquanto só registramos, não convertemos
-      // (ZapCap usa o formato do vídeo de entrada)
 
       console.log('[ZAP SIMPLE PAYLOAD]', payload);
 
