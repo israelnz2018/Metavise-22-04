@@ -1,12 +1,93 @@
 import { Router } from 'express';
 import fs from 'fs';
+import path from 'path';
+import ffmpeg from 'fluent-ffmpeg';
 import { formatApiError, processDataError } from '../utils/errorExtractor.js';
 import { logToFile } from '../utils/fileLogger.js';
 import { getZapCapKey, getAssemblyAIKey } from '../config/apiKeys.js';
-import { ZAPCAP_CONFIG_PATH } from '../config/paths.js';
+import { ZAPCAP_CONFIG_PATH, GENERATED_DIR } from '../config/paths.js';
 
 const ZAPCAP_BASE = 'https://api.zapcap.ai';
 const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB
+
+// taskId → desired aspect (from /edit-simple). Used by /status to crop the
+// ZapCap output back to the source aspect (ZapCap always renders at the
+// template's canvas, so 1:1 / 16:9 / 4:5 sources come back letterboxed).
+const taskToSourceAspect = new Map<string, string>();
+
+const ASPECT_RATIOS: Record<string, number> = {
+  '1:1': 1,
+  '4:5': 4 / 5,
+  '9:16': 9 / 16,
+  '16:9': 16 / 9,
+};
+
+function probeVideoDimensions(filePath: string): Promise<{ width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    ffmpeg.ffprobe(filePath, (err, metadata) => {
+      if (err) return reject(err);
+      const stream = metadata.streams.find((s) => s.codec_type === 'video');
+      resolve({ width: stream?.width || 0, height: stream?.height || 0 });
+    });
+  });
+}
+
+// Centered crop to a target aspect ratio. Removes black bars added by
+// ZapCap's letterboxing when the source aspect differs from the template's.
+async function cropVideoToAspect(
+  inputPath: string,
+  outputPath: string,
+  targetAspect: string
+): Promise<{ cropped: boolean }> {
+  const targetRatio = ASPECT_RATIOS[targetAspect];
+  if (!targetRatio) {
+    fs.copyFileSync(inputPath, outputPath);
+    return { cropped: false };
+  }
+
+  const { width, height } = await probeVideoDimensions(inputPath);
+  const currentRatio = width / height;
+
+  // Already correct (within 1%) — skip ffmpeg.
+  if (Math.abs(currentRatio - targetRatio) / targetRatio < 0.01) {
+    fs.copyFileSync(inputPath, outputPath);
+    return { cropped: false };
+  }
+
+  let cropW: number;
+  let cropH: number;
+  if (currentRatio > targetRatio) {
+    // Too wide → crop sides.
+    cropH = height;
+    cropW = Math.round(height * targetRatio);
+  } else {
+    // Too tall → crop top/bottom (the 1:1-inside-9:16 case).
+    cropW = width;
+    cropH = Math.round(width / targetRatio);
+  }
+  // x264 requires even dimensions.
+  if (cropW % 2 !== 0) cropW -= 1;
+  if (cropH % 2 !== 0) cropH -= 1;
+
+  const xOffset = Math.round((width - cropW) / 2);
+  const yOffset = Math.round((height - cropH) / 2);
+
+  console.log(
+    `[ZapCap Crop] ${width}x${height} (${currentRatio.toFixed(3)}) → ${cropW}x${cropH} (${targetAspect}) offset=${xOffset},${yOffset}`
+  );
+
+  await new Promise<void>((resolve, reject) => {
+    ffmpeg(inputPath)
+      .videoFilters(`crop=${cropW}:${cropH}:${xOffset}:${yOffset}`)
+      .outputOptions(['-c:v libx264', '-preset fast', '-crf 23', '-c:a copy'])
+      .output(outputPath)
+      .on('end', () => resolve())
+      .on('error', reject)
+      .run();
+  });
+
+  return { cropped: true };
+}
 
 // Shared helper for /edit and /edit-simple: chunked multipart upload to ZapCap.
 // Returns the videoId assigned by ZapCap once the upload is complete.
@@ -470,16 +551,11 @@ zapCapRouter.post('/edit-simple', async (req, res) => {
       },
     };
 
-    // ZapCap names the output canvas field differently across docs/SDK
-    // versions. Send all three known shapes so whichever one this version
-    // of the API honors wins. If it ignores all of them, the post-process
-    // step (see below — taskToSourceAspect map + /status crop) cleans up
-    // the black bars after download.
-    if (sourceAspectRatio) {
-      taskPayload.aspectRatio = sourceAspectRatio;
-      taskPayload.outputAspectRatio = sourceAspectRatio;
-      renderOptions.aspectRatio = sourceAspectRatio;
-    }
+    // NB: ZapCap rejects all known aspect-ratio fields with 400 (tested
+    // aspectRatio, outputAspectRatio, renderOptions.aspectRatio). The
+    // output is always the template canvas, so for 1:1 / 16:9 / 4:5 sources
+    // we instead crop the black bars off after download — see the
+    // taskToSourceAspect map + /status post-process.
 
     if (silenceRemoval && silenceRemoval > 0 && silenceRemoval <= 1) {
       taskPayload.autoCutSettings = {
@@ -520,6 +596,13 @@ zapCapRouter.post('/edit-simple', async (req, res) => {
     const { taskId } = await taskResponse.json();
     console.log('[ZapCap Simple] Task ID:', taskId);
     logToFile(`[ZapCap Simple] Task criada com sucesso. taskId: ${taskId}`);
+
+    // Remember the desired output aspect so /status can crop the result
+    // back to the source shape (ZapCap pads non-9:16 sources with black
+    // bars in the template canvas).
+    if (sourceAspectRatio && sourceAspectRatio !== '9:16') {
+      taskToSourceAspect.set(taskId, sourceAspectRatio);
+    }
 
     res.json({ videoId, taskId });
   } catch (err: any) {
@@ -562,6 +645,48 @@ zapCapRouter.get('/status/:videoId/:taskId', async (req, res) => {
 
     if (data.status === 'completed' && data.downloadUrl && !processedZapCapTasks.has(taskId)) {
       processedZapCapTasks.add(taskId);
+
+      // If the user picked a non-9:16 source, crop the ZapCap output back
+      // to that aspect (ZapCap's templates always render to a 9:16 canvas
+      // and pad the rest with black, throwing off percentage-based
+      // subtitle positions). If anything in the crop fails, fall back to
+      // the original ZapCap URL so the user still gets a usable file.
+      const desiredAspect = taskToSourceAspect.get(taskId);
+      if (desiredAspect) {
+        try {
+          const tempInput = path.join(GENERATED_DIR, `zap_in_${taskId}.mp4`);
+          const croppedName = `zap_${taskId}_${Date.now()}.mp4`;
+          const tempOutput = path.join(GENERATED_DIR, croppedName);
+
+          logToFile(`[ZapCap Crop] Downloading output to crop to ${desiredAspect}...`);
+          const dl = await fetch(data.downloadUrl);
+          if (!dl.ok) throw new Error(`Download failed: ${dl.status}`);
+          const buf = Buffer.from(await dl.arrayBuffer());
+          fs.writeFileSync(tempInput, buf);
+
+          const { cropped } = await cropVideoToAspect(tempInput, tempOutput, desiredAspect);
+
+          fs.unlinkSync(tempInput);
+          taskToSourceAspect.delete(taskId);
+
+          if (cropped) {
+            logToFile(`[ZapCap Crop] Cropped output saved as ${croppedName}`);
+            return res.json({
+              status: 'completed',
+              downloadUrl: `/generated/${croppedName}`,
+              originalUrl: data.downloadUrl,
+              cropped: true,
+              aspectRatio: desiredAspect,
+            });
+          }
+          // No crop actually needed — clean up the unused copy.
+          if (fs.existsSync(tempOutput)) fs.unlinkSync(tempOutput);
+        } catch (err: any) {
+          console.error('[ZapCap Crop] Post-process failed, falling back:', err.message);
+          logToFile(`[ZapCap Crop] FAILED: ${err.message}`);
+        }
+      }
+
       return res.json({
         status: 'completed',
         downloadUrl: data.downloadUrl,
