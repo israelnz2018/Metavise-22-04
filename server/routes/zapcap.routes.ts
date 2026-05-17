@@ -2,10 +2,41 @@ import { Router } from 'express';
 import fs from 'fs';
 import path from 'path';
 import ffmpeg from 'fluent-ffmpeg';
+import admin from 'firebase-admin';
 import { formatApiError, processDataError } from '../utils/errorExtractor.js';
 import { logToFile } from '../utils/fileLogger.js';
 import { getZapCapKey, getAssemblyAIKey } from '../config/apiKeys.js';
 import { ZAPCAP_CONFIG_PATH, GENERATED_DIR } from '../config/paths.js';
+
+// Mirrors a finished ZapCap video into our Firebase Storage so the URL
+// the SPA persists is permanent. ZapCap's CDN URLs are signed and expire
+// within hours, which is what makes saved versions go grey on reload.
+// Returns the public Firebase URL on success, or null on failure (caller
+// then falls back to the raw ZapCap URL).
+async function uploadZapCapToFirebase(sourceUrl: string, taskId: string): Promise<string | null> {
+  if (admin.apps.length === 0) {
+    console.warn('[ZapCap Persist] Firebase Admin not initialised — skipping upload');
+    return null;
+  }
+  try {
+    const dl = await fetch(sourceUrl);
+    if (!dl.ok) throw new Error(`Download from ZapCap failed: ${dl.status}`);
+    const buf = Buffer.from(await dl.arrayBuffer());
+
+    const bucket = admin.storage().bucket();
+    const objectPath = `zapcap/${taskId}_${Date.now()}.mp4`;
+    const file = bucket.file(objectPath);
+    await file.save(buf, { metadata: { contentType: 'video/mp4' } });
+    await file.makePublic();
+    const publicUrl = `https://storage.googleapis.com/${bucket.name}/${objectPath}`;
+    logToFile(`[ZapCap Persist] Uploaded to ${publicUrl} (${buf.length} bytes)`);
+    return publicUrl;
+  } catch (err: any) {
+    console.error('[ZapCap Persist] upload failed:', err.message);
+    logToFile(`[ZapCap Persist] FAILED: ${err.message}`);
+    return null;
+  }
+}
 
 const ZAPCAP_BASE = 'https://api.zapcap.ai';
 const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB
@@ -650,51 +681,19 @@ zapCapRouter.get('/status/:videoId/:taskId', async (req, res) => {
     if (data.status === 'completed' && data.downloadUrl && !processedZapCapTasks.has(taskId)) {
       processedZapCapTasks.add(taskId);
 
-      // If the user picked a non-9:16 source, crop the ZapCap output back
-      // to that aspect (ZapCap's templates always render to a 9:16 canvas
-      // and pad the rest with black, throwing off percentage-based
-      // subtitle positions). If anything in the crop fails, fall back to
-      // the original ZapCap URL so the user still gets a usable file.
-      const desiredAspect = taskToSourceAspect.get(taskId);
-      if (desiredAspect) {
-        try {
-          const tempInput = path.join(GENERATED_DIR, `zap_in_${taskId}.mp4`);
-          const croppedName = `zap_${taskId}_${Date.now()}.mp4`;
-          const tempOutput = path.join(GENERATED_DIR, croppedName);
-
-          logToFile(`[ZapCap Crop] Downloading output to crop to ${desiredAspect}...`);
-          const dl = await fetch(data.downloadUrl);
-          if (!dl.ok) throw new Error(`Download failed: ${dl.status}`);
-          const buf = Buffer.from(await dl.arrayBuffer());
-          fs.writeFileSync(tempInput, buf);
-
-          const { cropped } = await cropVideoToAspect(tempInput, tempOutput, desiredAspect);
-
-          fs.unlinkSync(tempInput);
-          taskToSourceAspect.delete(taskId);
-
-          if (cropped) {
-            logToFile(`[ZapCap Crop] Cropped output saved as ${croppedName}`);
-            return res.json({
-              status: 'completed',
-              downloadUrl: `/generated/${croppedName}`,
-              originalUrl: data.downloadUrl,
-              cropped: true,
-              aspectRatio: desiredAspect,
-            });
-          }
-          // No crop actually needed — clean up the unused copy.
-          if (fs.existsSync(tempOutput)) fs.unlinkSync(tempOutput);
-        } catch (err: any) {
-          console.error('[ZapCap Crop] Post-process failed, falling back:', err.message);
-          logToFile(`[ZapCap Crop] FAILED: ${err.message}`);
-        }
-      }
+      // Mirror the finished video into our Firebase Storage so the URL we
+      // hand back to the SPA is permanent. ZapCap's CDN signs its
+      // downloadUrls with a TTL — once they expire (within hours) any
+      // saved version goes grey/403 on reload. Firebase URLs don't expire.
+      // Falls back to the raw ZapCap URL if the upload fails for any
+      // reason (no Firebase config, network hiccup, quota, etc.).
+      const permanentUrl = await uploadZapCapToFirebase(data.downloadUrl, taskId);
 
       return res.json({
         status: 'completed',
-        downloadUrl: data.downloadUrl,
+        downloadUrl: permanentUrl || data.downloadUrl,
         originalUrl: data.downloadUrl,
+        persisted: !!permanentUrl,
       });
     }
 
