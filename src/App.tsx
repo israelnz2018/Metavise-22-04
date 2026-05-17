@@ -3315,6 +3315,17 @@ export default function App() {
       setAudioStoragePath(loadedConfig.audioStoragePath || null);
       setAudios(loadedConfig.audios || []);
 
+      // Restore the Edição Zap version gallery from config so previously
+      // edited videos show up after a reload.
+      const persistedZapVersions =
+        ((loadedConfig.edit as any)?.zapVersions as string[] | undefined) || [];
+      setZapState((prev) => ({
+        ...prev,
+        versions: persistedZapVersions,
+        status: persistedZapVersions.length > 0 ? 'completed' : prev.status,
+        finalVideoUrl: persistedZapVersions[persistedZapVersions.length - 1] || prev.finalVideoUrl,
+      }));
+
       if (loadedConfig.generationStage) {
         setGenerationStage(loadedConfig.generationStage as any);
       }
@@ -10890,21 +10901,20 @@ export default function App() {
             };
           });
 
-          // Persist the edited video to the project state so it survives a
-          // reload and shows up in the project's history. Inherit the
-          // source video's aspectRatio so the thumbnail in the picker
-          // displays correctly.
-          const sourceVideo = (videos || []).find((v) => v.url === zapVideoUrl);
-          setVideos((prev) => [
+          // Mirror the version into config.edit.zapVersions so the project
+          // auto-save picks it up and it survives a reload. The Edição Zap
+          // tab is the SOLE owner of these — they don't pollute the
+          // top-level videos[] array (which is for avatar generations only).
+          setConfig((prev) => ({
             ...prev,
-            {
-              url: data.downloadUrl,
-              storagePath: null,
-              createdAt: new Date().toISOString(),
-              aspectRatio: sourceVideo?.aspectRatio || '9:16',
-              editedBy: 'zapcap',
-            } as any,
-          ]);
+            edit: {
+              ...prev.edit,
+              zapVersions: [
+                ...(((prev.edit as any).zapVersions as string[] | undefined) || []),
+                data.downloadUrl,
+              ],
+            },
+          }));
 
           toast.success('Vídeo editado com sucesso!', { id: 'zap-simple-render' });
           setLoading(false);
@@ -11770,6 +11780,39 @@ export default function App() {
                       <Download size={12} />
                       Baixar
                     </a>
+                    <button
+                      onClick={() => {
+                        if (
+                          !window.confirm(
+                            `Excluir Versão ${idx + 1}? Esta ação não pode ser desfeita.`
+                          )
+                        )
+                          return;
+                        // Remove from local zapState.versions...
+                        setZapState((prev) => ({
+                          ...prev,
+                          versions: (prev.versions || []).filter((u) => u !== vUrl),
+                          finalVideoUrl:
+                            prev.finalVideoUrl === vUrl ? undefined : prev.finalVideoUrl,
+                        }));
+                        // ...and from the persisted config so the auto-save
+                        // doesn't restore it on next reload.
+                        setConfig((prev) => ({
+                          ...prev,
+                          edit: {
+                            ...prev.edit,
+                            zapVersions: (
+                              ((prev.edit as any).zapVersions as string[] | undefined) || []
+                            ).filter((u) => u !== vUrl),
+                          },
+                        }));
+                        toast.success(`Versão ${idx + 1} excluída.`);
+                      }}
+                      className="px-3 py-2 bg-red-50 text-red-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-100 flex items-center justify-center gap-1"
+                      title="Excluir esta versão"
+                    >
+                      <Trash2 size={12} />
+                    </button>
                   </div>
                 </div>
               ))}
