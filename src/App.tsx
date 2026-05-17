@@ -10922,9 +10922,20 @@ export default function App() {
           isZapRenderingRef.current = false;
           clearInterval(zapPollRef.current!);
           zapPollRef.current = null;
-          const errorMsg = data.error || 'Falha no ZapCap';
-          setZapState((prev) => ({ ...prev, status: 'error', step: errorMsg }));
-          toast.error(`Falha: ${errorMsg}`, { id: 'zap-simple-render' });
+          const baseMsg = data.error || 'Falha no ZapCap';
+          // Surface the ZapCap task ID so the user can paste it into ZapCap
+          // support, plus give actionable next steps for the generic
+          // "Something went wrong" render failure (which is the most common
+          // case in the wild — usually retry or a different template fixes
+          // it).
+          const fullMsg = taskId
+            ? `${baseMsg}\n\nTask ID (para suporte ZapCap): ${taskId}\n\nDicas: tente outro template, simplifique as opções (sem emoji/animação) ou aguarde uns minutos e tente novamente.`
+            : baseMsg;
+          setZapState((prev) => ({ ...prev, status: 'error', step: fullMsg }));
+          toast.error(`Falha do ZapCap: ${baseMsg}`, {
+            id: 'zap-simple-render',
+            duration: 6000,
+          });
           setLoading(false);
         } else {
           let stepText = 'Renderizando vídeo final...';
