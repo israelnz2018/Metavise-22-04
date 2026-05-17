@@ -9054,6 +9054,13 @@ export default function App() {
                 Continuar para Edição Zap
                 <ChevronRight size={20} />
               </button>
+              <button
+                onClick={() => setCurrentStep('edit2')}
+                className="flex-1 px-8 py-5 bg-purple-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-purple-700 transition-all flex items-center justify-center gap-3 shadow-xl shadow-purple-100"
+              >
+                Continuar para Edição Premium
+                <ChevronRight size={20} />
+              </button>
             </div>
           </motion.div>
         )}
