@@ -2333,7 +2333,7 @@ export default function App() {
   const [zapVideoFormat, setZapVideoFormat] = useState<'auto' | '9:16' | '1:1' | '16:9'>('auto');
   const [zapSubtitleTop, setZapSubtitleTop] = useState<number>(70);
   const [zapFontUppercase, setZapFontUppercase] = useState<boolean>(false);
-  const [zapFontSize, setZapFontSize] = useState<number>(46);
+  const [zapFontSize, setZapFontSize] = useState<number>(24);
   const [zapDisplayWords, setZapDisplayWords] = useState<number>(4);
   const [zapHighlightPalette, setZapHighlightPalette] = useState<string>('default');
   const zapPollRef = useRef<NodeJS.Timeout | null>(null);
