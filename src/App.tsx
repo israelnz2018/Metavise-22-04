@@ -11781,7 +11781,14 @@ export default function App() {
                       }
                       className="w-full h-full object-contain"
                       controls
-                      crossOrigin="anonymous"
+                      // Only ask for CORS when the host actually sends the
+                      // headers (Google's API does, HeyGen/Firebase/ZapCap
+                      // CDN don't). Forcing it broke video playback.
+                      crossOrigin={
+                        zapState.originalVideoUrl?.includes('generativelanguage.googleapis.com')
+                          ? ('anonymous' as const)
+                          : undefined
+                      }
                     />
                     <div className="absolute top-3 left-3 bg-gray-900 text-white text-[9px] font-black px-2 py-1 rounded uppercase tracking-widest">
                       Original
@@ -11797,7 +11804,11 @@ export default function App() {
                       src={getAuthorizedUrl(vUrl, platformApiKey || undefined) || undefined}
                       className="w-full h-full object-contain"
                       controls
-                      crossOrigin="anonymous"
+                      crossOrigin={
+                        vUrl?.includes('generativelanguage.googleapis.com')
+                          ? ('anonymous' as const)
+                          : undefined
+                      }
                     />
                     <div className="absolute top-3 left-3 bg-yellow-500 text-white text-[9px] font-black px-2 py-1 rounded uppercase tracking-widest">
                       Versão {idx + 1}
