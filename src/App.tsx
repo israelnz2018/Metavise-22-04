@@ -11229,7 +11229,20 @@ export default function App() {
                     loop
                     playsInline
                     autoPlay
-                    crossOrigin="anonymous"
+                    // crossOrigin="anonymous" only when the host actually sends
+                    // the CORS headers — Google's Generative Language API does.
+                    // HeyGen / Firebase Storage / etc. don't, and asking for
+                    // CORS makes the request fail and the preview stays black.
+                    crossOrigin={
+                      v.url?.includes('generativelanguage.googleapis.com')
+                        ? ('anonymous' as const)
+                        : undefined
+                    }
+                    referrerPolicy={
+                      v.url?.includes('generativelanguage.googleapis.com')
+                        ? ('no-referrer' as const)
+                        : undefined
+                    }
                   />
                   <span className="absolute bottom-2 left-2 px-2 py-0.5 bg-black/70 text-white text-[9px] font-black rounded uppercase tracking-widest">
                     {v.aspectRatio || '9:16'}
