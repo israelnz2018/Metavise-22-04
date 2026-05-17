@@ -524,9 +524,12 @@ zapCapRouter.post('/edit-simple', async (req, res) => {
       styleOptions.top = subtitleTop;
     }
     if (typeof subtitleWidth === 'number' && subtitleWidth >= 10 && subtitleWidth <= 100) {
-      // ZapCap rejected `width`. Trying `maxWidth` next (next likely
-      // candidate). If this also 400s, iterate: marginH, horizontalPadding.
-      styleOptions.maxWidth = subtitleWidth;
+      // ZapCap rejected `width` and `maxWidth`. Trying `marginH` (the ASS
+      // subtitle convention): a horizontal margin in % applied to BOTH
+      // sides. So subtitleWidth=70% maps to marginH=15% (15% left + 15%
+      // right = 30% margins → 70% content). If this also 400s, fall back
+      // to marginL + marginR or move into subsOptions.
+      styleOptions.marginH = Math.round((100 - subtitleWidth) / 2);
     }
     if (typeof fontUppercase === 'boolean') {
       styleOptions.fontUppercase = fontUppercase;
