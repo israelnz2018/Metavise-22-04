@@ -11211,7 +11211,11 @@ export default function App() {
                     setZapState((prev) => ({ ...prev, originalVideoUrl: v.url }));
                   }}
                   className={cn(
-                    'relative rounded-2xl overflow-hidden border-4 transition-all aspect-video bg-black',
+                    'relative rounded-2xl overflow-hidden border-4 transition-all bg-black',
+                    // Use the video's actual aspect ratio instead of forcing
+                    // 16:9 — otherwise 1:1 / 9:16 generations get letterboxed
+                    // and look broken in the picker.
+                    getVideoAspectRatioClass(v),
                     zapVideoUrl === v.url
                       ? 'border-yellow-500 ring-4 ring-yellow-100'
                       : 'border-gray-100 hover:border-yellow-200'
@@ -11221,8 +11225,15 @@ export default function App() {
                     src={getAuthorizedUrl(v.url, platformApiKey || undefined) || undefined}
                     className="w-full h-full object-cover"
                     preload="metadata"
+                    muted
+                    loop
+                    playsInline
+                    autoPlay
                     crossOrigin="anonymous"
                   />
+                  <span className="absolute bottom-2 left-2 px-2 py-0.5 bg-black/70 text-white text-[9px] font-black rounded uppercase tracking-widest">
+                    {v.aspectRatio || '9:16'}
+                  </span>
                   {zapVideoUrl === v.url && (
                     <span className="absolute top-2 right-2 px-2 py-0.5 bg-yellow-500 text-white text-[9px] font-black rounded uppercase tracking-widest">
                       ✓ Selecionado
