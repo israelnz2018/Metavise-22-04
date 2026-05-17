@@ -448,16 +448,15 @@ zapCapRouter.post('/edit-simple', async (req, res) => {
     displayWords,
     silenceRemoval,
     subtitleTop,
+    subtitleWidth,
     fontUppercase,
     fontSize,
     highlightColorOne,
     highlightColorTwo,
     highlightColorThree,
-    // Source video aspect ratio so ZapCap renders the output canvas to
-    // match — otherwise 1:1 / 16:9 sources end up letterboxed inside a
-    // 9:16 frame and percentage-based subtitle positions land on the
-    // black bars.
-    sourceAspectRatio,
+    // Source aspect ratio kept for the optional post-process crop below.
+    // Currently disabled per user preference — black bars stay.
+    sourceAspectRatio: _sourceAspectRatio,
   } = req.body;
 
   const apiKey = getZapCapKey();
@@ -522,6 +521,12 @@ zapCapRouter.post('/edit-simple', async (req, res) => {
     };
     if (typeof subtitleTop === 'number' && subtitleTop >= 0 && subtitleTop <= 100) {
       styleOptions.top = subtitleTop;
+    }
+    if (typeof subtitleWidth === 'number' && subtitleWidth >= 10 && subtitleWidth <= 100) {
+      // Percent of canvas width — controls how close the subtitle goes to
+      // the left/right edges. Field name guessed; if ZapCap rejects, we'll
+      // see the validation error and iterate (try maxWidth, marginH, etc.).
+      styleOptions.width = subtitleWidth;
     }
     if (typeof fontUppercase === 'boolean') {
       styleOptions.fontUppercase = fontUppercase;
@@ -597,12 +602,9 @@ zapCapRouter.post('/edit-simple', async (req, res) => {
     console.log('[ZapCap Simple] Task ID:', taskId);
     logToFile(`[ZapCap Simple] Task criada com sucesso. taskId: ${taskId}`);
 
-    // Remember the desired output aspect so /status can crop the result
-    // back to the source shape (ZapCap pads non-9:16 sources with black
-    // bars in the template canvas).
-    if (sourceAspectRatio && sourceAspectRatio !== '9:16') {
-      taskToSourceAspect.set(taskId, sourceAspectRatio);
-    }
+    // Crop post-process is intentionally NOT triggered (user prefers to
+    // keep the black bars and just position the subtitle better). The
+    // helper + map stay in the file so this can be re-enabled later.
 
     res.json({ videoId, taskId });
   } catch (err: any) {

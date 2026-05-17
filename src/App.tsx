@@ -2332,6 +2332,7 @@ export default function App() {
   // Estados de personalização da legenda (Edição Zap)
   const [zapVideoFormat, setZapVideoFormat] = useState<'auto' | '9:16' | '1:1' | '16:9'>('auto');
   const [zapSubtitleTop, setZapSubtitleTop] = useState<number>(70);
+  const [zapSubtitleWidth, setZapSubtitleWidth] = useState<number>(70);
   const [zapFontUppercase, setZapFontUppercase] = useState<boolean>(false);
   const [zapFontSize, setZapFontSize] = useState<number>(46);
   const [zapDisplayWords, setZapDisplayWords] = useState<number>(4);
@@ -10771,6 +10772,7 @@ export default function App() {
         silenceRemoval: zapSilenceRemoval > 0 ? zapSilenceRemoval : undefined,
         // Novos parâmetros
         subtitleTop: zapSubtitleTop,
+        subtitleWidth: zapSubtitleWidth,
         fontUppercase: zapFontUppercase,
         fontSize: zapFontSize,
         displayWords: zapDisplayWords,
@@ -11503,6 +11505,26 @@ export default function App() {
             />
             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
               0% = topo · 50% = centro · 70-80% = padrão para avatares · 100% = base
+            </p>
+          </div>
+
+          {/* Largura da legenda (margem esquerda/direita) */}
+          <div className="space-y-2">
+            <label className="text-xs font-black text-gray-900 uppercase tracking-widest flex items-center justify-between">
+              <span>Largura da Legenda</span>
+              <span className="text-yellow-600">{zapSubtitleWidth}%</span>
+            </label>
+            <input
+              type="range"
+              min="30"
+              max="100"
+              step="5"
+              value={zapSubtitleWidth}
+              onChange={(e) => setZapSubtitleWidth(Number(e.target.value))}
+              className="w-full"
+            />
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+              50-70% = afastado das bordas · 100% = ocupa quase tudo
             </p>
           </div>
 
