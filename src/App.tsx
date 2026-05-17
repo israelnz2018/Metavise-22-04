@@ -2332,7 +2332,6 @@ export default function App() {
   // Estados de personalização da legenda (Edição Zap)
   const [zapVideoFormat, setZapVideoFormat] = useState<'auto' | '9:16' | '1:1' | '16:9'>('auto');
   const [zapSubtitleTop, setZapSubtitleTop] = useState<number>(70);
-  const [zapSubtitleWidth, setZapSubtitleWidth] = useState<number>(70);
   const [zapFontUppercase, setZapFontUppercase] = useState<boolean>(false);
   const [zapFontSize, setZapFontSize] = useState<number>(46);
   const [zapDisplayWords, setZapDisplayWords] = useState<number>(4);
@@ -10772,7 +10771,6 @@ export default function App() {
         silenceRemoval: zapSilenceRemoval > 0 ? zapSilenceRemoval : undefined,
         // Novos parâmetros
         subtitleTop: zapSubtitleTop,
-        subtitleWidth: zapSubtitleWidth,
         fontUppercase: zapFontUppercase,
         fontSize: zapFontSize,
         displayWords: zapDisplayWords,
@@ -11508,24 +11506,24 @@ export default function App() {
             </p>
           </div>
 
-          {/* Largura da legenda (margem esquerda/direita) */}
-          <div className="space-y-2">
-            <label className="text-xs font-black text-gray-900 uppercase tracking-widest flex items-center justify-between">
-              <span>Largura da Legenda</span>
-              <span className="text-yellow-600">{zapSubtitleWidth}%</span>
-            </label>
-            <input
-              type="range"
-              min="30"
-              max="100"
-              step="5"
-              value={zapSubtitleWidth}
-              onChange={(e) => setZapSubtitleWidth(Number(e.target.value))}
-              className="w-full"
-            />
-            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-              50-70% = afastado das bordas · 100% = ocupa quase tudo
+          {/* Largura da legenda: ZapCap não expõe um campo de largura/margem
+              na API (confirmado na doc oficial). Controle real é via fontSize
+              e escolha do template. */}
+          <div className="space-y-2 p-3 bg-yellow-50 rounded-xl border border-yellow-200">
+            <p className="text-[10px] font-black text-yellow-700 uppercase tracking-widest">
+              💡 Como controlar a largura da legenda
             </p>
+            <p className="text-[11px] text-gray-600 leading-relaxed">
+              ZapCap não tem ajuste direto de largura. Pra deixar a legenda{' '}
+              <strong>mais estreita</strong>:
+            </p>
+            <ul className="text-[11px] text-gray-600 space-y-1 list-disc list-inside">
+              <li>Diminua o tamanho da fonte abaixo (36-40px)</li>
+              <li>Troque para um template que renderize menos texto por linha</li>
+              <li>
+                Reduza <em>Palavras por bloco</em> (mostrar 2-3 palavras por vez em vez de 5+)
+              </li>
+            </ul>
           </div>
 
           {/* Tamanho da fonte */}

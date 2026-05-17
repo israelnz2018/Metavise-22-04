@@ -523,14 +523,13 @@ zapCapRouter.post('/edit-simple', async (req, res) => {
       // ZapCap caps `top` at 80 (returns 400 above that).
       styleOptions.top = subtitleTop;
     }
-    if (typeof subtitleWidth === 'number' && subtitleWidth >= 10 && subtitleWidth <= 100) {
-      // ZapCap rejected `width` and `maxWidth`. Trying `marginH` (the ASS
-      // subtitle convention): a horizontal margin in % applied to BOTH
-      // sides. So subtitleWidth=70% maps to marginH=15% (15% left + 15%
-      // right = 30% margins → 70% content). If this also 400s, fall back
-      // to marginL + marginR or move into subsOptions.
-      styleOptions.marginH = Math.round((100 - subtitleWidth) / 2);
-    }
+    // Subtitle horizontal width / left-right margin: ZapCap's API has NO
+    // field for this (confirmed at platform.zapcap.ai/docs/guides/captions-
+    // configuration). The visible width is controlled entirely by the
+    // chosen template + the fontSize. Smaller fontSize = narrower text
+    // block. We still accept subtitleWidth from the body for API
+    // compatibility but ignore it server-side.
+    void subtitleWidth;
     if (typeof fontUppercase === 'boolean') {
       styleOptions.fontUppercase = fontUppercase;
     }
