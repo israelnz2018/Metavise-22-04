@@ -11497,14 +11497,14 @@ export default function App() {
             <input
               type="range"
               min="0"
-              max="100"
+              max="80"
               step="5"
               value={zapSubtitleTop}
               onChange={(e) => setZapSubtitleTop(Number(e.target.value))}
               className="w-full"
             />
             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-              0% = topo · 50% = centro · 70-80% = padrão para avatares · 100% = base
+              0% = topo · 50% = centro · 70-80% = padrão para avatares (máximo 80%)
             </p>
           </div>
 

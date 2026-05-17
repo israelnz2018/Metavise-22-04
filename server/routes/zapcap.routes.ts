@@ -519,14 +519,14 @@ zapCapRouter.post('/edit-simple', async (req, res) => {
       stroke: 's',
       strokeColor: '#000000',
     };
-    if (typeof subtitleTop === 'number' && subtitleTop >= 0 && subtitleTop <= 100) {
+    if (typeof subtitleTop === 'number' && subtitleTop >= 0 && subtitleTop <= 80) {
+      // ZapCap caps `top` at 80 (returns 400 above that).
       styleOptions.top = subtitleTop;
     }
     if (typeof subtitleWidth === 'number' && subtitleWidth >= 10 && subtitleWidth <= 100) {
-      // Percent of canvas width — controls how close the subtitle goes to
-      // the left/right edges. Field name guessed; if ZapCap rejects, we'll
-      // see the validation error and iterate (try maxWidth, marginH, etc.).
-      styleOptions.width = subtitleWidth;
+      // ZapCap rejected `width`. Trying `maxWidth` next (next likely
+      // candidate). If this also 400s, iterate: marginH, horizontalPadding.
+      styleOptions.maxWidth = subtitleWidth;
     }
     if (typeof fontUppercase === 'boolean') {
       styleOptions.fontUppercase = fontUppercase;
