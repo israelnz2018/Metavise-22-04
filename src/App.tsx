@@ -11250,14 +11250,14 @@ export default function App() {
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               {availableVideos.map((v: any, idx: number) => (
-                <button
+                <div
                   key={`zap-video-${idx}-${v.url}`}
                   onClick={() => {
                     setZapVideoUrl(v.url);
                     setZapState((prev) => ({ ...prev, originalVideoUrl: v.url }));
                   }}
                   className={cn(
-                    'relative rounded-2xl overflow-hidden border-4 transition-all bg-black',
+                    'relative rounded-2xl overflow-hidden border-4 transition-all bg-black cursor-pointer',
                     // Use the video's actual aspect ratio instead of forcing
                     // 16:9 — otherwise 1:1 / 9:16 generations get letterboxed
                     // and look broken in the picker.
@@ -11269,7 +11269,7 @@ export default function App() {
                 >
                   <video
                     src={getAuthorizedUrl(v.url, platformApiKey || undefined) || undefined}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover pointer-events-none"
                     preload="metadata"
                     muted
                     loop
@@ -11290,15 +11290,36 @@ export default function App() {
                         : undefined
                     }
                   />
-                  <span className="absolute bottom-2 left-2 px-2 py-0.5 bg-black/70 text-white text-[9px] font-black rounded uppercase tracking-widest">
+                  <span className="absolute bottom-2 left-2 px-2 py-0.5 bg-black/70 text-white text-[9px] font-black rounded uppercase tracking-widest pointer-events-none">
                     {v.aspectRatio || '9:16'}
                   </span>
                   {zapVideoUrl === v.url && (
-                    <span className="absolute top-2 right-2 px-2 py-0.5 bg-yellow-500 text-white text-[9px] font-black rounded uppercase tracking-widest">
+                    <span className="absolute top-2 left-2 px-2 py-0.5 bg-yellow-500 text-white text-[9px] font-black rounded uppercase tracking-widest pointer-events-none">
                       ✓ Selecionado
                     </span>
                   )}
-                </button>
+                  {/* Delete X — overlays the thumbnail. stopPropagation so it
+                      doesn't trigger the "select" click on the wrapper. */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!window.confirm('Excluir este vídeo da lista?')) return;
+                      handleDeleteVideoFromArray({
+                        url: v.url,
+                        storagePath: v.storagePath ?? null,
+                      });
+                      // If we were selecting this one, clear the selection.
+                      if (zapVideoUrl === v.url) {
+                        setZapVideoUrl(null);
+                        setZapState((prev) => ({ ...prev, originalVideoUrl: undefined }));
+                      }
+                    }}
+                    className="absolute top-2 right-2 w-7 h-7 bg-red-500/90 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg transition-colors"
+                    title="Excluir vídeo"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               ))}
             </div>
           )}
