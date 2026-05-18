@@ -67,13 +67,8 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { Toaster, toast } from 'react-hot-toast';
 import {
-  generateAdCopy,
-  chooseBestHooks,
-  generateHooks,
   generateVoice,
-  generateVideo,
   checkVideoStatus,
-  optimizeCopyForElevenLabs,
   generateEditingTimeline,
   generateTimelineFromVideo,
   generateVideoFromPrompt,
