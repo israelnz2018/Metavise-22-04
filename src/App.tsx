@@ -384,35 +384,6 @@ const countWords = (text: string): number => {
     .filter(Boolean).length;
 };
 
-const AutoResizeTextarea = ({ value, onChange, placeholder, className, minHeight }: any) => {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  const adjustHeight = () => {
-    const textarea = textareaRef.current;
-    if (textarea) {
-      textarea.style.height = 'auto';
-      textarea.style.height = `${textarea.scrollHeight}px`;
-    }
-  };
-
-  useEffect(() => {
-    adjustHeight();
-  }, [value]);
-
-  return (
-    <textarea
-      ref={textareaRef}
-      value={value}
-      onChange={onChange}
-      onInput={adjustHeight}
-      placeholder={placeholder}
-      className={cn('resize-none overflow-hidden', className)}
-      style={{ minHeight }}
-      rows={1}
-    />
-  );
-};
-
 const detectDuration = (file: File): Promise<number> => {
   return new Promise((resolve) => {
     const video = document.createElement('video');
@@ -567,6 +538,7 @@ import {
   SUBTITLE_STYLES,
   AVATARS,
 } from './lib/constants';
+import { AutoResizeTextarea } from './components/AutoResizeTextarea';
 import {
   ref,
   uploadBytes,
