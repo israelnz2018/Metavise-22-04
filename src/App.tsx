@@ -68,11 +68,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Toaster, toast } from 'react-hot-toast';
 import {
   generateVoice,
-  checkVideoStatus,
-  generateEditingTimeline,
-  generateTimelineFromVideo,
   getAuthorizedUrl,
-  generateVideoPromptSuggestion,
 } from './lib/gemini';
 import {
   generateAdCopyWithClaude,
@@ -1620,7 +1616,6 @@ export default function App() {
   const [loadingAvatars, setLoadingAvatars] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [avatarSearch, setAvatarSearch] = useState('');
-  const [voiceSearch, setVoiceSearch] = useState('');
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
   const [isVoiceConfirmed, setIsVoiceConfirmed] = useState(false);
   const [videoToDelete, setVideoToDelete] = useState<any>(null);
@@ -1699,7 +1694,6 @@ export default function App() {
       setIsUpdatingKey(false);
     }
   };
-  const [useVideoAnalysis, setUseVideoAnalysis] = useState(true);
   const videoRef = React.useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -2902,140 +2896,6 @@ export default function App() {
     setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${message}`]);
   };
 
-  const handleGenerateAudio = async () => {
-    if (!isOnline) {
-      setError('Você está offline. Verifique sua conexão com a internet.');
-      return;
-    }
-
-    // Prefer optimized script for audio generation if available
-    const scriptToUse = config.copy.optimizedScript || config.copy.generatedScript;
-
-    const avatarScript = (scriptToUse || '').includes('[AVATAR]:')
-      ? scriptToUse.split('[AVATAR]:')[1].split('[SCENE]:')[0].trim()
-      : scriptToUse || '';
-
-    if (!avatarScript || avatarScript.trim() === '') {
-      setError('Script está vazio. Por favor, gere a copy primeiro.');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    setProviderError(null);
-    if (audioUrl) URL.revokeObjectURL(audioUrl);
-    setAudioUrl(null);
-
-    try {
-      setGenerationStage('audio');
-      addLog('AUDIO_STARTED');
-
-      const stabilityMap: Record<string, number> = {
-        Expressiva: 0.3,
-        Equilibrada: 0.5,
-        Estável: 0.8,
-      };
-      const speedMap: Record<string, number> = {
-        Lento: 0.8,
-        Normal: 1.0,
-        Rápido: 1.2,
-      };
-
-      const settings = {
-        stability: stabilityMap[config.voiceSettings?.stability || 'Equilibrada'],
-        speed: speedMap[config.voiceSettings?.speed || 'Normal'],
-      };
-
-      const result = await generateVoice(
-        avatarScript,
-        config.avatar.voiceId,
-        undefined,
-        3,
-        settings
-      );
-      if (result && result.arrayBuffer) {
-        const audioBlob = new Blob([result.arrayBuffer], {
-          type: 'audio/mpeg',
-        });
-        let url = result.persistentUrl || URL.createObjectURL(audioBlob);
-
-        let finalStoragePath: string | null = null;
-
-        // Try to upload to Firebase Storage for true persistence across sessions
-        try {
-          if (auth.currentUser) {
-            const storageRef = ref(storage, `audio/${auth.currentUser.uid}/${Date.now()}.mp3`);
-            console.log('Attempting to upload audio to:', storageRef.fullPath);
-            await uploadBytes(storageRef, audioBlob, {
-              contentType: 'audio/mpeg',
-            });
-            const downloadUrl = await getDownloadURL(storageRef);
-            url = downloadUrl;
-            finalStoragePath = storageRef.fullPath;
-            console.log('Audio uploaded to Firebase Storage successfully.');
-          } else {
-            console.warn('Cannot upload audio: No user logged in.');
-          }
-        } catch (uploadErr) {
-          console.error('CRITICAL: Failed to upload audio to Firebase Storage:', uploadErr);
-          console.warn('Falling back to local URL.');
-        }
-
-        const newAudio = {
-          url,
-          storagePath: finalStoragePath,
-          voiceId: config.avatar.voiceId,
-          createdAt: new Date().toISOString(),
-        };
-
-        setAudioUrl(url);
-        setAudioStoragePath(finalStoragePath);
-        setAudios((prev) => [...prev, newAudio]);
-
-        setVideoUrl(null);
-        setVideoStoragePath(null);
-        setVideoOp(null);
-
-        setConfig((prev) => ({
-          ...prev,
-          audioUrl: url,
-          audioStoragePath: finalStoragePath,
-          audios: [...(prev.audios || []), newAudio],
-          videoUrl: null,
-          videoStoragePath: null,
-          generationStage: 'audio_ready',
-        }));
-
-        addLog('AUDIO_COMPLETED');
-        setGenerationStage('audio_ready');
-
-        // Auto-save after audio generation to ensure history is persisted
-        handleSaveProject({
-          audioUrl: url,
-          audioStoragePath: finalStoragePath,
-          audios: [...(audios || []), newAudio],
-          generationStage: 'audio_ready',
-        });
-      }
-    } catch (err: any) {
-      console.error('Audio generation failed:', err);
-      const msg = err.message || String(err);
-      if (msg.includes('heavy traffic') || msg.includes('system_busy') || msg.includes('busy')) {
-        setProviderError({
-          provider: 'ElevenLabs',
-          message:
-            'O sistema da ElevenLabs está com tráfego pesado no momento. Fizemos várias tentativas automáticas de conexão, mas o servidor continua ocupado. Por favor, aguarde cerca de um minuto e tente novamente.',
-        });
-      } else {
-        setProviderError({
-          provider: 'ElevenLabs',
-          message: msg || 'Erro ao gerar áudio.',
-        });
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleGenerateSubtitles = async () => {
     setLoading(true);
@@ -3671,68 +3531,6 @@ export default function App() {
     });
   };
 
-  const handlePlayVoiceCardSample = async (voiceId: string, previewUrl?: string) => {
-    if (playingVoiceId) return;
-
-    // Determine which language to use for the preview
-    // 1. Try the explicitly selected filter in voiceSettings
-    // 2. Fallback to the suggested language from copywriting
-    // 3. Default to Portuguese
-    const langMap: Record<string, string> = {
-      Inglês: 'English',
-      Espanhol: 'Spanish',
-      'Português (Brasileiro)': 'Portuguese',
-    };
-    const suggestedLang = config.copy.answers.language || 'Português (Brasileiro)';
-    const suggestedVal = langMap[suggestedLang] || 'Portuguese';
-    const activeLangVal = config.voiceSettings?.language || suggestedVal;
-
-    setPlayingVoiceId(voiceId);
-    try {
-      let previewText = 'Olá! Esta é uma prévia da minha voz.';
-      if (activeLangVal === 'English') previewText = 'Hello! This is a preview of my voice.';
-      if (activeLangVal === 'Spanish') previewText = '¡Hola! Esta es una vista previa de mi voz.';
-
-      const apiKey = (window as any).process?.env?.API_KEY || '';
-      const result = await generateVoice(previewText, voiceId, apiKey);
-
-      if (result && result.arrayBuffer) {
-        const blob = new Blob([result.arrayBuffer], { type: 'audio/mpeg' });
-        const url = URL.createObjectURL(blob);
-        const audio = new Audio(url);
-        audio.play();
-        audio.onended = () => {
-          URL.revokeObjectURL(url);
-          setPlayingVoiceId(null);
-        };
-        audio.onerror = () => {
-          setPlayingVoiceId(null);
-        };
-      } else {
-        throw new Error('No audio data');
-      }
-    } catch (error: any) {
-      console.error('Preview Error:', error);
-      const msg = error.message || String(error);
-      const isBusy =
-        msg.includes('heavy traffic') || msg.includes('system_busy') || msg.includes('busy');
-
-      // Fallback to static preview url if generation fails
-      if (previewUrl) {
-        if (isBusy) {
-          toast('Servidor ocupado, usando prévia padrão...');
-        }
-        handlePlaySample(previewUrl);
-      } else {
-        if (isBusy) {
-          toast.error('Servidor ElevenLabs ocupado. Tente novamente em 1 min.');
-        } else {
-          toast.error('Erro ao gerar prévia da voz.');
-        }
-      }
-      setPlayingVoiceId(null);
-    }
-  };
 
 
   const handleSaveElevenLabsKey = async () => {
