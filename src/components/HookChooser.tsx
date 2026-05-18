@@ -16,7 +16,6 @@ interface Props {
   onDeleteHookFromHistory?: (hook: string) => void;
   onGoToVoz?: () => void;
   onGoToAvatar?: () => void;
-  onGoToVideoIA?: () => void;
 }
 
 const HOOK_TYPES_BY_LEVEL: Record<string, string[]> = {
@@ -58,7 +57,7 @@ const getHooksBible = (language?: string) => {
   return { hooks: [], total: 0, idioma: 'en' };
 };
 
-const HookChooser: React.FC<Props> = ({ language, awarenessLevel, approvedCopy = '', savedHook = '', hooksHistorico = [], onSaveHook, onDeleteHookFromHistory, onGoToVoz, onGoToAvatar, onGoToVideoIA }) => {
+const HookChooser: React.FC<Props> = ({ language, awarenessLevel, approvedCopy = '', savedHook = '', hooksHistorico = [], onSaveHook, onDeleteHookFromHistory, onGoToVoz, onGoToAvatar }) => {
   const [search, setSearch] = useState('');
   const [tone, setTone] = useState<'Direto' | 'Pergunta' | 'História' | 'Choque' | 'Todos'>('Todos');
   const [levelFilters, setLevelFilters] = useState<number[]>([]);

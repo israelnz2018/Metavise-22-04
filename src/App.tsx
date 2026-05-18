@@ -18,6 +18,40 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+// Formats seconds → "m:ss" (e.g. 73 → "1:13"). Used by VideoDurationBadge.
+function formatVideoDuration(sec: number): string {
+  if (!Number.isFinite(sec) || sec < 0) return '--:--';
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+// Loads only the metadata of `src` in a hidden <video> and renders an
+// absolute-positioned badge with the duration. Designed to be dropped into
+// any positioned container — particularly the version cards in Edição Zap
+// where two videos of the same avatar are otherwise indistinguishable.
+function VideoDurationBadge({ src }: { src: string }) {
+  const [duration, setDuration] = useState<number | null>(null);
+  if (!src) return null;
+  return (
+    <>
+      <video
+        src={src}
+        preload="metadata"
+        className="hidden"
+        onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
+        muted
+        playsInline
+      />
+      {duration !== null && (
+        <div className="absolute bottom-3 right-3 bg-black/75 text-white text-[10px] font-black px-2 py-1 rounded backdrop-blur-sm pointer-events-none">
+          {formatVideoDuration(duration)}
+        </div>
+      )}
+    </>
+  );
+}
+
 const getVideoAspectRatioClass = (video: any) => {
   const ratio = video.aspectRatio || '9:16';
   if (ratio === '9:16') return 'aspect-[9/16]';
@@ -459,6 +493,7 @@ import {
   Users,
   Volume2,
   Layout,
+  Layers,
   Play,
   Pause,
   Library,
@@ -729,7 +764,6 @@ type Step =
   | 'persona'
   | 'copy'
   | 'hook-visual'
-  | 'video-ia'
   | 'voz-premium'
   | 'avatar'
   | 'subtitles'
@@ -1124,11 +1158,10 @@ const STEPS: { id: Step; label: string; icon: any }[] = [
   { id: 'integrations', label: 'Integrações', icon: RefreshCw },
   { id: 'projects', label: 'Meus Projetos', icon: Layout },
   { id: 'persona', label: 'Identificar Persona', icon: Users },
-  { id: 'copy', label: 'Gerar Texto Criativo', icon: Edit3 },
-  { id: 'hook-visual', label: 'Gerar Texto (Gancho)', icon: Clapperboard },
-  { id: 'video-ia', label: 'Gerar Vídeo (Gancho)', icon: Video },
-  { id: 'voz-premium', label: 'Gerar Voz', icon: Sparkles },
-  { id: 'avatar', label: 'Gerar Vídeo com Avatar', icon: User },
+  { id: 'copy', label: 'Copy', icon: Edit3 },
+  { id: 'hook-visual', label: 'Copy do Gancho', icon: Clapperboard },
+  { id: 'voz-premium', label: 'Voz', icon: Sparkles },
+  { id: 'avatar', label: 'Avatar', icon: User },
   { id: 'edit-zap', label: 'Edição Zap', icon: Zap },
   { id: 'edit2', label: 'Edição Premium', icon: Wand2 },
 
@@ -2331,16 +2364,140 @@ export default function App() {
   const [zapLanguage, setZapLanguage] = useState<string>('en');
   // Estados de personalização da legenda (Edição Zap)
   const [zapVideoFormat, setZapVideoFormat] = useState<'auto' | '9:16' | '1:1' | '16:9'>('auto');
-  const [zapSubtitleTop, setZapSubtitleTop] = useState<number>(70);
+  const [zapSubtitleTop, setZapSubtitleTop] = useState<number>(65);
   const [zapFontUppercase, setZapFontUppercase] = useState<boolean>(false);
-  const [zapFontSize, setZapFontSize] = useState<number>(24);
+  const [zapFontSize, setZapFontSize] = useState<number>(26);
   const [zapDisplayWords, setZapDisplayWords] = useState<number>(4);
   const [zapHighlightPalette, setZapHighlightPalette] = useState<string>('default');
+  // Independent color controls for Edição Zap subtitles. Sent to ZapCap as
+  // styleOptions.fontColor / styleOptions.strokeColor + highlight colors.
+  // Empty string means "use template default" (don't send).
+  const [zapFontColor, setZapFontColor] = useState<string>('#FFFFFF');
+  const [zapStrokeColor, setZapStrokeColor] = useState<string>('#000000');
+  const [zapUseCustomHighlight, setZapUseCustomHighlight] = useState<boolean>(false);
+  const [zapHl1, setZapHl1] = useState<string>('#FFD700');
+  const [zapHl2, setZapHl2] = useState<string>('#FFFFFF');
+  const [zapHl3, setZapHl3] = useState<string>('#00FF7F');
   const zapPollRef = useRef<NodeJS.Timeout | null>(null);
   const isZapRenderingRef = useRef(false);
   // True while we're auto-retrying after a ZapCap failure with b-rolls
   // disabled. Stops us from looping if the retry ALSO fails.
   const zapAutoRetryRef = useRef(false);
+
+  // Avatar tab mode: 'body' (default — corpo do vídeo) or 'hook' (gancho).
+  // The toggle lives at the top of the Avatar tab; the ref lets the HeyGen
+  // polling callback know which slot to write to when generation finishes
+  // (the closure may outlive the user toggling back).
+  const [avatarMode, setAvatarMode] = useState<'body' | 'hook'>('body');
+  const avatarModeRef = useRef<'body' | 'hook'>('body');
+  useEffect(() => {
+    avatarModeRef.current = avatarMode;
+  }, [avatarMode]);
+
+  // Edição Zap tab mode — same pattern as avatarMode. Body versions live
+  // in config.edit.zapVersions (existing); hook versions live in
+  // config.edit.zapHookVersions (new). The ZapCap polling/intercut
+  // callbacks read editZapModeRef so they write to the correct slot
+  // even if the user toggled away mid-render.
+  const [editZapMode, setEditZapMode] = useState<'body' | 'hook'>('body');
+  const editZapModeRef = useRef<'body' | 'hook'>('body');
+  useEffect(() => {
+    editZapModeRef.current = editZapMode;
+  }, [editZapMode]);
+  const [joinRendering, setJoinRendering] = useState(false);
+  // Picker state for the "Juntar" feature in Edição Zap. Holds the URL of
+  // the hook + body version the user picked. Empty string means "use the
+  // latest of each" (the default).
+  const [selectedJoinHookUrl, setSelectedJoinHookUrl] = useState<string>('');
+  const [selectedJoinBodyUrl, setSelectedJoinBodyUrl] = useState<string>('');
+
+  // Project-level flag: does this project use a separate hook? Defaults to
+  // true when the field is missing (backward-compat with older projects).
+  // When false: hook-visual step is skipped in navigation, hook-mode
+  // toggles in Voz/Avatar/Edição Zap hide, Juntar button hides.
+  const useHookFlow = (config as any).useHook !== false;
+  const setUseHookFlow = (next: boolean) => {
+    setConfig((prev) => ({ ...(prev as any), useHook: next } as any));
+    handleSaveProject({ useHook: next } as any);
+    if (!next) {
+      // Snap any active hook modes back to body so nothing references the
+      // hidden side after the flag flips.
+      setAvatarMode('body');
+      setEditZapMode('body');
+      setVoiceSource('copy');
+    }
+  };
+
+  // Headline modal state (Meta-style colored bar at the top of the video).
+  // Only used in Edição Zap hook mode. headlineSourceUrl=null means closed.
+  const [headlineSourceUrl, setHeadlineSourceUrl] = useState<string | null>(null);
+  const [headlineText, setHeadlineText] = useState<string>('');
+  const [headlineBgColor, setHeadlineBgColor] = useState<string>('#000000');
+  const [headlineTextColor, setHeadlineTextColor] = useState<string>('#FFFFFF');
+  const [headlineStrokeColor, setHeadlineStrokeColor] = useState<string>('#000000');
+  const [headlineStrokeWidth, setHeadlineStrokeWidth] = useState<number>(0);
+  const [headlineHl1, setHeadlineHl1] = useState<string>('#FFD700');
+  const [headlineHl2, setHeadlineHl2] = useState<string>('#FF3B30');
+  const [headlineHl3, setHeadlineHl3] = useState<string>('#00FF7F');
+  const [headlineBgHl1, setHeadlineBgHl1] = useState<string>('#FF3B30');
+  const [headlineBgHl2, setHeadlineBgHl2] = useState<string>('#FFD700');
+  const [headlineBgHl3, setHeadlineBgHl3] = useState<string>('#0066FF');
+  // Per-word styling. tc = text color index (0|1|2|3, 0=default), bg = bg
+  // highlight index (same). Indexed by word position when text is split
+  // on whitespace.
+  const [headlineWordStyles, setHeadlineWordStyles] = useState<
+    Array<{ tc: number; bg: number }>
+  >([]);
+  // Optional second headline that replaces the first mid-clip.
+  // When enabled, switchPct (10-90) controls the % of the video duration
+  // where headline 2 takes over from headline 1.
+  const [headline2Enabled, setHeadline2Enabled] = useState<boolean>(false);
+  const [headlineSwitchPct, setHeadlineSwitchPct] = useState<number>(50);
+  // When true, backend transcribes the audio + matches each headline text to
+  // the spoken transcript so headlines appear exactly when the avatar says
+  // them. Replaces the manual switchPct slider.
+  const [headlineAutoTime, setHeadlineAutoTime] = useState<boolean>(false);
+  // Dimensions of the source video being edited — used to make the preview
+  // exactly proportional to the actual rendered output (so what you see
+  // in the modal matches what comes out of FFmpeg).
+  const [headlineSourceDims, setHeadlineSourceDims] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
+  useEffect(() => {
+    if (!headlineSourceUrl) {
+      setHeadlineSourceDims(null);
+      return;
+    }
+    const v = document.createElement('video');
+    v.preload = 'metadata';
+    v.crossOrigin = headlineSourceUrl.includes('generativelanguage.googleapis.com')
+      ? 'anonymous'
+      : '';
+    v.onloadedmetadata = () => {
+      if (v.videoWidth && v.videoHeight) {
+        setHeadlineSourceDims({ width: v.videoWidth, height: v.videoHeight });
+      }
+    };
+    v.src = headlineSourceUrl;
+  }, [headlineSourceUrl]);
+  const [headline2Text, setHeadline2Text] = useState<string>('');
+  const [headline2BgColor, setHeadline2BgColor] = useState<string>('#000000');
+  const [headline2WordStyles, setHeadline2WordStyles] = useState<
+    Array<{ tc: number; bg: number }>
+  >([]);
+  const [headlineFontSize, setHeadlineFontSize] = useState<number>(60);
+  const [headlineBarHeightPct, setHeadlineBarHeightPct] = useState<number>(13);
+  const [headlineRendering, setHeadlineRendering] = useState(false);
+
+  // Intercut modal state (alternating avatar / black-screen-with-text cuts).
+  // intercutSourceUrl = null means the modal is closed.
+  const [intercutSourceUrl, setIntercutSourceUrl] = useState<string | null>(null);
+  const [intercutAvatarSec, setIntercutAvatarSec] = useState<number>(15);
+  const [intercutBlackSec, setIntercutBlackSec] = useState<number>(20);
+  const [intercutFontSize, setIntercutFontSize] = useState<number>(64);
+  const [intercutTexts, setIntercutTexts] = useState<string[]>(['', '', '', '']);
+  const [intercutRendering, setIntercutRendering] = useState(false);
 
   // Reset voice confirmation when voice or language changes
   useEffect(() => {
@@ -4129,8 +4286,24 @@ export default function App() {
                     scale: config.avatar.scale || 1.0,
                     timelineEdits: [],
                   };
-                  setVideoUrl(statusData.video_url);
-                  setVideos((prev) => [...prev, newVideo]);
+                  if (avatarModeRef.current === 'hook') {
+                    setConfig((prev) => {
+                      const prevHookVideos =
+                        ((prev.copy as any)?.hookVideos as typeof newVideo[] | undefined) || [];
+                      return {
+                        ...prev,
+                        copy: {
+                          ...prev.copy,
+                          hookVideoUrl: statusData.video_url,
+                          hookVideoStoragePath: null,
+                          hookVideos: [...prevHookVideos, newVideo],
+                        } as any,
+                      };
+                    });
+                  } else {
+                    setVideoUrl(statusData.video_url);
+                    setVideos((prev) => [...prev, newVideo]);
+                  }
                   setLoading(false);
                   toast(
                     'Vídeo gerado mas falha ao salvar no storage. Use o vídeo agora — link expira em ~24h.',
@@ -4148,17 +4321,37 @@ export default function App() {
                   timelineEdits: [],
                 };
 
-                setVideoUrl(result.url);
-                setVideoStoragePath(result.path);
-                setVideos((prev) => [...prev, newVideo]);
+                // In hook mode, persist to config.copy.hookVideos and the
+                // hookVideoUrl/StoragePath fields — keeps the body slots
+                // untouched so the two videos remain independent.
+                if (avatarModeRef.current === 'hook') {
+                  setConfig((prev) => {
+                    const prevHookVideos =
+                      ((prev.copy as any)?.hookVideos as typeof newVideo[] | undefined) || [];
+                    return {
+                      ...prev,
+                      copy: {
+                        ...prev.copy,
+                        hookVideoUrl: result.url,
+                        hookVideoStoragePath: result.path,
+                        hookVideos: [...prevHookVideos, newVideo],
+                      } as any,
+                      generationStage: 'video_ready',
+                    };
+                  });
+                } else {
+                  setVideoUrl(result.url);
+                  setVideoStoragePath(result.path);
+                  setVideos((prev) => [...prev, newVideo]);
 
-                setConfig((prev) => ({
-                  ...prev,
-                  videoUrl: result.url,
-                  videoStoragePath: result.path,
-                  videos: [...(prev.videos || []), newVideo],
-                  generationStage: 'video_ready',
-                }));
+                  setConfig((prev) => ({
+                    ...prev,
+                    videoUrl: result.url,
+                    videoStoragePath: result.path,
+                    videos: [...(prev.videos || []), newVideo],
+                    generationStage: 'video_ready',
+                  }));
+                }
                 setLastVideoMetadata((prev: any) =>
                   prev
                     ? {
@@ -4331,15 +4524,30 @@ export default function App() {
       }
 
       const startTime = Date.now();
+      // In hook mode, the audio source must be the hook audio (the one the
+      // user generated in the Voz tab with the toggle on "Gancho").
+      // We also override the script with hookSelecionado so HeyGen's native
+      // TTS fallback path produces hook content if the audio is missing.
+      const isHookGen = avatarModeRef.current === 'hook';
+      const hookAudioUrl =
+        ((config.copy as any)?.hookAudioUrl as string | undefined) || '';
+      const effectiveAudioUrl = isHookGen ? hookAudioUrl || audioUrl : audioUrl;
+      const effectiveScript = isHookGen
+        ? config.copy?.hookSelecionado || avatarScript
+        : avatarScript;
       const finalPayload = {
         avatarId: config.avatar.faceId,
         voiceId: config.avatar.voiceId,
-        script: avatarScript,
-        audioUrl: audioUrl,
+        script: effectiveScript,
+        audioUrl: effectiveAudioUrl,
         aspectRatio: requestedRatioForHeyGen,
         scale: config.avatar.scale || 1.0,
         useNativeFallback: useNativeFallback,
-        title: isTestMode ? `Test Clip - ${Date.now()}` : `Video Ad - ${config.angle}`,
+        title: isTestMode
+          ? `Test Clip - ${Date.now()}`
+          : isHookGen
+            ? `Hook Clip - ${config.angle}`
+            : `Video Ad - ${config.angle}`,
       };
       const response = await fetch('/api/heygen/generate', {
         method: 'POST',
@@ -5238,18 +5446,25 @@ export default function App() {
 
   const nextStep = () => {
     const currentIndex = STEPS.findIndex((s) => s.id === currentStep);
-    if (currentIndex < STEPS.length - 1) {
-      const nextStepId = STEPS[currentIndex + 1].id;
-      if (canNavigateTo(nextStepId)) {
-        setCurrentStep(nextStepId);
+    // Walk forward, skipping any steps disabled by the project config
+    // (right now only 'hook-visual' when useHook is off).
+    for (let i = currentIndex + 1; i < STEPS.length; i++) {
+      const candidate = STEPS[i].id;
+      if (!useHookFlow && candidate === 'hook-visual') continue;
+      if (canNavigateTo(candidate)) {
+        setCurrentStep(candidate);
       }
+      return;
     }
   };
 
   const prevStep = () => {
     const currentIndex = STEPS.findIndex((s) => s.id === currentStep);
-    if (currentIndex > 0) {
-      setCurrentStep(STEPS[currentIndex - 1].id);
+    for (let i = currentIndex - 1; i >= 0; i--) {
+      const candidate = STEPS[i].id;
+      if (!useHookFlow && candidate === 'hook-visual') continue;
+      setCurrentStep(candidate);
+      return;
     }
   };
 
@@ -8733,27 +8948,87 @@ export default function App() {
       return 0;
     });
 
+    const isHookMode = avatarMode === 'hook';
+    const hookAudioUrl =
+      ((config.copy as any)?.hookAudioUrl as string | undefined) || '';
+    const hookAudioStoragePath =
+      ((config.copy as any)?.hookAudioStoragePath as string | null | undefined) || null;
+    const hookVideos =
+      ((config.copy as any)?.hookVideos as typeof videos | undefined) || [];
+    const hookVideoUrl =
+      ((config.copy as any)?.hookVideoUrl as string | undefined) || '';
+    const displayedAudioUrl = isHookMode ? hookAudioUrl : config.audioUrl;
+    const displayedAudioStoragePath = isHookMode
+      ? hookAudioStoragePath
+      : config.audioStoragePath || null;
+    // Big "current video" preview directly under the audio card. Same idea
+    // as the gallery: in hook mode it must show the hook video, not the body's.
+    const displayedVideoUrl = isHookMode ? hookVideoUrl : videoUrl;
+
     return (
       <div className="max-w-[1600px] mx-auto space-y-12">
+        {/* Toggle: which side of the video are we producing? Hidden when
+            the project doesn't use a separate hook. */}
+        {useHookFlow && (
+          <div className="bg-white p-2 rounded-2xl border-2 border-gray-100 shadow-sm flex gap-1">
+            <button
+              onClick={() => setAvatarMode('body')}
+              className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                !isHookMode
+                  ? 'bg-gray-900 text-white shadow-md'
+                  : 'text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              Avatar do Corpo
+              {(config.videos || []).length > 0 && (
+                <span className="ml-2 text-[9px] opacity-70">
+                  ({(config.videos || []).length})
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setAvatarMode('hook')}
+              className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                isHookMode
+                  ? 'bg-amber-500 text-white shadow-md'
+                  : 'text-gray-500 hover:bg-amber-50'
+              }`}
+            >
+              Avatar do Gancho
+              {hookVideos.length > 0 && (
+                <span className="ml-2 text-[9px] opacity-70">({hookVideos.length})</span>
+              )}
+            </button>
+          </div>
+        )}
+
         {/* Áudio aprovado da Voz Premium */}
-        {config.audioUrl && (
-          <div className="p-6 bg-white rounded-[40px] border-2 border-blue-200 shadow-lg">
+        {displayedAudioUrl && (
+          <div
+            className={`p-6 bg-white rounded-[40px] border-2 shadow-lg ${
+              isHookMode ? 'border-amber-200' : 'border-blue-200'
+            }`}
+          >
             <div className="flex items-center gap-2 mb-4">
-              <div className="bg-blue-600 p-1.5 rounded-lg text-white">
+              <div
+                className={`p-1.5 rounded-lg text-white ${
+                  isHookMode ? 'bg-amber-500' : 'bg-blue-600'
+                }`}
+              >
                 <Volume2 size={16} />
               </div>
               <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest">
-                Áudio Aprovado
+                Áudio Aprovado {isHookMode ? '(Gancho)' : '(Corpo)'}
               </h3>
-              <span className="ml-auto text-xs text-gray-400">vindo da Voz Premium</span>
+              <span className="ml-auto text-xs text-gray-400">vindo da Voz</span>
             </div>
             <div className="flex items-center gap-2">
-              <audio controls src={config.audioUrl} className="w-full flex-1" />
+              <audio controls src={displayedAudioUrl} className="w-full flex-1" />
               <button
                 onClick={() => {
                   setAudioToDelete({
-                    url: config.audioUrl as string,
-                    storagePath: config.audioStoragePath || null,
+                    url: displayedAudioUrl as string,
+                    storagePath: displayedAudioStoragePath,
                   });
                   setShowDeleteModal(true);
                 }}
@@ -8764,7 +9039,22 @@ export default function App() {
               </button>
             </div>
             <p className="text-[10px] text-gray-400 mt-2 italic">
-              Este áudio será usado para gerar o avatar. Para trocar, volte à aba Voz Premium.
+              {isHookMode
+                ? 'Áudio do gancho. Para trocar, volte à aba Voz e ative "Voz do Gancho".'
+                : 'Áudio do corpo. Para trocar, volte à aba Voz.'}
+            </p>
+          </div>
+        )}
+        {!displayedAudioUrl && (
+          <div
+            className={`p-6 rounded-[40px] border-2 border-dashed ${
+              isHookMode ? 'border-amber-200 bg-amber-50/40' : 'border-blue-200 bg-blue-50/40'
+            }`}
+          >
+            <p className="text-sm text-gray-600">
+              {isHookMode
+                ? '⚠ Você ainda não gerou o áudio do gancho. Vá em "Voz" → toggle "Voz do Gancho" → gerar.'
+                : '⚠ Você ainda não gerou o áudio do corpo. Vá em "Voz" → gerar.'}
             </p>
           </div>
         )}
@@ -8943,7 +9233,7 @@ export default function App() {
         )}
 
         {/* Fallback Option */}
-        {!videoUrl && !loading && !videoOp && (
+        {!displayedVideoUrl && !loading && !videoOp && (
           <div className="bg-amber-50 p-6 rounded-[32px] border-2 border-amber-100 flex items-center justify-between gap-6">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-amber-100 rounded-2xl text-amber-600">
@@ -8970,7 +9260,7 @@ export default function App() {
             </label>
           </div>
         )}
-        {videoUrl && (
+        {displayedVideoUrl && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -8989,10 +9279,20 @@ export default function App() {
               )}
             >
               <video
-                src={getAuthorizedUrl(videoUrl || '', platformApiKey || undefined) || undefined}
+                src={
+                  getAuthorizedUrl(displayedVideoUrl || '', platformApiKey || undefined) ||
+                  undefined
+                }
                 controls
                 className="w-full h-full object-contain"
               />
+              <div
+                className={`absolute top-3 left-3 text-white text-[9px] font-black px-2 py-1 rounded uppercase tracking-widest ${
+                  isHookMode ? 'bg-amber-500' : 'bg-blue-600'
+                }`}
+              >
+                {isHookMode ? 'Vídeo do Gancho' : 'Vídeo do Corpo'}
+              </div>
               <div className="absolute top-6 right-6 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
                   onClick={() => handleGenerateVideo(true)}
@@ -9084,52 +9384,72 @@ export default function App() {
         )}
 
         {/* Video History List */}
-        {videos.length > 0 && (
+        {(isHookMode ? hookVideos : videos).length > 0 && (
           <div className="bg-white p-8 rounded-[40px] border-2 border-gray-100 shadow-xl space-y-6">
             <div className="flex items-center justify-between border-b border-gray-50 pb-6">
               <div className="space-y-1">
                 <h3 className="text-xl font-black text-gray-900 uppercase tracking-tight flex items-center gap-2">
-                  <Video size={20} className="text-blue-600" />
-                  Histórico de Vídeos
+                  <Video size={20} className={isHookMode ? 'text-amber-500' : 'text-blue-600'} />
+                  Histórico de Vídeos {isHookMode ? '(Gancho)' : '(Corpo)'}
                 </h3>
                 <p className="text-xs text-gray-400 font-medium">
                   Selecione o vídeo que deseja usar no projeto.
                 </p>
               </div>
               <span className="px-3 py-1 bg-gray-100 text-gray-500 rounded-full text-[10px] font-black uppercase tracking-widest">
-                {videos.length} {videos.length === 1 ? 'Vídeo' : 'Vídeos'}
+                {(isHookMode ? hookVideos : videos).length}{' '}
+                {(isHookMode ? hookVideos : videos).length === 1 ? 'Vídeo' : 'Vídeos'}
               </span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
-              {videos.map((video, idx) => (
+              {(isHookMode ? hookVideos : videos).map((video, idx) => (
                 <div
                   key={`variant-video-${idx}-${video.url || 'no-url'}`}
                   onClick={() => {
-                    setVideoUrl(video.url);
-                    setVideoStoragePath(video.storagePath);
-                    setConfig((prev) => ({
-                      ...prev,
-                      videoUrl: video.url,
-                      videoStoragePath: video.storagePath,
-                      format: {
-                        ...prev.format,
-                        aspectRatio: (video.aspectRatio as any) || prev.format.aspectRatio,
-                      },
-                      avatar: {
-                        ...prev.avatar,
-                        scale: video.scale || prev.avatar.scale || 1.0,
-                      },
-                      edit: {
-                        ...prev.edit,
-                        timelineEdits: (video as any).timelineEdits || [],
-                      },
-                    }));
+                    // Route the "active video" to the slot matching the
+                    // current mode — otherwise selecting a hook video would
+                    // overwrite videoUrl (body state) and bleed across the
+                    // toggle.
+                    if (isHookMode) {
+                      setConfig((prev) => ({
+                        ...prev,
+                        copy: {
+                          ...prev.copy,
+                          hookVideoUrl: video.url,
+                          hookVideoStoragePath: video.storagePath,
+                        } as any,
+                        format: {
+                          ...prev.format,
+                          aspectRatio: (video.aspectRatio as any) || prev.format.aspectRatio,
+                        },
+                      }));
+                    } else {
+                      setVideoUrl(video.url);
+                      setVideoStoragePath(video.storagePath);
+                      setConfig((prev) => ({
+                        ...prev,
+                        videoUrl: video.url,
+                        videoStoragePath: video.storagePath,
+                        format: {
+                          ...prev.format,
+                          aspectRatio: (video.aspectRatio as any) || prev.format.aspectRatio,
+                        },
+                        avatar: {
+                          ...prev.avatar,
+                          scale: video.scale || prev.avatar.scale || 1.0,
+                        },
+                        edit: {
+                          ...prev.edit,
+                          timelineEdits: (video as any).timelineEdits || [],
+                        },
+                      }));
+                    }
                     toast.success('Vídeo selecionado como ativo!');
                   }}
                   className={cn(
                     'group relative rounded-[32px] border-2 transition-all cursor-pointer overflow-hidden flex flex-col',
-                    videoUrl === video.url
+                    (isHookMode ? hookVideoUrl : videoUrl) === video.url
                       ? 'border-blue-600 bg-blue-50 shadow-lg'
                       : 'border-gray-100 bg-white hover:border-blue-200'
                   )}
@@ -9171,7 +9491,7 @@ export default function App() {
                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20">
                       <Play size={32} className="text-white fill-white" />
                     </div>
-                    {videoUrl === video.url && (
+                    {(isHookMode ? hookVideoUrl : videoUrl) === video.url && (
                       <div className="absolute top-4 right-4 bg-blue-600 text-white p-1.5 rounded-full shadow-lg">
                         <CheckCircle2 size={16} />
                       </div>
@@ -10755,6 +11075,41 @@ export default function App() {
       return;
     }
 
+    // "Nenhuma legenda" shortcut: skip ZapCap entirely and append the source
+    // video as a new version. Useful when the user just wants the video in
+    // the versions list so they can apply Cortes/Headline without burning
+    // captions first.
+    if (zapTemplateId === '__none__') {
+      const wasHookEdit = editZapModeRef.current === 'hook';
+      setZapState((prev) => ({
+        ...prev,
+        status: 'completed',
+        step: 'Versão sem legenda criada.',
+        progress: 100,
+        originalVideoUrl: zapState.originalVideoUrl || zapVideoUrl,
+        finalVideoUrl: zapVideoUrl,
+        versions: wasHookEdit
+          ? prev.versions
+          : [...(prev.versions || []), zapVideoUrl],
+      }));
+      setConfig((prev) => {
+        const key = wasHookEdit ? 'zapHookVersions' : 'zapVersions';
+        const current = ((prev.edit as any)[key] as string[] | undefined) || [];
+        return {
+          ...prev,
+          edit: {
+            ...prev.edit,
+            [key]: [...current, zapVideoUrl],
+          },
+        };
+      });
+      toast.success('Versão sem legenda salva na galeria.', {
+        id: 'zap-simple-render',
+        duration: 4000,
+      });
+      return;
+    }
+
     isZapRenderingRef.current = true;
     setLoading(true);
 
@@ -10808,8 +11163,23 @@ export default function App() {
         // canvas matches and the subtitles land on the visible frame.
         sourceAspectRatio: sourceAspect,
       };
-      // Cores de destaque só se NÃO for o padrão
-      if (zapHighlightPalette !== 'default') {
+      // Cor da fonte e da borda — sempre enviadas (defaults branco/preto).
+      if (/^#[0-9a-fA-F]{6}$/.test(zapFontColor)) {
+        payload.fontColor = zapFontColor;
+      }
+      if (/^#[0-9a-fA-F]{6}$/.test(zapStrokeColor)) {
+        payload.strokeColor = zapStrokeColor;
+      }
+      // Cores de destaque — só envia se o usuário ativou customizadas.
+      if (zapUseCustomHighlight) {
+        payload.highlightColorOne = zapHl1;
+        payload.highlightColorTwo = zapHl2;
+        payload.highlightColorThree = zapHl3;
+      }
+      // Quick-preset compatibility: if user picked a named palette and
+      // didn't customize highlights manually, fall back to the preset
+      // mapping so the legacy state still works.
+      else if (zapHighlightPalette !== 'default') {
         payload.highlightColorOne = selectedPalette.one;
         payload.highlightColorTwo = selectedPalette.two;
         payload.highlightColorThree = selectedPalette.three;
@@ -10897,8 +11267,13 @@ export default function App() {
           clearInterval(zapPollRef.current!);
           zapPollRef.current = null;
 
+          const wasHookEdit = editZapModeRef.current === 'hook';
           setZapState((prev) => {
-            const newVersions = [...(prev.versions || []), data.downloadUrl];
+            // Only body versions live in zapState.versions (the in-memory
+            // gallery state). Hook versions are read from config directly.
+            const newVersions = wasHookEdit
+              ? prev.versions
+              : [...(prev.versions || []), data.downloadUrl];
             return {
               ...prev,
               status: 'completed',
@@ -10909,20 +11284,19 @@ export default function App() {
             };
           });
 
-          // Mirror the version into config.edit.zapVersions so the project
-          // auto-save picks it up and it survives a reload. The Edição Zap
-          // tab is the SOLE owner of these — they don't pollute the
-          // top-level videos[] array (which is for avatar generations only).
-          setConfig((prev) => ({
-            ...prev,
-            edit: {
-              ...prev.edit,
-              zapVersions: [
-                ...(((prev.edit as any).zapVersions as string[] | undefined) || []),
-                data.downloadUrl,
-              ],
-            },
-          }));
+          // Mirror to config under the slot matching the mode that started
+          // this render. Auto-save persists it across reloads.
+          setConfig((prev) => {
+            const key = wasHookEdit ? 'zapHookVersions' : 'zapVersions';
+            const current = ((prev.edit as any)[key] as string[] | undefined) || [];
+            return {
+              ...prev,
+              edit: {
+                ...prev.edit,
+                [key]: [...current, data.downloadUrl],
+              },
+            };
+          });
 
           // Reset the auto-retry guard so the NEXT user-initiated render
           // can also auto-retry if it hits the same b-roll failure.
@@ -10992,6 +11366,204 @@ export default function App() {
         console.error('[ZAP SIMPLE Poll] error:', err);
       }
     }, 3000);
+  };
+
+  const handleRenderHeadline = async () => {
+    if (!headlineSourceUrl) return;
+    if (!user?.uid) {
+      toast.error('Faça login antes de aplicar headline.');
+      return;
+    }
+    const text = headlineText.trim();
+    if (!text) {
+      toast.error('Digite o texto da headline.');
+      return;
+    }
+
+    setHeadlineRendering(true);
+    const toastId = 'headline-render';
+    // Auto-sync needs to transcribe via AssemblyAI which can take 30-90s on
+    // top of the FFmpeg render, so bump the toast duration when it's on.
+    toast.loading(
+      headlineAutoTime
+        ? 'Transcrevendo áudio e aplicando headlines sincronizadas...'
+        : 'Aplicando headline no topo do vídeo...',
+      {
+        id: toastId,
+        duration: headlineAutoTime ? 180000 : 60000,
+      }
+    );
+    try {
+      // Build the headlines array. Trim each headline's wordStyles to its
+      // actual word count in case the user edited the text after assigning
+      // colors.
+      const trimWs = (
+        t: string,
+        ws: Array<{ tc: number; bg: number }>
+      ): Array<{ tc: number; bg: number }> => {
+        const count = t.split(/\s+/).filter(Boolean).length;
+        return ws.slice(0, count).map((s) => ({ tc: s.tc || 0, bg: s.bg || 0 }));
+      };
+      const headlinesPayload: Array<{
+        text: string;
+        wordStyles: Array<{ tc: number; bg: number }>;
+        bgColor: string;
+      }> = [
+        {
+          text,
+          wordStyles: trimWs(text, headlineWordStyles),
+          bgColor: headlineBgColor,
+        },
+      ];
+      if (headline2Enabled && headline2Text.trim()) {
+        headlinesPayload.push({
+          text: headline2Text.trim(),
+          wordStyles: trimWs(headline2Text, headline2WordStyles),
+          bgColor: headline2BgColor,
+        });
+      }
+
+      const res = await fetch('/api/video/add-headline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          videoUrl: headlineSourceUrl,
+          userId: user.uid,
+          // Top-level palette + globals shared by both headlines.
+          bgColor: headlineBgColor,
+          textColor: headlineTextColor,
+          strokeColor: headlineStrokeColor,
+          strokeWidth: headlineStrokeWidth,
+          highlightColor1: headlineHl1,
+          highlightColor2: headlineHl2,
+          highlightColor3: headlineHl3,
+          bgHighlight1: headlineBgHl1,
+          bgHighlight2: headlineBgHl2,
+          bgHighlight3: headlineBgHl3,
+          fontSize: headlineFontSize,
+          barHeightPct: headlineBarHeightPct,
+          // Multi-headline shape: array of per-headline content.
+          headlines: headlinesPayload,
+          switchPct: headlineSwitchPct,
+          autoTime: headlineAutoTime,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
+
+      const newUrl: string = json.url;
+      // Headline is hook-only, so always append to zapHookVersions.
+      setConfig((prev) => {
+        const current =
+          ((prev.edit as any).zapHookVersions as string[] | undefined) || [];
+        return {
+          ...prev,
+          edit: {
+            ...prev.edit,
+            zapHookVersions: [...current, newUrl],
+          },
+        };
+      });
+      // Surface what the backend actually did with auto-sync so the user
+      // knows whether to trust the timing or to adjust manually.
+      const autoStatus = json.autoTimeStatus as
+        | 'off'
+        | 'applied'
+        | 'failed'
+        | 'partial'
+        | undefined;
+      let successMsg = 'Headline aplicada — nova versão criada.';
+      if (autoStatus === 'applied') {
+        successMsg = '✅ Headlines sincronizadas com a fala do avatar.';
+      } else if (autoStatus === 'partial') {
+        successMsg =
+          '⚠ Sincronização parcial — uma das headlines não foi achada na fala (caiu no timing manual).';
+      } else if (autoStatus === 'failed' && headlineAutoTime) {
+        successMsg =
+          '⚠ Não consegui transcrever o áudio — voltei pro timing manual. Verifique o texto vs a fala do avatar.';
+      }
+      toast.success(successMsg, {
+        id: toastId,
+        duration: autoStatus === 'applied' ? 5000 : 8000,
+      });
+      setHeadlineSourceUrl(null);
+    } catch (err: any) {
+      console.error('[HEADLINE] error:', err);
+      toast.error(`Falha na headline: ${err.message}`, {
+        id: toastId,
+        duration: 6000,
+      });
+    } finally {
+      setHeadlineRendering(false);
+    }
+  };
+
+  const handleRenderIntercut = async () => {
+    if (!intercutSourceUrl) return;
+    if (!user?.uid) {
+      toast.error('Faça login antes de gerar cortes pretos.');
+      return;
+    }
+    const texts = intercutTexts.map((t) => t.trim()).filter(Boolean);
+    if (texts.length === 0) {
+      toast.error('Adicione pelo menos um texto para o corte preto.');
+      return;
+    }
+
+    setIntercutRendering(true);
+    const toastId = 'intercut-render';
+    toast.loading('Gerando cortes pretos com texto...', { id: toastId, duration: 60000 });
+
+    try {
+      const res = await fetch('/api/video/intercut', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          videoUrl: intercutSourceUrl,
+          avatarChunkSec: intercutAvatarSec,
+          blackChunkSec: intercutBlackSec,
+          blackTexts: texts,
+          fontSize: intercutFontSize,
+          userId: user.uid,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+      const newUrl: string = data.url;
+      const isHookEdit = editZapModeRef.current === 'hook';
+      // Append to local versions only for body (gallery state). Persist to
+      // the slot matching the current edit mode.
+      setZapState((prev) => ({
+        ...prev,
+        versions: isHookEdit ? prev.versions : [...(prev.versions || []), newUrl],
+        finalVideoUrl: newUrl,
+      }));
+      setConfig((prev) => {
+        const key = isHookEdit ? 'zapHookVersions' : 'zapVersions';
+        const current = ((prev.edit as any)[key] as string[] | undefined) || [];
+        return {
+          ...prev,
+          edit: {
+            ...prev.edit,
+            [key]: [...current, newUrl],
+          },
+        };
+      });
+      toast.success(
+        `Vídeo com cortes pretos criado (${data.blackCount ?? texts.length} cortes).`,
+        { id: toastId, duration: 5000 }
+      );
+      setIntercutSourceUrl(null);
+    } catch (err: any) {
+      console.error('[INTERCUT] error:', err);
+      toast.error(`Falha ao gerar cortes pretos: ${err.message}`, {
+        id: toastId,
+        duration: 6000,
+      });
+    } finally {
+      setIntercutRendering(false);
+    }
   };
 
   const handleRenderZapCap = async () => {
@@ -11259,8 +11831,19 @@ export default function App() {
     const isCompleted = zapState.status === 'completed';
     const isRendering = zapState.status === 'rendering' || zapState.status === 'uploading';
 
-    // Lista de vídeos disponíveis (mesma fonte da Edição Premium)
-    const availableVideos = (videos || []).filter((v) => v.url);
+    const isHookEdit = editZapMode === 'hook';
+    const hookVideosForEdit =
+      ((config.copy as any)?.hookVideos as typeof videos | undefined) || [];
+    const bodyZapVersions =
+      ((config.edit as any)?.zapVersions as string[] | undefined) || [];
+    const hookZapVersions =
+      ((config.edit as any)?.zapHookVersions as string[] | undefined) || [];
+    const activeZapVersions = isHookEdit ? hookZapVersions : bodyZapVersions;
+
+    // Source video picker pulls from hook or body depending on mode.
+    const availableVideos = (isHookEdit ? hookVideosForEdit : videos || []).filter(
+      (v) => v.url
+    );
 
     return (
       <div className="max-w-[1100px] mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
@@ -11278,6 +11861,45 @@ export default function App() {
             Beta
           </span>
         </div>
+
+        {/* Toggle: editing the body or the hook? Versions are kept separate.
+            Hidden when the project doesn't use a separate hook. */}
+        {useHookFlow && (
+          <div className="bg-white p-2 rounded-2xl border-2 border-gray-100 shadow-sm flex gap-1">
+            <button
+              onClick={() => {
+                setEditZapMode('body');
+                setZapVideoUrl(null);
+              }}
+              className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                !isHookEdit
+                  ? 'bg-yellow-500 text-white shadow-md'
+                  : 'text-gray-500 hover:bg-yellow-50'
+              }`}
+            >
+              Editar Corpo
+              {bodyZapVersions.length > 0 && (
+                <span className="ml-2 text-[9px] opacity-70">({bodyZapVersions.length})</span>
+              )}
+            </button>
+            <button
+              onClick={() => {
+                setEditZapMode('hook');
+                setZapVideoUrl(null);
+              }}
+              className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                isHookEdit
+                  ? 'bg-amber-500 text-white shadow-md'
+                  : 'text-gray-500 hover:bg-amber-50'
+              }`}
+            >
+              Editar Gancho
+              {hookZapVersions.length > 0 && (
+                <span className="ml-2 text-[9px] opacity-70">({hookZapVersions.length})</span>
+              )}
+            </button>
+          </div>
+        )}
 
         {/* ETAPA 1 — Selecionar Vídeo */}
         <div className="bg-white p-6 md:p-8 rounded-[32px] border-2 border-gray-100 shadow-sm space-y-4">
@@ -11340,6 +11962,7 @@ export default function App() {
                   <span className="absolute bottom-2 left-2 px-2 py-0.5 bg-black/70 text-white text-[9px] font-black rounded uppercase tracking-widest pointer-events-none">
                     {v.aspectRatio || '9:16'}
                   </span>
+                  <VideoDurationBadge src={v.url} />
                   {zapVideoUrl === v.url && (
                     <span className="absolute top-2 left-2 px-2 py-0.5 bg-yellow-500 text-white text-[9px] font-black rounded uppercase tracking-widest pointer-events-none">
                       ✓ Selecionado
@@ -11393,6 +12016,31 @@ export default function App() {
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {/* "Nenhuma legenda" — pula o ZapCap inteiro e cria uma
+                  versão = cópia do vídeo fonte. Útil quando o usuário quer
+                  só aplicar Cortes/Headline sem legendas queimadas. */}
+              <button
+                onClick={() => setZapTemplateId('__none__')}
+                className={cn(
+                  'relative rounded-2xl overflow-hidden border-4 transition-all bg-gradient-to-br from-gray-100 to-gray-200 aspect-[9/16] flex flex-col items-center justify-center text-center p-3',
+                  zapTemplateId === '__none__'
+                    ? 'border-yellow-500 ring-4 ring-yellow-100'
+                    : 'border-gray-200 hover:border-yellow-200'
+                )}
+              >
+                <div className="text-3xl mb-2">🚫</div>
+                <p className="text-xs font-black text-gray-700 uppercase tracking-widest">
+                  Nenhuma
+                </p>
+                <p className="text-[9px] text-gray-500 mt-1 leading-tight">
+                  Pula a legenda. Útil pra aplicar só Cortes/Headline.
+                </p>
+                {zapTemplateId === '__none__' && (
+                  <span className="absolute top-2 right-2 px-2 py-0.5 bg-yellow-500 text-white text-[9px] font-black rounded">
+                    ✓
+                  </span>
+                )}
+              </button>
               {zapCapTemplates.map((tpl: any) => (
                 <button
                   key={`zap-tpl-${tpl.id}`}
@@ -11671,62 +12319,246 @@ export default function App() {
             </p>
           </div>
 
-          {/* Paleta de cores de destaque */}
-          <div className="space-y-2">
+          {/* Cores da legenda — picker livre + presets rápidos */}
+          <div className="space-y-4 p-4 bg-gray-50 rounded-2xl">
             <label className="text-xs font-black text-gray-900 uppercase tracking-widest">
-              Paleta de Cores para Destaque de Palavras
+              Cores da Legenda
             </label>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-              {[
-                { value: 'default', label: 'Padrão do Template', colors: ['#999', '#999', '#999'] },
-                {
-                  value: 'viral_amarela',
-                  label: 'Viral Amarela',
-                  colors: ['#FFD700', '#FFFFFF', '#FFA500'],
-                },
-                {
-                  value: 'viral_vermelha',
-                  label: 'Viral Vermelha',
-                  colors: ['#FF3B30', '#FFFFFF', '#FFD700'],
-                },
-                {
-                  value: 'viral_verde',
-                  label: 'Viral Verde',
-                  colors: ['#00FF7F', '#FFFFFF', '#FFD700'],
-                },
-                {
-                  value: 'neon_vibrante',
-                  label: 'Neon Vibrante',
-                  colors: ['#FF00FF', '#00FFFF', '#FFFF00'],
-                },
-                {
-                  value: 'sutil_cinza',
-                  label: 'Sutil Cinza',
-                  colors: ['#D3D3D3', '#FFFFFF', '#A9A9A9'],
-                },
-              ].map((pal) => (
-                <button
-                  key={pal.value}
-                  onClick={() => setZapHighlightPalette(pal.value)}
-                  className={cn(
-                    'p-3 rounded-2xl border-2 transition-all text-left',
-                    zapHighlightPalette === pal.value
-                      ? 'bg-yellow-50 border-yellow-500'
-                      : 'bg-white border-gray-100 hover:border-yellow-200'
+
+            {/* Cor da fonte + borda — sempre visíveis */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="bg-white p-3 rounded-xl border-2 border-gray-100">
+                <div className="text-[10px] font-black text-gray-700 uppercase tracking-widest mb-2">
+                  Cor das letras
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={zapFontColor}
+                    onChange={(e) => setZapFontColor(e.target.value)}
+                    className="h-10 w-14 rounded-lg border-2 border-gray-200 cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={zapFontColor}
+                    onChange={(e) => setZapFontColor(e.target.value)}
+                    placeholder="#FFFFFF"
+                    className="flex-1 p-2 border-2 border-gray-200 rounded-lg text-xs font-mono focus:border-yellow-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+              <div className="bg-white p-3 rounded-xl border-2 border-gray-100">
+                <div className="text-[10px] font-black text-gray-700 uppercase tracking-widest mb-2">
+                  Cor da borda (contorno)
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={zapStrokeColor}
+                    onChange={(e) => setZapStrokeColor(e.target.value)}
+                    className="h-10 w-14 rounded-lg border-2 border-gray-200 cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={zapStrokeColor}
+                    onChange={(e) => setZapStrokeColor(e.target.value)}
+                    placeholder="#000000"
+                    className="flex-1 p-2 border-2 border-gray-200 rounded-lg text-xs font-mono focus:border-yellow-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Preview da legenda. paint-order: stroke fill garante que o
+                contorno é desenhado ATRÁS do preenchimento, evitando o
+                visual quebrado (stroke comendo o miolo da letra) que o
+                -webkit-text-stroke padrão causa em fontes finas. */}
+            <div
+              className="rounded-xl p-6 flex items-center justify-center bg-gradient-to-br from-gray-700 to-gray-900"
+              style={{ minHeight: '80px' }}
+            >
+              <span
+                className="text-3xl font-black uppercase tracking-wider"
+                style={{
+                  color: zapFontColor,
+                  WebkitTextStroke: `2px ${zapStrokeColor}`,
+                  paintOrder: 'stroke fill',
+                }}
+              >
+                EXEMPLO LEGENDA
+              </span>
+            </div>
+
+            {/* Destaque de palavras — checkbox + 3 color pickers */}
+            <div className="bg-white p-3 rounded-xl border-2 border-gray-100 space-y-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={zapUseCustomHighlight}
+                  onChange={(e) => setZapUseCustomHighlight(e.target.checked)}
+                  className="w-4 h-4 accent-yellow-500"
+                />
+                <span className="text-[11px] font-black text-gray-700 uppercase tracking-widest">
+                  Cores customizadas pra palavras em destaque
+                </span>
+              </label>
+              {zapUseCustomHighlight && (
+                <>
+                  {/* Critical dependency: these colors ONLY apply when
+                      emphasizeKeywords is ON. If it's off, ZapCap doesn't
+                      emphasize any words and the random colors silently do
+                      nothing. */}
+                  {!zapEmphasizeKeywords && (
+                    <div className="bg-red-50 border-2 border-red-300 rounded-lg p-3 space-y-1">
+                      <p className="text-[11px] text-red-900 font-black uppercase tracking-widest">
+                        ⚠ Pré-requisito desligado
+                      </p>
+                      <p className="text-[10px] text-red-800 leading-tight">
+                        As cores customizadas só aparecem quando{' '}
+                        <strong>"Destacar Palavras-Chave" está LIGADO</strong> (lá embaixo
+                        em "Ajustes"). Sem isso, o ZapCap não destaca nenhuma palavra e
+                        as cores são ignoradas.
+                      </p>
+                      <button
+                        onClick={() => setZapEmphasizeKeywords(true)}
+                        className="text-[10px] font-black text-red-700 underline hover:text-red-900 mt-1"
+                      >
+                        Ligar agora →
+                      </button>
+                    </div>
                   )}
-                >
-                  <div className="flex gap-1 mb-2">
-                    {pal.colors.map((c, i) => (
-                      <div
-                        key={i}
-                        className="w-6 h-6 rounded-full border border-gray-200"
-                        style={{ backgroundColor: c }}
-                      />
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 space-y-1">
+                    <p className="text-[10px] text-amber-900 leading-tight">
+                      <strong>O ZapCap expõe só 3 cores</strong> ({'randomColour 1/2/3'}) e
+                      cada template usa elas de um jeito.
+                    </p>
+                    <p className="text-[10px] text-amber-800 leading-tight">
+                      Em templates como o <strong>Viktor</strong>, a cor 1 costuma virar o
+                      fundo da palavra falada e a cor 2 a letra por dentro. Em outros
+                      templates as 3 cores são rotacionadas aleatoriamente. Teste mudando
+                      uma de cada vez pra mapear o seu template.
+                    </p>
+                    <p className="text-[10px] text-amber-800 leading-tight">
+                      Alguns templates simples (sem destaque embutido) podem ignorar essas
+                      cores — se nada mudar, tente outro template.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      {
+                        v: zapHl1,
+                        set: setZapHl1,
+                        label: 'Cor 1',
+                        hint: 'Fundo da palavra (Viktor)',
+                      },
+                      {
+                        v: zapHl2,
+                        set: setZapHl2,
+                        label: 'Cor 2',
+                        hint: 'Letras por dentro (Viktor)',
+                      },
+                      { v: zapHl3, set: setZapHl3, label: 'Cor 3', hint: 'Acento extra' },
+                    ].map((hl, i) => (
+                      <div key={i}>
+                        <div
+                          className="text-[9px] font-black text-gray-600 uppercase tracking-widest mb-1"
+                          title={hl.hint}
+                        >
+                          {hl.label}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="color"
+                            value={hl.v}
+                            onChange={(e) => hl.set(e.target.value)}
+                            className="h-9 w-12 rounded-lg border-2 border-gray-200 cursor-pointer"
+                          />
+                          <input
+                            type="text"
+                            value={hl.v}
+                            onChange={(e) => hl.set(e.target.value)}
+                            className="flex-1 p-1.5 border-2 border-gray-200 rounded-lg text-[10px] font-mono focus:border-yellow-500 focus:outline-none min-w-0"
+                          />
+                        </div>
+                        <p className="text-[8px] text-gray-400 mt-1 leading-tight">
+                          {hl.hint}
+                        </p>
+                      </div>
                     ))}
                   </div>
-                  <p className="text-xs font-black text-gray-900">{pal.label}</p>
-                </button>
-              ))}
+                </>
+              )}
+            </div>
+
+            {/* Presets rápidos — preenchem font + stroke + highlights de uma vez */}
+            <div>
+              <div className="text-[10px] font-black text-gray-600 uppercase tracking-widest mb-2">
+                Presets rápidos (clica pra preencher tudo)
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {[
+                  {
+                    label: '🎯 Viral Amarela',
+                    font: '#FFFFFF',
+                    stroke: '#000000',
+                    hl: ['#FFD700', '#FFFFFF', '#FFA500'],
+                  },
+                  {
+                    label: '🔥 Viral Vermelha',
+                    font: '#FFFFFF',
+                    stroke: '#000000',
+                    hl: ['#FF3B30', '#FFFFFF', '#FFD700'],
+                  },
+                  {
+                    label: '💚 Viral Verde',
+                    font: '#FFFFFF',
+                    stroke: '#000000',
+                    hl: ['#00FF7F', '#FFFFFF', '#FFD700'],
+                  },
+                  {
+                    label: '⚡ Neon Vibrante',
+                    font: '#FFFFFF',
+                    stroke: '#000000',
+                    hl: ['#FF00FF', '#00FFFF', '#FFFF00'],
+                  },
+                  {
+                    label: '⚪ Clássico',
+                    font: '#FFFFFF',
+                    stroke: '#000000',
+                    hl: ['#FFFFFF', '#FFD700', '#FFFFFF'],
+                  },
+                  {
+                    label: '🌫 Sutil Cinza',
+                    font: '#FFFFFF',
+                    stroke: '#444444',
+                    hl: ['#D3D3D3', '#FFFFFF', '#A9A9A9'],
+                  },
+                ].map((p, i) => (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      setZapFontColor(p.font);
+                      setZapStrokeColor(p.stroke);
+                      setZapHl1(p.hl[0]);
+                      setZapHl2(p.hl[1]);
+                      setZapHl3(p.hl[2]);
+                      setZapUseCustomHighlight(true);
+                    }}
+                    className="p-2 rounded-xl border-2 border-gray-200 hover:border-yellow-300 bg-white text-left transition-all"
+                  >
+                    <div className="flex gap-1 mb-1">
+                      {p.hl.map((c, j) => (
+                        <div
+                          key={j}
+                          className="w-4 h-4 rounded-full border border-gray-200"
+                          style={{ backgroundColor: c }}
+                        />
+                      ))}
+                    </div>
+                    <p className="text-[10px] font-black text-gray-900">{p.label}</p>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -11799,15 +12631,15 @@ export default function App() {
           </div>
         )}
 
-        {/* GALERIA DE VERSÕES */}
-        {isCompleted && (zapState.versions || []).length > 0 && (
+        {/* GALERIA DE VERSÕES — body or hook depending on the toggle */}
+        {activeZapVersions.length > 0 && (
           <div className="space-y-4 pt-8">
             <h4 className="text-xl font-black text-gray-900 uppercase italic">
-              Galeria de Versões
+              Galeria de Versões {isHookEdit ? '(Gancho)' : '(Corpo)'}
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Original */}
-              {zapState.originalVideoUrl && (
+              {/* Original (only meaningful for the body side right now) */}
+              {!isHookEdit && zapState.originalVideoUrl && (
                 <div className="space-y-3">
                   <div className="relative bg-black rounded-[28px] overflow-hidden border-4 border-gray-100 aspect-[9/16]">
                     <video
@@ -11817,9 +12649,6 @@ export default function App() {
                       }
                       className="w-full h-full object-contain"
                       controls
-                      // Only ask for CORS when the host actually sends the
-                      // headers (Google's API does, HeyGen/Firebase/ZapCap
-                      // CDN don't). Forcing it broke video playback.
                       crossOrigin={
                         zapState.originalVideoUrl?.includes('generativelanguage.googleapis.com')
                           ? ('anonymous' as const)
@@ -11829,13 +12658,19 @@ export default function App() {
                     <div className="absolute top-3 left-3 bg-gray-900 text-white text-[9px] font-black px-2 py-1 rounded uppercase tracking-widest">
                       Original
                     </div>
+                    <VideoDurationBadge src={zapState.originalVideoUrl} />
                   </div>
                 </div>
               )}
-              {/* Versions */}
-              {(zapState.versions || []).map((vUrl, idx) => (
+              {activeZapVersions.map((vUrl, idx) => (
                 <div key={`zap-v-${idx}-${vUrl}`} className="space-y-3">
-                  <div className="relative bg-black rounded-[28px] overflow-hidden border-4 border-yellow-200 ring-4 ring-yellow-50 aspect-[9/16]">
+                  <div
+                    className={`relative bg-black rounded-[28px] overflow-hidden border-4 ring-4 aspect-[9/16] ${
+                      isHookEdit
+                        ? 'border-amber-200 ring-amber-50'
+                        : 'border-yellow-200 ring-yellow-50'
+                    }`}
+                  >
                     <video
                       src={getAuthorizedUrl(vUrl, platformApiKey || undefined) || undefined}
                       className="w-full h-full object-contain"
@@ -11846,19 +12681,44 @@ export default function App() {
                           : undefined
                       }
                     />
-                    <div className="absolute top-3 left-3 bg-yellow-500 text-white text-[9px] font-black px-2 py-1 rounded uppercase tracking-widest">
-                      Versão {idx + 1}
+                    <div
+                      className={`absolute top-3 left-3 text-white text-[9px] font-black px-2 py-1 rounded uppercase tracking-widest ${
+                        isHookEdit ? 'bg-amber-500' : 'bg-yellow-500'
+                      }`}
+                    >
+                      {isHookEdit ? 'Gancho' : 'Versão'} {idx + 1}
                     </div>
+                    <VideoDurationBadge src={vUrl} />
                   </div>
                   <div className="flex gap-2">
                     <a
                       href={vUrl}
-                      download={`video_zap_v${idx + 1}.mp4`}
+                      download={`video_zap_${isHookEdit ? 'hook' : 'body'}_v${idx + 1}.mp4`}
                       className="flex-1 py-2 bg-gray-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black flex items-center justify-center gap-2"
                     >
                       <Download size={12} />
                       Baixar
                     </a>
+                    <button
+                      onClick={() => {
+                        setIntercutSourceUrl(vUrl);
+                      }}
+                      className="px-3 py-2 bg-purple-50 text-purple-700 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-purple-100 flex items-center justify-center gap-1"
+                      title="Inserir cortes pretos com texto entre trechos do avatar"
+                    >
+                      ✂ Cortes
+                    </button>
+                    {isHookEdit && (
+                      <button
+                        onClick={() => {
+                          setHeadlineSourceUrl(vUrl);
+                        }}
+                        className="px-3 py-2 bg-pink-50 text-pink-700 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-pink-100 flex items-center justify-center gap-1"
+                        title="Adicionar headline colorida no topo (estilo anúncio Meta)"
+                      >
+                        📰 Headline
+                      </button>
+                    )}
                     <button
                       onClick={() => {
                         if (
@@ -11867,24 +12727,27 @@ export default function App() {
                           )
                         )
                           return;
-                        // Remove from local zapState.versions...
-                        setZapState((prev) => ({
-                          ...prev,
-                          versions: (prev.versions || []).filter((u) => u !== vUrl),
-                          finalVideoUrl:
-                            prev.finalVideoUrl === vUrl ? undefined : prev.finalVideoUrl,
-                        }));
-                        // ...and from the persisted config so the auto-save
-                        // doesn't restore it on next reload.
-                        setConfig((prev) => ({
-                          ...prev,
-                          edit: {
-                            ...prev.edit,
-                            zapVersions: (
-                              ((prev.edit as any).zapVersions as string[] | undefined) || []
-                            ).filter((u) => u !== vUrl),
-                          },
-                        }));
+                        // Body mode also updates the transient zapState.versions
+                        // (gallery state). Hook mode reads straight from config.
+                        if (!isHookEdit) {
+                          setZapState((prev) => ({
+                            ...prev,
+                            versions: (prev.versions || []).filter((u) => u !== vUrl),
+                            finalVideoUrl:
+                              prev.finalVideoUrl === vUrl ? undefined : prev.finalVideoUrl,
+                          }));
+                        }
+                        setConfig((prev) => {
+                          const key = isHookEdit ? 'zapHookVersions' : 'zapVersions';
+                          const current = ((prev.edit as any)[key] as string[] | undefined) || [];
+                          return {
+                            ...prev,
+                            edit: {
+                              ...prev.edit,
+                              [key]: current.filter((u) => u !== vUrl),
+                            },
+                          };
+                        });
                         toast.success(`Versão ${idx + 1} excluída.`);
                       }}
                       className="px-3 py-2 bg-red-50 text-red-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-100 flex items-center justify-center gap-1"
@@ -11895,6 +12758,1075 @@ export default function App() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* JUNTAR Gancho + Corpo — picker livre (escondido se o projeto
+            não usa gancho). Defaults para a última versão de cada lado,
+            mas qualquer combinação é permitida. */}
+        {useHookFlow && hookZapVersions.length > 0 && bodyZapVersions.length > 0 && (() => {
+          const effectiveHookUrl =
+            selectedJoinHookUrl && hookZapVersions.includes(selectedJoinHookUrl)
+              ? selectedJoinHookUrl
+              : hookZapVersions[hookZapVersions.length - 1];
+          const effectiveBodyUrl =
+            selectedJoinBodyUrl && bodyZapVersions.includes(selectedJoinBodyUrl)
+              ? selectedJoinBodyUrl
+              : bodyZapVersions[bodyZapVersions.length - 1];
+
+          return (
+            <div className="bg-gradient-to-br from-amber-50 to-yellow-50 p-8 rounded-[40px] border-4 border-amber-200 shadow-xl space-y-5 mt-8">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-white">
+                  <Layers size={22} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-gray-900 uppercase italic">
+                    Juntar Gancho + Corpo
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    Escolha qualquer versão do gancho e qualquer versão do corpo. O
+                    resultado vai pra galeria "Vídeos Completos" abaixo.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Hook picker */}
+                <div className="bg-white p-4 rounded-2xl border-2 border-amber-100 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">
+                      Gancho (1º)
+                    </span>
+                    <span className="text-[10px] text-gray-400 font-bold">
+                      {hookZapVersions.length}{' '}
+                      {hookZapVersions.length === 1 ? 'versão' : 'versões'}
+                    </span>
+                  </div>
+                  <select
+                    value={effectiveHookUrl}
+                    onChange={(e) => setSelectedJoinHookUrl(e.target.value)}
+                    className="w-full p-2 border-2 border-gray-200 rounded-xl text-xs focus:border-amber-500 focus:outline-none"
+                  >
+                    {hookZapVersions.map((url, i) => (
+                      <option key={url} value={url}>
+                        Gancho {i + 1}
+                        {i === hookZapVersions.length - 1 ? ' (mais recente)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="relative bg-black rounded-xl overflow-hidden aspect-[9/16] max-h-48 mx-auto">
+                    <video
+                      src={
+                        getAuthorizedUrl(effectiveHookUrl, platformApiKey || undefined) ||
+                        undefined
+                      }
+                      className="w-full h-full object-contain"
+                      controls
+                      muted
+                    />
+                    <VideoDurationBadge src={effectiveHookUrl} />
+                  </div>
+                </div>
+
+                {/* Body picker */}
+                <div className="bg-white p-4 rounded-2xl border-2 border-yellow-100 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black text-yellow-600 uppercase tracking-widest">
+                      Corpo (2º)
+                    </span>
+                    <span className="text-[10px] text-gray-400 font-bold">
+                      {bodyZapVersions.length}{' '}
+                      {bodyZapVersions.length === 1 ? 'versão' : 'versões'}
+                    </span>
+                  </div>
+                  <select
+                    value={effectiveBodyUrl}
+                    onChange={(e) => setSelectedJoinBodyUrl(e.target.value)}
+                    className="w-full p-2 border-2 border-gray-200 rounded-xl text-xs focus:border-yellow-500 focus:outline-none"
+                  >
+                    {bodyZapVersions.map((url, i) => (
+                      <option key={url} value={url}>
+                        Versão {i + 1}
+                        {i === bodyZapVersions.length - 1 ? ' (mais recente)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="relative bg-black rounded-xl overflow-hidden aspect-[9/16] max-h-48 mx-auto">
+                    <video
+                      src={
+                        getAuthorizedUrl(effectiveBodyUrl, platformApiKey || undefined) ||
+                        undefined
+                      }
+                      className="w-full h-full object-contain"
+                      controls
+                      muted
+                    />
+                    <VideoDurationBadge src={effectiveBodyUrl} />
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={async () => {
+                  if (!user?.uid) {
+                    toast.error('Faça login antes de juntar.');
+                    return;
+                  }
+                  setJoinRendering(true);
+                  const toastId = 'join-render';
+                  toast.loading('Juntando gancho + corpo...', { id: toastId, duration: 60000 });
+                  try {
+                    const res = await fetch('/api/video/concat', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        videos: [effectiveHookUrl, effectiveBodyUrl],
+                        userId: user.uid,
+                      }),
+                    });
+                    const json = await res.json();
+                    if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
+                    // Persist into the dedicated "joined" array — visible in
+                    // both Body and Hook modes so the user always sees it.
+                    setConfig((prev) => {
+                      const current =
+                        ((prev.edit as any).zapJoinedVersions as string[] | undefined) || [];
+                      return {
+                        ...prev,
+                        edit: {
+                          ...prev.edit,
+                          zapJoinedVersions: [...current, json.url],
+                        },
+                      };
+                    });
+                    toast.success('Vídeo completo (gancho + corpo) criado!', {
+                      id: toastId,
+                      duration: 5000,
+                    });
+                  } catch (err: any) {
+                    toast.error(`Falha ao juntar: ${err.message}`, {
+                      id: toastId,
+                      duration: 6000,
+                    });
+                  } finally {
+                    setJoinRendering(false);
+                  }
+                }}
+                disabled={joinRendering}
+                className="w-full py-4 bg-amber-600 text-white rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-amber-700 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {joinRendering ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Juntando...
+                  </>
+                ) : (
+                  <>
+                    <Layers size={16} />
+                    Juntar agora (gancho → corpo)
+                  </>
+                )}
+              </button>
+            </div>
+          );
+        })()}
+
+        {/* Galeria compartilhada de vídeos completos (gancho+corpo). Sempre
+            visível, em qualquer modo, porque o "juntado" não pertence a
+            nenhum dos dois lados isoladamente. */}
+        {useHookFlow && (() => {
+          const joined =
+            ((config.edit as any)?.zapJoinedVersions as string[] | undefined) || [];
+          if (joined.length === 0) return null;
+          return (
+            <div className="space-y-4 pt-8">
+              <h4 className="text-xl font-black text-gray-900 uppercase italic flex items-center gap-2">
+                <Layers size={20} className="text-amber-500" />
+                Vídeos Completos (Gancho + Corpo)
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {joined.map((vUrl, idx) => (
+                  <div key={`zap-joined-${idx}-${vUrl}`} className="space-y-3">
+                    <div className="relative bg-black rounded-[28px] overflow-hidden border-4 border-amber-300 ring-4 ring-amber-50 aspect-[9/16]">
+                      <video
+                        src={getAuthorizedUrl(vUrl, platformApiKey || undefined) || undefined}
+                        className="w-full h-full object-contain"
+                        controls
+                        crossOrigin={
+                          vUrl?.includes('generativelanguage.googleapis.com')
+                            ? ('anonymous' as const)
+                            : undefined
+                        }
+                      />
+                      <div className="absolute top-3 left-3 bg-amber-600 text-white text-[9px] font-black px-2 py-1 rounded uppercase tracking-widest">
+                        Completo {idx + 1}
+                      </div>
+                      <VideoDurationBadge src={vUrl} />
+                    </div>
+                    <div className="flex gap-2">
+                      <a
+                        href={vUrl}
+                        download={`video_completo_${idx + 1}.mp4`}
+                        className="flex-1 py-2 bg-gray-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black flex items-center justify-center gap-2"
+                      >
+                        <Download size={12} />
+                        Baixar
+                      </a>
+                      <button
+                        onClick={() => {
+                          if (
+                            !window.confirm(
+                              `Excluir Vídeo Completo ${idx + 1}? Esta ação não pode ser desfeita.`
+                            )
+                          )
+                            return;
+                          setConfig((prev) => {
+                            const current =
+                              ((prev.edit as any).zapJoinedVersions as string[] | undefined) ||
+                              [];
+                            return {
+                              ...prev,
+                              edit: {
+                                ...prev.edit,
+                                zapJoinedVersions: current.filter((u) => u !== vUrl),
+                              },
+                            };
+                          });
+                          toast.success(`Vídeo Completo ${idx + 1} excluído.`);
+                        }}
+                        className="px-3 py-2 bg-red-50 text-red-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-100 flex items-center justify-center gap-1"
+                        title="Excluir este vídeo completo"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+
+        {intercutSourceUrl && (
+          <div
+            className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+            onClick={() => !intercutRendering && setIntercutSourceUrl(null)}
+          >
+            <div
+              className="bg-white rounded-[28px] max-w-2xl w-full max-h-[90vh] overflow-y-auto p-8 space-y-6 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="space-y-2">
+                <h3 className="text-2xl font-black text-gray-900 uppercase italic">
+                  ✂ Cortes pretos com texto
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Alterna entre o avatar e tela preta com texto grande. O áudio continua tocando
+                  durante a tela preta — só a imagem muda.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[11px] font-black uppercase tracking-widest text-gray-700">
+                    Duração do avatar entre cortes:{' '}
+                    <span className="text-purple-700">{intercutAvatarSec}s</span>
+                  </label>
+                  <input
+                    type="range"
+                    min={5}
+                    max={60}
+                    step={1}
+                    value={intercutAvatarSec}
+                    onChange={(e) => setIntercutAvatarSec(parseInt(e.target.value))}
+                    className="w-full accent-purple-600"
+                    disabled={intercutRendering}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-black uppercase tracking-widest text-gray-700">
+                    Duração da tela preta:{' '}
+                    <span className="text-purple-700">{intercutBlackSec}s</span>
+                  </label>
+                  <input
+                    type="range"
+                    min={3}
+                    max={60}
+                    step={1}
+                    value={intercutBlackSec}
+                    onChange={(e) => setIntercutBlackSec(parseInt(e.target.value))}
+                    className="w-full accent-purple-600"
+                    disabled={intercutRendering}
+                  />
+                  <p className="text-[10px] text-gray-500 mt-1">
+                    Pode ir até 60s por corte se quiser segurar o texto na tela.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-black uppercase tracking-widest text-gray-700">
+                    Tamanho da fonte:{' '}
+                    <span className="text-purple-700">{intercutFontSize}px</span>
+                  </label>
+                  <input
+                    type="range"
+                    min={28}
+                    max={120}
+                    step={2}
+                    value={intercutFontSize}
+                    onChange={(e) => setIntercutFontSize(parseInt(e.target.value))}
+                    className="w-full accent-purple-600"
+                    disabled={intercutRendering}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-black uppercase tracking-widest text-gray-700">
+                    Textos das telas pretas
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIntercutTexts((prev) => [...prev, ''])}
+                    className="text-[10px] font-black uppercase tracking-widest text-purple-700 hover:text-purple-900"
+                    disabled={intercutRendering}
+                  >
+                    + Adicionar
+                  </button>
+                </div>
+                <p className="text-[10px] text-gray-500 -mt-2">
+                  Se houver mais cortes que textos, eles são reutilizados em ciclo.
+                </p>
+                {intercutTexts.map((t, i) => (
+                  <div key={`intercut-text-${i}`} className="flex gap-2">
+                    <textarea
+                      value={t}
+                      onChange={(e) => {
+                        const next = [...intercutTexts];
+                        next[i] = e.target.value;
+                        setIntercutTexts(next);
+                      }}
+                      placeholder={`Texto ${i + 1} (ex.: "ESSA IA TRANSCREVE EM 30 SEGUNDOS")`}
+                      rows={2}
+                      className="flex-1 p-3 border-2 border-gray-200 rounded-xl text-sm focus:border-purple-500 focus:outline-none resize-none"
+                      disabled={intercutRendering}
+                    />
+                    {intercutTexts.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setIntercutTexts((prev) => prev.filter((_, j) => j !== i))
+                        }
+                        className="px-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-100"
+                        disabled={intercutRendering}
+                        title="Remover este texto"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setIntercutSourceUrl(null)}
+                  disabled={intercutRendering}
+                  className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-gray-200 disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleRenderIntercut}
+                  disabled={intercutRendering}
+                  className="flex-1 py-3 bg-purple-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-purple-700 disabled:opacity-50"
+                >
+                  {intercutRendering ? 'Gerando...' : 'Gerar com cortes pretos'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {headlineSourceUrl && (
+          <div
+            className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+            onClick={() => !headlineRendering && setHeadlineSourceUrl(null)}
+          >
+            <div
+              className="bg-white rounded-[28px] max-w-2xl w-full max-h-[90vh] overflow-y-auto p-8 space-y-6 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="space-y-2">
+                <h3 className="text-2xl font-black text-gray-900 uppercase italic">
+                  📰 Headline no topo do vídeo
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Adiciona uma barra colorida com texto no topo do gancho —
+                  estilo anúncio do Meta. Cria uma nova versão; o original fica
+                  intacto.
+                </p>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-black uppercase tracking-widest text-gray-700">
+                  Texto da headline
+                </label>
+                <input
+                  type="text"
+                  value={headlineText}
+                  onChange={(e) => setHeadlineText(e.target.value)}
+                  placeholder='Ex.: "ÚLTIMAS VAGAS — 50% OFF HOJE"'
+                  className="w-full p-3 border-2 border-gray-200 rounded-xl text-sm focus:border-pink-500 focus:outline-none"
+                  disabled={headlineRendering}
+                  maxLength={140}
+                />
+                <p className="text-[10px] text-gray-500 mt-1">
+                  {headlineText.length}/140 caracteres. Use os chips abaixo pra colorir
+                  palavras individuais.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[11px] font-black uppercase tracking-widest text-gray-700">
+                    Cor do fundo
+                  </label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <input
+                      type="color"
+                      value={headlineBgColor}
+                      onChange={(e) => setHeadlineBgColor(e.target.value)}
+                      disabled={headlineRendering}
+                      className="h-12 w-16 rounded-xl border-2 border-gray-200 cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      value={headlineBgColor}
+                      onChange={(e) => setHeadlineBgColor(e.target.value)}
+                      disabled={headlineRendering}
+                      className="flex-1 p-3 border-2 border-gray-200 rounded-xl text-xs font-mono focus:border-pink-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[11px] font-black uppercase tracking-widest text-gray-700">
+                    Cor das letras (padrão)
+                  </label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <input
+                      type="color"
+                      value={headlineTextColor}
+                      onChange={(e) => setHeadlineTextColor(e.target.value)}
+                      disabled={headlineRendering}
+                      className="h-12 w-16 rounded-xl border-2 border-gray-200 cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      value={headlineTextColor}
+                      onChange={(e) => setHeadlineTextColor(e.target.value)}
+                      disabled={headlineRendering}
+                      className="flex-1 p-3 border-2 border-gray-200 rounded-xl text-xs font-mono focus:border-pink-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Stroke (contorno) — opcional */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[11px] font-black uppercase tracking-widest text-gray-700">
+                    Cor da borda
+                  </label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <input
+                      type="color"
+                      value={headlineStrokeColor}
+                      onChange={(e) => setHeadlineStrokeColor(e.target.value)}
+                      disabled={headlineRendering}
+                      className="h-12 w-16 rounded-xl border-2 border-gray-200 cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      value={headlineStrokeColor}
+                      onChange={(e) => setHeadlineStrokeColor(e.target.value)}
+                      disabled={headlineRendering}
+                      className="flex-1 p-3 border-2 border-gray-200 rounded-xl text-xs font-mono focus:border-pink-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[11px] font-black uppercase tracking-widest text-gray-700">
+                    Espessura da borda:{' '}
+                    <span className="text-pink-700">
+                      {headlineStrokeWidth === 0 ? 'sem borda' : `${headlineStrokeWidth}px`}
+                    </span>
+                  </label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={6}
+                    step={1}
+                    value={headlineStrokeWidth}
+                    onChange={(e) => setHeadlineStrokeWidth(parseInt(e.target.value))}
+                    disabled={headlineRendering}
+                    className="w-full accent-pink-600 mt-3"
+                  />
+                </div>
+              </div>
+
+              {/* Paletas: 3 cores de letra + 3 cores de fundo */}
+              <div className="bg-gray-50 p-3 rounded-xl border-2 border-gray-100 space-y-3">
+                <div>
+                  <label className="text-[11px] font-black uppercase tracking-widest text-gray-700">
+                    Paleta — cor das letras (palavras destacadas)
+                  </label>
+                  <div className="grid grid-cols-3 gap-2 mt-2">
+                    {[
+                      { v: headlineHl1, set: setHeadlineHl1, label: 'Letra 1' },
+                      { v: headlineHl2, set: setHeadlineHl2, label: 'Letra 2' },
+                      { v: headlineHl3, set: setHeadlineHl3, label: 'Letra 3' },
+                    ].map((hl, i) => (
+                      <div key={i}>
+                        <div className="text-[9px] font-black text-gray-600 uppercase tracking-widest mb-1">
+                          {hl.label}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="color"
+                            value={hl.v}
+                            onChange={(e) => hl.set(e.target.value)}
+                            disabled={headlineRendering}
+                            className="h-9 w-12 rounded-lg border-2 border-gray-200 cursor-pointer"
+                          />
+                          <input
+                            type="text"
+                            value={hl.v}
+                            onChange={(e) => hl.set(e.target.value)}
+                            disabled={headlineRendering}
+                            className="flex-1 p-1.5 border-2 border-gray-200 rounded-lg text-[10px] font-mono focus:border-pink-500 focus:outline-none min-w-0"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[11px] font-black uppercase tracking-widest text-gray-700">
+                    Paleta — cor de fundo (palavras destacadas)
+                  </label>
+                  <div className="grid grid-cols-3 gap-2 mt-2">
+                    {[
+                      { v: headlineBgHl1, set: setHeadlineBgHl1, label: 'Fundo 1' },
+                      { v: headlineBgHl2, set: setHeadlineBgHl2, label: 'Fundo 2' },
+                      { v: headlineBgHl3, set: setHeadlineBgHl3, label: 'Fundo 3' },
+                    ].map((hl, i) => (
+                      <div key={i}>
+                        <div className="text-[9px] font-black text-gray-600 uppercase tracking-widest mb-1">
+                          {hl.label}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="color"
+                            value={hl.v}
+                            onChange={(e) => hl.set(e.target.value)}
+                            disabled={headlineRendering}
+                            className="h-9 w-12 rounded-lg border-2 border-gray-200 cursor-pointer"
+                          />
+                          <input
+                            type="text"
+                            value={hl.v}
+                            onChange={(e) => hl.set(e.target.value)}
+                            disabled={headlineRendering}
+                            className="flex-1 p-1.5 border-2 border-gray-200 rounded-lg text-[10px] font-mono focus:border-pink-500 focus:outline-none min-w-0"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Live preview of the bar styling. Uses the SOURCE video's
+                  actual dimensions (loaded via the hidden metadata <video>
+                  in headlineSourceDims) to scale font + bar proportionally
+                  to a fixed preview width, so what the user sees here
+                  matches what FFmpeg outputs. Positioned right above the
+                  word picker so the user sees the live result while
+                  customizing per-word colors. */}
+              {(() => {
+                const previewWidth = 480; // CSS px allocated to preview
+                const videoW = headlineSourceDims?.width || 1080;
+                const videoH = headlineSourceDims?.height || 1920;
+                const scale = previewWidth / videoW;
+                const previewBarH = Math.round(videoH * (headlineBarHeightPct / 100) * scale);
+                const previewFontPx = Math.round(headlineFontSize * scale);
+                // ASS uses Arial; mirror in CSS so wrapping behaves similarly.
+                const previewStroke =
+                  headlineStrokeWidth > 0
+                    ? `${Math.max(1, headlineStrokeWidth * scale)}px ${headlineStrokeColor}`
+                    : undefined;
+
+                const renderPreview = (
+                  t: string,
+                  ws: Array<{ tc: number; bg: number }>,
+                  barBg: string
+                ) => {
+                  const words = t.split(/\s+/).filter(Boolean);
+                  const tcMap = [
+                    headlineTextColor,
+                    headlineHl1,
+                    headlineHl2,
+                    headlineHl3,
+                  ];
+                  const bgMap = ['', headlineBgHl1, headlineBgHl2, headlineBgHl3];
+                  return (
+                    <div
+                      className="mt-1 flex items-center justify-center rounded-xl border-2 border-gray-200 overflow-hidden mx-auto"
+                      style={{
+                        backgroundColor: barBg,
+                        color: headlineTextColor,
+                        width: `${previewWidth}px`,
+                        height: `${Math.max(20, previewBarH)}px`,
+                        maxWidth: '100%',
+                      }}
+                    >
+                      <span
+                        className="font-black text-center leading-tight"
+                        style={{
+                          fontFamily: 'Arial, sans-serif',
+                          fontSize: `${previewFontPx}px`,
+                          WebkitTextStroke: previewStroke,
+                          paintOrder: 'stroke fill',
+                          padding: `0 ${Math.round(40 * scale)}px`,
+                          wordBreak: 'normal',
+                        }}
+                      >
+                        {words.map((w, i) => {
+                          const wst = ws[i] || { tc: 0, bg: 0 };
+                          const color = tcMap[wst.tc] || headlineTextColor;
+                          const bg = bgMap[wst.bg] || 'transparent';
+                          return (
+                            <span key={`prev-${i}`}>
+                              <span
+                                style={{
+                                  color,
+                                  backgroundColor: bg,
+                                  padding: wst.bg > 0 ? '0 0.12em' : 0,
+                                }}
+                              >
+                                {w}
+                              </span>
+                              {i < words.length - 1 ? ' ' : ''}
+                            </span>
+                          );
+                        })}
+                      </span>
+                    </div>
+                  );
+                };
+
+                return (
+                  <div>
+                    <label className="text-[11px] font-black uppercase tracking-widest text-gray-700">
+                      Pré-visualização da barra
+                      {headlineSourceDims && (
+                        <span className="ml-2 text-[9px] text-gray-400 normal-case font-normal">
+                          (escala real do vídeo: {videoW}×{videoH})
+                        </span>
+                      )}
+                    </label>
+                    {renderPreview(
+                      headlineText || 'SUA HEADLINE AQUI',
+                      headlineWordStyles,
+                      headlineBgColor
+                    )}
+                    {headline2Enabled && headline2Text.trim() && (
+                      <>
+                        <p className="text-[10px] text-gray-500 mt-3 mb-1">
+                          ↓ 2ª headline (substitui a 1ª na hora certa)
+                        </p>
+                        {renderPreview(
+                          headline2Text,
+                          headline2WordStyles,
+                          headline2BgColor
+                        )}
+                      </>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Word-by-word picker: each chip has 2 cycle buttons (L/F)
+                  that step through the palette (none → 1 → 2 → 3 → none). */}
+              {(() => {
+                const words = headlineText.split(/\s+/).filter(Boolean);
+                if (words.length === 0) {
+                  return (
+                    <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl p-4 text-center">
+                      <p className="text-xs text-gray-500">
+                        Digite o texto acima pra escolher as cores de cada palavra.
+                      </p>
+                    </div>
+                  );
+                }
+                const textColorMap = [
+                  headlineTextColor,
+                  headlineHl1,
+                  headlineHl2,
+                  headlineHl3,
+                ];
+                const bgColorMap = ['', headlineBgHl1, headlineBgHl2, headlineBgHl3];
+                return (
+                  <div className="bg-gray-50 p-3 rounded-xl border-2 border-gray-100 space-y-2">
+                    <label className="text-[11px] font-black uppercase tracking-widest text-gray-700">
+                      Personalizar palavras (clique nos botões L=Letra / F=Fundo)
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {words.map((w, i) => {
+                        const ws = headlineWordStyles[i] || { tc: 0, bg: 0 };
+                        const tcColor = textColorMap[ws.tc] || headlineTextColor;
+                        const bgC = bgColorMap[ws.bg] || '';
+                        const cycle = (
+                          field: 'tc' | 'bg'
+                        ): void => {
+                          setHeadlineWordStyles((prev) => {
+                            const next = words.map(
+                              (_, j) => prev[j] || { tc: 0, bg: 0 }
+                            );
+                            const cur = next[i] || { tc: 0, bg: 0 };
+                            next[i] = {
+                              ...cur,
+                              [field]: ((cur[field] || 0) + 1) % 4,
+                            };
+                            return next;
+                          });
+                        };
+                        return (
+                          <div
+                            key={`word-${i}-${w}`}
+                            className="flex flex-col items-center gap-1 p-2 rounded-lg border-2 border-gray-100"
+                            style={{ backgroundColor: headlineBgColor }}
+                          >
+                            <span
+                              className="text-xs font-black px-2 py-1 rounded"
+                              style={{
+                                color: tcColor,
+                                backgroundColor: bgC || 'transparent',
+                              }}
+                            >
+                              {w}
+                            </span>
+                            <div className="flex gap-1">
+                              <button
+                                onClick={() => cycle('tc')}
+                                title={`Letra: ${ws.tc === 0 ? 'padrão' : `cor ${ws.tc}`}`}
+                                className="flex items-center gap-1 px-2 py-0.5 rounded bg-white/90 hover:bg-white text-[9px] font-black text-gray-700"
+                              >
+                                L
+                                <span
+                                  className="w-2 h-2 rounded-full border border-gray-300"
+                                  style={{ backgroundColor: tcColor }}
+                                />
+                                <span className="text-gray-400">{ws.tc}</span>
+                              </button>
+                              <button
+                                onClick={() => cycle('bg')}
+                                title={`Fundo: ${ws.bg === 0 ? 'nenhum' : `cor ${ws.bg}`}`}
+                                className="flex items-center gap-1 px-2 py-0.5 rounded bg-white/90 hover:bg-white text-[9px] font-black text-gray-700"
+                              >
+                                F
+                                <span
+                                  className="w-2 h-2 rounded-full border border-gray-300"
+                                  style={{
+                                    backgroundColor: bgC || 'transparent',
+                                  }}
+                                />
+                                <span className="text-gray-400">{ws.bg}</span>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <button
+                      onClick={() => setHeadlineWordStyles([])}
+                      disabled={headlineRendering}
+                      className="text-[10px] font-black text-gray-500 hover:text-gray-700 underline"
+                    >
+                      Limpar todas as cores
+                    </button>
+                  </div>
+                );
+              })()}
+
+              {/* Optional second headline — appears after switching at
+                  switchPct % of the video duration. Inherits the global
+                  palette / stroke / font size; only the text, bar bg color
+                  and word styles are configured separately. */}
+              <div className="border-t-2 border-gray-100 pt-4 space-y-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={headline2Enabled}
+                    onChange={(e) => setHeadline2Enabled(e.target.checked)}
+                    disabled={headlineRendering}
+                    className="w-4 h-4 accent-pink-500"
+                  />
+                  <span className="text-[11px] font-black text-gray-700 uppercase tracking-widest">
+                    ➕ Adicionar segunda headline
+                  </span>
+                </label>
+                <p className="text-[10px] text-gray-500 -mt-1 ml-6">
+                  A 1ª aparece no início, a 2ª substitui no ponto que você
+                  escolher. Ambas usam a mesma paleta e borda.
+                </p>
+
+                {headline2Enabled && (
+                  <div className="space-y-3 ml-6 pl-4 border-l-4 border-pink-100">
+                    {/* Auto-sync: backend transcribes audio + matches each
+                        headline text to the avatar's speech timestamps. */}
+                    <label className="flex items-start gap-2 cursor-pointer p-2 bg-blue-50 border-2 border-blue-200 rounded-lg">
+                      <input
+                        type="checkbox"
+                        checked={headlineAutoTime}
+                        onChange={(e) => setHeadlineAutoTime(e.target.checked)}
+                        disabled={headlineRendering}
+                        className="w-4 h-4 accent-blue-500 mt-0.5"
+                      />
+                      <div className="flex-1">
+                        <span className="text-[11px] font-black text-blue-900 uppercase tracking-widest block">
+                          🎙 Sincronizar com a fala (auto)
+                        </span>
+                        <span className="text-[10px] text-blue-800 leading-tight">
+                          Transcreve o áudio e detecta o momento exato que o avatar fala
+                          cada headline. As headlines aparecem só durante a fala (some quando
+                          ele para de falar). Demora +30-90s (transcrição via AssemblyAI).
+                        </span>
+                      </div>
+                    </label>
+
+                    {/* Manual switch slider — só aparece quando auto-sync está OFF */}
+                    {!headlineAutoTime && (
+                      <div>
+                        <label className="text-[11px] font-black uppercase tracking-widest text-gray-700">
+                          Trocar headline em:{' '}
+                          <span className="text-pink-700">{headlineSwitchPct}%</span>{' '}
+                          do vídeo
+                        </label>
+                        <input
+                          type="range"
+                          min={10}
+                          max={90}
+                          step={5}
+                          value={headlineSwitchPct}
+                          onChange={(e) => setHeadlineSwitchPct(parseInt(e.target.value))}
+                          disabled={headlineRendering}
+                          className="w-full accent-pink-600"
+                        />
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="text-[11px] font-black uppercase tracking-widest text-gray-700">
+                        Texto da 2ª headline
+                      </label>
+                      <input
+                        type="text"
+                        value={headline2Text}
+                        onChange={(e) => setHeadline2Text(e.target.value)}
+                        placeholder='Ex.: "AGORA POR APENAS R$ 97"'
+                        className="w-full p-3 border-2 border-gray-200 rounded-xl text-sm focus:border-pink-500 focus:outline-none"
+                        disabled={headlineRendering}
+                        maxLength={140}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-black uppercase tracking-widest text-gray-700">
+                        Cor do fundo da 2ª barra
+                      </label>
+                      <div className="flex items-center gap-2 mt-1">
+                        <input
+                          type="color"
+                          value={headline2BgColor}
+                          onChange={(e) => setHeadline2BgColor(e.target.value)}
+                          disabled={headlineRendering}
+                          className="h-10 w-14 rounded-lg border-2 border-gray-200 cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          value={headline2BgColor}
+                          onChange={(e) => setHeadline2BgColor(e.target.value)}
+                          disabled={headlineRendering}
+                          className="flex-1 p-2 border-2 border-gray-200 rounded-lg text-xs font-mono focus:border-pink-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Word picker for 2nd headline — same UX as 1st */}
+                    {(() => {
+                      const words = headline2Text.split(/\s+/).filter(Boolean);
+                      if (words.length === 0) {
+                        return (
+                          <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl p-3 text-center">
+                            <p className="text-[11px] text-gray-500">
+                              Digite o texto da 2ª headline pra customizar palavras.
+                            </p>
+                          </div>
+                        );
+                      }
+                      const textColorMap = [
+                        headlineTextColor,
+                        headlineHl1,
+                        headlineHl2,
+                        headlineHl3,
+                      ];
+                      const bgColorMap = [
+                        '',
+                        headlineBgHl1,
+                        headlineBgHl2,
+                        headlineBgHl3,
+                      ];
+                      return (
+                        <div className="bg-gray-50 p-3 rounded-xl border-2 border-gray-100 space-y-2">
+                          <label className="text-[11px] font-black uppercase tracking-widest text-gray-700">
+                            Personalizar palavras da 2ª headline
+                          </label>
+                          <div className="flex flex-wrap gap-2">
+                            {words.map((w, i) => {
+                              const ws = headline2WordStyles[i] || { tc: 0, bg: 0 };
+                              const tcColor = textColorMap[ws.tc] || headlineTextColor;
+                              const bgC = bgColorMap[ws.bg] || '';
+                              const cycle = (field: 'tc' | 'bg'): void => {
+                                setHeadline2WordStyles((prev) => {
+                                  const next = words.map(
+                                    (_, j) => prev[j] || { tc: 0, bg: 0 }
+                                  );
+                                  const cur = next[i] || { tc: 0, bg: 0 };
+                                  next[i] = {
+                                    ...cur,
+                                    [field]: ((cur[field] || 0) + 1) % 4,
+                                  };
+                                  return next;
+                                });
+                              };
+                              return (
+                                <div
+                                  key={`word2-${i}-${w}`}
+                                  className="flex flex-col items-center gap-1 p-2 rounded-lg border-2 border-gray-100"
+                                  style={{ backgroundColor: headline2BgColor }}
+                                >
+                                  <span
+                                    className="text-xs font-black px-2 py-1 rounded"
+                                    style={{
+                                      color: tcColor,
+                                      backgroundColor: bgC || 'transparent',
+                                    }}
+                                  >
+                                    {w}
+                                  </span>
+                                  <div className="flex gap-1">
+                                    <button
+                                      onClick={() => cycle('tc')}
+                                      className="flex items-center gap-1 px-2 py-0.5 rounded bg-white/90 hover:bg-white text-[9px] font-black text-gray-700"
+                                    >
+                                      L
+                                      <span
+                                        className="w-2 h-2 rounded-full border border-gray-300"
+                                        style={{ backgroundColor: tcColor }}
+                                      />
+                                      <span className="text-gray-400">{ws.tc}</span>
+                                    </button>
+                                    <button
+                                      onClick={() => cycle('bg')}
+                                      className="flex items-center gap-1 px-2 py-0.5 rounded bg-white/90 hover:bg-white text-[9px] font-black text-gray-700"
+                                    >
+                                      F
+                                      <span
+                                        className="w-2 h-2 rounded-full border border-gray-300"
+                                        style={{ backgroundColor: bgC || 'transparent' }}
+                                      />
+                                      <span className="text-gray-400">{ws.bg}</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <button
+                            onClick={() => setHeadline2WordStyles([])}
+                            disabled={headlineRendering}
+                            className="text-[10px] font-black text-gray-500 hover:text-gray-700 underline"
+                          >
+                            Limpar cores da 2ª headline
+                          </button>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
+
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[11px] font-black uppercase tracking-widest text-gray-700">
+                    Tamanho da fonte:{' '}
+                    <span className="text-pink-700">{headlineFontSize}px</span>
+                  </label>
+                  <input
+                    type="range"
+                    min={24}
+                    max={140}
+                    step={2}
+                    value={headlineFontSize}
+                    onChange={(e) => setHeadlineFontSize(parseInt(e.target.value))}
+                    className="w-full accent-pink-600"
+                    disabled={headlineRendering}
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-black uppercase tracking-widest text-gray-700">
+                    Altura da barra:{' '}
+                    <span className="text-pink-700">{headlineBarHeightPct}%</span>
+                  </label>
+                  <input
+                    type="range"
+                    min={5}
+                    max={30}
+                    step={1}
+                    value={headlineBarHeightPct}
+                    onChange={(e) => setHeadlineBarHeightPct(parseInt(e.target.value))}
+                    className="w-full accent-pink-600"
+                    disabled={headlineRendering}
+                  />
+                  <p className="text-[10px] text-gray-500 mt-1">
+                    % da altura total do vídeo
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setHeadlineSourceUrl(null)}
+                  disabled={headlineRendering}
+                  className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-gray-200 disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleRenderHeadline}
+                  disabled={headlineRendering || !headlineText.trim()}
+                  className="flex-1 py-3 bg-pink-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-pink-700 disabled:opacity-50"
+                >
+                  {headlineRendering ? 'Aplicando...' : 'Aplicar headline'}
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -13224,6 +15156,7 @@ export default function App() {
             {STEPS.map((step, idx) => {
               const Icon = step.icon;
               const isActive = currentStep === step.id;
+              const isSkipped = !useHookFlow && step.id === 'hook-visual';
 
               return (
                 <div key={step.id} className="flex items-center">
@@ -13236,11 +15169,21 @@ export default function App() {
                     className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all ${
                       isActive
                         ? 'bg-white text-blue-600 shadow-sm'
-                        : 'text-gray-400 hover:text-gray-600'
+                        : isSkipped
+                          ? 'text-gray-300 italic hover:text-gray-500'
+                          : 'text-gray-400 hover:text-gray-600'
                     }`}
+                    title={isSkipped ? 'Gancho pulado — clique pra reativar' : undefined}
                   >
                     <Icon size={16} />
-                    <span className="text-sm font-bold">{step.label}</span>
+                    <span className="text-sm font-bold">
+                      {step.label}
+                      {isSkipped && (
+                        <span className="ml-1 text-[9px] font-black uppercase tracking-widest opacity-70">
+                          · pulado
+                        </span>
+                      )}
+                    </span>
                   </button>
                   {idx < STEPS.length - 1 && (
                     <ChevronRight size={14} className="text-gray-300 mx-1" />
@@ -13424,6 +15367,8 @@ export default function App() {
                 approvedHook={config.copy.hookSelecionado || ''}
                 projectId={currentProjectId || 'temp-project'}
                 hookVisual={config.hookVisual}
+                useHookFlow={useHookFlow}
+                onToggleUseHook={setUseHookFlow}
                 onSave={(data) => updateProjectHookVisual(currentProjectId || '', data)}
                 language={config.copy?.answers?.language}
                 awarenessLevel={config.copy?.answers?.awarenessLevel}
@@ -13446,7 +15391,6 @@ export default function App() {
                   setCurrentStep('voz-premium');
                 }}
                 onGoToAvatar={() => setCurrentStep('avatar')}
-                onGoToVideoIA={() => setCurrentStep('video-ia')}
                 onSaveHook={(hook) => {
                   const existing = config.copy?.hooksHistorico || [];
                   const alreadyInHistory = existing.some((h) => h.hook === hook);
@@ -13501,113 +15445,233 @@ export default function App() {
                 }}
               />
             )}
-            {currentStep === 'video-ia' && (
-              <div className="max-w-4xl mx-auto py-12 px-6">
-                <h2 className="text-3xl font-light text-gray-900 mb-4">Gerar Vídeo com IA</h2>
-                <p className="text-gray-500 mb-8">
-                  Em construção — vamos mover o fluxo de imagens + VEO para esta aba em breve.
-                </p>
-                <div className="p-12 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200 text-center">
-                  <p className="text-gray-400 font-bold">
-                    Aba placeholder. Conteúdo será movido aqui.
-                  </p>
-                </div>
-              </div>
-            )}
-            {currentStep === 'voz-premium' && (
-              <VozPremium
-                approvedScript={
-                  voiceSource === 'hook'
-                    ? config.copy?.hookSelecionado ||
-                      config.copy?.finalScript ||
-                      config.copy?.generatedScript ||
-                      ''
-                    : config.copy?.finalScript || config.copy?.generatedScript || ''
-                }
-                projectId={currentProjectId || undefined}
-                personaGender={config.copy?.answers?.personaGender || ''}
-                personaAge={config.copy?.answers?.personaAgePrimary || ''}
-                savedAudioUrl={config.audioUrl || undefined}
-                savedAudios={config.audios || []}
-                copyAnswers={config.copy?.answers || {}}
-                savedOptimizedScript={config.copy?.optimizedScript || ''}
-                onApprovedScriptEdit={(edited) => {
-                  setConfig((prev) => ({
-                    ...prev,
-                    copy: { ...prev.copy, finalScript: edited },
-                  }));
-                  handleSaveProject({
-                    copy: { ...config.copy, finalScript: edited },
-                  } as any);
-                }}
-                onOptimizedScript={(optimized) => {
-                  setConfig((prev) => ({
-                    ...prev,
-                    copy: { ...prev.copy, optimizedScript: optimized },
-                  }));
-                  handleSaveProject({
-                    copy: { ...config.copy, optimizedScript: optimized },
-                  } as any);
-                }}
-                onGoToVideo={() => setCurrentStep('avatar')}
-                onAudioReady={(audioUrl, voiceId, storagePath) => {
-                  // CASO DELETE: audioUrl vazio = remover áudio ativo (não mexer no histórico)
-                  if (!audioUrl) {
-                    setAudioUrl('');
-                    setConfig((prev) => ({
-                      ...prev,
-                      audioUrl: '',
-                      audioStoragePath: null,
-                    }));
-                    handleSaveProject({
-                      audioUrl: '',
-                      audioStoragePath: null,
-                    });
-                    return;
-                  }
+            {currentStep === 'voz-premium' && (() => {
+              const isHook = voiceSource === 'hook';
+              const bodyAudios = config.audios || [];
+              const hookAudios =
+                (((config.copy as any)?.hookAudios as typeof bodyAudios | undefined) || []);
+              const lastBodyVoice = bodyAudios.length > 0 ? bodyAudios[bodyAudios.length - 1].voiceId : '';
+              const lastHookVoice = hookAudios.length > 0 ? hookAudios[hookAudios.length - 1].voiceId : '';
+              // Auto-preselect: prefer the mode's own last voice; fall back
+              // to the OTHER mode's last voice so the user doesn't have to
+              // reselect every time. Then they can override in the UI.
+              const defaultVoiceId = isHook
+                ? lastHookVoice || lastBodyVoice || config.avatar?.voiceId || ''
+                : lastBodyVoice || lastHookVoice || config.avatar?.voiceId || '';
 
-                  // CASO NORMAL: só adicionar se ainda não existir no histórico
-                  const currentAudios = config.audios || audios || [];
-                  const existing = currentAudios.find((a) => a.url === audioUrl);
-                  let newAudios = currentAudios;
+              const activeAudioUrl = isHook
+                ? ((config.copy as any)?.hookAudioUrl as string | undefined) || ''
+                : config.audioUrl || '';
+              const activeAudios = isHook ? hookAudios : bodyAudios;
+              const activeScript = isHook
+                ? config.copy?.hookSelecionado ||
+                  config.copy?.finalScript ||
+                  config.copy?.generatedScript ||
+                  ''
+                : config.copy?.finalScript || config.copy?.generatedScript || '';
 
-                  if (!existing) {
-                    const newAudio = {
-                      url: audioUrl,
-                      storagePath: storagePath || null,
-                      voiceId: voiceId || '',
-                      createdAt: new Date().toISOString(),
-                    };
-                    newAudios = [...currentAudios, newAudio];
-                    setAudios(newAudios);
-                  }
+              return (
+                <>
+                  {/* Toggle: which audio are we working on? Hidden when the
+                      project doesn't use a separate hook. */}
+                  {useHookFlow && (
+                    <div className="max-w-4xl mx-auto px-6 pt-6">
+                      <div className="bg-white p-2 rounded-2xl border-2 border-gray-100 shadow-sm flex gap-1">
+                        <button
+                          onClick={() => setVoiceSource('copy')}
+                          className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                            !isHook
+                              ? 'bg-gray-900 text-white shadow-md'
+                              : 'text-gray-500 hover:bg-gray-50'
+                          }`}
+                        >
+                          Voz do Corpo
+                          {bodyAudios.length > 0 && (
+                            <span className="ml-2 text-[9px] opacity-70">
+                              ({bodyAudios.length})
+                            </span>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => setVoiceSource('hook')}
+                          className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                            isHook
+                              ? 'bg-amber-500 text-white shadow-md'
+                              : 'text-gray-500 hover:bg-amber-50'
+                          }`}
+                        >
+                          Voz do Gancho
+                          {hookAudios.length > 0 && (
+                            <span className="ml-2 text-[9px] opacity-70">
+                              ({hookAudios.length})
+                            </span>
+                          )}
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-gray-500 mt-2 px-2">
+                        {isHook
+                          ? 'Você está gerando o áudio do gancho (parte inicial curta).'
+                          : 'Você está gerando o áudio do corpo do vídeo (script principal).'}
+                      </p>
+                    </div>
+                  )}
 
-                  setAudioUrl(audioUrl);
-                  setConfig((prev) => ({
-                    ...prev,
-                    audioUrl,
-                    audioStoragePath: storagePath || null,
-                    audios: newAudios,
-                    ...(voiceId ? { avatar: { ...prev.avatar, voiceId } } : {}),
-                  }));
-                  handleSaveProject({
-                    audioUrl,
-                    audioStoragePath: storagePath || null,
-                    audios: newAudios,
-                    ...(voiceId ? { 'avatar.voiceId': voiceId } : {}),
-                  });
-                }}
-                onDeleteAudioFromHistory={(
-                  urlToDelete: string,
-                  storagePathToDelete: string | null
-                ) => {
-                  setAudioToDeleteFromHistory({
-                    url: urlToDelete,
-                    storagePath: storagePathToDelete,
-                  });
-                }}
-              />
-            )}
+                  <VozPremium
+                    key={isHook ? 'voz-hook' : 'voz-body'}
+                    approvedScript={activeScript}
+                    projectId={currentProjectId || undefined}
+                    personaGender={config.copy?.answers?.personaGender || ''}
+                    personaAge={config.copy?.answers?.personaAgePrimary || ''}
+                    savedAudioUrl={activeAudioUrl || undefined}
+                    savedAudios={activeAudios}
+                    copyAnswers={config.copy?.answers || {}}
+                    savedOptimizedScript={
+                      isHook
+                        ? ((config.copy as any)?.hookOptimizedScript as string | undefined) || ''
+                        : config.copy?.optimizedScript || ''
+                    }
+                    defaultVoiceId={defaultVoiceId || undefined}
+                    onApprovedScriptEdit={(edited) => {
+                      // The "approved script" is the editable source text shown
+                      // in VozPremium. Body edits go to finalScript (existing).
+                      // Hook edits go to hookSelecionado so the next render in
+                      // hook mode picks them up too.
+                      if (isHook) {
+                        setConfig((prev) => ({
+                          ...prev,
+                          copy: { ...prev.copy, hookSelecionado: edited },
+                        }));
+                        handleSaveProject({
+                          copy: { ...config.copy, hookSelecionado: edited },
+                        } as any);
+                      } else {
+                        setConfig((prev) => ({
+                          ...prev,
+                          copy: { ...prev.copy, finalScript: edited },
+                        }));
+                        handleSaveProject({
+                          copy: { ...config.copy, finalScript: edited },
+                        } as any);
+                      }
+                    }}
+                    onOptimizedScript={(optimized) => {
+                      if (isHook) {
+                        setConfig((prev) => ({
+                          ...prev,
+                          copy: {
+                            ...prev.copy,
+                            hookOptimizedScript: optimized,
+                          } as any,
+                        }));
+                        handleSaveProject({
+                          copy: { ...config.copy, hookOptimizedScript: optimized },
+                        } as any);
+                      } else {
+                        setConfig((prev) => ({
+                          ...prev,
+                          copy: { ...prev.copy, optimizedScript: optimized },
+                        }));
+                        handleSaveProject({
+                          copy: { ...config.copy, optimizedScript: optimized },
+                        } as any);
+                      }
+                    }}
+                    onGoToVideo={() => setCurrentStep('avatar')}
+                    onAudioReady={(audioUrl, voiceId, storagePath) => {
+                      // Clearing the active audio.
+                      if (!audioUrl) {
+                        if (isHook) {
+                          setConfig((prev) => ({
+                            ...prev,
+                            copy: {
+                              ...prev.copy,
+                              hookAudioUrl: '',
+                              hookAudioStoragePath: null,
+                            } as any,
+                          }));
+                          handleSaveProject({
+                            copy: {
+                              ...config.copy,
+                              hookAudioUrl: '',
+                              hookAudioStoragePath: null,
+                            },
+                          } as any);
+                        } else {
+                          setAudioUrl('');
+                          setConfig((prev) => ({
+                            ...prev,
+                            audioUrl: '',
+                            audioStoragePath: null,
+                          }));
+                          handleSaveProject({
+                            audioUrl: '',
+                            audioStoragePath: null,
+                          });
+                        }
+                        return;
+                      }
+
+                      const currentAudios = activeAudios;
+                      const existing = currentAudios.find((a) => a.url === audioUrl);
+                      const newAudio = {
+                        url: audioUrl,
+                        storagePath: storagePath || null,
+                        voiceId: voiceId || '',
+                        createdAt: new Date().toISOString(),
+                      };
+                      const newAudios = existing
+                        ? currentAudios
+                        : [...currentAudios, newAudio];
+
+                      if (isHook) {
+                        setConfig((prev) => ({
+                          ...prev,
+                          copy: {
+                            ...prev.copy,
+                            hookAudioUrl: audioUrl,
+                            hookAudioStoragePath: storagePath || null,
+                            hookAudios: newAudios,
+                          } as any,
+                        }));
+                        handleSaveProject({
+                          copy: {
+                            ...config.copy,
+                            hookAudioUrl: audioUrl,
+                            hookAudioStoragePath: storagePath || null,
+                            hookAudios: newAudios,
+                          },
+                        } as any);
+                      } else {
+                        if (!existing) setAudios(newAudios);
+                        setAudioUrl(audioUrl);
+                        setConfig((prev) => ({
+                          ...prev,
+                          audioUrl,
+                          audioStoragePath: storagePath || null,
+                          audios: newAudios,
+                          ...(voiceId ? { avatar: { ...prev.avatar, voiceId } } : {}),
+                        }));
+                        handleSaveProject({
+                          audioUrl,
+                          audioStoragePath: storagePath || null,
+                          audios: newAudios,
+                          ...(voiceId ? { 'avatar.voiceId': voiceId } : {}),
+                        });
+                      }
+                    }}
+                    onDeleteAudioFromHistory={(
+                      urlToDelete: string,
+                      storagePathToDelete: string | null
+                    ) => {
+                      setAudioToDeleteFromHistory({
+                        url: urlToDelete,
+                        storagePath: storagePathToDelete,
+                      });
+                    }}
+                  />
+                </>
+              );
+            })()}
             {currentStep === 'avatar' && renderAvatarStep()}
             {currentStep === 'edit-zap' && renderEditZapStep()}
             {currentStep === 'edit2' && renderEdit2Step()}

@@ -27,9 +27,14 @@ async function uploadZapCapToFirebase(sourceUrl: string, taskId: string): Promis
     const objectPath = `zapcap/${taskId}_${Date.now()}.mp4`;
     const file = bucket.file(objectPath);
     await file.save(buf, { metadata: { contentType: 'video/mp4' } });
-    await file.makePublic();
-    const publicUrl = `https://storage.googleapis.com/${bucket.name}/${objectPath}`;
-    logToFile(`[ZapCap Persist] Uploaded to ${publicUrl} (${buf.length} bytes)`);
+    // getSignedUrl works regardless of bucket-level access mode (Uniform
+    // bucket-level access in particular silently ignores makePublic ACLs).
+    // 03-09-2491 = year 2491, effectively forever.
+    const [publicUrl] = await file.getSignedUrl({
+      action: 'read',
+      expires: '03-09-2491',
+    });
+    logToFile(`[ZapCap Persist] Uploaded to ${publicUrl.split('?')[0]} (${buf.length} bytes)`);
     return publicUrl;
   } catch (err: any) {
     console.error('[ZapCap Persist] upload failed:', err.message);
@@ -482,6 +487,8 @@ zapCapRouter.post('/edit-simple', async (req, res) => {
     subtitleWidth,
     fontUppercase,
     fontSize,
+    fontColor,
+    strokeColor,
     highlightColorOne,
     highlightColorTwo,
     highlightColorThree,
@@ -551,13 +558,18 @@ zapCapRouter.post('/edit-simple', async (req, res) => {
       subsOptions.displayWords = displayWords;
     }
 
+    // Hex validator — defensively reject bad values so ZapCap doesn't 400 on us.
+    const isHex = (s: any) => typeof s === 'string' && /^#[0-9a-fA-F]{6}$/.test(s);
     const styleOptions: any = {
       fontSize: fontSize && fontSize >= 6 && fontSize <= 80 ? fontSize : 24,
       fontWeight: 800,
       fontShadow: 'm',
       stroke: 's',
-      strokeColor: '#000000',
+      strokeColor: isHex(strokeColor) ? strokeColor : '#000000',
     };
+    if (isHex(fontColor)) {
+      styleOptions.fontColor = fontColor;
+    }
     if (typeof subtitleTop === 'number' && subtitleTop >= 0 && subtitleTop <= 80) {
       // ZapCap caps `top` at 80 (returns 400 above that).
       styleOptions.top = subtitleTop;
@@ -618,7 +630,9 @@ zapCapRouter.post('/edit-simple', async (req, res) => {
         subtitleTop: subtitleTop ?? 'default',
         fontUppercase: fontUppercase ?? 'default',
         fontSize: fontSize ?? 'default',
-        highlightColors: highlightColorOne ? 'custom' : 'default',
+        fontColor: styleOptions.fontColor ?? 'template-default',
+        strokeColor: styleOptions.strokeColor,
+        highlight: renderOptions.highlightOptions ?? 'template-default',
       })}`
     );
 

@@ -54,6 +54,9 @@ interface Props {
   ) => void;
   onDeleteAudioFromHistory?: (url: string, storagePath: string | null) => void;
   onGoToVideo?: () => void;
+  // When provided, the catalog will pre-select this voice on load so the
+  // user doesn't have to reselect every time they toggle between hook/body.
+  defaultVoiceId?: string;
 }
 
 const MODES: {
@@ -121,6 +124,7 @@ const VozPremium: React.FC<Props> = ({
   onAudioReady,
   onDeleteAudioFromHistory,
   onGoToVideo,
+  defaultVoiceId,
 }) => {
   const [mode, setMode] = useState<VozPremiumMode>("catalog");
   const [showRemoveActiveModal, setShowRemoveActiveModal] = useState(false);
@@ -302,6 +306,17 @@ const VozPremium: React.FC<Props> = ({
       .catch((e) => toast.error(e.message))
       .finally(() => setLoadingVoices(false));
   }, [mode, filters, searchText]);
+
+  // Pre-select a voice once the catalog loads, based on defaultVoiceId.
+  // Only fires when nothing is selected yet, so we never clobber a manual
+  // pick the user just made.
+  useEffect(() => {
+    if (!defaultVoiceId) return;
+    if (selectedVoice) return;
+    if (!voices || voices.length === 0) return;
+    const match = voices.find((v) => v.voice_id === defaultVoiceId);
+    if (match) setSelectedVoice(match);
+  }, [defaultVoiceId, voices, selectedVoice]);
 
   // Sync from props
   useEffect(() => {

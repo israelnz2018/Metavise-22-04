@@ -10,7 +10,6 @@ export type Step =
   | 'persona'
   | 'copy'
   | 'hook-visual'
-  | 'video-ia'
   | 'voz-premium'
   | 'avatar'
   | 'subtitles'

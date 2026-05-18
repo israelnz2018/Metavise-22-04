@@ -76,7 +76,11 @@ interface HookVisualGeneratorProps {
   onDeleteHookFromHistory?: (hook: string) => void;
   onGoToVoz?: () => void;
   onGoToAvatar?: () => void;
-  onGoToVideoIA?: () => void;
+  // Project-level flag: false means the user explicitly skipped the hook.
+  // When false we show a banner with a "Reativar" button; when true we
+  // show a "Pular gancho" button that lets them turn the flag off.
+  useHookFlow?: boolean;
+  onToggleUseHook?: (next: boolean) => void;
 }
 
 type StepType = 'choose' | 'improve' | 'images' | 'approve-image' | 'video-prompt' | 'video' | 'done';
@@ -141,7 +145,8 @@ export const HookVisualGenerator: React.FC<HookVisualGeneratorProps> = ({
   onDeleteHookFromHistory,
   onGoToVoz,
   onGoToAvatar,
-  onGoToVideoIA
+  useHookFlow = true,
+  onToggleUseHook,
 }) => {
   const [currentStep, setCurrentStep] = useState<StepType>(
     (hookVisual?.videoGerado) ? 'done' : 
@@ -539,6 +544,53 @@ Gere the prompt onde o vídeo reforça visualmente a emoção do hook do início
 
   return (
     <div className="w-full max-w-5xl mx-auto p-4 md:p-8 space-y-12">
+      {/* Skip hook flow / re-enable banner. Lets users opt out of the
+          separate gancho production for projects that don't need one. */}
+      {onToggleUseHook && (
+        useHookFlow ? (
+          <div className="bg-gray-50 border-2 border-gray-100 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="text-sm text-gray-600">
+              <strong className="font-black text-gray-900">Não vai usar gancho separado?</strong>
+              <span className="block text-xs text-gray-500 mt-1">
+                Pula esta aba, esconde o toggle de gancho em Voz/Avatar/Edição e o
+                botão de juntar.
+              </span>
+            </div>
+            <button
+              onClick={() => {
+                if (
+                  window.confirm(
+                    'Pular o gancho neste projeto? Você pode reativar depois nesta mesma aba.'
+                  )
+                ) {
+                  onToggleUseHook(false);
+                  onGoToVoz?.();
+                }
+              }}
+              className="px-5 py-2.5 bg-gray-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-black whitespace-nowrap"
+            >
+              Pular gancho
+            </button>
+          </div>
+        ) : (
+          <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="text-sm text-amber-900">
+              <strong className="font-black">Gancho pulado neste projeto</strong>
+              <span className="block text-xs text-amber-700 mt-1">
+                A aba está dormente. Reative se mudou de ideia — os toggles de
+                gancho voltam em Voz, Avatar e Edição.
+              </span>
+            </div>
+            <button
+              onClick={() => onToggleUseHook(true)}
+              className="px-5 py-2.5 bg-amber-500 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-amber-600 whitespace-nowrap"
+            >
+              Reativar gancho
+            </button>
+          </div>
+        )
+      )}
+
       {/* Stepper Header */}
       <div className="flex items-center justify-between px-2">
         {STEPS.map((step, idx) => {
@@ -609,7 +661,6 @@ Gere the prompt onde o vídeo reforça visualmente a emoção do hook do início
                 onDeleteHookFromHistory={onDeleteHookFromHistory}
                 onGoToVoz={onGoToVoz}
                 onGoToAvatar={onGoToAvatar}
-                onGoToVideoIA={onGoToVideoIA}
               />
 
               <div className="mt-6 bg-gray-900 rounded-3xl p-6 shadow-xl">
@@ -628,7 +679,7 @@ Gere the prompt onde o vídeo reforça visualmente a emoção do hook do início
                 {!sessionHook && (
                   <p className="text-xs text-white/50 mb-2">Escolha e salve um hook nas opções acima para liberar os próximos passos.</p>
                 )}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
                   <button
                     onClick={() => sessionHook ? onGoToVoz?.() : null}
                     className={`group rounded-2xl p-5 text-left transition-all border-2 ${sessionHook ? 'bg-white hover:bg-blue-50 border-transparent hover:border-blue-300 hover:shadow-lg cursor-pointer' : 'bg-gray-800 border-gray-700 cursor-not-allowed opacity-50'}`}
@@ -640,7 +691,7 @@ Gere the prompt onde o vídeo reforça visualmente a emoção do hook do início
                       <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Caminho 1</p>
                     </div>
                     <h4 className={`text-base font-black mb-1 ${sessionHook ? 'text-gray-900' : 'text-gray-500'}`}>Gerar Voz do Hook</h4>
-                    <p className={`text-xs leading-relaxed ${sessionHook ? 'text-gray-500' : 'text-gray-600'}`}>Vai para a aba Voz Premium para gerar áudio.</p>
+                    <p className={`text-xs leading-relaxed ${sessionHook ? 'text-gray-500' : 'text-gray-600'}`}>Vai para a aba Voz para gerar áudio do gancho.</p>
                   </button>
 
                   <button
@@ -654,21 +705,7 @@ Gere the prompt onde o vídeo reforça visualmente a emoção do hook do início
                       <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Caminho 2</p>
                     </div>
                     <h4 className={`text-base font-black mb-1 ${sessionHook ? 'text-gray-900' : 'text-gray-500'}`}>Gerar Vídeo com Avatar</h4>
-                    <p className={`text-xs leading-relaxed ${sessionHook ? 'text-gray-500' : 'text-gray-600'}`}>Vai para Avatar Premium (HeyGen).</p>
-                  </button>
-
-                  <button
-                    onClick={() => sessionHook ? onGoToVideoIA?.() : null}
-                    className={`group rounded-2xl p-5 text-left transition-all border-2 ${sessionHook ? 'bg-white hover:bg-amber-50 border-transparent hover:border-amber-300 hover:shadow-lg cursor-pointer' : 'bg-gray-800 border-gray-700 cursor-not-allowed opacity-50'}`}
-                  >
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${sessionHook ? 'bg-amber-100 group-hover:bg-amber-200' : 'bg-gray-700'}`}>
-                        <Video size={18} className={sessionHook ? 'text-amber-600' : 'text-gray-500'} />
-                      </div>
-                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Caminho 3</p>
-                    </div>
-                    <h4 className={`text-base font-black mb-1 ${approvedHook ? 'text-gray-900' : 'text-gray-500'}`}>Gerar Vídeo com IA</h4>
-                    <p className={`text-xs leading-relaxed ${approvedHook ? 'text-gray-500' : 'text-gray-600'}`}>Vai para a aba de geração com VEO.</p>
+                    <p className={`text-xs leading-relaxed ${sessionHook ? 'text-gray-500' : 'text-gray-600'}`}>Vai para a aba Avatar (HeyGen).</p>
                   </button>
                 </div>
               </div>
