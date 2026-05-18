@@ -67,7 +67,6 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { Toaster, toast } from 'react-hot-toast';
 import {
-  generateVoice,
   getAuthorizedUrl,
 } from './lib/gemini';
 import {
@@ -1616,7 +1615,6 @@ export default function App() {
   const [loadingAvatars, setLoadingAvatars] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [avatarSearch, setAvatarSearch] = useState('');
-  const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
   const [isVoiceConfirmed, setIsVoiceConfirmed] = useState(false);
   const [videoToDelete, setVideoToDelete] = useState<any>(null);
   const [showDeleteHistoryVideoModal, setShowDeleteHistoryVideoModal] = useState(false);
@@ -3522,14 +3520,6 @@ export default function App() {
 
   // --- Step Renderers ---
 
-  const handlePlaySample = (url: string) => {
-    if (!url) return;
-    const audio = new Audio(url);
-    audio.play().catch((err) => {
-      console.error('Error playing voice sample:', err);
-      setError('Não foi possível reproduzir a amostra de voz.');
-    });
-  };
 
 
 
