@@ -71,23 +71,14 @@ import {
   checkVideoStatus,
   generateEditingTimeline,
   generateTimelineFromVideo,
-  generateVideoFromPrompt,
-  parseTechnicalEdit,
   getAuthorizedUrl,
-  generateVeoTimelineFromVideo,
-  parseVeoEdits,
-  segmentVideoAndSuggestScenes,
-  generateImageFromPrompt,
   generateVideoPromptSuggestion,
-  generateImagePromptSuggestion,
 } from './lib/gemini';
 import {
   generateAdCopyWithClaude,
   discoverPersonaWithClaude,
-  optimizeCopyForElevenLabsWithClaude,
 } from './lib/claudeService';
 import { auth, db, storage } from './lib/firebase';
-import { uploadBase64ToStorage } from './lib/storage';
 import {
   DURATION_OPTIONS,
   HOOK_TYPES_BY_LEVEL,
@@ -95,7 +86,6 @@ import {
   HEYGEN_NAME_KEYWORDS,
   AD_STYLES,
   STEPS,
-  VEO_MODELS,
   SUBTITLE_STYLES,
   AVATARS,
 } from './lib/constants';
@@ -1027,7 +1017,6 @@ export default function App() {
   }, []);
 
   const [loading, setLoading] = useState(false);
-  const [isOptimizing, setIsOptimizing] = useState(false);
   const [hookSearch, setHookSearch] = useState('');
   const [hookToneFilter, setHookToneFilter] = useState<
     'Direto' | 'Pergunta' | 'História' | 'Choque' | 'Todos'
@@ -1082,9 +1071,6 @@ export default function App() {
   const [videoOp, setVideoOp] = useState<any>(null);
   const [isTestMode, setIsTestMode] = useState(false);
   const [useNativeFallback, setUseNativeFallback] = useState(false);
-  const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [isEditApproved, setIsEditApproved] = useState(false);
-  const [hasGeneratedEdits, setHasGeneratedEdits] = useState(false);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
   const [copySubMode, setCopySubMode] = useState<'zero' | 'improve' | 'ready'>('zero');
 
