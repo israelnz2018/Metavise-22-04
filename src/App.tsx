@@ -125,14 +125,6 @@ const DURATION_OPTIONS = [
   { label: '180s', words: 450 },
 ];
 
-const LEVEL_TO_WORDS: Record<string, number> = {
-  '1': 300,
-  '2': 225,
-  '3': 150,
-  '4': 113,
-  '5': 75,
-};
-
 const getRecomendacaoTempo = (nivelConsciencia: string) => {
   const level = nivelConsciencia?.charAt(0);
   return level ? recomendacoesTempo[level] : null;
@@ -618,93 +610,6 @@ import {
 } from 'firebase/firestore';
 
 // --- Constants & Types ---
-
-const VOICE_ENRICHMENT: Record<string, any> = {
-  '21m00Tcm4TlvDq8ikWAM': {
-    tone: 'professional',
-    useCase: 'narration',
-    age: 'adult',
-    traits: ['steady', 'formal'],
-  },
-  AZnzlk1XhkDUD9712F1H: {
-    tone: 'warm',
-    useCase: 'social media',
-    age: 'young',
-    traits: ['expressive', 'conversational'],
-  },
-  EXAVITQu4vr4xnNLMQyw: {
-    tone: 'energetic',
-    useCase: 'ads',
-    age: 'young',
-    traits: ['animated', 'fast'],
-  },
-  FGY24tPteIu75mcnmEBm: {
-    tone: 'calm',
-    useCase: 'narration',
-    age: 'mature',
-    traits: ['steady', 'relaxed'],
-  },
-  IKne3meq5aZN9y9aqztW: {
-    tone: 'confident',
-    useCase: 'corporate',
-    age: 'adult',
-    traits: ['steady', 'professional'],
-  },
-  Lcf7uHj9CuTkj2fBn64Y: {
-    tone: 'conversational',
-    useCase: 'podcast',
-    age: 'young',
-    traits: ['expressive', 'casual'],
-  },
-  MF3mGyEYCl7XYW7LecSj: {
-    tone: 'serious',
-    useCase: 'corporate',
-    age: 'mature',
-    traits: ['steady', 'formal'],
-  },
-  N2lVS1wz9p6S8C9m0T68: {
-    tone: 'youthful',
-    useCase: 'social media',
-    age: 'young',
-    traits: ['animated', 'energetic'],
-  },
-  P6E4Wm6H6n7vM6m0T68: {
-    tone: 'warm',
-    useCase: 'narration',
-    age: 'adult',
-    traits: ['relaxed', 'steady'],
-  },
-  VR6A4Wm6H6n7vM6m0T68: {
-    tone: 'energetic',
-    useCase: 'ads',
-    age: 'adult',
-    traits: ['animated', 'confident'],
-  },
-  ErXw797vAYCPNrxqHWBh: {
-    tone: 'professional',
-    useCase: 'narration',
-    age: 'adult',
-    traits: ['steady'],
-  },
-  GBv7mTt0atIp3Br8iCZE: {
-    tone: 'calm',
-    useCase: 'narration',
-    age: 'adult',
-    traits: ['relaxed'],
-  },
-  TxGEqnCBvURuXPunYqzpX: {
-    tone: 'deep',
-    useCase: 'narration',
-    age: 'adult',
-    traits: ['steady'],
-  },
-  TX3LPaxmHKxFfWOs9PZ5: {
-    tone: 'professional',
-    useCase: 'narration',
-    age: 'adult',
-    traits: ['steady'],
-  },
-};
 
 const AVATAR_ENRICHMENT: Record<string, any> = {
   josh_lite_20230714: { gender: 'male', age: 'young', type: 'realistic' },
@@ -1193,63 +1098,6 @@ const VEO_MODELS = [
   },
 ];
 
-const EDITING_TEMPLATES = [
-  {
-    id: 'veo-futuristic',
-    label: 'Sci-Fi Futurista',
-    desc: 'Gera cenas High-Tech, neons e ambiente digital para seus B-rolls.',
-    style: 'futuristic, sci-fi, high-tech, neon, digital',
-  },
-  {
-    id: 'veo-professional',
-    label: 'Corporativo / Business',
-    desc: 'Cenas de escritórios modernos, cidades e ambientes profissionais.',
-    style: 'professional, corporate, modern office, skyline, business',
-  },
-  {
-    id: 'veo-nature',
-    label: 'Natureza / Relaxante',
-    desc: 'Paisagens naturais, luz suave e ambientes orgânicos.',
-    style: 'nature, organic, soft lighting, cinematic landscapes',
-  },
-  {
-    id: 'veo-abstract',
-    label: 'Abstrato / Vibrante',
-    desc: 'Formas geométricas, cores vibrantes e movimento artístico.',
-    style: 'abstract, vibrant colors, artistic movement, motion graphics',
-  },
-];
-
-const ANGLES = [
-  {
-    id: 'podcast',
-    label: 'Podcast',
-    desc: 'Autoridade especialista, vibe de estúdio',
-  },
-  { id: 'interview', label: 'Entrevista', desc: 'Talking head profissional' },
-  {
-    id: 'ugc_camera',
-    label: 'Câmera UGC',
-    desc: 'Autêntico, direto para a câmera',
-  },
-  {
-    id: 'street_interview',
-    label: 'Entrevista de Rua',
-    desc: 'Dinâmico, vibe em movimento',
-  },
-  { id: 'news', label: 'Estilo Noticiário', desc: 'Apresentação formal' },
-  {
-    id: 'selfie',
-    label: 'Estilo Selfie',
-    desc: 'Casual, sensação de celular na mão',
-  },
-  {
-    id: 'cinematic',
-    label: 'Cinematográfico',
-    desc: 'Talking head de alta qualidade',
-  },
-];
-
 const SUBTITLE_STYLES = [
   { id: 'simple', label: 'Simples', class: 'text-white font-sans' },
   {
@@ -1354,54 +1202,6 @@ const AVATARS = [
     gender: 'female',
     img: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=400&h=400',
   },
-];
-
-const VOICES = []; // Removed hardcoded voices
-
-const FORMATS = [
-  { id: '9:16', label: 'Vertical (9:16)', desc: 'Reels, TikTok, Shorts' },
-  { id: '1:1', label: 'Quadrado (1:1)', desc: 'Instagram, Feed' },
-  { id: '16:9', label: 'Horizontal (16:9)', desc: 'YouTube, Web' },
-];
-
-const TRANSITIONS = [
-  { id: 'none', label: 'Nenhuma' },
-  { id: 'fade', label: 'Fade' },
-  { id: 'zoom', label: 'Zoom' },
-  { id: 'slide', label: 'Slide' },
-  { id: 'dissolve', label: 'Dissolver' },
-];
-
-const SOUND_EFFECTS = [
-  { id: 'none', label: 'Nenhum' },
-  { id: 'whoosh', label: 'Whoosh' },
-  { id: 'pop', label: 'Pop' },
-  { id: 'glitch', label: 'Glitch' },
-  { id: 'impact', label: 'Impacto' },
-];
-
-const BACKGROUND_MUSIC = [
-  { id: 'none', label: 'Nenhuma' },
-  { id: 'corporate', label: 'Corporativa' },
-  { id: 'upbeat', label: 'Animada' },
-  { id: 'lofi', label: 'Lo-Fi' },
-  { id: 'dramatic', label: 'Dramática' },
-];
-
-const MOTION_EFFECTS = [
-  { id: 'none', label: 'Nenhum' },
-  { id: 'zoom_in', label: 'Zoom In Lento' },
-  { id: 'pan_left', label: 'Pan Esquerda' },
-  { id: 'pan_right', label: 'Pan Direita' },
-  { id: 'shake', label: 'Leve Tremor' },
-];
-
-const CINEMATIC_EFFECTS = [
-  { id: 'none', label: 'Nenhum' },
-  { id: 'film_grain', label: 'Grão de Filme' },
-  { id: 'vignette', label: 'Vinheta' },
-  { id: 'color_grade', label: 'Color Grading' },
-  { id: 'letterbox', label: 'Letterbox' },
 ];
 
 export default function App() {
