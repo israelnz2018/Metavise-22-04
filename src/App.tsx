@@ -4,10 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { GoogleGenAI } from '@google/genai';
-import HookVisualGenerator, {
-  HookVisualGenerator as HookVisualGeneratorNamed,
-} from './components/HookVisualGenerator';
+import HookVisualGenerator from './components/HookVisualGenerator';
 import VozPremium from './components/VozPremium';
 import { IntegrationsTab } from './pages/IntegrationsTab';
 import { ProjectsTab } from './pages/ProjectsTab';
@@ -22,51 +19,31 @@ import {
   detectVideoFormatFromUrl,
 } from './lib/helpers';
 
-import hooksBibleEn from './data/hooksBible_en.json';
-import hooksBiblePt from './data/hooksBible_pt.json';
 
 import {
   Video,
-  Type,
   User,
   Users,
   Volume2,
   Layout,
   Layers,
   Play,
-  Pause,
-  Library,
   Star,
   ChevronRight,
   ChevronLeft,
-  ArrowLeft,
-  FileText,
   Folder,
   Sparkles,
   CheckCircle2,
-  CheckCircle,
   X,
-  ThumbsUp,
-  ArrowRight,
   ChevronDown,
-  ChevronUp,
   Film,
-  Copy,
   Loader2,
   Edit3,
   Download,
   RefreshCw,
   Maximize,
-  ExternalLink,
-  Clock,
   Upload,
-  LogIn,
-  Quote,
   LogOut,
-  Shield,
-  Key,
-  Eye,
-  EyeOff,
   AlertCircle,
   Search,
   Filter,
@@ -79,16 +56,10 @@ import {
   Save,
   Settings,
   Info,
-  Pencil,
   Smartphone,
   Square,
-  Scissors,
-  Music,
   Zap,
   Smile,
-  MessageSquare,
-  Image as ImageIcon,
-  PlayCircle,
   Plus,
   Scan,
 } from 'lucide-react';
