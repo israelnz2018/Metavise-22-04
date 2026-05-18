@@ -11,54 +11,8 @@ import HookVisualGenerator, {
 import VozPremium from './components/VozPremium';
 import { IntegrationsTab } from './pages/IntegrationsTab';
 import { ProjectsTab } from './pages/ProjectsTab';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
-
-// Formats seconds → "m:ss" (e.g. 73 → "1:13"). Used by VideoDurationBadge.
-function formatVideoDuration(sec: number): string {
-  if (!Number.isFinite(sec) || sec < 0) return '--:--';
-  const m = Math.floor(sec / 60);
-  const s = Math.floor(sec % 60);
-  return `${m}:${s.toString().padStart(2, '0')}`;
-}
-
-// Loads only the metadata of `src` in a hidden <video> and renders an
-// absolute-positioned badge with the duration. Designed to be dropped into
-// any positioned container — particularly the version cards in Edição Zap
-// where two videos of the same avatar are otherwise indistinguishable.
-function VideoDurationBadge({ src }: { src: string }) {
-  const [duration, setDuration] = useState<number | null>(null);
-  if (!src) return null;
-  return (
-    <>
-      <video
-        src={src}
-        preload="metadata"
-        className="hidden"
-        onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
-        muted
-        playsInline
-      />
-      {duration !== null && (
-        <div className="absolute bottom-3 right-3 bg-black/75 text-white text-[10px] font-black px-2 py-1 rounded backdrop-blur-sm pointer-events-none">
-          {formatVideoDuration(duration)}
-        </div>
-      )}
-    </>
-  );
-}
-
-const getVideoAspectRatioClass = (video: any) => {
-  const ratio = video.aspectRatio || '9:16';
-  if (ratio === '9:16') return 'aspect-[9/16]';
-  if (ratio === '4:5') return 'aspect-[4/5]';
-  if (ratio === '1:1') return 'aspect-square';
-  return 'aspect-video';
-};
+import { cn, getVideoAspectRatioClass } from './lib/utils';
+import { VideoDurationBadge } from './components/VideoDurationBadge';
 
 const getRecomendedEstilo = (nivelConsciencia: string) => {
   const level = nivelConsciencia.charAt(0);
