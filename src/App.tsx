@@ -18,6 +18,7 @@ import {
   detectVideoFormat,
   detectVideoFormatFromUrl,
 } from './lib/helpers';
+import type { Step } from './types/project';
 
 
 import {
@@ -139,20 +140,6 @@ import {
 
 // --- Constants & Types ---
 
-type Step =
-  | 'integrations'
-  | 'projects'
-  | 'persona'
-  | 'copy'
-  | 'hook-visual'
-  | 'voz-premium'
-  | 'avatar'
-  | 'subtitles'
-  | 'edit'
-  | 'edit-zap'
-  | 'edit2'
-  | 'final'
-  | 'scene-builder';
 
 interface Scene {
   id: string;
