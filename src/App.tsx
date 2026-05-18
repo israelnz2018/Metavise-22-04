@@ -1047,14 +1047,9 @@ export default function App() {
     setHookToneFilter('Todos');
   }, [config.copy.answers.awarenessLevel, config.copy.answers.language]);
 
-  const [showAllHooks, setShowAllHooks] = useState(false);
   const [isHookSaved, setIsHookSaved] = useState(false);
   const [currentVariantId, setCurrentVariantId] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [draggingEditId, setDraggingEditId] = useState<string | null>(null);
-  const [playingVideos, setPlayingVideos] = useState<Record<string, boolean>>({});
-  const [hasFinishedVideos, setHasFinishedVideos] = useState<Record<string, boolean>>({});
-  const timelineRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
 
   const updateProjectHookVisual = (projectId: string, data: Partial<HookVisualData>) => {
@@ -1091,10 +1086,6 @@ export default function App() {
   const [isEditApproved, setIsEditApproved] = useState(false);
   const [hasGeneratedEdits, setHasGeneratedEdits] = useState(false);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
-  const [runwayPrompt, setRunwayPrompt] = useState('');
-  const [runwayDuration, setRunwayDuration] = useState(5);
-  const [isGeneratingRunway, setIsGeneratingRunway] = useState(false);
-  const [isGeneratingVeoClip, setIsGeneratingVeoClip] = useState(false);
   const [copySubMode, setCopySubMode] = useState<'zero' | 'improve' | 'ready'>('zero');
 
   const [copyDiscoveryMode, setCopyDiscoveryMode] = useState<
@@ -1219,7 +1210,6 @@ export default function App() {
       setPersonasSaved(false);
     }
   }, [config.copy?.answers?.savedPersonas]);
-  const [personaEditMode, setPersonaEditMode] = useState(false);
   const [showAwarenessChangeModal, setShowAwarenessChangeModal] = useState(false);
   const [pendingAwarenessLevel, setPendingAwarenessLevel] = useState<string | null>(null);
 
@@ -1725,7 +1715,6 @@ export default function App() {
   };
   const [useVideoAnalysis, setUseVideoAnalysis] = useState(true);
   const videoRef = React.useRef<HTMLVideoElement>(null);
-  const audioRef = React.useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
     const fetchVoices = async () => {
