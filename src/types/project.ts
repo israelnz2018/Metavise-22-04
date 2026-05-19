@@ -169,6 +169,12 @@ export interface ZapCapTemplate {
   thumbnail?: string;
   image?: string;
   imageUrl?: string;
+  // ZapCap v2 also returns a `previews` object with multiple format URLs.
+  previews?: {
+    previewMp4?: string;
+    previewWebp?: string;
+    previewJpg?: string;
+  };
 }
 
 export interface BrollCandidate {

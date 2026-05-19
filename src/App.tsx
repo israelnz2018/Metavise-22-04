@@ -324,7 +324,9 @@ export default function App() {
       url: string;
       storagePath: string | null;
       createdAt: string;
-      aspectRatio?: string;
+      aspectRatio?: '9:16' | '1:1' | '16:9';
+      scale?: number;
+      timelineEdits?: TimelineEdit[];
     }[]
   >([]);
   const [lastVideoMetadata, setLastVideoMetadata] = useState<any | null>(null);
