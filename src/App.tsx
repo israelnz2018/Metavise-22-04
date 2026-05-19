@@ -11941,47 +11941,18 @@ export default function App() {
         }}
       />
 
-      {showAwarenessChangeModal && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="bg-white rounded-[32px] p-8 max-w-md w-full space-y-6 shadow-2xl border-2 border-gray-100"
-          >
-            <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-2">
-              <AlertCircle size={24} />
-            </div>
-
-            <div className="text-center space-y-2">
-              <h3 className="text-xl font-black text-gray-900 tracking-tight">
-                Mudar nível de consciência?
-              </h3>
-              <p className="text-sm text-gray-500 font-medium leading-relaxed">
-                As recomendações de Emoção, Ângulo, Destino do Clique e Tamanho do Roteiro mudam
-                conforme o nível. Confira os campos abaixo depois e ajuste se quiser.
-              </p>
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button
-                onClick={() => {
-                  setShowAwarenessChangeModal(false);
-                  setPendingAwarenessLevel(null);
-                }}
-                className="flex-1 px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-xs bg-gray-100 text-gray-600 hover:bg-gray-200 transition-all"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleConfirmAwarenessChange}
-                className="flex-1 px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-xs bg-blue-600 text-white hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"
-              >
-                Continuar
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
+      <ConfirmModal
+        open={showAwarenessChangeModal}
+        tone="warning"
+        title="Mudar nível de consciência?"
+        message="As recomendações de Emoção, Ângulo, Destino do Clique e Tamanho do Roteiro mudam conforme o nível. Confira os campos abaixo depois e ajuste se quiser."
+        confirmLabel="Continuar"
+        onCancel={() => {
+          setShowAwarenessChangeModal(false);
+          setPendingAwarenessLevel(null);
+        }}
+        onConfirm={() => handleConfirmAwarenessChange()}
+      />
 
       {/* Modal: Persona Path Selector (ao criar novo subprojeto) */}
       {pendingNewSubproject && (
