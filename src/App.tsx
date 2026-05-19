@@ -76,7 +76,6 @@ import {
 import { auth, db, storage } from './lib/firebase';
 import {
   DURATION_OPTIONS,
-  HOOK_TYPES_BY_LEVEL,
   AVATAR_ENRICHMENT,
   HEYGEN_NAME_KEYWORDS,
   AD_STYLES,
@@ -1012,26 +1011,7 @@ export default function App() {
   }, []);
 
   const [loading, setLoading] = useState(false);
-  const [hookSearch, setHookSearch] = useState('');
-  const [hookToneFilter, setHookToneFilter] = useState<
-    'Direto' | 'Pergunta' | 'História' | 'Choque' | 'Todos'
-  >('Todos');
-  const [hookLevelFilters, setHookLevelFilters] = useState<number[]>([]);
-  const [hookTypeFilters, setHookTypeFilters] = useState<string[]>([]);
 
-  // Auto-initialize hook filters based on project's awareness level
-  useEffect(() => {
-    const levelStr = (config.copy.answers.awarenessLevel || '3').toString().charAt(0);
-    const levelNum = parseInt(levelStr);
-    const recommendedTypes = HOOK_TYPES_BY_LEVEL[levelStr] || [];
-
-    setHookLevelFilters([levelNum]);
-    setHookTypeFilters(recommendedTypes);
-    setHookSearch('');
-    setHookToneFilter('Todos');
-  }, [config.copy.answers.awarenessLevel, config.copy.answers.language]);
-
-  const [isHookSaved, setIsHookSaved] = useState(false);
   const [currentVariantId, setCurrentVariantId] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [error, setError] = useState<string | null>(null);
@@ -1066,7 +1046,6 @@ export default function App() {
   const [videoOp, setVideoOp] = useState<any>(null);
   const [isTestMode, setIsTestMode] = useState(false);
   const [useNativeFallback, setUseNativeFallback] = useState(false);
-  const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
   const [copySubMode, setCopySubMode] = useState<'zero' | 'improve' | 'ready'>('zero');
 
   const [copyDiscoveryMode, setCopyDiscoveryMode] = useState<
@@ -1383,7 +1362,6 @@ export default function App() {
   const [zapFontUppercase, setZapFontUppercase] = useState<boolean>(false);
   const [zapFontSize, setZapFontSize] = useState<number>(26);
   const [zapDisplayWords, setZapDisplayWords] = useState<number>(4);
-  const [zapHighlightPalette, setZapHighlightPalette] = useState<string>('default');
   // Independent color controls for Edição Zap subtitles. Sent to ZapCap as
   // styleOptions.fontColor / styleOptions.strokeColor + highlight colors.
   // Empty string means "use template default" (don't send).
@@ -1514,11 +1492,6 @@ export default function App() {
   const [intercutTexts, setIntercutTexts] = useState<string[]>(['', '', '', '']);
   const [intercutRendering, setIntercutRendering] = useState(false);
 
-  // Reset voice confirmation when voice or language changes
-  useEffect(() => {
-    setIsVoiceConfirmed(false);
-  }, [config.avatar.voiceId, config.voiceSettings?.language]);
-
   // Initialize Scene Builder
   useEffect(() => {
     if (
@@ -1536,7 +1509,6 @@ export default function App() {
         ...prev,
         edit: { ...prev.edit, scenes: [initialScene] },
       }));
-      setSelectedSceneId('initial-avatar');
     }
   }, [currentStep, videoUrl]);
 
@@ -1607,15 +1579,12 @@ export default function App() {
   }, [elevenLabsVoices, config.avatar.voiceId, config.copy.answers.personaGender, config.copy.answers.personaAgePrimary]);
   */
 
-  const [loadingVoices, setLoadingVoices] = useState(false);
   const [viewingProjectId, setViewingProjectId] = useState<string | null>(null);
   const [viewingVariant, setViewingVariant] = useState<ProjectVariant | null>(null);
-  const [voiceError, setVoiceError] = useState<string | null>(null);
   const [heygenAvatars, setHeygenAvatars] = useState<any[]>([]);
   const [loadingAvatars, setLoadingAvatars] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [avatarSearch, setAvatarSearch] = useState('');
-  const [isVoiceConfirmed, setIsVoiceConfirmed] = useState(false);
   const [videoToDelete, setVideoToDelete] = useState<any>(null);
   const [showDeleteHistoryVideoModal, setShowDeleteHistoryVideoModal] = useState(false);
   const [avatarFilters, setAvatarFilters] = useState({
@@ -1636,7 +1605,6 @@ export default function App() {
 
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const [isExpanded, setIsExpanded] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [showElevenLabsConfig, setShowElevenLabsConfig] = useState(false);
@@ -1678,7 +1646,6 @@ export default function App() {
       if (response.ok) {
         toast.success('API Key do ElevenLabs atualizada!');
         setShowElevenLabsConfig(false);
-        setVoiceError(null);
         // Retry fetching voices
         setCurrentStep('copy'); // Toggle step to trigger useEffect
         setTimeout(() => setCurrentStep('voz-premium'), 10);
@@ -1697,8 +1664,6 @@ export default function App() {
   useEffect(() => {
     const fetchVoices = async () => {
       if (currentStep === 'voz-premium' && elevenLabsVoices.length === 0) {
-        setLoadingVoices(true);
-        setVoiceError(null);
         try {
           const response = await fetch('/api/elevenlabs/voices');
           if (!response.ok) {
@@ -1726,9 +1691,6 @@ export default function App() {
           setElevenLabsVoices(data.voices || []);
         } catch (err: any) {
           console.error('Error fetching voices:', err);
-          setVoiceError(err.message);
-        } finally {
-          setLoadingVoices(false);
         }
       }
     };
@@ -2512,11 +2474,6 @@ export default function App() {
         setSelectedHookIdx(null);
       }
       setHasUnsavedCopyChanges(false);
-      setIsHookSaved(
-        !!loadedConfig.copy.finalScript ||
-          (loadedConfig.copy.selectedHookIdx !== undefined &&
-            loadedConfig.copy.selectedHookIdx !== null)
-      );
       setCurrentStep(step);
       toast.success(`Versão "${variant.name}" carregada!`);
     } catch (err) {
@@ -2691,11 +2648,6 @@ export default function App() {
       }
 
       setHasUnsavedCopyChanges(false);
-      setIsHookSaved(
-        !!loadedConfig.copy.finalScript ||
-          (loadedConfig.copy.selectedHookIdx !== undefined &&
-            loadedConfig.copy.selectedHookIdx !== null)
-      );
 
       const firstStepByType: Record<string, string> = {
         complete: 'copy',
@@ -5134,7 +5086,6 @@ export default function App() {
                         },
                       }));
                       setHasUnsavedCopyChanges(false);
-                      setIsHookSaved(false);
                     }
                   }}
                   className={`flex-1 min-w-[150px] p-6 rounded-3xl border-2 transition-all flex flex-col items-center gap-3 ${
@@ -7933,18 +7884,6 @@ export default function App() {
     try {
       toast.loading('Iniciando renderização...', { id: 'zap-simple-render' });
 
-      // Mapa de paletas de destaque
-      const paletteMap: Record<string, { one: string; two: string; three: string }> = {
-        default: { one: '', two: '', three: '' }, // usa o padrão do template
-        viral_amarela: { one: '#FFD700', two: '#FFFFFF', three: '#FFA500' },
-        viral_vermelha: { one: '#FF3B30', two: '#FFFFFF', three: '#FFD700' },
-        viral_verde: { one: '#00FF7F', two: '#FFFFFF', three: '#FFD700' },
-        neon_vibrante: { one: '#FF00FF', two: '#00FFFF', three: '#FFFF00' },
-        sutil_cinza: { one: '#D3D3D3', two: '#FFFFFF', three: '#A9A9A9' },
-        classico_branco: { one: '#FFFFFF', two: '#FFD700', three: '#FFFFFF' },
-      };
-      const selectedPalette = paletteMap[zapHighlightPalette] || paletteMap.default;
-
       // Look up the selected source video's aspect ratio so ZapCap renders
       // the output in the same shape. Otherwise its default template canvas
       // (9:16) pads non-9:16 sources with black bars, and percentage-based
@@ -7983,14 +7922,6 @@ export default function App() {
         payload.highlightColorOne = zapHl1;
         payload.highlightColorTwo = zapHl2;
         payload.highlightColorThree = zapHl3;
-      }
-      // Quick-preset compatibility: if user picked a named palette and
-      // didn't customize highlights manually, fall back to the preset
-      // mapping so the legacy state still works.
-      else if (zapHighlightPalette !== 'default') {
-        payload.highlightColorOne = selectedPalette.one;
-        payload.highlightColorTwo = selectedPalette.two;
-        payload.highlightColorThree = selectedPalette.three;
       }
 
       console.log('[ZAP SIMPLE PAYLOAD]', payload);
