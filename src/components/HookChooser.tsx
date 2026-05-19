@@ -69,12 +69,13 @@ const HookChooser: React.FC<Props> = ({ language, awarenessLevel, approvedCopy =
 
   // Recommended types based on awareness level (the "stars" come from this)
   const recommendedTypes = useMemo(() => {
-    const lvl = String(awarenessLevel || '').split('-')[0] || '';
+    const lvl = String(awarenessLevel || '').split('-')[0] ?? '';
     return HOOK_TYPES_BY_LEVEL[lvl] || [];
   }, [awarenessLevel]);
 
   const projectLevel = useMemo(() => {
-    return parseInt(String(awarenessLevel || '').split('-')[0]) || 0;
+    const lvl = String(awarenessLevel || '').split('-')[0] ?? '';
+    return parseInt(lvl) || 0;
   }, [awarenessLevel]);
 
   // Não pré-popular chosenHook do savedHook — usuário começa sempre vazio.
@@ -112,7 +113,8 @@ const HookChooser: React.FC<Props> = ({ language, awarenessLevel, approvedCopy =
     setIsRecommending(true);
     try {
       // Build candidates: top 15 per recommended type, filtered by level
-      const lvlNum = parseInt(String(awarenessLevel).split('-')[0]) || 3;
+      const lvlStr = String(awarenessLevel).split('-')[0] ?? '';
+      const lvlNum = parseInt(lvlStr) || 3;
       const filteredByLevel = allHooks.filter((h: any) => Array.isArray(h.niveis) && h.niveis.includes(lvlNum));
       const candidates: any[] = [];
       recommendedTypes.forEach(t => {
