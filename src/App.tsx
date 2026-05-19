@@ -97,6 +97,7 @@ import {
 import { AutoResizeTextarea } from './components/AutoResizeTextarea';
 import { NewProjectModal } from './components/NewProjectModal';
 import { ConfirmModal } from './components/ConfirmModal';
+import { PersonaEditModal } from './components/PersonaEditModal';
 import {
   ref,
   uploadBytes,
@@ -12028,229 +12029,27 @@ export default function App() {
       )}
 
       {/* Modal: Editar Persona */}
-      {showEditPersonaModal &&
-        config.copy?.answers?.selectedPersonaFull &&
-        (() => {
-          let editingPersona: any = null;
+      <PersonaEditModal
+        open={showEditPersonaModal && !!config.copy?.answers?.selectedPersonaFull}
+        persona={(() => {
           try {
-            editingPersona = JSON.parse(config.copy.answers.selectedPersonaFull);
-          } catch (e) {
+            return JSON.parse(config.copy?.answers?.selectedPersonaFull || 'null');
+          } catch {
             return null;
           }
-          const updatePersonaField = (field: string, value: any) => {
-            const updated = { ...editingPersona, [field]: value };
-            updateConfig('copy', 'answers', 'selectedPersonaFull', JSON.stringify(updated));
-          };
-          return (
-            <div
-              className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
-              onClick={() => setShowEditPersonaModal(false)}
-            >
-              <div
-                className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="sticky top-0 bg-white border-b-2 border-gray-100 p-6 flex items-center justify-between z-10">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-blue-100 flex items-center justify-center">
-                      <Edit3 size={20} className="text-blue-600" />
-                    </div>
-                    <h3 className="text-xl font-black text-gray-900">Editar Persona</h3>
-                  </div>
-                  <button
-                    onClick={() => setShowEditPersonaModal(false)}
-                    className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
-                  >
-                    <X size={20} className="text-gray-600" />
-                  </button>
-                </div>
-
-                <div className="p-6 space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs font-black text-gray-700 uppercase tracking-widest">
-                        Nome simbólico
-                      </label>
-                      <input
-                        type="text"
-                        value={editingPersona.name || ''}
-                        onChange={(e) => updatePersonaField('name', e.target.value)}
-                        className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-black text-gray-700 uppercase tracking-widest">
-                        Idade
-                      </label>
-                      <input
-                        type="text"
-                        value={editingPersona.age || ''}
-                        onChange={(e) => updatePersonaField('age', e.target.value)}
-                        className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-black text-gray-700 uppercase tracking-widest">
-                        Gênero
-                      </label>
-                      <input
-                        type="text"
-                        value={editingPersona.gender || ''}
-                        onChange={(e) => updatePersonaField('gender', e.target.value)}
-                        className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-black text-gray-700 uppercase tracking-widest">
-                        Nível de Consciência (1-5)
-                      </label>
-                      <select
-                        value={editingPersona.awarenessLevel || '3'}
-                        onChange={(e) => updatePersonaField('awarenessLevel', e.target.value)}
-                        className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none"
-                      >
-                        <option value="1">1 — Inconsciente</option>
-                        <option value="2">2 — Consciente do problema</option>
-                        <option value="3">3 — Consciente da solução</option>
-                        <option value="4">4 — Consciente do produto</option>
-                        <option value="5">5 — Muito consciente</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-black text-gray-700 uppercase tracking-widest">
-                      Descrição
-                    </label>
-                    <textarea
-                      value={editingPersona.description || ''}
-                      onChange={(e) => updatePersonaField('description', e.target.value)}
-                      rows={2}
-                      className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none resize-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-black text-gray-700 uppercase tracking-widest">
-                      Situação atual
-                    </label>
-                    <textarea
-                      value={editingPersona.currentSituation || ''}
-                      onChange={(e) => updatePersonaField('currentSituation', e.target.value)}
-                      rows={2}
-                      className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none resize-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-black text-gray-700 uppercase tracking-widest">
-                      Dor principal
-                    </label>
-                    <textarea
-                      value={editingPersona.mainPain || ''}
-                      onChange={(e) => updatePersonaField('mainPain', e.target.value)}
-                      rows={2}
-                      className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none resize-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-black text-gray-700 uppercase tracking-widest">
-                      Desejo profundo
-                    </label>
-                    <textarea
-                      value={editingPersona.hiddenDesire || ''}
-                      onChange={(e) => updatePersonaField('hiddenDesire', e.target.value)}
-                      rows={2}
-                      className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none resize-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-black text-gray-700 uppercase tracking-widest">
-                      Medo dominante
-                    </label>
-                    <input
-                      type="text"
-                      value={editingPersona.dominantFear || ''}
-                      onChange={(e) => updatePersonaField('dominantFear', e.target.value)}
-                      className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-black text-gray-700 uppercase tracking-widest">
-                      Objeção principal
-                    </label>
-                    <textarea
-                      value={editingPersona.mainObjection || ''}
-                      onChange={(e) => updatePersonaField('mainObjection', e.target.value)}
-                      rows={2}
-                      className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none resize-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-black text-gray-700 uppercase tracking-widest">
-                      Gatilho emocional
-                    </label>
-                    <textarea
-                      value={editingPersona.emotionalTrigger || ''}
-                      onChange={(e) => updatePersonaField('emotionalTrigger', e.target.value)}
-                      rows={2}
-                      className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none resize-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-black text-gray-700 uppercase tracking-widest">
-                      Promessa mais forte
-                    </label>
-                    <textarea
-                      value={editingPersona.strongestPromise || ''}
-                      onChange={(e) => updatePersonaField('strongestPromise', e.target.value)}
-                      rows={2}
-                      className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none resize-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-black text-gray-700 uppercase tracking-widest">
-                      Tom de comunicação
-                    </label>
-                    <input
-                      type="text"
-                      value={editingPersona.communicationTone || ''}
-                      onChange={(e) => updatePersonaField('communicationTone', e.target.value)}
-                      className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div className="sticky bottom-0 bg-white border-t-2 border-gray-100 p-6 flex flex-col md:flex-row gap-3 justify-end">
-                  <button
-                    onClick={() => setShowEditPersonaModal(false)}
-                    className="px-6 py-3 bg-gray-100 text-gray-900 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-gray-200 transition-all"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowEditPersonaModal(false);
-                      setCopyFieldsApplied(false);
-                      toast.success(
-                        "Persona atualizado! Clique em 'Atualizar Campos da Copy' para aplicar."
-                      );
-                    }}
-                    className="px-6 py-3 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"
-                  >
-                    Salvar Alterações
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
         })()}
+        onChange={(next) =>
+          updateConfig('copy', 'answers', 'selectedPersonaFull', JSON.stringify(next))
+        }
+        onClose={() => setShowEditPersonaModal(false)}
+        onSave={() => {
+          setShowEditPersonaModal(false);
+          setCopyFieldsApplied(false);
+          toast.success(
+            "Persona atualizado! Clique em 'Atualizar Campos da Copy' para aplicar."
+          );
+        }}
+      />
 
       <ConfirmModal
         open={!!deleteProjectConfirmId}
