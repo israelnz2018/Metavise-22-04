@@ -1,6 +1,10 @@
 // Pure data constants extracted from App.tsx. These are top-level (no
 // closure over React state) so they live happily in a lib file. Imports
 // are mirrored in App.tsx so behavior is identical to the inline version.
+//
+// The PERSONA_* groups feed the 9-question form in renderPersonaStep.
+// They were inlined inside the render function; pulling them up avoids
+// re-allocating the arrays on every re-render.
 import {
   Clapperboard,
   Edit3,
@@ -266,3 +270,95 @@ export const AVATARS = [
   },
 ];
 
+
+// ─── Persona-step form options ──────────────────────────────────────
+
+export const PERSONA_CATEGORY_OPTIONS = [
+  'Infoproduto',
+  'Produto físico',
+  'SaaS',
+  'Serviço local',
+  'Saúde/Bem-estar',
+  'Estética',
+  'Educação',
+  'Finanças',
+  'Negócios',
+  'Relacionamento',
+  'Carreira',
+  'Pets',
+  'Maternidade',
+  'Consultoria',
+  'E-commerce',
+  'Afiliados',
+  'Aplicativo',
+  'B2B',
+  'Outro',
+];
+
+export const PERSONA_URGENCY_OPTIONS = [
+  { value: 'Crítica', label: '🔥 Crítica', desc: 'dor física/financeira agora' },
+  { value: 'Alta', label: '⚡ Alta', desc: 'afeta o dia a dia' },
+  { value: 'Média', label: '⏳ Média', desc: 'incomoda mas tolera' },
+  { value: 'Baixa', label: '💭 Baixa', desc: 'curiosidade/melhoria' },
+];
+
+export const PERSONA_DIFFERENTIAL_OPTIONS = [
+  'Mais rápido',
+  'Mais simples',
+  'Mais barato',
+  'Personalizado',
+  'Usa IA',
+  'Tem acompanhamento',
+  'Método próprio',
+  'Prova científica',
+  'Garantia',
+  'Resultado prático',
+  'Natural',
+  'Pra iniciantes',
+  'Pra avançados',
+  'Único no mercado',
+  'Recomendado por especialistas',
+];
+
+export const PERSONA_TRIED_BEFORE_OPTIONS = [
+  'Outros cursos',
+  'Remédios',
+  'Aplicativos',
+  'Planilhas',
+  'Dietas',
+  'Academia',
+  'Consultorias',
+  'Vídeos grátis',
+  'Produtos concorrentes',
+  'Dicas de internet',
+  'Profissionais',
+  'Métodos caseiros',
+  'Nada ainda',
+];
+
+export const PERSONA_PAYING_CAPACITY_OPTIONS = [
+  'Baixa (até R$200)',
+  'Média (R$200-1.000)',
+  'Alta (R$1.000-5.000)',
+  'Premium (acima R$5.000)',
+  'Recorrente (mensal/assinatura)',
+  'Não sei ainda',
+];
+
+export const PERSONA_HIDDEN_DESIRE_OPTIONS = [
+  { emoji: '🏆', label: 'Ser admirado(a) e respeitado(a)' },
+  { emoji: '💪', label: 'Provar que consegue (pra si ou pros outros)' },
+  { emoji: '✨', label: 'Recuperar autoestima e autoconfiança' },
+  { emoji: '🌹', label: 'Parecer/sentir-se mais jovem ou atraente' },
+  { emoji: '🕊️', label: 'Liberdade (financeira, de tempo, de chefe)' },
+  { emoji: '👑', label: 'Ter controle sobre a própria vida' },
+  { emoji: '🎯', label: 'Parar de depender de outras pessoas' },
+  { emoji: '🏅', label: 'Sentir orgulho de si mesmo' },
+  { emoji: '👨‍👩‍👧', label: 'Conexão com filhos/família/parceiro(a)' },
+  { emoji: '😌', label: 'Paz de espírito / fim da ansiedade' },
+  { emoji: '🌟', label: 'Reconhecimento profissional ou social' },
+  { emoji: '💰', label: "Status / sentir-se 'alguém'" },
+  { emoji: '🦋', label: 'Recomeço / virar de página na vida' },
+  { emoji: '🛡️', label: 'Segurança e estabilidade' },
+  { emoji: '❤️', label: 'Ser amado(a) / desejado(a)' },
+];

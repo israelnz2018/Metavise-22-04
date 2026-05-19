@@ -91,6 +91,12 @@ import {
   STEPS,
   SUBTITLE_STYLES,
   AVATARS,
+  PERSONA_CATEGORY_OPTIONS,
+  PERSONA_URGENCY_OPTIONS,
+  PERSONA_DIFFERENTIAL_OPTIONS,
+  PERSONA_TRIED_BEFORE_OPTIONS,
+  PERSONA_PAYING_CAPACITY_OPTIONS,
+  PERSONA_HIDDEN_DESIRE_OPTIONS,
 } from './lib/constants';
 import { AutoResizeTextarea } from './components/AutoResizeTextarea';
 import { NewProjectModal } from './components/NewProjectModal';
@@ -3452,96 +3458,6 @@ export default function App() {
 
 
   const renderPersonaStep = () => {
-    const categoryOptions = [
-      'Infoproduto',
-      'Produto físico',
-      'SaaS',
-      'Serviço local',
-      'Saúde/Bem-estar',
-      'Estética',
-      'Educação',
-      'Finanças',
-      'Negócios',
-      'Relacionamento',
-      'Carreira',
-      'Pets',
-      'Maternidade',
-      'Consultoria',
-      'E-commerce',
-      'Afiliados',
-      'Aplicativo',
-      'B2B',
-      'Outro',
-    ];
-
-    const urgencyOptions = [
-      { value: 'Crítica', label: '🔥 Crítica', desc: 'dor física/financeira agora' },
-      { value: 'Alta', label: '⚡ Alta', desc: 'afeta o dia a dia' },
-      { value: 'Média', label: '⏳ Média', desc: 'incomoda mas tolera' },
-      { value: 'Baixa', label: '💭 Baixa', desc: 'curiosidade/melhoria' },
-    ];
-
-    const differentialOptions = [
-      'Mais rápido',
-      'Mais simples',
-      'Mais barato',
-      'Personalizado',
-      'Usa IA',
-      'Tem acompanhamento',
-      'Método próprio',
-      'Prova científica',
-      'Garantia',
-      'Resultado prático',
-      'Natural',
-      'Pra iniciantes',
-      'Pra avançados',
-      'Único no mercado',
-      'Recomendado por especialistas',
-    ];
-
-    const triedBeforeOptions = [
-      'Outros cursos',
-      'Remédios',
-      'Aplicativos',
-      'Planilhas',
-      'Dietas',
-      'Academia',
-      'Consultorias',
-      'Vídeos grátis',
-      'Produtos concorrentes',
-      'Dicas de internet',
-      'Profissionais',
-      'Métodos caseiros',
-      'Nada ainda',
-    ];
-
-    const payingCapacityOptions = [
-      'Baixa (até R$200)',
-      'Média (R$200-1.000)',
-      'Alta (R$1.000-5.000)',
-      'Premium (acima R$5.000)',
-      'Recorrente (mensal/assinatura)',
-      'Não sei ainda',
-    ];
-
-    const hiddenDesireOptions = [
-      { emoji: '🏆', label: 'Ser admirado(a) e respeitado(a)' },
-      { emoji: '💪', label: 'Provar que consegue (pra si ou pros outros)' },
-      { emoji: '✨', label: 'Recuperar autoestima e autoconfiança' },
-      { emoji: '🌹', label: 'Parecer/sentir-se mais jovem ou atraente' },
-      { emoji: '🕊️', label: 'Liberdade (financeira, de tempo, de chefe)' },
-      { emoji: '👑', label: 'Ter controle sobre a própria vida' },
-      { emoji: '🎯', label: 'Parar de depender de outras pessoas' },
-      { emoji: '🏅', label: 'Sentir orgulho de si mesmo' },
-      { emoji: '👨‍👩‍👧', label: 'Conexão com filhos/família/parceiro(a)' },
-      { emoji: '😌', label: 'Paz de espírito / fim da ansiedade' },
-      { emoji: '🌟', label: 'Reconhecimento profissional ou social' },
-      { emoji: '💰', label: "Status / sentir-se 'alguém'" },
-      { emoji: '🦋', label: 'Recomeço / virar de página na vida' },
-      { emoji: '🛡️', label: 'Segurança e estabilidade' },
-      { emoji: '❤️', label: 'Ser amado(a) / desejado(a)' },
-    ];
-
     const a = config.copy.answers;
     const differentials: string[] = a.differentials || [];
     const personaTriedBefore: string[] = a.personaTriedBefore || [];
@@ -3614,7 +3530,7 @@ export default function App() {
           <div className="space-y-2">
             <label className="text-sm font-black text-gray-900">2. Categoria do produto</label>
             <div className="flex flex-wrap gap-2">
-              {categoryOptions.map((cat) => (
+              {PERSONA_CATEGORY_OPTIONS.map((cat) => (
                 <button
                   key={cat}
                   onClick={() => updateConfig('copy', 'answers', 'category', cat)}
@@ -3710,7 +3626,7 @@ export default function App() {
               5. Quão urgente é o problema pra quem compra?
             </label>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {urgencyOptions.map((opt) => (
+              {PERSONA_URGENCY_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}
                   onClick={() => updateConfig('copy', 'answers', 'urgency', opt.value)}
@@ -3735,7 +3651,7 @@ export default function App() {
               <span className="text-[10px] text-gray-400 font-bold ml-2">(escolha 2-5)</span>
             </label>
             <div className="flex flex-wrap gap-2">
-              {differentialOptions.map((d) => (
+              {PERSONA_DIFFERENTIAL_OPTIONS.map((d) => (
                 <button
                   key={d}
                   onClick={() => toggleArrayValue('differentials', d, 5)}
@@ -3781,7 +3697,7 @@ export default function App() {
               <span className="text-[10px] text-gray-400 font-bold ml-2">(1-5 opções)</span>
             </label>
             <div className="flex flex-wrap gap-2">
-              {triedBeforeOptions.map((t) => (
+              {PERSONA_TRIED_BEFORE_OPTIONS.map((t) => (
                 <button
                   key={t}
                   onClick={() => toggleArrayValue('personaTriedBefore', t, 5)}
@@ -3804,7 +3720,7 @@ export default function App() {
               8. Capacidade de pagar do cliente típico
             </label>
             <div className="flex flex-wrap gap-2">
-              {payingCapacityOptions.map((p) => (
+              {PERSONA_PAYING_CAPACITY_OPTIONS.map((p) => (
                 <button
                   key={p}
                   onClick={() => updateConfig('copy', 'answers', 'payingCapacity', p)}
@@ -3833,7 +3749,7 @@ export default function App() {
               desejada de novo"). Pense no que ela diria se ninguém estivesse ouvindo.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">
-              {hiddenDesireOptions.map((d) => (
+              {PERSONA_HIDDEN_DESIRE_OPTIONS.map((d) => (
                 <button
                   key={d.label}
                   onClick={() => toggleArrayValue('hiddenDesires', d.label, 3)}
