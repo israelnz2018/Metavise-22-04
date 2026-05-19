@@ -101,51 +101,83 @@ claudeRouter.post('/complete', async (req, res) => {
       `max_tokens=${max_tokens} user_len=${user.length}`
   );
 
-  try {
-    const response = await fetch(ANTHROPIC_API, {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens,
-        // Extended thinking — Claude reasons internally before replying.
-        // Disable per-call by sending `"thinking": false`. Opus 4.7 only
-        // accepts the 'adaptive' shape; older models used 'enabled' with a
-        // budget_tokens field.
-        ...(thinking
-          ? {
-              thinking: { type: 'adaptive' },
-              output_config: { effort: THINKING_EFFORT },
-            }
-          : {}),
-        // Cache the (typically large, repeated) system prompt — copy
-        // generation reuses the same beats Schwartz instructions across
-        // many requests, so caching cuts cost noticeably.
-        ...(system
-          ? {
-              system: [
-                {
-                  type: 'text',
-                  text: system,
-                  cache_control: { type: 'ephemeral' },
-                },
-              ],
-            }
-          : {}),
-        messages: [{ role: 'user', content: user }],
-      }),
-    });
+  const body = JSON.stringify({
+    model,
+    max_tokens,
+    // Extended thinking — Claude reasons internally before replying.
+    // Disable per-call by sending `"thinking": false`. Opus 4.7 only
+    // accepts the 'adaptive' shape; older models used 'enabled' with a
+    // budget_tokens field.
+    ...(thinking
+      ? {
+          thinking: { type: 'adaptive' },
+          output_config: { effort: THINKING_EFFORT },
+        }
+      : {}),
+    // Cache the (typically large, repeated) system prompt — copy
+    // generation reuses the same beats Schwartz instructions across
+    // many requests, so caching cuts cost noticeably.
+    ...(system
+      ? {
+          system: [
+            {
+              type: 'text',
+              text: system,
+              cache_control: { type: 'ephemeral' },
+            },
+          ],
+        }
+      : {}),
+    messages: [{ role: 'user', content: user }],
+  });
 
-    if (!response.ok) {
-      const text = await response.text();
-      console.error('[Claude] Anthropic API error:', response.status, text.substring(0, 500));
-      return res.status(response.status).json({
+  // Retry on Anthropic's transient overload (529) and rate-limit (429)
+  // responses with exponential backoff (1s, 2s, 4s). 5xx server errors
+  // also retried since they're typically intermittent. Other failures
+  // (auth, bad request) bubble up immediately.
+  const MAX_ATTEMPTS = 4;
+  try {
+    let response: Response | null = null;
+    let lastText = '';
+
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      response = await fetch(ANTHROPIC_API, {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+        },
+        body,
+      });
+
+      if (response.ok) break;
+
+      lastText = await response.text();
+      const retryable = response.status === 529 || response.status === 429 || response.status >= 500;
+      if (!retryable || attempt === MAX_ATTEMPTS) {
+        console.error(
+          `[Claude] Anthropic API error (attempt ${attempt}/${MAX_ATTEMPTS}):`,
+          response.status,
+          lastText.substring(0, 500)
+        );
+        return res.status(response.status).json({
+          success: false,
+          error: `Claude API error: ${response.status} ${lastText.substring(0, 300)}`,
+        });
+      }
+
+      const delay = 1000 * Math.pow(2, attempt - 1);
+      console.warn(
+        `[Claude] ${response.status} on attempt ${attempt}/${MAX_ATTEMPTS}, retrying in ${delay}ms…`
+      );
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+
+    if (!response || !response.ok) {
+      return res.status(503).json({
         success: false,
-        error: `Claude API error: ${response.status} ${text.substring(0, 300)}`,
+        error: 'Claude indisponível após múltiplas tentativas. Tente novamente em alguns minutos.',
       });
     }
 
