@@ -161,36 +161,8 @@ assemblyAIRouter.post('/analyze', async (req, res) => {
     }
 
     logToFile(`[AssemblyAI] Highlights encontrados: ${highlights.length}`);
-
-    // [B-ROLL DEBUG] Sentence analysis for B-roll candidate selection
-    console.log('[B-ROLL DEBUG] Total de highlights:', highlights.length);
-    console.log('[B-ROLL DEBUG] Total de sentences:', sentences.length);
-    logToFile('[B-ROLL DEBUG] Análise de Sentences para Seleção de B-Roll:');
-
-    sentences.forEach((s: any, i: number) => {
-      const duration = (s.end - s.start) / 1000;
-      if (duration >= 2 && duration <= 8) {
-        const relevantHighlights = highlights.filter((h: any) => {
-          const hText = h.text || h.gist || h.headline || '';
-          return s.text && hText && s.text.toLowerCase().includes(hText.toLowerCase());
-        });
-        const maxRank =
-          relevantHighlights.length > 0
-            ? Math.max(...relevantHighlights.map((h: any) => h.rank || 0))
-            : 0;
-
-        logToFile(
-          `[CANDIDATO B-ROLL] i=${i} dur=${duration.toFixed(2)}s rank=${maxRank.toFixed(3)} text="${s.text}"`
-        );
-      }
-    });
-
-    logToFile(
-      `[AssemblyAI] Highlights Data (Sample): ${JSON.stringify(highlights).substring(0, 300)}`
-    );
-
     console.log(
-      `[AssemblyAI] Análise completa: ${highlights.length} highlights, ${words.length} palavras`
+      `[AssemblyAI] Análise completa: ${highlights.length} highlights, ${words.length} palavras, ${sentences.length} sentences`
     );
 
     res.json({
