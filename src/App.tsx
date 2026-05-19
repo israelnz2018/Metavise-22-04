@@ -554,56 +554,58 @@ export default function App() {
   };
 
   const handleDeleteVideoFromArray = async (video: { url: string; storagePath: string | null }) => {
-    if (!video.storagePath) {
-      const newVideos = videos.filter((v) => v.url !== video.url);
-      setVideos(newVideos);
-
-      let newVideoUrl = videoUrl;
-      let newVideoStoragePath = videoStoragePath;
-      let newLastMetadata = lastVideoMetadata;
-
-      if (videoUrl === video.url) {
-        newVideoUrl = newVideos.length > 0 ? newVideos[newVideos.length - 1].url : null;
-        newVideoStoragePath =
-          newVideos.length > 0 ? newVideos[newVideos.length - 1].storagePath : null;
-        setVideoUrl(newVideoUrl);
-        setVideoStoragePath(newVideoStoragePath);
-
-        if (!newVideoUrl) {
-          setLoading(false);
-          setVideoOp(null);
-          if (pollIntervalRef.current) {
-            clearInterval(pollIntervalRef.current);
-            pollIntervalRef.current = null;
-          }
-          newLastMetadata = null;
-        }
-      }
-
-      setConfig((prev) => ({
-        ...prev,
-        videos: newVideos,
-        videoUrl: newVideoUrl,
-        videoStoragePath: newVideoStoragePath,
-        lastVideoMetadata: newLastMetadata,
-      }));
-
-      toast.success('Vídeo removido do histórico!');
-
-      handleSaveProject({
-        videos: newVideos,
-        videoUrl: newVideoUrl,
-        videoStoragePath: newVideoStoragePath,
-        lastVideoMetadata: newLastMetadata,
-      });
-      return;
-    }
+    // Hook-mode videos live on config.copy.hookVideos (not the top-level
+    // `videos` array). The trash button doesn't know which bucket it's
+    // in, so locate the video by URL and route the removal accordingly.
+    const hookVideos = ((config.copy as any)?.hookVideos as typeof videos | undefined) || [];
+    const isHookVideo =
+      hookVideos.some((v) => v.url === video.url) &&
+      !videos.some((v) => v.url === video.url);
 
     try {
       if (video.storagePath) {
         await safeDeleteObject(video.storagePath);
       }
 
+      if (isHookVideo) {
+        const newHookVideos = hookVideos.filter((v) => v.url !== video.url);
+        const currentHookUrl = (config.copy as any)?.hookVideoUrl as string | undefined;
+        const wasActive = currentHookUrl === video.url;
+        const newHookUrl = wasActive
+          ? newHookVideos.length > 0
+            ? newHookVideos[newHookVideos.length - 1]!.url
+            : ''
+          : currentHookUrl;
+        const newHookStoragePath = wasActive
+          ? newHookVideos.length > 0
+            ? newHookVideos[newHookVideos.length - 1]!.storagePath
+            : null
+          : ((config.copy as any)?.hookVideoStoragePath as string | null | undefined) ?? null;
+
+        setConfig((prev) => ({
+          ...prev,
+          copy: {
+            ...prev.copy,
+            hookVideos: newHookVideos,
+            hookVideoUrl: newHookUrl,
+            hookVideoStoragePath: newHookStoragePath,
+          } as any,
+        }));
+
+        toast.success('Vídeo do gancho deletado!');
+
+        handleSaveProject({
+          copy: {
+            ...config.copy,
+            hookVideos: newHookVideos,
+            hookVideoUrl: newHookUrl,
+            hookVideoStoragePath: newHookStoragePath,
+          } as any,
+        });
+        return;
+      }
+
+      // Body-mode delete (top-level videos array).
       const newVideos = videos.filter((v) => v.url !== video.url);
       setVideos(newVideos);
 
@@ -612,9 +614,9 @@ export default function App() {
       let newLastMetadata = lastVideoMetadata;
 
       if (videoUrl === video.url) {
-        newVideoUrl = newVideos.length > 0 ? newVideos[newVideos.length - 1].url : null;
+        newVideoUrl = newVideos.length > 0 ? newVideos[newVideos.length - 1]!.url : null;
         newVideoStoragePath =
-          newVideos.length > 0 ? newVideos[newVideos.length - 1].storagePath : null;
+          newVideos.length > 0 ? newVideos[newVideos.length - 1]!.storagePath : null;
         setVideoUrl(newVideoUrl);
         setVideoStoragePath(newVideoStoragePath);
 

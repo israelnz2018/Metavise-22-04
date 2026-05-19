@@ -900,20 +900,25 @@ videoRouter.post('/add-headline', async (req, res) => {
               log.warn('add-headline autoTime: no headline found in transcript');
             }
 
-            // Bridge ASS dialogue timings: extend headline N's end to
-            // EXACTLY the start of headline N+1, no buffer. This closes the
-            // silence/breath gap between phrases so the text never blanks
-            // out. libass treats Dialogue End as exclusive (the dialogue
-            // disappears AT End, the next one starts AT Start), so an exact
-            // boundary produces a clean handoff with no visual overlap.
-            // Drawbox gets its own (slightly bigger) overlap below.
-            // ALSO: the very last headline always stays on until the end of
-            // the video (manual mode already does this for free).
+            // Normalise the auto-detected timings so the displayed headlines
+            // match what the user expects:
+            //   1. Headline #1 ALWAYS starts at 0 — the first headline should
+            //      be visible from the very first frame of the hook, not when
+            //      its first matching word happens to be spoken.
+            //   2. Each headline's end is clamped to the next one's start
+            //      (no overlap, no gap). libass treats Dialogue End as
+            //      exclusive, so an exact boundary produces a clean handoff.
+            //   3. The last headline stays on until the end of the video.
             if (perHeadlineTimings) {
+              const first = perHeadlineTimings[0];
+              if (first) first.startSec = 0;
+
               for (let i = 0; i < perHeadlineTimings.length - 1; i++) {
                 const cur = perHeadlineTimings[i];
                 const next = perHeadlineTimings[i + 1];
-                if (cur && next && next.startSec > cur.endSec) {
+                if (cur && next) {
+                  // Bridge gap AND clamp overlap — either way, cur.end ==
+                  // next.start exactly so the user never sees both at once.
                   cur.endSec = next.startSec;
                 }
               }
@@ -921,7 +926,7 @@ videoRouter.post('/add-headline', async (req, res) => {
               if (last && last.endSec < durationSec) {
                 last.endSec = durationSec;
               }
-              log.info('add-headline autoTime: timings after text bridging', {
+              log.info('add-headline autoTime: timings after normalization', {
                 status: autoTimeStatus,
                 timings: perHeadlineTimings,
               });
@@ -999,35 +1004,22 @@ ${dialogueLines.join('\n')}
     fs.writeFileSync(assPath, ass, 'utf8');
 
     // FFmpeg pipeline: chain ONE drawbox per headline, each timed via the
-    // drawbox `enable` expression. We extend the FIRST headline's bar to
-    // overlap the next one's start by 100ms — this keeps the colored bar
-    // SOLID through the transition even if libass/AssemblyAI timings have
-    // tiny gaps. The ASS dialogue text stays at exact times (above), so
-    // there's no visible text overlap during the bar overlap.
-    const BAR_OVERLAP_SEC = 0.1;
+    // drawbox `enable` expression. Bar timings match the ASS dialogue
+    // timings exactly — no overlap, no gap. Per user request: when H2
+    // appears, H1 should disappear in the same frame.
     const drawboxFilters = headlinesList.map((h, idx) => {
       const color = (h.bgColor || bgColor).replace('#', '').toLowerCase();
       const auto = perHeadlineTimings?.[idx] ?? null;
-      const nextAuto =
-        idx < headlinesList.length - 1
-          ? (perHeadlineTimings?.[idx + 1] ?? null)
-          : null;
       const start = auto
         ? auto.startSec
         : idx === 0
           ? 0
           : switchAtSec;
-      let end = auto
+      const end = auto
         ? auto.endSec
         : idx === 0 && headlinesList.length === 2
           ? switchAtSec
           : durationSec;
-      // For all headlines except the last, extend the bar past the next
-      // headline's start so the bar never blanks during the breath/pause.
-      if (idx < headlinesList.length - 1) {
-        const nextStart = nextAuto ? nextAuto.startSec : switchAtSec;
-        end = Math.max(end, nextStart + BAR_OVERLAP_SEC);
-      }
       const needsGate = !!auto || headlinesList.length > 1;
       const enable = needsGate
         ? `:enable='between(t,${start.toFixed(2)},${end.toFixed(2)})'`
