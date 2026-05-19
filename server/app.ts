@@ -16,7 +16,7 @@ import { assemblyAIRouter } from './routes/assemblyai.routes.js';
 import { runwayRouter } from './routes/runway.routes.js';
 import { elevenLabsRouter, elevenLabsPremiumRouter } from './routes/elevenlabs.routes.js';
 import { videoRouter } from './routes/video.routes.js';
-import { heygenRouter, heygenPremiumRouter } from './routes/heygen.routes.js';
+import { heygenRouter } from './routes/heygen.routes.js';
 import { zapCapRouter, proxyImageRouter } from './routes/zapcap.routes.js';
 import { geminiRouter } from './routes/gemini.routes.js';
 import { claudeRouter } from './routes/claude.routes.js';
@@ -46,7 +46,6 @@ export async function createApp(): Promise<Express> {
   app.use('/api/elevenlabs-premium', elevenLabsPremiumRouter);
   app.use('/api/video', videoRouter);
   app.use('/api/heygen', heygenRouter);
-  app.use('/api/heygen-premium', heygenPremiumRouter);
   app.use('/api/zapcap', zapCapRouter);
   app.use('/api/gemini', geminiRouter);
   app.use('/api/claude', claudeRouter);
