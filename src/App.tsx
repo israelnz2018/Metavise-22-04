@@ -2052,7 +2052,7 @@ export default function App() {
       }
 
       // Keep only last 5 variants to save space
-      const prunedVariants = variants.slice(-5).map((v) => ({
+      const prunedVariants = variants.slice(-5).map((v: ProjectVariant) => ({
         ...v,
         config: cleanConfigForStorage(v.config),
       }));
@@ -4971,7 +4971,7 @@ export default function App() {
                                     }
                                   >
                                     <option value="">Selecione...</option>
-                                    {(q.options || []).map((opt) => (
+                                    {(q.options || []).map((opt: string) => (
                                       <option key={opt} value={opt}>
                                         {opt} {isRecommended(q.id, opt) ? '⭐ (Recomendado)' : ''}
                                       </option>
@@ -6260,7 +6260,7 @@ export default function App() {
                           setAvatarFilters((prev) => ({
                             ...prev,
                             styles: prev.styles.includes(style)
-                              ? prev.styles.filter((s) => s !== style)
+                              ? prev.styles.filter((s: string) => s !== style)
                               : [...prev.styles, style],
                           }))
                         }
@@ -6290,7 +6290,7 @@ export default function App() {
                             setAvatarFilters((prev) => ({
                               ...prev,
                               ethnicities: prev.ethnicities.includes(eth)
-                                ? prev.ethnicities.filter((e) => e !== eth)
+                                ? prev.ethnicities.filter((e: string) => e !== eth)
                                 : [...prev.ethnicities, eth],
                             }))
                           }
@@ -6320,7 +6320,7 @@ export default function App() {
                           setAvatarFilters((prev) => ({
                             ...prev,
                             ages: prev.ages.includes(age)
-                              ? prev.ages.filter((a) => a !== age)
+                              ? prev.ages.filter((a: string) => a !== age)
                               : [...prev.ages, age],
                           }))
                         }
