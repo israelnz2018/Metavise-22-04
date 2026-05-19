@@ -98,6 +98,7 @@ import { AutoResizeTextarea } from './components/AutoResizeTextarea';
 import { NewProjectModal } from './components/NewProjectModal';
 import { ConfirmModal } from './components/ConfirmModal';
 import { PersonaEditModal } from './components/PersonaEditModal';
+import { PersonaPathModal } from './components/PersonaPathModal';
 import {
   ref,
   uploadBytes,
@@ -11956,77 +11957,11 @@ export default function App() {
       />
 
       {/* Modal: Persona Path Selector (ao criar novo subprojeto) */}
-      {pendingNewSubproject && (
-        <div
-          className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
-          onClick={() => setPendingNewSubproject(null)}
-        >
-          <div
-            className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-8"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-12 h-12 rounded-2xl bg-blue-100 flex items-center justify-center">
-                <Users size={24} className="text-blue-600" />
-              </div>
-              <div>
-                <h3 className="text-xl font-black text-gray-900">Novo Subprojeto</h3>
-                <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">
-                  Você já sabe quem é seu cliente?
-                </p>
-              </div>
-            </div>
-
-            <p className="text-sm text-gray-600 leading-relaxed mb-6 mt-2">
-              Antes de começar, queremos entender como você quer trabalhar o público desse
-              subprojeto.
-            </p>
-
-            <div className="space-y-3">
-              <button
-                onClick={() => proceedNewSubproject(pendingNewSubproject, 'known')}
-                className="w-full p-5 rounded-2xl border-2 border-gray-100 hover:border-blue-300 text-left transition-all bg-white group shadow-sm hover:shadow-md"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl group-hover:scale-110 transition-transform">✅</span>
-                  <div>
-                    <p className="font-black text-gray-900 uppercase italic">
-                      Já sei quem é meu cliente
-                    </p>
-                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                      Vou preencher as informações diretamente na Copy
-                    </p>
-                  </div>
-                </div>
-              </button>
-
-              <button
-                onClick={() => proceedNewSubproject(pendingNewSubproject, 'discover')}
-                className="w-full p-5 rounded-2xl border-2 border-blue-200 hover:border-blue-500 text-left transition-all bg-blue-50 group shadow-sm hover:shadow-md"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl group-hover:scale-110 transition-transform">🔍</span>
-                  <div>
-                    <p className="font-black text-gray-900 uppercase italic">
-                      Me ajuda a descobrir
-                    </p>
-                    <p className="text-[10px] text-blue-600 font-bold uppercase tracking-widest">
-                      A IA gera 3 personas com nível de consciência
-                    </p>
-                  </div>
-                </div>
-              </button>
-            </div>
-
-            <button
-              onClick={() => setPendingNewSubproject(null)}
-              className="w-full mt-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-widest hover:text-gray-600 transition-colors"
-            >
-              Cancelar
-            </button>
-          </div>
-        </div>
-      )}
+      <PersonaPathModal
+        project={pendingNewSubproject}
+        onClose={() => setPendingNewSubproject(null)}
+        onProceed={(p, path) => proceedNewSubproject(p, path)}
+      />
 
       {/* Modal: Editar Persona */}
       <PersonaEditModal
