@@ -194,28 +194,11 @@ interface AdConfig {
   };
   edit: {
     transition: string;
-    soundEffect: string;
     backgroundMusic: string;
-    textOverlay: string;
-    motionEffect: string;
-    cinematicEffect: string;
-    cta: string;
-    logoUrl: string | null;
-    pacing: number;
     veoModel?: string;
     timelineEdits?: TimelineEdit[];
     scenes?: Scene[];
-    currentPreviewTime?: number;
-    subtitlesEnabled?: boolean;
-    subFontSize?: number;
-    subVerticalPos?: number;
-    subColor?: string;
     segments?: VideoSegment[];
-  };
-  retouch: {
-    feedback: string;
-    startTime: string;
-    endTime: string;
   };
   voiceSettings?: {
     gender: string;
@@ -383,14 +366,7 @@ export default function App() {
     if (!loadedConfig.edit) {
       loadedConfig.edit = {
         transition: 'none',
-        soundEffect: 'none',
         backgroundMusic: 'none',
-        textOverlay: '',
-        motionEffect: 'none',
-        cinematicEffect: 'none',
-        cta: '',
-        logoUrl: null,
-        pacing: 1.0,
         timelineEdits: [],
       };
     } else if (!loadedConfig.edit.timelineEdits) {
@@ -749,19 +725,10 @@ export default function App() {
     format: { aspectRatio: '9:16', duration: 10 },
     edit: {
       transition: 'none',
-      soundEffect: 'none',
       backgroundMusic: 'none',
-      textOverlay: '',
-      motionEffect: 'none',
-      cinematicEffect: 'none',
-      cta: '',
-      logoUrl: null,
-      pacing: 1.0,
       timelineEdits: [],
-      editingLevel: 'medium',
       veoModel: 'veo-3.1-lite-generate-preview',
     },
-    retouch: { feedback: '', startTime: '0', endTime: '10' },
     voiceSettings: {
       gender: '',
       filter: '',
@@ -1864,7 +1831,6 @@ export default function App() {
             modeloImagem: 'imagen-4.0-generate-001',
             modeloVideo: 'veo-3.1-fast-generate-preview',
           },
-          retouch: { feedback: '', startTime: '', endTime: '' },
           audios: [],
         },
         createdAt: serverTimestamp(),
@@ -2489,14 +2455,7 @@ export default function App() {
     newConfig.videos = [];
     newConfig.edit = {
       transition: 'none',
-      soundEffect: 'none',
       backgroundMusic: 'none',
-      textOverlay: '',
-      motionEffect: 'none',
-      cinematicEffect: 'none',
-      cta: '',
-      logoUrl: null,
-      pacing: 1.0,
       timelineEdits: [],
     };
     newConfig.generationStage = 'idle';
