@@ -362,3 +362,152 @@ export const PERSONA_HIDDEN_DESIRE_OPTIONS = [
   { emoji: '🛡️', label: 'Segurança e estabilidade' },
   { emoji: '❤️', label: 'Ser amado(a) / desejado(a)' },
 ];
+
+// ─── Copy-step form schema ──────────────────────────────────────────
+
+// Question section descriptor used by renderCopyStep. The `condition`
+// callback narrows the question's visibility based on other answers
+// (e.g. "Data da próxima turma" only shows for course-style products).
+export interface CopyQuestion {
+  id: string;
+  label: string;
+  type: 'select' | 'multi-select' | 'text' | 'date' | 'number';
+  options?: string[];
+  placeholder?: string;
+  condition?: (ans: Record<string, any>) => boolean;
+}
+
+export interface CopySection {
+  title: string;
+  questions: CopyQuestion[];
+}
+
+export const COPY_SECTIONS: CopySection[] = [
+  {
+    title: 'AUDIÊNCIA',
+    questions: [
+      { id: 'language', label: 'Idioma', type: 'select', options: ['Português (Brasileiro)', 'Inglês', 'Espanhol'] },
+      { id: 'audience', label: 'Público (quem vai ver)', type: 'text', placeholder: 'ex: Mães ocupadas' },
+      { id: 'age', label: 'Idade', type: 'multi-select', options: ['18-24', '25-34', '35-44', '45-54', '55+'] },
+      { id: 'situation', label: 'Situação atual', type: 'text', placeholder: 'ex: Tentando emagrecer sem sucesso' },
+      { id: 'painPoints', label: 'Problema principal', type: 'text', placeholder: 'ex: Falta de tempo para exercícios' },
+      { id: 'triedBefore', label: 'O que já tentou', type: 'text', placeholder: 'ex: Dietas restritivas, academia' },
+      { id: 'mainObjection', label: 'Objeção principal do cliente', type: 'text', placeholder: 'ex: Já tentei tudo, não confio mais' },
+      { id: 'hiddenDesire', label: 'Desejo profundo (não o resultado superficial)', type: 'text', placeholder: 'ex: Voltar a dançar com o marido nas festas' },
+    ],
+  },
+  {
+    title: 'PRODUTO',
+    questions: [
+      { id: 'productName', label: 'Nome do produto/serviço', type: 'text', placeholder: 'ex: Curso de Marketing Digital' },
+      { id: 'productProblem', label: 'Qual problema resolve?', type: 'text', placeholder: 'ex: Pessoas que não sabem vender online' },
+      { id: 'productResult', label: 'Resultado concreto que entrega', type: 'text', placeholder: 'ex: Primeira venda em 30 dias' },
+      { id: 'uniqueMechanism', label: 'Mecanismo único (o que torna diferente)', type: 'text', placeholder: 'ex: Sistema exclusivo em 3 etapas' },
+      { id: 'socialProof', label: 'Prova social (depoimento, número, resultado)', type: 'text', placeholder: 'ex: Mais de 500 alunos com primeira venda' },
+    ],
+  },
+  {
+    title: 'TIPO DE OFERTA',
+    questions: [
+      {
+        id: 'businessModel',
+        label: 'Qual o modelo da sua oferta?',
+        type: 'select',
+        options: [
+          'Plataforma com acesso contínuo (sem turmas)',
+          'Curso com turmas específicas (com data de início)',
+          'Mentoria / consultoria com vagas limitadas',
+          'Produto físico',
+          'Serviço sob demanda',
+          'SaaS / assinatura',
+          'Outro (campo livre)',
+        ],
+      },
+      {
+        id: 'nextClassDate',
+        label: 'Data da próxima turma',
+        type: 'date',
+        condition: (ans) => ans.businessModel === 'Curso com turmas específicas (com data de início)',
+      },
+      {
+        id: 'slotsAvailable',
+        label: 'Quantas vagas disponíveis',
+        type: 'number',
+        condition: (ans) =>
+          [
+            'Curso com turmas específicas (com data de início)',
+            'Mentoria / consultoria com vagas limitadas',
+          ].includes(ans.businessModel),
+      },
+      {
+        id: 'promoDetails',
+        label: 'Tem alguma promoção/desconto com prazo?',
+        type: 'text',
+        placeholder: 'Ex: 20% OFF até amanhã',
+        condition: (ans) => ans.businessModel === 'SaaS / assinatura',
+      },
+      {
+        id: 'limitedStock',
+        label: 'Estoque limitado?',
+        type: 'select',
+        options: ['Sim', 'Não'],
+        condition: (ans) => ans.businessModel === 'Produto físico',
+      },
+    ],
+  },
+  {
+    title: 'EMOÇÃO PRINCIPAL',
+    questions: [
+      {
+        id: 'emotion',
+        label: 'Emoção',
+        type: 'select',
+        options: [
+          'Frustração',
+          'Vergonha',
+          'Ansiedade',
+          'Medo de julgamento',
+          'Insegurança',
+          'Raiva leve',
+          'Confusão',
+          'Cansaço',
+          'Desmotivação',
+          'Ambição',
+          'Desejo de reconhecimento',
+          'Desejo de controle',
+          'Exclusividade',
+          'Esperança',
+          'Alívio',
+        ],
+      },
+    ],
+  },
+  {
+    title: 'ÂNGULO DA COPY',
+    questions: [
+      {
+        id: 'angleIdea',
+        label: 'Ângulo',
+        type: 'select',
+        options: [
+          'Você está fazendo errado',
+          'Não é culpa sua',
+          'Ninguém te contou isso',
+          'O problema não é o que você pensa',
+          'Existe uma forma mais simples',
+          'Você está sendo mal orientado',
+          'Isso está te sabotando',
+          'Você está focando no lugar errado',
+          'Resultado imediato',
+          'A solução definitiva',
+        ],
+      },
+      {
+        id: 'basePhrase',
+        label: 'Frase base',
+        type: 'text',
+        placeholder: 'O verdadeiro problema não é ____, é ____',
+      },
+    ],
+  },
+];
