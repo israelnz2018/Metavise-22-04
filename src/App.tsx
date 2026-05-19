@@ -96,6 +96,7 @@ import {
 } from './lib/constants';
 import { AutoResizeTextarea } from './components/AutoResizeTextarea';
 import { NewProjectModal } from './components/NewProjectModal';
+import { ConfirmModal } from './components/ConfirmModal';
 import {
   ref,
   uploadBytes,
@@ -11923,112 +11924,53 @@ export default function App() {
       />
 
       {/* Delete Audio Modal — renderizado no topo para evitar z-index/overflow issues */}
-      {showDeleteModal && (
-        <div
-          className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-          style={{ zIndex: 99999 }}
-          onClick={() => setShowDeleteModal(false)}
-        >
-          <div
-            className="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl space-y-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
-                <Trash2 size={18} className="text-red-600" />
-              </div>
-              <div>
-                <h3 className="text-lg font-black text-gray-900">Deletar Áudio?</h3>
-                <p className="text-sm text-gray-500 mt-0.5">Esta ação não pode ser desfeita.</p>
-              </div>
-            </div>
-            <div className="flex gap-3 pt-2">
-              <button
-                onClick={() => {
-                  setShowDeleteModal(false);
-                  setAudioToDelete(null);
-                }}
-                className="flex-1 px-4 py-2 rounded-xl font-bold text-sm bg-gray-100 text-gray-600 hover:bg-gray-200"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleDeleteAudio}
-                className="flex-1 px-4 py-2 rounded-xl font-bold text-sm bg-red-600 text-white hover:bg-red-700"
-              >
-                Sim, deletar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        open={showDeleteModal}
+        title="Deletar Áudio?"
+        onCancel={() => {
+          setShowDeleteModal(false);
+          setAudioToDelete(null);
+        }}
+        onConfirm={() => handleDeleteAudio()}
+      />
 
-      {audioToDeleteFromHistory && (
-        <div
-          className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-          style={{ zIndex: 99999 }}
-          onClick={() => setAudioToDeleteFromHistory(null)}
-        >
-          <div
-            className="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl space-y-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
-                <Trash2 size={18} className="text-red-600" />
-              </div>
-              <div>
-                <h3 className="text-lg font-black text-gray-900">Deletar áudio?</h3>
-                <p className="text-sm text-gray-500 mt-0.5">Esta ação não pode ser desfeita.</p>
-              </div>
-            </div>
-            <div className="flex gap-3 pt-2">
-              <button
-                onClick={() => setAudioToDeleteFromHistory(null)}
-                className="flex-1 px-4 py-2 rounded-xl font-bold text-sm bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => {
-                  const urlToDelete = audioToDeleteFromHistory.url;
-                  const storagePathToDelete = audioToDeleteFromHistory.storagePath;
+      <ConfirmModal
+        open={!!audioToDeleteFromHistory}
+        title="Deletar áudio?"
+        onCancel={() => setAudioToDeleteFromHistory(null)}
+        onConfirm={() => {
+          if (!audioToDeleteFromHistory) return;
+          const urlToDelete = audioToDeleteFromHistory.url;
+          const storagePathToDelete = audioToDeleteFromHistory.storagePath;
 
-                  if (storagePathToDelete) {
-                    safeDeleteObject(storagePathToDelete).catch(() => {});
-                  }
+          if (storagePathToDelete) {
+            safeDeleteObject(storagePathToDelete).catch(() => {});
+          }
 
-                  const currentAudios = config.audios || audios || [];
-                  const newAudios = currentAudios.filter((a) => a.url !== urlToDelete);
+          const currentAudios = config.audios || audios || [];
+          const newAudios = currentAudios.filter((a) => a.url !== urlToDelete);
 
-                  setAudios(newAudios);
+          setAudios(newAudios);
 
-                  const wasActive = audioUrl === urlToDelete || config.audioUrl === urlToDelete;
-                  if (wasActive) {
-                    setAudioUrl('');
-                  }
+          const wasActive = audioUrl === urlToDelete || config.audioUrl === urlToDelete;
+          if (wasActive) {
+            setAudioUrl('');
+          }
 
-                  setConfig((prev) => ({
-                    ...prev,
-                    audios: newAudios,
-                    ...(wasActive ? { audioUrl: '', audioStoragePath: null } : {}),
-                  }));
+          setConfig((prev) => ({
+            ...prev,
+            audios: newAudios,
+            ...(wasActive ? { audioUrl: '', audioStoragePath: null } : {}),
+          }));
 
-                  handleSaveProject({
-                    audios: newAudios,
-                    ...(wasActive ? { audioUrl: null, audioStoragePath: null } : {}),
-                  });
+          handleSaveProject({
+            audios: newAudios,
+            ...(wasActive ? { audioUrl: null, audioStoragePath: null } : {}),
+          });
 
-                  setAudioToDeleteFromHistory(null);
-                }}
-                className="flex-1 px-4 py-2 rounded-xl font-bold text-sm bg-red-600 text-white hover:bg-red-700 transition-colors"
-              >
-                Sim, deletar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          setAudioToDeleteFromHistory(null);
+        }}
+      />
 
       {showAwarenessChangeModal && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
