@@ -1740,6 +1740,11 @@ export default function App() {
             modeloImagem: 'imagen-4.0-generate-001',
             modeloVideo: 'veo-3.1-fast-generate-preview',
           },
+          edit: {
+            transition: 'none',
+            backgroundMusic: 'none',
+            timelineEdits: [],
+          },
           audios: [],
         },
         createdAt: serverTimestamp(),
@@ -1747,7 +1752,7 @@ export default function App() {
 
       const docRef = await addDoc(collection(db, 'projects'), projectData);
       setCurrentProjectId(docRef.id);
-      setConfig(projectData.config);
+      setConfig(projectData.config as AdConfig);
       setShowNewProjectModal(false);
       setNewProjectName('');
       const firstStepByType: Record<string, any> = {
@@ -2481,7 +2486,7 @@ export default function App() {
         ...prev,
         copy: {
           ...prev.copy,
-          generatedScript: result.script || result,
+          generatedScript: typeof result === 'string' ? result : result.script || '',
           optimizedScript: '',
         },
       }));
@@ -6458,12 +6463,13 @@ export default function App() {
     }
 
     setLoading(true);
-    setAutoEditState({
+    setAutoEditState((prev) => ({
+      ...prev,
       status: 'analyzing',
       step: 'Explorando conteúdo com AssemblyAI...',
       progress: 10,
       editMode: 'auto',
-    });
+    }));
 
     try {
       toast.loading('Iniciando análise inteligente...', { id: 'auto-edit' });
