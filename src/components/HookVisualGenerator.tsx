@@ -410,7 +410,7 @@ Gere the prompt onde o vídeo reforça visualmente a emoção do hook do início
       // Converter imagem para base64 puro (sem prefixo data:...)
       let base64Imagem = approvedImage.url;
       if (approvedImage.url.startsWith('data:')) {
-        base64Imagem = approvedImage.url.split(',')[1];
+        base64Imagem = approvedImage.url.split(',')[1] || '';
       }
 
       const duracaoSegura = [4, 6, 8].includes(duracaoVideo) ? duracaoVideo : 6;
