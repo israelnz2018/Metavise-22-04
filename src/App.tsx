@@ -8366,7 +8366,7 @@ export default function App() {
                       controls
                       muted
                     />
-                    <VideoDurationBadge src={effectiveHookUrl} />
+                    <VideoDurationBadge src={effectiveHookUrl || ''} />
                   </div>
                 </div>
 
@@ -8403,7 +8403,7 @@ export default function App() {
                       controls
                       muted
                     />
-                    <VideoDurationBadge src={effectiveBodyUrl} />
+                    <VideoDurationBadge src={effectiveBodyUrl || ''} />
                   </div>
                 </div>
               </div>
@@ -11047,7 +11047,6 @@ export default function App() {
                   <VozPremium
                     key={isHook ? 'voz-hook' : 'voz-body'}
                     approvedScript={activeScript}
-                    projectId={currentProjectId || undefined}
                     personaGender={config.copy?.answers?.personaGender || ''}
                     personaAge={config.copy?.answers?.personaAgePrimary || ''}
                     savedAudioUrl={activeAudioUrl || undefined}
