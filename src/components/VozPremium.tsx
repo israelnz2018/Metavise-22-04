@@ -33,7 +33,6 @@ import { storage, auth } from "../lib/firebase";
 
 interface Props {
   approvedScript?: string;
-  projectId?: string;
   personaGender?: string;
   personaAge?: string;
   savedAudioUrl?: string;
@@ -112,7 +111,6 @@ const USE_CASES = [
 
 const VozPremium: React.FC<Props> = ({
   approvedScript = "",
-  projectId,
   personaGender,
   personaAge,
   savedAudioUrl,
@@ -269,9 +267,7 @@ const VozPremium: React.FC<Props> = ({
   // Clone state
   const [cloneFile, setCloneFile] = useState<File | null>(null);
   const [cloneName, setCloneName] = useState("");
-  const [removeNoise, setRemoveNoise] = useState(true);
   const [cloning, setCloning] = useState(false);
-  const [clonedVoiceId, setClonedVoiceId] = useState("");
   const [cloneMode, setCloneMode] = useState<"record" | "upload">("record");
   const [isRecording, setIsRecording] = useState(false);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
@@ -406,7 +402,6 @@ const VozPremium: React.FC<Props> = ({
 
   const uploadToFirebase = async (
     audioBlob: Blob,
-    voiceId: string,
   ): Promise<{ url: string; storagePath: string | null }> => {
     try {
       if (auth.currentUser) {
@@ -442,10 +437,7 @@ const VozPremium: React.FC<Props> = ({
       // Faz upload no Firebase Storage igual à aba Voz atual
       const audioResponse = await fetch(result.audioUrl);
       const audioBlob = await audioResponse.blob();
-      const { url, storagePath } = await uploadToFirebase(
-        audioBlob,
-        selectedVoice.voice_id,
-      );
+      const { url, storagePath } = await uploadToFirebase(audioBlob);
       const finalUrl = url || result.audioUrl;
       setLocalAudioUrl(finalUrl);
       setDone(true);
@@ -482,15 +474,11 @@ const VozPremium: React.FC<Props> = ({
         name: finalName,
         removeNoise: true,
       });
-      setClonedVoiceId(voiceId);
-      const clonedVoices = [
-        ...(savedAudios?.filter((a: any) => a.voiceId && a.clonedName) || []),
-      ];
       toast.success("Voz clonada! Gerando áudio com seu roteiro...");
       const result = await generateAudio({ voiceId, script });
       const audioResponse = await fetch(result.audioUrl);
       const audioBlob = await audioResponse.blob();
-      const { url, storagePath } = await uploadToFirebase(audioBlob, voiceId);
+      const { url, storagePath } = await uploadToFirebase(audioBlob);
       const finalUrl = url || result.audioUrl;
       setLocalAudioUrl(finalUrl);
       setDone(true);
@@ -576,7 +564,7 @@ const VozPremium: React.FC<Props> = ({
       const result = await uploadReadyAudio(fileToUpload);
       const audioResponse = await fetch(result.audioUrl);
       const audioBlob = await audioResponse.blob();
-      const { url, storagePath } = await uploadToFirebase(audioBlob, "");
+      const { url, storagePath } = await uploadToFirebase(audioBlob);
       const finalUrl = url || result.audioUrl;
       setLocalAudioUrl(finalUrl);
       setDone(true);

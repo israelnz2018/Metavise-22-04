@@ -48,9 +48,9 @@ export const generateAdCopyWithClaude = async (
   answers: Record<string, any>,
   mode: 'improve' | 'as-is' | 'questions',
   angle: string,
-  scriptLength?: 'short' | 'medium' | 'long',
+  _scriptLength?: 'short' | 'medium' | 'long',
   targetWordCount?: number,
-  hookSelecionado?: string
+  _hookSelecionado?: string
 ): Promise<{ hooks: any[]; script: string }> => {
   if (mode === 'as-is') {
     return {

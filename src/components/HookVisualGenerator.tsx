@@ -1,25 +1,15 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import HookChooser from './HookChooser';
-import { GoogleGenAI, Modality } from "@google/genai";
-import { 
-  Sparkles, 
-  Image as ImageIcon, 
-  Video, 
-  Check, 
-  ArrowRight, 
-  Loader2, 
-  Edit3, 
-  Layers, 
-  Zap, 
-  Star, 
+import { GoogleGenAI } from "@google/genai";
+import {
+  Sparkles,
+  Image as ImageIcon,
+  Video,
+  Check,
+  Loader2,
+  Zap,
   ChevronRight,
-  Maximize2,
-  AlertCircle,
   History,
-  Trash2,
-  RefreshCw,
-  Eye,
-  DollarSign,
   Library,
   Mic,
   Film
@@ -111,13 +101,6 @@ const QUALITY_IMAGE = [
   { id: 'pro', label: 'Ultra', model: 'imagen-4.0-ultra-generate-001', cost: 0.06, desc: '💎 ~$0.18 (3 imagens)' }
 ];
 
-const MODELS_VIDEO = [
-  { id: 'kling-2.1', label: 'Kling 2.1' },
-  { id: 'wan-2.6', label: 'Wan 2.6' },
-  { id: 'hailuo-2.3', label: 'Hailuo 2.3' },
-  { id: 'pixverse', label: 'PixVerse' }
-];
-
 const QUALITY_VIDEO = [
   { id: 'lite', label: 'Lite', model: 'veo-3.0-fast-generate-001', costPerSec: 0.05, desc: '⚡ Econômico' },
   { id: 'fast', label: 'Fast', model: 'veo-3.0-generate-001', costPerSec: 0.10, desc: '⭐ Recomendado' },
@@ -130,9 +113,8 @@ const ASPECT_RATIOS = [
   { id: '16:9', label: '16:9 (YouTube)' }
 ];
 
-export const HookVisualGenerator: React.FC<HookVisualGeneratorProps> = ({ 
-  approvedHook, 
-  projectId, 
+export const HookVisualGenerator: React.FC<HookVisualGeneratorProps> = ({
+  approvedHook,
   hookVisual,
   onSave,
   onVideoGenerated,
@@ -188,7 +170,6 @@ export const HookVisualGenerator: React.FC<HookVisualGeneratorProps> = ({
   // Video Step States
   const [videoPrompt, setVideoPrompt] = useState(hookVisual?.promptVideo || '');
   const [isGeneratingVideoPrompt, setIsGeneratingVideoPrompt] = useState(false);
-  const [selectedVideoModel, setSelectedVideoModel] = useState(hookVisual?.modeloVideo || 'kling-2.1');
   const [selectedVideoQuality, setSelectedVideoQuality] = useState('fast');
   const [selectedAspectRatio, setSelectedAspectRatio] = useState('9:16');
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
@@ -211,7 +192,6 @@ export const HookVisualGenerator: React.FC<HookVisualGeneratorProps> = ({
     { id: 'video-prompt', label: 'Produção', icon: Video }
   ];
 
-  const POLLO_API_KEY = (import.meta as any).env.VITE_POLLO_API_KEY;
   const GEMINI_API_KEY = (import.meta as any).env.VITE_GEMINI_API_KEY;
 
   const calcularDuracaoVideo = (hook: string): number => {
@@ -652,15 +632,12 @@ Gere the prompt onde o vídeo reforça visualmente a emoção do hook do início
                 language={language}
                 awarenessLevel={awarenessLevel}
                 approvedCopy={approvedCopy}
-                savedHook={approvedHook}
                 hooksHistorico={hooksHistorico}
                 onSaveHook={(hook) => {
                   setSessionHook(hook);
                   onSaveHook?.(hook);
                 }}
                 onDeleteHookFromHistory={onDeleteHookFromHistory}
-                onGoToVoz={onGoToVoz}
-                onGoToAvatar={onGoToAvatar}
               />
 
               <div className="mt-6 bg-gray-900 rounded-3xl p-6 shadow-xl">

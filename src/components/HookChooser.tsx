@@ -1,7 +1,7 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { toast } from 'react-hot-toast';
-import { Search, CheckCircle2, Library, Check, Edit3, RotateCcw, Star, Sparkles, Loader2, History, Trash2, Mic, Film, Video } from 'lucide-react';
+import { Search, CheckCircle2, Library, Check, Edit3, RotateCcw, Star, Sparkles, Loader2, History, Trash2 } from 'lucide-react';
 import hooksBibleEn from '../data/hooksBible_en.json';
 import hooksBiblePt from '../data/hooksBible_pt.json';
 import { chooseHooksFromCopy } from '../lib/claudeService';
@@ -10,12 +10,9 @@ interface Props {
   language?: string;
   awarenessLevel?: string;
   approvedCopy?: string;
-  savedHook?: string;
   hooksHistorico?: { hook: string; createdAt: string }[];
   onSaveHook?: (hook: string) => void;
   onDeleteHookFromHistory?: (hook: string) => void;
-  onGoToVoz?: () => void;
-  onGoToAvatar?: () => void;
 }
 
 const HOOK_TYPES_BY_LEVEL: Record<string, string[]> = {
@@ -57,7 +54,7 @@ const getHooksBible = (language?: string) => {
   return { hooks: [], total: 0, idioma: 'en' };
 };
 
-const HookChooser: React.FC<Props> = ({ language, awarenessLevel, approvedCopy = '', savedHook = '', hooksHistorico = [], onSaveHook, onDeleteHookFromHistory, onGoToVoz, onGoToAvatar }) => {
+const HookChooser: React.FC<Props> = ({ language, awarenessLevel, approvedCopy = '', hooksHistorico = [], onSaveHook, onDeleteHookFromHistory }) => {
   const [search, setSearch] = useState('');
   const [tone, setTone] = useState<'Direto' | 'Pergunta' | 'História' | 'Choque' | 'Todos'>('Todos');
   const [levelFilters, setLevelFilters] = useState<number[]>([]);
@@ -88,12 +85,6 @@ const HookChooser: React.FC<Props> = ({ language, awarenessLevel, approvedCopy =
   const bible = useMemo(() => getHooksBible(language), [language]);
   const allHooks = bible.hooks || [];
 
-  // Filtragem para OPÇÃO 2 (Biblioteca agrupada) — depende apenas dos filtros de Nível.
-  const levelFilteredSet = useMemo(() => {
-    if (levelFilters.length === 0) return allHooks;
-    return allHooks.filter((h: any) => Array.isArray(h.niveis) && h.niveis.some((l: number) => levelFilters.includes(l)));
-  }, [allHooks, levelFilters]);
-
   // Filtragem para OPÇÃO 3 (Dropdown/Busca) — depende de Busca e Tom.
   const dropdownSet = useMemo(() => {
     let working = allHooks;
@@ -108,32 +99,6 @@ const HookChooser: React.FC<Props> = ({ language, awarenessLevel, approvedCopy =
     }
     return working;
   }, [allHooks, search, tone]);
-
-  // Build groups (OPÇÃO 2): 3 hooks per selected type from levelFilteredSet.
-  const groups = useMemo(() => {
-    const hasAnyFilter = typeFilters.length > 0 || levelFilters.length > 0;
-    if (!hasAnyFilter) return [];
-
-    const typesToUse = typeFilters.length > 0
-      ? typeFilters
-      : Array.from(new Set(levelFilteredSet.map((h: any) => h.tipo))) as string[];
-
-    const result: { type: string; hooks: any[] }[] = [];
-    typesToUse.forEach(t => {
-      const hooks = levelFilteredSet.filter((h: any) => h.tipo === t).slice(0, 3);
-      if (hooks.length > 0) result.push({ type: t, hooks });
-    });
-    return result;
-  }, [levelFilteredSet, typeFilters, levelFilters]);
-
-  const totalShown = groups.reduce((acc, g) => acc + g.hooks.length, 0);
-
-  const toggleLevel = (lvl: number) => {
-    setLevelFilters(prev => prev.includes(lvl) ? prev.filter(x => x !== lvl) : [...prev, lvl]);
-  };
-  const toggleType = (t: string) => {
-    setTypeFilters(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]);
-  };
 
   const handleAIRecommend = async () => {
     if (!approvedCopy) {
@@ -205,13 +170,6 @@ const HookChooser: React.FC<Props> = ({ language, awarenessLevel, approvedCopy =
     }
     setChosenHook(text);
     if (fromBlock !== 'custom') setCustomHook('');
-    setIsSaved(false);
-  };
-
-  const handleUseCustom = () => {
-    const t = customHook.trim();
-    if (!t) { toast.error('Escreva um hook antes.'); return; }
-    setChosenHook(t);
     setIsSaved(false);
   };
 

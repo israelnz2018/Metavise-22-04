@@ -156,11 +156,11 @@ export const chooseBestHooks = async (projectData: any, candidateHooks: any[], a
 };
 
 export const generateAdCopy = async (
-  answers: Record<string, any>, 
-  mode: 'improve' | 'as-is' | 'questions', 
-  angle: string, 
-  apiKey?: string, 
-  scriptLength?: 'short' | 'medium' | 'long', 
+  answers: Record<string, any>,
+  mode: 'improve' | 'as-is' | 'questions',
+  angle: string,
+  apiKey?: string,
+  _scriptLength?: 'short' | 'medium' | 'long',
   targetWordCount?: number,
   hookSelecionado?: string
 ) => {
