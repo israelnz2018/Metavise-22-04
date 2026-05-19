@@ -7,7 +7,6 @@ import {
   Layout,
   RefreshCw,
   Sparkles,
-  Star,
   User,
   Users,
   Video,
@@ -25,14 +24,6 @@ export const DURATION_OPTIONS = [
   { label: '120s', words: 300 },
   { label: '180s', words: 450 },
 ];
-
-export const HOOK_TYPES_BY_LEVEL: Record<string, string[]> = {
-  '1': ['Surpresa / Choque', 'Curiosidade / Pergunta', 'Identificação'],
-  '2': ['Identificação', 'Confissão / História', 'Quebra de Paradigma'],
-  '3': ['Quebra de Paradigma', 'Contraste / Antes-Depois', 'Resultado / Promessa'],
-  '4': ['Resultado / Promessa', 'Contraste / Antes-Depois', 'Surpresa / Choque'],
-  '5': ['Resultado / Promessa', 'Urgência / Notícia', 'Humor / Absurdo'],
-};
 
 export const AVATAR_ENRICHMENT: Record<string, any> = {
   josh_lite_20230714: { gender: 'male', age: 'young', type: 'realistic' },
@@ -167,31 +158,6 @@ export const STEPS: { id: Step; label: string; icon: any }[] = [
   { id: 'edit2', label: 'Edição Premium', icon: Wand2 },
 
   { id: 'final', label: 'Exportar', icon: Video },
-];
-
-export const VEO_MODELS = [
-  {
-    id: 'veo-3.1-lite-generate-preview',
-    label: 'VEO 3.1 Lite',
-    desc: 'Rápido e econômico (Rascunho)',
-    icon: Zap,
-    engine: 'veo',
-  },
-  {
-    id: 'veo-3.1-generate-preview',
-    label: 'VEO 3.1 Premium',
-    desc: 'Alta qualidade e realismo',
-    icon: Star,
-    engine: 'veo',
-  },
-  {
-    id: 'gen3a_turbo',
-    label: 'Runway Gen-3 Turbo',
-    desc: 'Realismo cinematográfico',
-    icon: Sparkles,
-    engine: 'runway',
-    hidden: true,
-  },
 ];
 
 export const SUBTITLE_STYLES = [
