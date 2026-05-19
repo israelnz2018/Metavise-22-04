@@ -102,6 +102,7 @@ import { PersonaEditModal } from './components/PersonaEditModal';
 import { PersonaPathModal } from './components/PersonaPathModal';
 import { ElevenLabsConfigModal } from './components/ElevenLabsConfigModal';
 import { AvatarPreviewModal } from './components/AvatarPreviewModal';
+import { IntercutModal } from './components/IntercutModal';
 import {
   ref,
   uploadBytes,
@@ -8549,148 +8550,20 @@ export default function App() {
           );
         })()}
 
-        {intercutSourceUrl && (
-          <div
-            className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
-            onClick={() => !intercutRendering && setIntercutSourceUrl(null)}
-          >
-            <div
-              className="bg-white rounded-[28px] max-w-2xl w-full max-h-[90vh] overflow-y-auto p-8 space-y-6 shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="space-y-2">
-                <h3 className="text-2xl font-black text-gray-900 uppercase italic">
-                  ✂ Cortes pretos com texto
-                </h3>
-                <p className="text-sm text-gray-600">
-                  Alterna entre o avatar e tela preta com texto grande. O áudio continua tocando
-                  durante a tela preta — só a imagem muda.
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="text-[11px] font-black uppercase tracking-widest text-gray-700">
-                    Duração do avatar entre cortes:{' '}
-                    <span className="text-purple-700">{intercutAvatarSec}s</span>
-                  </label>
-                  <input
-                    type="range"
-                    min={5}
-                    max={60}
-                    step={1}
-                    value={intercutAvatarSec}
-                    onChange={(e) => setIntercutAvatarSec(parseInt(e.target.value))}
-                    className="w-full accent-purple-600"
-                    disabled={intercutRendering}
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-black uppercase tracking-widest text-gray-700">
-                    Duração da tela preta:{' '}
-                    <span className="text-purple-700">{intercutBlackSec}s</span>
-                  </label>
-                  <input
-                    type="range"
-                    min={3}
-                    max={60}
-                    step={1}
-                    value={intercutBlackSec}
-                    onChange={(e) => setIntercutBlackSec(parseInt(e.target.value))}
-                    className="w-full accent-purple-600"
-                    disabled={intercutRendering}
-                  />
-                  <p className="text-[10px] text-gray-500 mt-1">
-                    Pode ir até 60s por corte se quiser segurar o texto na tela.
-                  </p>
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-black uppercase tracking-widest text-gray-700">
-                    Tamanho da fonte:{' '}
-                    <span className="text-purple-700">{intercutFontSize}px</span>
-                  </label>
-                  <input
-                    type="range"
-                    min={28}
-                    max={120}
-                    step={2}
-                    value={intercutFontSize}
-                    onChange={(e) => setIntercutFontSize(parseInt(e.target.value))}
-                    className="w-full accent-purple-600"
-                    disabled={intercutRendering}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-[11px] font-black uppercase tracking-widest text-gray-700">
-                    Textos das telas pretas
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setIntercutTexts((prev) => [...prev, ''])}
-                    className="text-[10px] font-black uppercase tracking-widest text-purple-700 hover:text-purple-900"
-                    disabled={intercutRendering}
-                  >
-                    + Adicionar
-                  </button>
-                </div>
-                <p className="text-[10px] text-gray-500 -mt-2">
-                  Se houver mais cortes que textos, eles são reutilizados em ciclo.
-                </p>
-                {intercutTexts.map((t, i) => (
-                  <div key={`intercut-text-${i}`} className="flex gap-2">
-                    <textarea
-                      value={t}
-                      onChange={(e) => {
-                        const next = [...intercutTexts];
-                        next[i] = e.target.value;
-                        setIntercutTexts(next);
-                      }}
-                      placeholder={`Texto ${i + 1} (ex.: "ESSA IA TRANSCREVE EM 30 SEGUNDOS")`}
-                      rows={2}
-                      className="flex-1 p-3 border-2 border-gray-200 rounded-xl text-sm focus:border-purple-500 focus:outline-none resize-none"
-                      disabled={intercutRendering}
-                    />
-                    {intercutTexts.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setIntercutTexts((prev) => prev.filter((_, j) => j !== i))
-                        }
-                        className="px-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-100"
-                        disabled={intercutRendering}
-                        title="Remover este texto"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => setIntercutSourceUrl(null)}
-                  disabled={intercutRendering}
-                  className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-gray-200 disabled:opacity-50"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleRenderIntercut}
-                  disabled={intercutRendering}
-                  className="flex-1 py-3 bg-purple-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-purple-700 disabled:opacity-50"
-                >
-                  {intercutRendering ? 'Gerando...' : 'Gerar com cortes pretos'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <IntercutModal
+          open={!!intercutSourceUrl}
+          rendering={intercutRendering}
+          avatarSec={intercutAvatarSec}
+          blackSec={intercutBlackSec}
+          fontSize={intercutFontSize}
+          texts={intercutTexts}
+          onAvatarSecChange={setIntercutAvatarSec}
+          onBlackSecChange={setIntercutBlackSec}
+          onFontSizeChange={setIntercutFontSize}
+          onTextsChange={setIntercutTexts}
+          onClose={() => setIntercutSourceUrl(null)}
+          onRender={handleRenderIntercut}
+        />
 
         {headlineSourceUrl && (
           <div
