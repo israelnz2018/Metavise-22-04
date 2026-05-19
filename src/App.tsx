@@ -95,6 +95,7 @@ import {
   AVATARS,
 } from './lib/constants';
 import { AutoResizeTextarea } from './components/AutoResizeTextarea';
+import { NewProjectModal } from './components/NewProjectModal';
 import {
   ref,
   uploadBytes,
@@ -3447,162 +3448,6 @@ export default function App() {
     }
   };
 
-  const renderNewProjectModal = () => {
-    if (!showNewProjectModal) return null;
-
-    return (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="bg-white w-full max-w-lg rounded-[40px] shadow-2xl border-4 border-blue-50 p-10 space-y-6"
-        >
-          <div className="text-center space-y-2">
-            <h3 className="text-2xl font-black text-gray-900 tracking-tight uppercase">
-              Novo Projeto
-            </h3>
-            <p className="text-xs text-gray-500 font-medium">
-              Escolha o tipo de projeto que deseja iniciar.
-            </p>
-          </div>
-
-          <div className="space-y-4">
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">
-                Nome do Projeto
-              </label>
-              <input
-                type="text"
-                value={newProjectName || ''}
-                onChange={(e) => setNewProjectName(e.target.value)}
-                placeholder="Ex: Campanha de Verão"
-                className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none text-sm font-bold"
-              />
-            </div>
-
-            {/* Projeto Completo — destaque */}
-            <button
-              onClick={() => setNewProjectType('complete')}
-              className={`w-full p-5 rounded-2xl border-2 text-left transition-all ${
-                newProjectType === 'complete'
-                  ? 'border-blue-600 bg-blue-50'
-                  : 'border-gray-100 hover:border-blue-200'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">🚀</span>
-                <div>
-                  <p className="font-black text-gray-900 uppercase tracking-tight">
-                    Projeto Completo
-                  </p>
-                  <p className="text-[10px] text-gray-500 font-medium">
-                    Do roteiro ao vídeo editado — tudo em um só lugar
-                  </p>
-                </div>
-              </div>
-            </button>
-
-            {/* 3 atalhos menores */}
-            <div className="grid grid-cols-3 gap-3">
-              {[
-                {
-                  id: 'copy',
-                  icon: '✏️',
-                  label: 'Roteiro',
-                  desc: 'Criar ou melhorar',
-                },
-                {
-                  id: 'video',
-                  icon: '📹',
-                  label: 'Vídeo',
-                  desc: 'Avatar + Voz',
-                },
-                {
-                  id: 'editing',
-                  icon: '✂️',
-                  label: 'Edição',
-                  desc: 'Editar vídeo',
-                },
-              ].map((type) => (
-                <button
-                  key={type.id}
-                  onClick={() => setNewProjectType(type.id as any)}
-                  className={`p-3 rounded-2xl border-2 text-center transition-all ${
-                    newProjectType === type.id
-                      ? 'border-blue-600 bg-blue-50'
-                      : 'border-gray-100 hover:border-blue-200'
-                  }`}
-                >
-                  <div className="text-xl mb-1">{type.icon}</div>
-                  <p className="text-[10px] font-black text-gray-900 uppercase leading-tight">
-                    {type.label}
-                  </p>
-                  <p className="text-[8px] text-gray-400 mt-1 uppercase font-bold tracking-tighter leading-tight">
-                    {type.desc}
-                  </p>
-                </button>
-              ))}
-            </div>
-
-            {/* Sub-opções de copy — aparecem apenas quando 'copy' está selecionado */}
-            {newProjectType === 'copy' && (
-              <div className="bg-blue-50 rounded-2xl p-4 space-y-2 border border-blue-100 animate-in fade-in slide-in-from-top-2 duration-300">
-                <p className="text-[10px] font-black text-blue-700 uppercase tracking-widest mb-2">
-                  Como deseja começar?
-                </p>
-                {[
-                  {
-                    id: 'zero',
-                    label: 'Criar do zero',
-                    desc: 'A IA cria o roteiro respondendo perguntas',
-                  },
-                  {
-                    id: 'improve',
-                    label: 'Já tenho, quero melhorar',
-                    desc: 'Tenho um rascunho e quero aperfeiçoar',
-                  },
-                  {
-                    id: 'ready',
-                    label: 'Já está pronta',
-                    desc: 'Só quero otimizar para o ElevenLabs',
-                  },
-                ].map((opt) => (
-                  <button
-                    key={opt.id}
-                    onClick={() => setCopySubMode(opt.id as any)}
-                    className={`w-full p-3 rounded-xl border text-left transition-all ${
-                      copySubMode === opt.id
-                        ? 'border-blue-500 bg-white shadow-sm'
-                        : 'border-transparent hover:bg-white/50'
-                    }`}
-                  >
-                    <p className="text-xs font-bold text-gray-900">{opt.label}</p>
-                    <p className="text-[10px] text-gray-500 font-medium">{opt.desc}</p>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="flex gap-3">
-            <button
-              onClick={() => setShowNewProjectModal(false)}
-              className="flex-1 py-4 text-gray-400 font-black uppercase text-[10px] tracking-widest hover:bg-gray-50 rounded-2xl transition-all"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={handleCreateProject}
-              disabled={isSaving || !newProjectName.trim()}
-              className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {isSaving ? <Loader2 className="animate-spin" size={16} /> : 'Criar Projeto'}
-            </button>
-          </div>
-        </motion.div>
-      </div>
-    );
-  };
 
   const renderPersonaStep = () => {
     const categoryOptions = [
@@ -12064,7 +11909,18 @@ export default function App() {
           )}
         </div>
       </main>
-      {renderNewProjectModal()}
+      <NewProjectModal
+        isOpen={showNewProjectModal}
+        name={newProjectName}
+        type={newProjectType}
+        copySubMode={copySubMode}
+        isSaving={isSaving}
+        onNameChange={setNewProjectName}
+        onTypeChange={setNewProjectType}
+        onCopySubModeChange={setCopySubMode}
+        onClose={() => setShowNewProjectModal(false)}
+        onCreate={handleCreateProject}
+      />
 
       {/* Delete Audio Modal — renderizado no topo para evitar z-index/overflow issues */}
       {showDeleteModal && (
