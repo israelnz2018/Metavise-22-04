@@ -837,7 +837,7 @@ export default function App() {
       return {
         ...prev,
         [section]: {
-          ...prev[section],
+          ...(prev[section] as any),
           [subSection]: newSub,
         },
       };
@@ -1526,7 +1526,7 @@ export default function App() {
     if (!config.lastVideoMetadata || !config.videoUrl) return false;
 
     let avatarScript = (config.copy.generatedScript || '').includes('[AVATAR]:')
-      ? config.copy.generatedScript.split('[AVATAR]:')[1].split('[SCENE]:')[0].trim()
+      ? config.copy.generatedScript.split('[AVATAR]:')[1]?.split('[SCENE]:')[0]?.trim() || ''
       : config.copy.generatedScript || '';
 
     if (isTestMode) {
@@ -2890,7 +2890,7 @@ export default function App() {
     // Check if video already exists and matches current config
     if (!forceRegenerate && config.lastVideoMetadata && config.videoUrl) {
       let avatarScript = (config.copy.generatedScript || '').includes('[AVATAR]:')
-        ? config.copy.generatedScript.split('[AVATAR]:')[1].split('[SCENE]:')[0].trim()
+        ? config.copy.generatedScript.split('[AVATAR]:')[1]?.split('[SCENE]:')[0]?.trim() || ''
         : config.copy.generatedScript || '';
 
       if (isTestMode) {
@@ -2934,7 +2934,7 @@ export default function App() {
 
     try {
       let avatarScript = (config.copy.generatedScript || '').includes('[AVATAR]:')
-        ? config.copy.generatedScript.split('[AVATAR]:')[1].split('[SCENE]:')[0].trim()
+        ? config.copy.generatedScript.split('[AVATAR]:')[1]?.split('[SCENE]:')[0]?.trim() || ''
         : config.copy.generatedScript || '';
 
       if (isTestMode) {
@@ -3121,7 +3121,7 @@ export default function App() {
     // Walk forward, skipping any steps disabled by the project config
     // (right now only 'hook-visual' when useHook is off).
     for (let i = currentIndex + 1; i < STEPS.length; i++) {
-      const candidate = STEPS[i].id;
+      const candidate = STEPS[i]!.id;
       if (!useHookFlow && candidate === 'hook-visual') continue;
       if (canNavigateTo(candidate)) {
         setCurrentStep(candidate);
@@ -3133,7 +3133,7 @@ export default function App() {
   const prevStep = () => {
     const currentIndex = STEPS.findIndex((s) => s.id === currentStep);
     for (let i = currentIndex - 1; i >= 0; i--) {
-      const candidate = STEPS[i].id;
+      const candidate = STEPS[i]!.id;
       if (!useHookFlow && candidate === 'hook-visual') continue;
       setCurrentStep(candidate);
       return;
@@ -4381,7 +4381,7 @@ export default function App() {
                     </h4>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {(sections[0].questions || []).map((q) => {
+                    {(sections[0]?.questions || []).map((q) => {
                       const awarenessLevel = (config.copy.answers.awarenessLevel || '').toString();
                       if (q.id === 'painPoints' && awarenessLevel === '1') return null;
                       if (q.id === 'triedBefore' && awarenessLevel === '1') return null;
@@ -10192,7 +10192,7 @@ export default function App() {
     const maxWidthClass = isExpanded ? 'max-w-4xl' : 'max-w-[320px]';
 
     const avatarScript = (config.copy.generatedScript || '').includes('[AVATAR]:')
-      ? config.copy.generatedScript.split('[AVATAR]:')[1].split('[SCENE]:')[0].trim()
+      ? config.copy.generatedScript.split('[AVATAR]:')[1]?.split('[SCENE]:')[0]?.trim() || ''
       : config.copy.generatedScript || '';
 
     // Simple subtitle logic: split script into 5 parts for 10s
@@ -10978,8 +10978,8 @@ export default function App() {
               const bodyAudios = config.audios || [];
               const hookAudios =
                 (((config.copy as any)?.hookAudios as typeof bodyAudios | undefined) || []);
-              const lastBodyVoice = bodyAudios.length > 0 ? bodyAudios[bodyAudios.length - 1].voiceId : '';
-              const lastHookVoice = hookAudios.length > 0 ? hookAudios[hookAudios.length - 1].voiceId : '';
+              const lastBodyVoice = bodyAudios.length > 0 ? bodyAudios[bodyAudios.length - 1]!.voiceId : '';
+              const lastHookVoice = hookAudios.length > 0 ? hookAudios[hookAudios.length - 1]!.voiceId : '';
               // Auto-preselect: prefer the mode's own last voice; fall back
               // to the OTHER mode's last voice so the user doesn't have to
               // reselect every time. Then they can override in the UI.
@@ -11212,7 +11212,7 @@ export default function App() {
         <div className="mt-16 flex items-center justify-between pt-8 border-t border-gray-100">
           <button
             onClick={prevStep}
-            disabled={currentStep === STEPS[0].id}
+            disabled={currentStep === STEPS[0]?.id}
             className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-gray-500 hover:bg-gray-100 disabled:opacity-0 transition-all"
           >
             <ChevronLeft size={20} />
