@@ -1,5 +1,6 @@
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegPath from 'ffmpeg-static';
+// @ts-expect-error ffprobe-static ships no .d.ts; the runtime shape we use is { path: string }
 import ffprobeStatic from 'ffprobe-static';
 
 // Points fluent-ffmpeg at the bundled static binaries. fluent-ffmpeg keeps

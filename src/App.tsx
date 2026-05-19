@@ -5757,7 +5757,7 @@ export default function App() {
                       className="w-full h-full object-contain opacity-80 group-hover:opacity-100 transition-opacity"
                       referrerPolicy={
                         video.url?.includes('generativelanguage.googleapis.com')
-                          ? 'no-referrer'
+                          ? ('no-referrer' as const)
                           : undefined
                       }
                       crossOrigin={
