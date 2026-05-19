@@ -1565,20 +1565,6 @@ export default function App() {
   const [hasApiKey, setHasApiKey] = useState(false);
   const [elevenLabsVoices, setElevenLabsVoices] = useState<any[]>([]);
 
-  // Auto-suggest voice if none is selected
-  /*
-  useEffect(() => {
-    if (!config.avatar.voiceId && elevenLabsVoices.length > 0) {
-      const personaGender = config.copy.answers.personaGender || 'Mulher';
-      const personaAge = config.copy.answers.personaAgePrimary || 'young';
-      const suggestedId = suggestVoice(personaGender, personaAge);
-      if (suggestedId) {
-        setConfig(prev => ({ ...prev, avatar: { ...prev.avatar, voiceId: suggestedId } }));
-      }
-    }
-  }, [elevenLabsVoices, config.avatar.voiceId, config.copy.answers.personaGender, config.copy.answers.personaAgePrimary]);
-  */
-
   const [viewingProjectId, setViewingProjectId] = useState<string | null>(null);
   const [viewingVariant, setViewingVariant] = useState<ProjectVariant | null>(null);
   const [heygenAvatars, setHeygenAvatars] = useState<any[]>([]);
@@ -1605,8 +1591,8 @@ export default function App() {
 
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  const [isExpanded] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
   const [showElevenLabsConfig, setShowElevenLabsConfig] = useState(false);
   const [newElevenLabsKey, setNewElevenLabsKey] = useState('');
   const [isUpdatingKey, setIsUpdatingKey] = useState(false);
@@ -11466,10 +11452,6 @@ export default function App() {
                 onTimeUpdate={(e) => {
                   const video = e.target as HTMLVideoElement;
                   if (!audioUrl) setCurrentTime(video.currentTime);
-                }}
-                onLoadedMetadata={(e) => {
-                  const video = e.target as HTMLVideoElement;
-                  setDuration(video.duration);
                 }}
               />
               {(generationStage === 'completed' ||
