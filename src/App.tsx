@@ -5871,37 +5871,22 @@ export default function App() {
             </motion.div>
           </div>
         )}
-        {showDeleteHistoryVideoModal && videoToDelete && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
-            <div className="bg-white rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl">
-              <h3 className="text-lg font-black text-gray-900">Deletar do Histórico?</h3>
-              <p className="text-sm text-gray-500">
-                Este vídeo será removido permanentemente do seu histórico e do armazenamento.
-              </p>
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => {
-                    setShowDeleteHistoryVideoModal(false);
-                    setVideoToDelete(null);
-                  }}
-                  className="flex-1 px-4 py-2 rounded-xl font-bold text-sm bg-gray-100 text-gray-600 hover:bg-gray-200"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={async () => {
-                    await handleDeleteVideoFromArray(videoToDelete);
-                    setShowDeleteHistoryVideoModal(false);
-                    setVideoToDelete(null);
-                  }}
-                  className="flex-1 px-4 py-2 rounded-xl font-bold text-sm bg-red-600 text-white hover:bg-red-700"
-                >
-                  Deletar
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <ConfirmModal
+          open={showDeleteHistoryVideoModal && !!videoToDelete}
+          title="Deletar do Histórico?"
+          message="Este vídeo será removido permanentemente do seu histórico e do armazenamento."
+          confirmLabel="Deletar"
+          onCancel={() => {
+            setShowDeleteHistoryVideoModal(false);
+            setVideoToDelete(null);
+          }}
+          onConfirm={async () => {
+            if (!videoToDelete) return;
+            await handleDeleteVideoFromArray(videoToDelete);
+            setShowDeleteHistoryVideoModal(false);
+            setVideoToDelete(null);
+          }}
+        />
 
         {/* Fallback Option */}
         {!displayedVideoUrl && !loading && !videoOp && (
@@ -5983,30 +5968,14 @@ export default function App() {
             </div>
 
             {/* Delete Video Confirmation Modal */}
-            {showDeleteVideoModal && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                <div className="bg-white rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl">
-                  <h3 className="text-lg font-black text-gray-900">Deletar Vídeo?</h3>
-                  <p className="text-sm text-gray-500">
-                    Esta ação não pode ser desfeita. O vídeo será removido do Firebase e do projeto.
-                  </p>
-                  <div className="flex gap-3 pt-2">
-                    <button
-                      onClick={() => setShowDeleteVideoModal(false)}
-                      className="flex-1 px-4 py-2 rounded-xl font-bold text-sm bg-gray-100 text-gray-600 hover:bg-gray-200"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      onClick={handleDeleteVideo}
-                      className="flex-1 px-4 py-2 rounded-xl font-bold text-sm bg-red-600 text-white hover:bg-red-700"
-                    >
-                      Deletar
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+            <ConfirmModal
+              open={showDeleteVideoModal}
+              title="Deletar Vídeo?"
+              message="Esta ação não pode ser desfeita. O vídeo será removido do Firebase e do projeto."
+              confirmLabel="Deletar"
+              onCancel={() => setShowDeleteVideoModal(false)}
+              onConfirm={() => handleDeleteVideo()}
+            />
 
             <div className="flex flex-col md:flex-row gap-4">
               <button
@@ -12312,45 +12281,14 @@ export default function App() {
           );
         })()}
 
-      {deleteProjectConfirmId && (
-        <div
-          className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
-          onClick={() => setDeleteProjectConfirmId(null)}
-        >
-          <div
-            className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start gap-4 mb-6">
-              <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-red-100 flex items-center justify-center">
-                <Trash2 size={24} className="text-red-600" />
-              </div>
-              <div>
-                <h3 className="text-xl font-black text-gray-900 mb-2">Excluir projeto?</h3>
-                <p className="text-sm text-gray-600 leading-relaxed">
-                  Esta ação não pode ser desfeita. Todo o conteúdo deste projeto (copy, hooks,
-                  áudios, vídeos) será perdido permanentemente.
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setDeleteProjectConfirmId(null)}
-                className="px-6 py-3 bg-gray-100 text-gray-900 rounded-2xl font-bold hover:bg-gray-200 transition-all"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={confirmDeleteProject}
-                className="px-6 py-3 bg-red-600 text-white rounded-2xl font-bold hover:bg-red-700 transition-all flex items-center gap-2"
-              >
-                <Trash2 size={18} />
-                Sim, excluir
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        open={!!deleteProjectConfirmId}
+        title="Excluir projeto?"
+        message="Esta ação não pode ser desfeita. Todo o conteúdo deste projeto (copy, hooks, áudios, vídeos) será perdido permanentemente."
+        confirmLabel="Sim, excluir"
+        onCancel={() => setDeleteProjectConfirmId(null)}
+        onConfirm={() => confirmDeleteProject()}
+      />
 
       <Toaster position="bottom-right" />
     </div>
