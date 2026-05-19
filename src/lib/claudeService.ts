@@ -143,7 +143,7 @@ export const generateAdCopyWithClaude = async (
       'Low-pressure invitation to watch the video. One short sentence. No promise of the outcome.',
   };
 
-  const activeBeats = isVslTraffic ? vslBeats : beatBudgets[currentLevel] || beatBudgets['3'];
+  const activeBeats = isVslTraffic ? vslBeats : (beatBudgets[currentLevel] || beatBudgets['3'])!;
   const activeBeatInstructions = isVslTraffic ? vslBeatInstructions : beatInstructions;
 
   const beatStructure = activeBeats
@@ -427,7 +427,7 @@ FORMATO (JSON apenas):
   } catch {
     // Last resort: strip the JSON wrapper manually
     const match = raw.match(/"optimizedScript"\s*:\s*"([\s\S]*)"/);
-    if (match) {
+    if (match && match[1]) {
       return match[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
     }
     return raw;

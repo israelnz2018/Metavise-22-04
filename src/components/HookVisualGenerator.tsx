@@ -291,7 +291,7 @@ OUTPUT: Only the optimized image prompt. Nothing else.`;
 
     setIsGeneratingImages(true);
     try {
-      const quality = QUALITY_IMAGE.find(q => q.id === selectedImageQuality) || QUALITY_IMAGE[1];
+      const quality = QUALITY_IMAGE.find(q => q.id === selectedImageQuality) || QUALITY_IMAGE[1]!;
       const model = quality.model;
       const aspectRatio = selectedImageQuality === 'pro' ? '9:16' : '1:1';
 
@@ -305,7 +305,7 @@ OUTPUT: Only the optimized image prompt. Nothing else.`;
         }
       });
 
-      const generations = response.generatedImages.map((gen: any) => ({
+      const generations = (response.generatedImages || []).map((gen: any) => ({
         id: Math.random().toString(36).substr(2, 9),
         url: `data:image/png;base64,${gen.image.imageBytes}`,
         prompt: improvedImagePrompt,
@@ -404,7 +404,7 @@ Gere the prompt onde o vídeo reforça visualmente a emoção do hook do início
     setVideoGenerationProgress(5);
     
     try {
-      const quality = QUALITY_VIDEO.find(q => q.id === selectedVideoQuality) || QUALITY_VIDEO[1];
+      const quality = QUALITY_VIDEO.find(q => q.id === selectedVideoQuality) || QUALITY_VIDEO[1]!;
       const model = quality.model;
 
       // Converter imagem para base64 puro (sem prefixo data:...)
