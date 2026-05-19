@@ -1,12 +1,10 @@
 import { Router } from 'express';
 import fs from 'fs';
-import path from 'path';
-import ffmpeg from 'fluent-ffmpeg';
 import admin from 'firebase-admin';
 import { formatApiError, processDataError } from '../utils/errorExtractor.js';
 import { logToFile } from '../utils/fileLogger.js';
 import { getZapCapKey, getAssemblyAIKey } from '../config/apiKeys.js';
-import { ZAPCAP_CONFIG_PATH, GENERATED_DIR } from '../config/paths.js';
+import { ZAPCAP_CONFIG_PATH } from '../config/paths.js';
 
 // Mirrors a finished ZapCap video into our Firebase Storage so the URL
 // the SPA persists is permanent. ZapCap's CDN URLs are signed and expire
@@ -45,85 +43,6 @@ async function uploadZapCapToFirebase(sourceUrl: string, taskId: string): Promis
 
 const ZAPCAP_BASE = 'https://api.zapcap.ai';
 const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB
-
-// taskId → desired aspect (from /edit-simple). Used by /status to crop the
-// ZapCap output back to the source aspect (ZapCap always renders at the
-// template's canvas, so 1:1 / 16:9 / 4:5 sources come back letterboxed).
-const taskToSourceAspect = new Map<string, string>();
-
-const ASPECT_RATIOS: Record<string, number> = {
-  '1:1': 1,
-  '4:5': 4 / 5,
-  '9:16': 9 / 16,
-  '16:9': 16 / 9,
-};
-
-function probeVideoDimensions(filePath: string): Promise<{ width: number; height: number }> {
-  return new Promise((resolve, reject) => {
-    ffmpeg.ffprobe(filePath, (err, metadata) => {
-      if (err) return reject(err);
-      const stream = metadata.streams.find((s) => s.codec_type === 'video');
-      resolve({ width: stream?.width || 0, height: stream?.height || 0 });
-    });
-  });
-}
-
-// Centered crop to a target aspect ratio. Removes black bars added by
-// ZapCap's letterboxing when the source aspect differs from the template's.
-async function cropVideoToAspect(
-  inputPath: string,
-  outputPath: string,
-  targetAspect: string
-): Promise<{ cropped: boolean }> {
-  const targetRatio = ASPECT_RATIOS[targetAspect];
-  if (!targetRatio) {
-    fs.copyFileSync(inputPath, outputPath);
-    return { cropped: false };
-  }
-
-  const { width, height } = await probeVideoDimensions(inputPath);
-  const currentRatio = width / height;
-
-  // Already correct (within 1%) — skip ffmpeg.
-  if (Math.abs(currentRatio - targetRatio) / targetRatio < 0.01) {
-    fs.copyFileSync(inputPath, outputPath);
-    return { cropped: false };
-  }
-
-  let cropW: number;
-  let cropH: number;
-  if (currentRatio > targetRatio) {
-    // Too wide → crop sides.
-    cropH = height;
-    cropW = Math.round(height * targetRatio);
-  } else {
-    // Too tall → crop top/bottom (the 1:1-inside-9:16 case).
-    cropW = width;
-    cropH = Math.round(width / targetRatio);
-  }
-  // x264 requires even dimensions.
-  if (cropW % 2 !== 0) cropW -= 1;
-  if (cropH % 2 !== 0) cropH -= 1;
-
-  const xOffset = Math.round((width - cropW) / 2);
-  const yOffset = Math.round((height - cropH) / 2);
-
-  console.log(
-    `[ZapCap Crop] ${width}x${height} (${currentRatio.toFixed(3)}) → ${cropW}x${cropH} (${targetAspect}) offset=${xOffset},${yOffset}`
-  );
-
-  await new Promise<void>((resolve, reject) => {
-    ffmpeg(inputPath)
-      .videoFilters(`crop=${cropW}:${cropH}:${xOffset}:${yOffset}`)
-      .outputOptions(['-c:v libx264', '-preset fast', '-crf 23', '-c:a copy'])
-      .output(outputPath)
-      .on('end', () => resolve())
-      .on('error', reject)
-      .run();
-  });
-
-  return { cropped: true };
-}
 
 // Shared helper for /edit and /edit-simple: chunked multipart upload to ZapCap.
 // Returns the videoId assigned by ZapCap once the upload is complete.
