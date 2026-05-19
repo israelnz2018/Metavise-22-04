@@ -5632,7 +5632,7 @@ export default function App() {
                 onClick={() => {
                   setVideoUrl(null);
                   setVideoStoragePath(null);
-                  setGenerationStage('avatar');
+                  setGenerationStage('idle');
                   setCurrentStep('avatar');
                   // Ensure current config for next video starts fresh but keeps previous videos history
                   setConfig((prev) => ({
@@ -8079,9 +8079,9 @@ export default function App() {
                     onClick={() => {
                       setZapFontColor(p.font);
                       setZapStrokeColor(p.stroke);
-                      setZapHl1(p.hl[0]);
-                      setZapHl2(p.hl[1]);
-                      setZapHl3(p.hl[2]);
+                      setZapHl1(p.hl[0] || '');
+                      setZapHl2(p.hl[1] || '');
+                      setZapHl3(p.hl[2] || '');
                       setZapUseCustomHighlight(true);
                     }}
                     className="p-2 rounded-xl border-2 border-gray-200 hover:border-yellow-300 bg-white text-left transition-all"
@@ -8128,7 +8128,7 @@ export default function App() {
 
         {/* BOTÃO GERAR */}
         <button
-          onClick={handleRenderZapSimple}
+          onClick={() => handleRenderZapSimple()}
           disabled={!zapVideoUrl || !zapTemplateId || isRendering || isZapRenderingRef.current}
           className="w-full py-6 bg-yellow-500 text-white rounded-[32px] font-black uppercase tracking-widest hover:bg-yellow-600 transition-all shadow-2xl shadow-yellow-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 text-lg"
         >
@@ -10401,7 +10401,7 @@ export default function App() {
                   <AlertCircle size={48} className="text-red-500 mx-auto" />
                   <p className="text-red-400 font-bold">Falha na geração do vídeo</p>
                   <button
-                    onClick={handleGenerateVideo}
+                    onClick={() => handleGenerateVideo()}
                     className="px-6 py-2 bg-red-600 text-white rounded-xl font-bold"
                   >
                     Tentar Novamente
@@ -10422,7 +10422,7 @@ export default function App() {
                     </p>
                   </div>
                   <button
-                    onClick={handleGenerateVideo}
+                    onClick={() => handleGenerateVideo()}
                     className="px-10 py-4 bg-blue-600 text-white rounded-2xl font-black text-lg hover:bg-blue-700 transition-all shadow-xl shadow-blue-900/40"
                   >
                     Gerar Vídeo Final
