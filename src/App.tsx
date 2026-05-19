@@ -168,15 +168,6 @@ interface AdConfig {
     hooksHistorico?: { hook: string; createdAt: string }[];
   };
   hookVisual: HookVisualData;
-  scene: {
-    description: string;
-    background: string;
-    framing: string;
-    lighting: string;
-    tone: string;
-    bodyLanguage: string;
-    deliveryStyle: string;
-  };
   avatar: {
     faceId: string;
     customFaceUrl: string | null;
@@ -701,15 +692,6 @@ export default function App() {
       hooksBiblioteca: [],
       hooksDisponiveis: [],
     },
-    scene: {
-      description: '',
-      background: '',
-      framing: '',
-      lighting: '',
-      tone: '',
-      bodyLanguage: '',
-      deliveryStyle: '',
-    },
     avatar: { faceId: 'f1', customFaceUrl: null, voiceId: '', scale: 1.0 },
     subtitles: { style: 'bold_ad' },
     format: { aspectRatio: '9:16', duration: 10 },
@@ -766,7 +748,6 @@ export default function App() {
         typeof parsed.copy === 'object' &&
         parsed.copy.answers &&
         parsed.avatar &&
-        parsed.scene &&
         parsed.edit &&
         parsed.format;
       if (looksValid) {
@@ -1737,15 +1718,6 @@ export default function App() {
             answers: {},
             generatedScript: '',
             generatedHooks: [],
-          },
-          scene: {
-            description: '',
-            background: '',
-            framing: '',
-            lighting: '',
-            tone: '',
-            bodyLanguage: '',
-            deliveryStyle: '',
           },
           avatar: { faceId: '', customFaceUrl: null, voiceId: '' },
           subtitles: { style: 'simple' },
