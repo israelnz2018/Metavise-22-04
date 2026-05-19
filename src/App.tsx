@@ -200,16 +200,6 @@ interface AdConfig {
     scenes?: Scene[];
     segments?: VideoSegment[];
   };
-  voiceSettings?: {
-    gender: string;
-    filter: string;
-    accent?: string;
-    age?: string;
-    language?: string;
-    stability: string;
-    speed: string;
-    isSatisfied: boolean;
-  };
   audioUrl?: string | null;
   audioStoragePath?: string | null;
   audios?: {
@@ -728,16 +718,6 @@ export default function App() {
       backgroundMusic: 'none',
       timelineEdits: [],
       veoModel: 'veo-3.1-lite-generate-preview',
-    },
-    voiceSettings: {
-      gender: '',
-      filter: '',
-      accent: '',
-      age: '',
-      language: '',
-      stability: 'Equilibrada',
-      speed: 'Normal',
-      isSatisfied: false,
     },
     hookVisual: {
       promptImagem: '',
@@ -1739,57 +1719,6 @@ export default function App() {
     window.addEventListener('credits-updated', handleCreditsUpdate);
     return () => window.removeEventListener('credits-updated', handleCreditsUpdate);
   }, []);
-
-  // Voice Recommendations Effect
-  useEffect(() => {
-    const awarenessLevel = (config.copy.answers.awarenessLevel || '').toString();
-    const awarenessNum = parseInt(awarenessLevel.split('-')[0]) || 0;
-    const personaGender = config.copy.answers.personaGender || '';
-    const recommendedGender =
-      personaGender === 'Homem' ? 'male' : personaGender === 'Mulher' ? 'female' : '';
-
-    let recommendedFilter = '';
-    if (awarenessNum >= 1 && awarenessNum <= 2) recommendedFilter = 'Amigável / Natural';
-    else if (awarenessNum >= 3 && awarenessNum <= 4)
-      recommendedFilter = 'Profissional / Autoridade';
-    else if (awarenessNum >= 5 && awarenessNum <= 6)
-      recommendedFilter = 'Profissional / Autoridade';
-
-    let recommendedStability = '';
-    if (awarenessNum >= 1 && awarenessNum <= 2) recommendedStability = 'Expressiva';
-    else if (awarenessNum >= 3 && awarenessNum <= 4) recommendedStability = 'Equilibrada';
-    else if (awarenessNum >= 5 && awarenessNum <= 6) recommendedStability = 'Estável';
-
-    const recommendedSpeed = awarenessNum >= 1 && awarenessNum <= 2 ? 'Lento' : 'Normal';
-
-    // Auto-select recommendations if they change or are not set
-    setConfig((prev) => {
-      const newSettings = { ...prev.voiceSettings! };
-      let changed = false;
-
-      if (recommendedGender && newSettings.gender !== recommendedGender) {
-        newSettings.gender = recommendedGender;
-        changed = true;
-      }
-      if (recommendedFilter && newSettings.filter !== recommendedFilter) {
-        newSettings.filter = recommendedFilter;
-        changed = true;
-      }
-      if (recommendedStability && newSettings.stability !== recommendedStability) {
-        newSettings.stability = recommendedStability;
-        changed = true;
-      }
-      if (recommendedSpeed && newSettings.speed !== recommendedSpeed) {
-        newSettings.speed = recommendedSpeed;
-        changed = true;
-      }
-
-      if (changed) {
-        return { ...prev, voiceSettings: newSettings };
-      }
-      return prev;
-    });
-  }, [config.copy.answers.awarenessLevel, config.copy.answers.personaGender]);
 
   const handleCreateProject = async () => {
     if (!user || !newProjectName.trim()) return;
