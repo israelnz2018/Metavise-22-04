@@ -5585,11 +5585,9 @@ export default function App() {
                 'bg-black rounded-[40px] overflow-hidden shadow-2xl border-4 border-white relative group mx-auto transition-all duration-500',
                 config.format.aspectRatio === '9:16'
                   ? 'aspect-[9/16] max-w-[400px]'
-                  : config.format.aspectRatio === '4:5'
-                    ? 'aspect-[4/5] max-w-[450px]'
-                    : config.format.aspectRatio === '1:1'
-                      ? 'aspect-square max-w-[500px]'
-                      : 'aspect-video w-full'
+                  : config.format.aspectRatio === '1:1'
+                    ? 'aspect-square max-w-[500px]'
+                    : 'aspect-video w-full'
               )}
             >
               <video
@@ -10429,13 +10427,7 @@ export default function App() {
                   <div className="pt-6 border-t border-gray-100">
                     <button
                       onClick={handleRenderZapCap}
-                      disabled={
-                        loading ||
-                        isRenderingRef.current ||
-                        !zapCapRenderConfig.templateId ||
-                        autoEditState.status === 'rendering' ||
-                        autoEditState.status === 'processing'
-                      }
+                      disabled={loading || isRenderingRef.current || !zapCapRenderConfig.templateId}
                       className="w-full py-8 bg-blue-600 text-white rounded-[32px] font-black uppercase text-xl tracking-[0.2em] hover:bg-blue-700 transition-all shadow-2xl flex items-center justify-center gap-4 active:scale-95 disabled:opacity-50"
                     >
                       {loading ? (
@@ -10473,11 +10465,9 @@ export default function App() {
     const aspectRatioClass =
       config.format.aspectRatio === '9:16'
         ? 'aspect-[9/16]'
-        : config.format.aspectRatio === '4:5'
-          ? 'aspect-[4/5]'
-          : config.format.aspectRatio === '1:1'
-            ? 'aspect-square'
-            : 'aspect-[16/9]';
+        : config.format.aspectRatio === '1:1'
+          ? 'aspect-square'
+          : 'aspect-[16/9]';
     const maxWidthClass = isExpanded ? 'max-w-4xl' : 'max-w-[320px]';
 
     const avatarScript = (config.copy.generatedScript || '').includes('[AVATAR]:')
