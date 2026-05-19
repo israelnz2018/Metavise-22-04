@@ -890,7 +890,6 @@ export default function App() {
       return { url: heygenVideoUrl, path: null };
     }
   };
-  const [selectedHookIdx, setSelectedHookIdx] = useState<number | null>(null);
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [newProjectName, setNewProjectName] = useState('');
@@ -2454,11 +2453,6 @@ export default function App() {
       }
 
       setCurrentVariantId(variant.id);
-      if (loadedConfig.copy.selectedHookIdx !== undefined) {
-        setSelectedHookIdx(loadedConfig.copy.selectedHookIdx);
-      } else {
-        setSelectedHookIdx(null);
-      }
       setHasUnsavedCopyChanges(false);
       setCurrentStep(step);
       toast.success(`Versão "${variant.name}" carregada!`);
@@ -2627,11 +2621,6 @@ export default function App() {
       setVideos(loadedConfig.videos || []);
       setLastVideoMetadata(loadedConfig.lastVideoMetadata || null);
       setGenerationStage((loadedConfig.generationStage as any) || 'idle');
-      if (loadedConfig.copy.selectedHookIdx !== undefined) {
-        setSelectedHookIdx(loadedConfig.copy.selectedHookIdx);
-      } else {
-        setSelectedHookIdx(null);
-      }
 
       setHasUnsavedCopyChanges(false);
 
@@ -4527,43 +4516,6 @@ export default function App() {
   };
 
   const renderCopyStep = () => {
-    const awarenessLevel = (config.copy.answers.awarenessLevel || '').toString();
-    const awarenessNum = parseInt(awarenessLevel.split('-')[0]) || 0;
-
-    const isRecommended = (section: string, value: string) => {
-      if (!awarenessNum) return false;
-
-      if (section === 'emotion') {
-        if (awarenessNum <= 2)
-          return ['Frustração', 'Curiosidade', 'Medo de julgamento', 'Confusão'].includes(value);
-        if (awarenessNum <= 4)
-          return ['Esperança', 'Alívio', 'Desejo de reconhecimento'].includes(value);
-        return ['Urgência', 'Ambição', 'Desejo de controle', 'Exclusividade'].includes(value);
-      }
-
-      if (section === 'angleIdea') {
-        if (awarenessNum <= 2)
-          return [
-            'Você está fazendo errado',
-            'Ninguém te contou isso',
-            'Isso está te sabotando',
-          ].includes(value);
-        if (awarenessNum <= 4)
-          return [
-            'O problema não é o que você pensa',
-            'Existe uma forma mais simples',
-            'Você está sendo mal orientado',
-          ].includes(value);
-        return [
-          'Você está focando no lugar errado',
-          'Resultado imediato',
-          'A solução definitiva',
-        ].includes(value);
-      }
-
-      return false;
-    };
-
     const sections = [
       {
         title: 'AUDIÊNCIA',
@@ -4765,11 +4717,6 @@ export default function App() {
       { id: 'improve', label: 'Melhorar minha copy', icon: RefreshCw },
       { id: 'as-is', label: 'Usar como está', icon: CheckCircle2 },
     ];
-
-    const firstHook = config.copy.generatedHooks?.[0];
-    const firstHookText = typeof firstHook === 'object' ? firstHook.texto : firstHook;
-    const charCount = config.copy.generatedScript.length + (firstHookText?.length || 0);
-    const estimatedTime = Math.ceil(charCount / 15); // Rough estimate: 15 chars per second
 
     return (
       <div className="space-y-8 max-w-[1600px] mx-auto pb-20 overflow-x-hidden w-full">
@@ -6074,7 +6021,6 @@ export default function App() {
         a.gender?.toLowerCase() === avatarFilters.gender.toLowerCase() ||
         enrichment.gender === avatarFilters.gender;
 
-      const avatarTags = (a.tags || []).map((t: string) => t.toLowerCase());
       const avatarName = a.avatar_name.toLowerCase();
 
       const checkNameMatch = (
@@ -7200,7 +7146,6 @@ export default function App() {
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
               {filteredAvatars.map((a) => {
                 const enrichment = AVATAR_ENRICHMENT[a.avatar_id] || {};
-                const gender = a.gender || enrichment.gender;
                 const age = enrichment.age;
 
                 return (
@@ -8332,11 +8277,6 @@ export default function App() {
     try {
       toast.loading('Iniciando renderização...', { id: 'zapcap-render' });
 
-      // Identificar momentos selecionados (Automático vs Manual)
-      const brollMomentsToUse = (autoEditState.brollCandidates || []).filter((c) =>
-        (autoEditState.selectedBrollIds || []).includes(c.id)
-      );
-
       console.log('[RENDER] brollPercent sendo enviado:', brollPercent);
 
       const { transcript, byotTranscript, words, ...cleanConfig } = zapCapRenderConfig as any;
@@ -8553,7 +8493,6 @@ export default function App() {
   };
 
   const renderEditZapStep = () => {
-    const isCompleted = zapState.status === 'completed';
     const isRendering = zapState.status === 'rendering' || zapState.status === 'uploading';
 
     const isHookEdit = editZapMode === 'hook';
