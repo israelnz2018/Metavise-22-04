@@ -137,13 +137,6 @@ export interface AssemblyAnalysis {
   text: string;
   words: { text: string; start: number; end: number; confidence: number }[];
   duration: number;
-  sentimentResults: {
-    text: string;
-    sentiment: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
-    confidence: number;
-    start: number;
-    end: number;
-  }[];
   highlights: {
     text: string;
     rank: number;
@@ -155,9 +148,6 @@ export interface AssemblyAnalysis {
     end: number;
     confidence: number;
   }[];
-  zoomMoments: { start: number; end: number; reason: string }[];
-  brollMoments: { start: number; end: number; topic: string }[];
-  silences: { start: number; end: number }[];
   language: string;
 }
 

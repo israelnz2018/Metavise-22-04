@@ -136,7 +136,6 @@ assemblyAIRouter.post('/analyze', async (req, res) => {
 
     // 3. Deterministic post-processing
     const words = transcript.words || [];
-    const sentimentResults = transcript.sentiment_analysis_results || [];
 
     console.log(
       '[AssemblyAI Debug] Highlights Source:',
@@ -190,63 +189,8 @@ assemblyAIRouter.post('/analyze', async (req, res) => {
       `[AssemblyAI] Highlights Data (Sample): ${JSON.stringify(highlights).substring(0, 300)}`
     );
 
-    const zoomMoments: { start: number; end: number; reason: string }[] = [];
-
-    sentimentResults.forEach((s: any) => {
-      if (s.sentiment === 'NEGATIVE' && s.confidence > 0.85) {
-        zoomMoments.push({
-          start: Math.round(s.start / 1000),
-          end: Math.round(s.end / 1000),
-          reason: 'Momento emocional negativo forte',
-        });
-      }
-    });
-
-    if (Array.isArray(highlights)) {
-      highlights.forEach((h: any) => {
-        if (h.rank > 0.7) {
-          zoomMoments.push({
-            start: Math.round(h.timestamps[0]?.start / 1000 || 0),
-            end: Math.round(h.timestamps[0]?.end / 1000 || 0),
-            reason: `Highlight: "${h.text}"`,
-          });
-        }
-      });
-    }
-
-    // Detect topic changes for B-roll insertion
-    const brollMoments: { start: number; end: number; topic: string }[] = [];
-
-    for (let i = 1; i < sentimentResults.length; i++) {
-      const prev = sentimentResults[i - 1];
-      const curr = sentimentResults[i];
-
-      if (prev.sentiment !== curr.sentiment && curr.confidence > 0.75) {
-        const duration = Math.round((curr.end - curr.start) / 1000);
-        if (duration >= 3) {
-          brollMoments.push({
-            start: Math.round(curr.start / 1000),
-            end: Math.round(curr.end / 1000),
-            topic: curr.text.substring(0, 50),
-          });
-        }
-      }
-    }
-
-    // Detect long silences (gap > 0.8s between consecutive words)
-    const silences: { start: number; end: number }[] = [];
-    for (let i = 1; i < words.length; i++) {
-      const gap = (words[i].start - words[i - 1].end) / 1000;
-      if (gap > 0.8) {
-        silences.push({
-          start: Math.round(words[i - 1].end / 1000),
-          end: Math.round(words[i].start / 1000),
-        });
-      }
-    }
-
     console.log(
-      `[AssemblyAI] Análise completa: ${zoomMoments.length} zooms, ${brollMoments.length} b-rolls, ${silences.length} silêncios, ${highlights.length} highlights, ${words.length} palavras`
+      `[AssemblyAI] Análise completa: ${highlights.length} highlights, ${words.length} palavras`
     );
 
     res.json({
@@ -255,11 +199,7 @@ assemblyAIRouter.post('/analyze', async (req, res) => {
       words,
       sentences,
       duration: words.length > 0 ? Math.round((words[words.length - 1]?.end || 0) / 1000) : 0,
-      sentimentResults,
-      highlights: highlights,
-      zoomMoments,
-      brollMoments,
-      silences,
+      highlights,
       language: transcript.language_code,
     });
   } catch (err: any) {
