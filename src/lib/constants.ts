@@ -6,6 +6,7 @@
 // They were inlined inside the render function; pulling them up avoids
 // re-allocating the arrays on every re-render.
 import {
+  CheckCircle2,
   Clapperboard,
   Edit3,
   Layout,
@@ -18,6 +19,14 @@ import {
   Zap,
 } from 'lucide-react';
 import type { Step } from '../types/project';
+
+// Three modes the Copy tab can run in. Lives outside renderCopyStep so
+// the icon refs don't re-allocate on every Copy-tab re-render.
+export const COPY_MODES: { id: 'questions' | 'improve' | 'as-is'; label: string; icon: typeof Sparkles }[] = [
+  { id: 'questions', label: 'Gerar com IA (Q&A)', icon: Sparkles },
+  { id: 'improve', label: 'Melhorar minha copy', icon: RefreshCw },
+  { id: 'as-is', label: 'Usar como está', icon: CheckCircle2 },
+];
 
 export const DURATION_OPTIONS = [
   { label: '15s', words: 38 },

@@ -93,6 +93,7 @@ import {
   PERSONA_PAYING_CAPACITY_OPTIONS,
   PERSONA_HIDDEN_DESIRE_OPTIONS,
   COPY_SECTIONS,
+  COPY_MODES,
 } from './lib/constants';
 import { AutoResizeTextarea } from './components/AutoResizeTextarea';
 import { NewProjectModal } from './components/NewProjectModal';
@@ -3965,12 +3966,7 @@ export default function App() {
 
   const renderCopyStep = () => {
     const sections = COPY_SECTIONS;
-
-    const modes = [
-      { id: 'questions', label: 'Gerar com IA (Q&A)', icon: Sparkles },
-      { id: 'improve', label: 'Melhorar minha copy', icon: RefreshCw },
-      { id: 'as-is', label: 'Usar como está', icon: CheckCircle2 },
-    ];
+    const modes = COPY_MODES;
 
     return (
       <div className="space-y-8 max-w-[1600px] mx-auto pb-20 overflow-x-hidden w-full">
