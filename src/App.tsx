@@ -163,8 +163,6 @@ interface AdConfig {
     scriptLength?: 'short' | 'medium' | 'long';
     targetWordCount?: number;
     hookSelecionado?: string;
-    hooksBiblioteca?: any[];
-    hooksDisponiveis?: any[];
     hooksHistorico?: { hook: string; createdAt: string }[];
   };
   hookVisual: HookVisualData;
@@ -689,8 +687,6 @@ export default function App() {
       generatedScript: '',
       generatedHooks: [],
       hookSelecionado: '',
-      hooksBiblioteca: [],
-      hooksDisponiveis: [],
     },
     avatar: { faceId: 'f1', customFaceUrl: null, voiceId: '', scale: 1.0 },
     subtitles: { style: 'bold_ad' },
