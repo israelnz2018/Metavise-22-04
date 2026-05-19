@@ -4,112 +4,8 @@ import path from 'path';
 import admin from 'firebase-admin';
 import { getElevenLabsKey } from '../config/apiKeys.js';
 import { CONFIG_PATH, GENERATED_DIR } from '../config/paths.js';
-import { getCredits, hasCredits, deductCredits } from '../services/creditsService.js';
 
 export const elevenLabsRouter = Router();
-
-// POST /api/elevenlabs/tts/:voiceId
-elevenLabsRouter.post('/tts/:voiceId', async (req, res) => {
-  const { voiceId } = req.params;
-  const { text, stability, similarity_boost } = req.body;
-
-  const apiKey = getElevenLabsKey();
-
-  if (!apiKey) {
-    return res.status(500).json({
-      error: 'ElevenLabs API Key is missing in backend environment variables (ELEVENLABS_API_KEY).',
-    });
-  }
-
-  // 1 credit per 10 characters of synthesised text.
-  const tokenCost = Math.ceil(text.length / 10);
-  if (!hasCredits(tokenCost)) {
-    return res
-      .status(403)
-      .json({ error: 'Créditos insuficientes. Por favor, recarregue seu saldo.' });
-  }
-
-  let attempts = 0;
-  const maxAttempts = 3;
-
-  while (attempts < maxAttempts) {
-    try {
-      attempts++;
-      console.log(`[ElevenLabs Proxy] Generating TTS for voice: ${voiceId} (Attempt ${attempts})`);
-      const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'xi-api-key': apiKey,
-        },
-        body: JSON.stringify({
-          text,
-          model_id: 'eleven_v3',
-          voice_settings: {
-            stability: stability || 0.5,
-            similarity_boost: similarity_boost || 0.75,
-          },
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(
-          `[ElevenLabs Proxy] TTS Error (${response.status}) on attempt ${attempts}:`,
-          errorText
-        );
-
-        let errorData;
-        try {
-          errorData = JSON.parse(errorText);
-        } catch {
-          errorData = { error: errorText };
-        }
-
-        const isRateLimit = response.status === 429;
-        const isSystemBusy =
-          errorData.detail?.code === 'system_busy' || errorData.message?.includes('heavy traffic');
-
-        if ((isRateLimit || isSystemBusy) && attempts < maxAttempts) {
-          const delay = Math.pow(2, attempts) * 1000;
-          console.log(`[ElevenLabs Proxy] System busy or rate limited, retrying in ${delay}ms...`);
-          await new Promise((resolve) => setTimeout(resolve, delay));
-          continue;
-        }
-
-        return res.status(response.status).json(errorData);
-      }
-
-      deductCredits(tokenCost);
-
-      const arrayBuffer = await response.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-
-      // Persist to disk so the SPA can re-fetch via /generated/.
-      const filename = `audio_${Date.now()}_${Math.random().toString(36).substring(7)}.mp3`;
-      const filePath = path.join(GENERATED_DIR, filename);
-      fs.writeFileSync(filePath, buffer);
-
-      const persistentUrl = `/generated/${filename}`;
-
-      res.set('Access-Control-Expose-Headers', 'x-remaining-credits, x-audio-url');
-      res.set('Content-Type', 'audio/mpeg');
-      res.set('x-remaining-credits', getCredits().toString());
-      res.set('x-audio-url', persistentUrl);
-      return res.send(buffer);
-    } catch (err: any) {
-      console.error(`[ElevenLabs Proxy] TTS Exception on attempt ${attempts}:`, err);
-      if (attempts < maxAttempts) {
-        const delay = Math.pow(2, attempts) * 1000;
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        continue;
-      }
-      return res
-        .status(500)
-        .json({ error: `Failed to proxy request to ElevenLabs: ${err.message}` });
-    }
-  }
-});
 
 // GET /api/elevenlabs/voices
 elevenLabsRouter.get('/voices', async (_req, res) => {
@@ -318,7 +214,7 @@ elevenLabsPremiumRouter.post('/clone-voice', async (req, res) => {
     return res.status(400).json({ error: 'fileBase64 e name são obrigatórios.' });
   try {
     const buffer = Buffer.from(fileBase64, 'base64');
-    const { FormData, Blob } = await import('formdata-node');
+    // Node 18+ has native FormData/Blob — no third-party dependency needed.
     const formData = new FormData();
     formData.set('name', name);
     formData.set('description', 'Voz clonada via Metavise');
@@ -331,7 +227,7 @@ elevenLabsPremiumRouter.post('/clone-voice', async (req, res) => {
     const r = await fetch('https://api.elevenlabs.io/v1/voices/add', {
       method: 'POST',
       headers: { 'xi-api-key': apiKey },
-      body: formData as any,
+      body: formData,
     });
     const text = await r.text();
     if (!r.ok) return res.status(r.status).json({ error: text });
