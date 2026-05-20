@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Clapperboard,
   Edit3,
+  FileText,
   Layout,
   RefreshCw,
   Sparkles,
@@ -38,13 +39,57 @@ export const DURATION_OPTIONS = [
   { label: '180s', words: 450 },
 ];
 
-export const AVATAR_ENRICHMENT: Record<string, any> = {
+import avatarEnrichmentBulk from './avatar-enrichment-bulk.json';
+
+// Manual hand-curated entries (gender + type='realistic'). Type is used by
+// the "Melhores para Anúncios" sort. These extend the bulk-classified JSON
+// produced by scripts/classify-avatars.ts.
+const MANUAL_AVATAR_ENRICHMENT: Record<string, any> = {
   josh_lite_20230714: { gender: 'male', age: 'young', type: 'realistic' },
   erica_lite_20230714: { gender: 'female', age: 'young', type: 'realistic' },
   ann_lite_20230714: { gender: 'female', age: 'adult', type: 'realistic' },
   bryan_lite_20230714: { gender: 'male', age: 'adult', type: 'realistic' },
   lucas_lite_20230714: { gender: 'male', age: 'mature', type: 'realistic' },
   clara_lite_20230714: { gender: 'female', age: 'mature', type: 'realistic' },
+};
+
+// Merge bulk (age/ethnicity/style/vibe per avatar_id) with manual overrides.
+// Manual wins on overlapping fields — for the 6 seed avatars we trust the
+// curation more than vision.
+export const AVATAR_ENRICHMENT: Record<string, any> = (() => {
+  const merged: Record<string, any> = { ...(avatarEnrichmentBulk as Record<string, any>) };
+  for (const [id, manual] of Object.entries(MANUAL_AVATAR_ENRICHMENT)) {
+    merged[id] = { ...(merged[id] || {}), ...manual };
+  }
+  return merged;
+})();
+
+// Maps UI filter labels (e.g. "Young Adult", "Professional") to the
+// vocabulary used in AVATAR_ENRICHMENT (e.g. "young", "professional").
+// Used by the avatar filter to translate user picks before lookup.
+export const AVATAR_FILTER_TO_ENRICHMENT: {
+  ages: Record<string, string[]>;
+  styles: Record<string, string[]>;
+  ethnicities: Record<string, string[]>;
+} = {
+  ages: {
+    'Young Adult': ['young'],
+    Adult: ['adult'],
+    Mature: ['mature', 'elderly'],
+  },
+  styles: {
+    Professional: ['professional'],
+    Lifestyle: ['lifestyle'],
+    UGC: ['ugc', 'creative'],
+  },
+  ethnicities: {
+    White: ['white'],
+    Asian: ['asian'],
+    'South Asian': ['south_asian'],
+    Latino: ['latino'],
+    'Middle Eastern': ['middle_eastern'],
+    Black: ['black'],
+  },
 };
 
 export const HEYGEN_NAME_KEYWORDS = {
@@ -77,8 +122,8 @@ export const HEYGEN_NAME_KEYWORDS = {
   },
   ages: {
     'Young Adult': ['young', 'teen', 'student', 'junior'],
-    'Middle Aged': ['adult', 'senior', 'middle', 'manager', 'parent'],
-    Elderly: ['elderly', 'grandma', 'grandpa', 'senior', 'older'],
+    Adult: ['adult', 'middle', 'manager', 'parent'],
+    Mature: ['mature', 'senior', 'older', 'elderly', 'grandma', 'grandpa'],
   },
   ethnicities: {
     White: ['adriana', 'amelia', 'annie', 'blanka', 'carla', 'chloe', 'ann', 'bahar'],
@@ -162,6 +207,7 @@ export const AD_STYLES = [
 export const STEPS: { id: Step; label: string; icon: any }[] = [
   { id: 'integrations', label: 'Integrações', icon: RefreshCw },
   { id: 'projects', label: 'Meus Projetos', icon: Layout },
+  { id: 'source', label: 'Fonte do Produto', icon: FileText },
   { id: 'persona', label: 'Identificar Persona', icon: Users },
   { id: 'copy', label: 'Copy', icon: Edit3 },
   { id: 'hook-visual', label: 'Copy do Gancho', icon: Clapperboard },

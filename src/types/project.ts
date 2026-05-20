@@ -8,6 +8,7 @@
 export type Step =
   | 'integrations'
   | 'projects'
+  | 'source'
   | 'persona'
   | 'copy'
   | 'hook-visual'

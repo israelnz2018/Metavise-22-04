@@ -1,7 +1,22 @@
 import { Router } from 'express';
 import fs from 'fs';
+import { YoutubeTranscript } from 'youtube-transcript';
 import { getClaudeKey } from '../config/apiKeys.js';
 import { CLAUDE_CONFIG_PATH } from '../config/paths.js';
+
+// Match common YouTube URL shapes (full, short, mobile, shorts) and pull
+// out the 11-character video ID.
+function extractYoutubeId(url: string): string | null {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/|youtube\.com\/embed\/)([A-Za-z0-9_-]{11})/,
+    /^([A-Za-z0-9_-]{11})$/, // bare ID
+  ];
+  for (const p of patterns) {
+    const m = url.match(p);
+    if (m && m[1]) return m[1];
+  }
+  return null;
+}
 
 export const claudeRouter = Router();
 
@@ -203,6 +218,330 @@ claudeRouter.post('/complete', async (req, res) => {
     res.json({ success: true, text });
   } catch (err: any) {
     console.error('[Claude] Exception:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/claude/extract-product-info
+// Takes raw product source material (pasted VSL transcript, landing page
+// text, or any free-form description of the product/offer) and returns
+// structured info that auto-populates the persona + copy tabs.
+//
+// Request:  { text?: string, url?: string }
+// Response: { success: true, product: {...} }
+claudeRouter.post('/extract-product-info', async (req, res) => {
+  const apiKey = getClaudeKey();
+  if (!apiKey) {
+    return res.status(500).json({ success: false, error: 'CLAUDE_API_KEY não configurada.' });
+  }
+
+  const { text: bodyText, url, youtubeUrl } = req.body || {};
+  if (!bodyText && !url && !youtubeUrl) {
+    return res.status(400).json({
+      success: false,
+      error: 'Forneça pelo menos um: text, url ou youtubeUrl.',
+    });
+  }
+
+  let sourceText = bodyText || '';
+
+  // YouTube → fetch caption track directly (no download). Fails if the
+  // video has no captions available (rare for monetized creators).
+  if (youtubeUrl) {
+    const videoId = extractYoutubeId(youtubeUrl);
+    if (!videoId) {
+      return res.status(400).json({
+        success: false,
+        error: 'URL do YouTube inválida — não consegui extrair o ID do vídeo.',
+      });
+    }
+    try {
+      const segments = await YoutubeTranscript.fetchTranscript(videoId);
+      const transcript = segments.map((s: any) => s.text).join(' ').replace(/\s+/g, ' ').trim();
+      if (!transcript) {
+        return res.status(400).json({
+          success: false,
+          error: 'Vídeo do YouTube não tem legendas disponíveis.',
+        });
+      }
+      sourceText = [sourceText, transcript].filter(Boolean).join('\n\n');
+    } catch (err: any) {
+      return res.status(400).json({
+        success: false,
+        error: `Não consegui pegar a transcrição do YouTube: ${err.message}. Tente colar a transcrição manualmente.`,
+      });
+    }
+  }
+
+  // Resolve landing page URL → plain text (strip HTML tags, limit length).
+  if (url) {
+    try {
+      const fetchResp = await fetch(url, {
+        headers: {
+          'user-agent':
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 MetaVise/1.0',
+        },
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!fetchResp.ok) {
+        return res.status(400).json({
+          success: false,
+          error: `Não consegui acessar a URL (status ${fetchResp.status}).`,
+        });
+      }
+      const html = await fetchResp.text();
+      // Cheap text extraction: strip scripts/styles/tags, collapse whitespace.
+      const stripped = html
+        .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+        .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/\s+/g, ' ')
+        .trim();
+      sourceText = [sourceText, stripped].filter(Boolean).join('\n\n');
+    } catch (err: any) {
+      return res.status(400).json({
+        success: false,
+        error: `Erro ao buscar URL: ${err.message}`,
+      });
+    }
+  }
+
+  // Cap input — Claude can handle a lot, but landing pages have huge tail
+  // content (footers, terms, related posts) that's pure noise. 40k chars
+  // ≈ 10k tokens — plenty for the headline + above-the-fold + first VSL act.
+  if (sourceText.length > 40000) {
+    sourceText = sourceText.substring(0, 40000);
+  }
+
+  const SYSTEM = `Você analisa material de marketing (VSLs, landing pages, copy bruta) e extrai informações estruturadas sobre o produto, oferta e público-alvo. Sua saída alimenta a próxima etapa: identificação de persona + geração de copy de anúncios Meta.
+
+Responda APENAS um JSON com esta estrutura (sem prosa, sem markdown):
+{
+  "productName": "nome do produto/serviço",
+  "category": "categoria (ex: emagrecimento, finanças, infoproduto, físico)",
+  "offer": "oferta resumida (o que custa quanto e o que vem incluso)",
+  "promise": "promessa principal — o resultado que o cliente terá",
+  "mainPain": "dor principal que o produto resolve",
+  "secondaryPains": ["dor 2", "dor 3"],
+  "benefits": ["benefício 1", "benefício 2", "benefício 3"],
+  "audience": "descrição do público-alvo (idade, gênero, situação, profissão se relevante)",
+  "awarenessLevel": "unaware|problem-aware|solution-aware|product-aware|most-aware",
+  "tone": "tom recomendado (ex: profissional, casual, urgente, inspirador)",
+  "differentiator": "o que diferencia esse produto dos concorrentes",
+  "socialProof": ["depoimento/resultado mencionado", "..."],
+  "guarantee": "garantia se mencionada, senão null",
+  "urgency": "elemento de urgência se houver, senão null",
+  "hookAngles": ["ângulo 1 pra hook", "ângulo 2", "ângulo 3"]
+}
+
+Inferências razoáveis são esperadas — se o texto não menciona idade explicitamente mas o contexto sugere 30-50, infira "30-50 anos". Para campos genuinamente sem dado, use string vazia ou array vazio.`;
+
+  const USER = `MATERIAL DO PRODUTO:
+${sourceText}
+
+Extraia as informações estruturadas. Retorne APENAS o JSON.`;
+
+  try {
+    const resp = await fetch(ANTHROPIC_API, {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: DEFAULT_MODEL,
+        max_tokens: 2500,
+        system: SYSTEM,
+        messages: [{ role: 'user', content: USER }],
+      }),
+    });
+
+    if (!resp.ok) {
+      const errText = await resp.text();
+      return res.status(resp.status).json({
+        success: false,
+        error: `Claude API error: ${resp.status} ${errText.substring(0, 200)}`,
+      });
+    }
+
+    const data = await resp.json();
+    const textBlock = Array.isArray(data.content)
+      ? data.content.find((b: any) => b?.type === 'text')
+      : null;
+    const responseText = textBlock?.text || '';
+    const clean = responseText.replace(/^```(?:json)?\s*|\s*```$/g, '').trim();
+
+    let product;
+    try {
+      product = JSON.parse(clean);
+    } catch {
+      return res.status(500).json({
+        success: false,
+        error: 'Claude retornou resposta inválida (não-JSON).',
+        raw: responseText.substring(0, 500),
+      });
+    }
+
+    res.json({ success: true, product });
+  } catch (err: any) {
+    console.error('[Claude extract-product-info] Exception:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/claude/recommend-avatar-voice
+// Returns structured avatar + voice criteria for the current project based on
+// persona answers + the approved copy. Used by the Avatar/Voz tabs to:
+//   1. show a "🤖 IA recomenda" panel at the top of the tab,
+//   2. populate the "Aplicar filtros sugeridos" button,
+//   3. mark matching avatars/voices with a star.
+//
+// Request: { persona?: any, copyAnswers?: any, copy?: string }
+// Response: { success: true, recommendation: { avatar: {...}, voice: {...}, reasoning: string } }
+claudeRouter.post('/recommend-avatar-voice', async (req, res) => {
+  const apiKey = getClaudeKey();
+  if (!apiKey) {
+    return res.status(500).json({ success: false, error: 'CLAUDE_API_KEY não configurada.' });
+  }
+
+  const { persona = {}, copyAnswers = {}, copy = '' } = req.body || {};
+
+  const SYSTEM = `You recommend the ideal HeyGen avatar profile and ElevenLabs voice profile for a Meta (Facebook/Instagram) video ad, based on the persona and approved copy.
+
+Return ONLY a JSON object with this exact shape (no prose, no markdown):
+{
+  "avatar": {
+    "gender": "male" | "female",
+    "age": "young" | "adult" | "mature" | "elderly",
+    "ethnicity": "white" | "asian" | "south_asian" | "latino" | "middle_eastern" | "black" | "mixed",
+    "style": "professional" | "lifestyle" | "ugc" | "creative",
+    "vibe": "energetic" | "calm" | "authoritative" | "friendly" | "serious"
+  },
+  "voice": {
+    "gender": "male" | "female",
+    "age": "young" | "middle_aged" | "old",
+    "accent": "brazilian" | "european" | "american" | "british" | "latin american",
+    "use_case": "advertisement" | "social_media" | "narrative_story" | "conversational" | "informative_educational",
+    "descriptive": "professional" | "confident" | "calm" | "casual" | "deep" | "upbeat" | "pleasant" | "excited"
+  },
+  "reasoning": "<one short paragraph in pt-BR explaining the choice — who would best convince this persona to buy>"
+}
+
+Match the avatar/voice to who the persona would TRUST most. Energetic upbeat voice for hype/youth products. Calm authoritative voice for B2B/health. Brazilian accent unless the copy or persona suggests otherwise.`;
+
+  const USER = `PERSONA:
+${JSON.stringify(persona, null, 2)}
+
+COPY ANSWERS:
+${JSON.stringify(copyAnswers, null, 2)}
+
+APPROVED COPY:
+${copy || '(none)'}
+
+Recommend the ideal avatar + voice profile. Respond with the JSON object only.`;
+
+  // Opus 4.7 — same model used for ad copy generation. Choosing the right
+  // avatar/voice for a persona is high-stakes creative judgment, not a
+  // mechanical classification, so we pay for the strongest model. If Opus
+  // is sustainedly overloaded after all retries, we fall back to Sonnet 4.6
+  // — slightly worse output, but better than failing entirely.
+  const makeBody = (model: string) =>
+    JSON.stringify({
+      model,
+      max_tokens: 1500,
+      // Use Claude's default temperature so each Recalcular click can
+      // produce a different high-quality alternative. The persisted cache
+      // (config.copy.aiRecommendation) prevents unintended drift between
+      // tab reopens — only explicit Recalcular triggers a new fetch.
+      system: SYSTEM,
+      messages: [{ role: 'user', content: USER }],
+    });
+  const PRIMARY_MODEL = DEFAULT_MODEL;
+  const FALLBACK_MODEL = 'claude-sonnet-4-6';
+  let requestBody = makeBody(PRIMARY_MODEL);
+
+  // Retry with backoff. Anthropic's 529 (overloaded) can persist for
+  // several minutes during peak load — short backoffs just burn attempts
+  // and surface the error to the user. We give it real time to recover,
+  // and switch to the fallback model halfway through if Opus stays down.
+  const MAX_ATTEMPTS = 6;
+  const SWITCH_MODEL_AFTER = 3; // attempts on primary before falling back
+  try {
+    let resp: Response | null = null;
+    let lastText = '';
+    let currentModel = PRIMARY_MODEL;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      if (attempt === SWITCH_MODEL_AFTER + 1 && currentModel !== FALLBACK_MODEL) {
+        currentModel = FALLBACK_MODEL;
+        requestBody = makeBody(FALLBACK_MODEL);
+        console.warn(`[Claude recommend] switching to fallback model ${FALLBACK_MODEL}`);
+      }
+      resp = await fetch(ANTHROPIC_API, {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+        },
+        body: requestBody,
+      });
+      if (resp.ok) break;
+      lastText = await resp.text();
+      const retryable = resp.status === 529 || resp.status === 429 || resp.status >= 500;
+      if (!retryable || attempt === MAX_ATTEMPTS) {
+        console.error('[Claude recommend] error', resp.status, lastText.substring(0, 300));
+        return res.status(resp.status).json({
+          success: false,
+          error: `Claude API error: ${resp.status} ${lastText.substring(0, 200)}`,
+        });
+      }
+      // Long waits for 529 (overload) and 429 (rate limit) — both are
+      // capacity issues that don't resolve in a few seconds.
+      const delay =
+        resp.status === 529 || resp.status === 429
+          ? 10000 + 5000 * attempt // 15s, 20s, 25s, 30s, 35s, 40s
+          : 1000 * Math.pow(2, attempt - 1);
+      console.warn(
+        `[Claude recommend] ${resp.status} attempt ${attempt}/${MAX_ATTEMPTS} (${currentModel}), retrying in ${delay}ms…`
+      );
+      await new Promise((r) => setTimeout(r, delay));
+    }
+
+    if (!resp || !resp.ok) {
+      return res.status(503).json({
+        success: false,
+        error: 'Claude indisponível após múltiplas tentativas. Tente novamente em alguns minutos.',
+      });
+    }
+
+    const data = await resp.json();
+    const textBlock = Array.isArray(data.content)
+      ? data.content.find((b: any) => b?.type === 'text')
+      : null;
+    const text = textBlock?.text || '';
+    const clean = text.replace(/^```(?:json)?\s*|\s*```$/g, '').trim();
+
+    let recommendation;
+    try {
+      recommendation = JSON.parse(clean);
+    } catch {
+      return res.status(500).json({
+        success: false,
+        error: 'Claude retornou resposta inválida (não-JSON).',
+        raw: text.substring(0, 300),
+      });
+    }
+
+    res.json({ success: true, recommendation });
+  } catch (err: any) {
+    console.error('[Claude recommend] Exception:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });

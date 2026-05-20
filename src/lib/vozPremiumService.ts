@@ -10,16 +10,33 @@ export interface ElevenLabsVoice {
     language?: string;
     accent?: string;
     use_case?: string;
+    descriptive?: string;
   };
   category?: string;
+  cloned_by_count?: number;
 }
 
 export interface CatalogFilters {
   gender?: 'male' | 'female' | '';
   age?: 'young' | 'middle_aged' | 'old' | '';
   language?: string;
+  accent?: string;
   use_case?: string;
+  descriptive?: string;
   search?: string;
+  page?: number;
+  // When true, includes voices with very few clones (typically lower
+  // recording quality). Default: false.
+  include_low_quality?: boolean;
+}
+
+export interface VoicesPage {
+  voices: ElevenLabsVoice[];
+  has_more: boolean;
+  total_count: number;
+  // Filters the backend had to drop because the combination yielded 0
+  // voices. Populated only on the first page.
+  relaxed: string[];
 }
 
 export interface GenerateAudioParams {
@@ -59,17 +76,26 @@ async function getJson<T>(url: string): Promise<T> {
   try { return JSON.parse(text); } catch { throw new Error(`Resposta inválida: ${text.substring(0, 200)}`); }
 }
 
-export async function listVoices(filters: CatalogFilters = {}): Promise<ElevenLabsVoice[]> {
+export async function listVoices(filters: CatalogFilters = {}): Promise<VoicesPage> {
   const params = new URLSearchParams();
-  if (filters.gender)   params.set('gender', filters.gender);
-  if (filters.age)      params.set('age', filters.age);
-  if (filters.language) params.set('language', filters.language);
-  if (filters.use_case) params.set('use_case', filters.use_case);
-  if (filters.search)   params.set('search', filters.search);
-  const data = await getJson<{ voices: ElevenLabsVoice[] }>(
+  if (filters.gender)      params.set('gender', filters.gender);
+  if (filters.age)         params.set('age', filters.age);
+  if (filters.language)    params.set('language', filters.language);
+  if (filters.accent)      params.set('accent', filters.accent);
+  if (filters.use_case)    params.set('use_case', filters.use_case);
+  if (filters.descriptive) params.set('descriptive', filters.descriptive);
+  if (filters.search)      params.set('search', filters.search);
+  if (filters.page)        params.set('page', String(filters.page));
+  if (filters.include_low_quality) params.set('include_low_quality', '1');
+  const data = await getJson<VoicesPage>(
     `/api/elevenlabs-premium/voices?${params.toString()}`
   );
-  return data?.voices ?? [];
+  return {
+    voices: data?.voices ?? [],
+    has_more: !!data?.has_more,
+    total_count: data?.total_count ?? 0,
+    relaxed: data?.relaxed ?? [],
+  };
 }
 
 export async function generateAudio(params: GenerateAudioParams & { userId?: string }): Promise<{ audioUrl: string; storagePath: string | null }> {

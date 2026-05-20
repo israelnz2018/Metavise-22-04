@@ -8,6 +8,8 @@ import HookVisualGenerator from './components/HookVisualGenerator';
 import VozPremium from './components/VozPremium';
 import { IntegrationsTab } from './pages/IntegrationsTab';
 import { ProjectsTab } from './pages/ProjectsTab';
+import { SourceTab } from './pages/SourceTab';
+import type { ProductInfo } from './lib/claudeService';
 import { cn, getVideoAspectRatioClass } from './lib/utils';
 import { VideoDurationBadge } from './components/VideoDurationBadge';
 import {
@@ -81,7 +83,12 @@ import { auth, db, storage } from './lib/firebase';
 import {
   DURATION_OPTIONS,
   AVATAR_ENRICHMENT,
+  AVATAR_FILTER_TO_ENRICHMENT,
   HEYGEN_NAME_KEYWORDS,
+} from './lib/constants';
+import { AIRecommendationPanel } from './components/AIRecommendationPanel';
+import type { AvatarVoiceRecommendation } from './lib/claudeService';
+import {
   AD_STYLES,
   STEPS,
   SUBTITLE_STYLES,
@@ -1343,6 +1350,23 @@ export default function App() {
     ethnicities: JSON.parse(localStorage.getItem('avatarFilters_ethnicities') || '[]'),
     sort: localStorage.getItem('avatarFilters_sort') || 'name',
   });
+  // Recommendation cache. Read from config.copy.aiRecommendation so it
+  // survives tab reopens and project reloads (avoids re-spending Claude
+  // tokens on every visit). User can force a re-fetch via the Recalcular
+  // button in the panel.
+  const avatarRecommendation =
+    ((config.copy as any)?.aiRecommendation as AvatarVoiceRecommendation | null | undefined) || null;
+  const setAvatarRecommendation = (rec: AvatarVoiceRecommendation | null) => {
+    setConfig((prev) => ({
+      ...prev,
+      copy: { ...prev.copy, aiRecommendation: rec } as any,
+    }));
+    if (rec) {
+      handleSaveProject({
+        copy: { ...config.copy, aiRecommendation: rec } as any,
+      } as any);
+    }
+  };
 
   useEffect(() => {
     localStorage.setItem('avatarFilters_gender', avatarFilters.gender);
@@ -5279,22 +5303,38 @@ export default function App() {
 
       const avatarName = a.avatar_name.toLowerCase();
 
-      const checkNameMatch = (
+      // For each UI filter pick, prefer the bulk-classified enrichment data
+      // (precise — derived from Claude vision); fall back to keyword match on
+      // the avatar name (lossy heuristic) when the avatar isn't in the JSON.
+      const matchesFilter = (
         selectedItems: string[],
-        filterType: keyof typeof HEYGEN_NAME_KEYWORDS
+        filterType: keyof typeof HEYGEN_NAME_KEYWORDS,
       ) => {
         if (selectedItems.length === 0) return true;
-        const nameToCheck = avatarName.toLowerCase();
         return selectedItems.some((selectedItem) => {
-          const keywords = (HEYGEN_NAME_KEYWORDS[filterType] as any)[selectedItem] || [];
-          return keywords.some((kw: string) => nameToCheck.includes(kw.toLowerCase()));
+          const enrichmentValues =
+            AVATAR_FILTER_TO_ENRICHMENT[filterType][selectedItem] || [];
+          const enrichmentField =
+            filterType === 'ages'
+              ? enrichment.age
+              : filterType === 'styles'
+                ? enrichment.style
+                : enrichment.ethnicity;
+          if (enrichmentField && enrichmentValues.includes(enrichmentField)) {
+            return true;
+          }
+          // Fallback to legacy keyword-on-name match for unclassified avatars.
+          if (!enrichmentField) {
+            const keywords = (HEYGEN_NAME_KEYWORDS[filterType] as any)[selectedItem] || [];
+            return keywords.some((kw: string) => avatarName.includes(kw.toLowerCase()));
+          }
+          return false;
         });
       };
 
-      // Best effort matching
-      const matchesAge = checkNameMatch(avatarFilters.ages, 'ages');
-      const matchesStyle = checkNameMatch(avatarFilters.styles, 'styles');
-      const matchesEthnicity = checkNameMatch(avatarFilters.ethnicities, 'ethnicities');
+      const matchesAge = matchesFilter(avatarFilters.ages, 'ages');
+      const matchesStyle = matchesFilter(avatarFilters.styles, 'styles');
+      const matchesEthnicity = matchesFilter(avatarFilters.ethnicities, 'ethnicities');
 
       return matchesSearch && matchesGender && matchesAge && matchesStyle && matchesEthnicity;
     });
@@ -5834,6 +5874,46 @@ export default function App() {
         )}
 
         <div className="space-y-6">
+          <AIRecommendationPanel
+            persona={config.copy.answers}
+            copyAnswers={config.copy.answers}
+            copy={config.copy.finalScript || config.copy.optimizedScript || config.copy.generatedScript}
+            variant="avatar"
+            cached={avatarRecommendation}
+            onChange={setAvatarRecommendation}
+            onApplyFilters={(rec) => {
+              const ageReverse: Record<string, string> = {
+                young: 'Young Adult',
+                adult: 'Adult',
+                mature: 'Mature',
+                elderly: 'Mature',
+              };
+              const styleReverse: Record<string, string> = {
+                professional: 'Professional',
+                lifestyle: 'Lifestyle',
+                ugc: 'UGC',
+                creative: 'UGC',
+              };
+              const ethReverse: Record<string, string> = {
+                white: 'White',
+                asian: 'Asian',
+                south_asian: 'South Asian',
+                latino: 'Latino',
+                middle_eastern: 'Middle Eastern',
+                black: 'Black',
+                mixed: 'White',
+              };
+              setAvatarFilters((prev) => ({
+                ...prev,
+                gender: rec.avatar.gender,
+                ages: ageReverse[rec.avatar.age] ? [ageReverse[rec.avatar.age]!] : [],
+                styles: styleReverse[rec.avatar.style] ? [styleReverse[rec.avatar.style]!] : [],
+                ethnicities: ethReverse[rec.avatar.ethnicity] ? [ethReverse[rec.avatar.ethnicity]!] : [],
+              }));
+              toast.success('Filtros sugeridos aplicados!');
+            }}
+          />
+
           <div className="flex items-center justify-between">
             <h3 className="text-2xl font-black text-gray-900 tracking-tight">Escolher Avatar</h3>
             <div className="flex items-center gap-2 px-4 py-2 bg-purple-50 rounded-xl border border-purple-100">
@@ -5909,7 +5989,7 @@ export default function App() {
                     Estilo (Style)
                   </h4>
                   <div className="flex flex-wrap gap-2">
-                    {['Professional', 'Lifestyle', 'UGC', 'Community'].map((style) => (
+                    {['Professional', 'Lifestyle', 'UGC'].map((style) => (
                       <button
                         key={style}
                         onClick={() =>
@@ -5969,7 +6049,7 @@ export default function App() {
                     Idade (Age)
                   </h4>
                   <div className="flex flex-wrap gap-2">
-                    {['Young Adult', 'Middle Aged', 'Elderly'].map((age) => (
+                    {['Young Adult', 'Adult', 'Mature'].map((age) => (
                       <button
                         key={age}
                         onClick={() =>
@@ -6302,6 +6382,24 @@ export default function App() {
               {filteredAvatars.map((a) => {
                 const enrichment = AVATAR_ENRICHMENT[a.avatar_id] || {};
                 const age = enrichment.age;
+                // Star marker: avatar fully matches the IA recommendation
+                // (gender + age + style + ethnicity). Elderly maps to mature
+                // and creative maps to ugc for matching purposes.
+                const recAvatar = avatarRecommendation?.avatar;
+                const ageMatches =
+                  recAvatar?.age === enrichment.age ||
+                  (recAvatar?.age === 'mature' && enrichment.age === 'elderly') ||
+                  (recAvatar?.age === 'elderly' && enrichment.age === 'mature');
+                const styleMatches =
+                  recAvatar?.style === enrichment.style ||
+                  (recAvatar?.style === 'ugc' && enrichment.style === 'creative') ||
+                  (recAvatar?.style === 'creative' && enrichment.style === 'ugc');
+                const isRecommended =
+                  !!recAvatar &&
+                  recAvatar.gender === a.gender &&
+                  recAvatar.ethnicity === enrichment.ethnicity &&
+                  ageMatches &&
+                  styleMatches;
 
                 return (
                   <button
@@ -6394,6 +6492,14 @@ export default function App() {
                     {config.avatar.faceId === a.avatar_id && (
                       <div className="absolute top-3 right-3 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-lg border-2 border-white">
                         <CheckCircle2 size={18} />
+                      </div>
+                    )}
+                    {isRecommended && config.avatar.faceId !== a.avatar_id && (
+                      <div
+                        className="absolute top-3 left-3 px-2 py-1 bg-purple-600 text-white rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg border-2 border-white flex items-center gap-1"
+                        title="Combina com a recomendação da IA"
+                      >
+                        ⭐ IA
                       </div>
                     )}
                   </button>
@@ -10767,6 +10873,50 @@ export default function App() {
                 onDeleteVideoFromArray={handleDeleteVideoFromArray}
               />
             )}
+            {currentStep === 'source' && (
+              <SourceTab
+                existingInfo={((config.copy as any)?.productInfo as ProductInfo | null) || null}
+                onExtracted={(info, rawText) => {
+                  // Persist extracted info AND seed the persona/copy answers
+                  // so the user lands in the next tab pre-filled. Manual
+                  // edits in those tabs override these seeds.
+                  setConfig((prev) => ({
+                    ...prev,
+                    copy: {
+                      ...prev.copy,
+                      productInfo: info,
+                      sourceText: rawText,
+                      answers: {
+                        ...prev.copy.answers,
+                        audience: prev.copy.answers?.audience || info.audience,
+                        situation: prev.copy.answers?.situation || info.mainPain,
+                        painPoints:
+                          prev.copy.answers?.painPoints ||
+                          [info.mainPain, ...(info.secondaryPains || [])]
+                            .filter(Boolean)
+                            .join('. '),
+                        awarenessLevel:
+                          prev.copy.answers?.awarenessLevel || info.awarenessLevel,
+                        productName: info.productName,
+                        offer: info.offer,
+                        promise: info.promise,
+                        differentiator: info.differentiator,
+                        tone: info.tone,
+                        guarantee: info.guarantee || '',
+                      },
+                    } as any,
+                  }));
+                  handleSaveProject({
+                    copy: {
+                      ...config.copy,
+                      productInfo: info,
+                      sourceText: rawText,
+                    } as any,
+                  } as any);
+                }}
+                onContinue={() => setCurrentStep('persona')}
+              />
+            )}
             {currentStep === 'persona' && renderPersonaStep()}
             {currentStep === 'copy' && renderCopyStep()}
             {currentStep === 'hook-visual' && (
@@ -10931,6 +11081,8 @@ export default function App() {
                     savedAudioUrl={activeAudioUrl || undefined}
                     savedAudios={activeAudios}
                     copyAnswers={config.copy?.answers || {}}
+                    cachedRecommendation={avatarRecommendation}
+                    onRecommendationChange={setAvatarRecommendation}
                     savedOptimizedScript={
                       isHook
                         ? ((config.copy as any)?.hookOptimizedScript as string | undefined) || ''

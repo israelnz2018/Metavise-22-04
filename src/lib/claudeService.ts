@@ -508,3 +508,83 @@ FORMATO (JSON apenas):
     throw new Error('Falha ao parsear resposta do Claude.');
   }
 };
+
+// ─────────────────────────────────────────────
+// 5. RECOMENDAR avatar + voz ideais para o projeto
+// ─────────────────────────────────────────────
+export interface AvatarVoiceRecommendation {
+  avatar: {
+    gender: 'male' | 'female';
+    age: 'young' | 'adult' | 'mature' | 'elderly';
+    ethnicity: 'white' | 'asian' | 'south_asian' | 'latino' | 'middle_eastern' | 'black' | 'mixed';
+    style: 'professional' | 'lifestyle' | 'ugc' | 'creative';
+    vibe: 'energetic' | 'calm' | 'authoritative' | 'friendly' | 'serious';
+  };
+  voice: {
+    gender: 'male' | 'female';
+    age: 'young' | 'middle_aged' | 'old';
+    accent: string;
+    use_case: string;
+    descriptive: string;
+  };
+  reasoning: string;
+}
+
+// ─────────────────────────────────────────────
+// 6. EXTRAIR info do produto a partir de VSL/landing page
+// ─────────────────────────────────────────────
+export interface ProductInfo {
+  productName: string;
+  category: string;
+  offer: string;
+  promise: string;
+  mainPain: string;
+  secondaryPains: string[];
+  benefits: string[];
+  audience: string;
+  awarenessLevel: string;
+  tone: string;
+  differentiator: string;
+  socialProof: string[];
+  guarantee: string | null;
+  urgency: string | null;
+  hookAngles: string[];
+}
+
+export async function extractProductInfo(input: {
+  text?: string;
+  url?: string;
+  youtubeUrl?: string;
+}): Promise<ProductInfo> {
+  const response = await fetch('/api/claude/extract-product-info', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Extract error: ${err}`);
+  }
+  const data = await response.json();
+  if (!data.success) throw new Error(data.error || 'Erro ao extrair info do produto.');
+  return data.product;
+}
+
+export async function recommendAvatarAndVoice(input: {
+  persona?: any;
+  copyAnswers?: any;
+  copy?: string;
+}): Promise<AvatarVoiceRecommendation> {
+  const response = await fetch('/api/claude/recommend-avatar-voice', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Recommendation error: ${err}`);
+  }
+  const data = await response.json();
+  if (!data.success) throw new Error(data.error || 'Erro na recomendação.');
+  return data.recommendation;
+}

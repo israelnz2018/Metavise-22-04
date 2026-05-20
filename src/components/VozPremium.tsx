@@ -27,7 +27,11 @@ import {
   cleanAudio,
   uploadReadyAudio,
 } from "../lib/vozPremiumService";
-import { optimizeCopyForElevenLabsWithClaude } from "../lib/claudeService";
+import {
+  optimizeCopyForElevenLabsWithClaude,
+  type AvatarVoiceRecommendation,
+} from "../lib/claudeService";
+import { AIRecommendationPanel } from "./AIRecommendationPanel";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage, auth } from "../lib/firebase";
 
@@ -56,6 +60,10 @@ interface Props {
   // When provided, the catalog will pre-select this voice on load so the
   // user doesn't have to reselect every time they toggle between hook/body.
   defaultVoiceId?: string;
+  // Shared recommendation cache — both Avatar and Voz tabs read/write the
+  // same config.copy.aiRecommendation so Recalcular in one updates both.
+  cachedRecommendation?: AvatarVoiceRecommendation | null;
+  onRecommendationChange?: (rec: AvatarVoiceRecommendation) => void;
 }
 
 const MODES: {
@@ -84,29 +92,51 @@ const MODES: {
   },
 ];
 
+// Labels match ElevenLabs' own tag vocabulary verbatim so the UI is
+// transparent — users see "Middle aged" both here and on the voice cards.
 const GENDERS = [
-  { v: "", l: "Todos" },
-  { v: "female", l: "Feminino" },
-  { v: "male", l: "Masculino" },
+  { v: "", l: "All" },
+  { v: "female", l: "Female" },
+  { v: "male", l: "Male" },
 ];
 const AGES = [
-  { v: "", l: "Todos" },
-  { v: "young", l: "Jovem" },
-  { v: "middle_aged", l: "Adulto" },
-  { v: "old", l: "Sênior" },
+  { v: "", l: "All" },
+  { v: "young", l: "Young" },
+  { v: "middle_aged", l: "Middle aged" },
+  { v: "old", l: "Old" },
 ];
 const LANGUAGES = [
-  { v: "", l: "Todos" },
-  { v: "pt", l: "Português" },
-  { v: "en", l: "Inglês" },
-  { v: "es", l: "Espanhol" },
+  { v: "", l: "All" },
+  { v: "pt", l: "Portuguese" },
+  { v: "en", l: "English" },
+  { v: "es", l: "Spanish" },
+];
+const ACCENTS = [
+  { v: "", l: "All" },
+  { v: "brazilian", l: "Brazilian" },
+  { v: "european", l: "European" },
+  { v: "american", l: "American" },
+  { v: "british", l: "British" },
+  { v: "latin american", l: "Latin american" },
 ];
 const USE_CASES = [
-  { v: "", l: "Todos" },
-  { v: "advertisement", l: "Publicidade" },
-  { v: "social_media", l: "Social Media" },
-  { v: "narration", l: "Narração" },
-  { v: "conversational", l: "Conversacional" },
+  { v: "", l: "All" },
+  { v: "advertisement", l: "Advertisement" },
+  { v: "social_media", l: "Social media" },
+  { v: "narrative_story", l: "Narrative story" },
+  { v: "conversational", l: "Conversational" },
+  { v: "informative_educational", l: "Informative educational" },
+];
+const DESCRIPTIVES = [
+  { v: "", l: "All" },
+  { v: "professional", l: "Professional" },
+  { v: "confident", l: "Confident" },
+  { v: "calm", l: "Calm" },
+  { v: "casual", l: "Casual" },
+  { v: "deep", l: "Deep" },
+  { v: "upbeat", l: "Upbeat" },
+  { v: "pleasant", l: "Pleasant" },
+  { v: "excited", l: "Excited" },
 ];
 
 const VozPremium: React.FC<Props> = ({
@@ -123,6 +153,8 @@ const VozPremium: React.FC<Props> = ({
   onDeleteAudioFromHistory,
   onGoToVideo,
   defaultVoiceId,
+  cachedRecommendation = null,
+  onRecommendationChange,
 }) => {
   const [mode, setMode] = useState<VozPremiumMode>("catalog");
   const [showRemoveActiveModal, setShowRemoveActiveModal] = useState(false);
@@ -260,6 +292,19 @@ const VozPremium: React.FC<Props> = ({
     age: mapAge(personaAge),
   });
   const [searchText, setSearchText] = useState("");
+  const [voicesPage, setVoicesPage] = useState(1);
+  const [voicesHasMore, setVoicesHasMore] = useState(false);
+  const [voicesTotal, setVoicesTotal] = useState(0);
+  const [loadingMoreVoices, setLoadingMoreVoices] = useState(false);
+  // Use shared cache if parent provided one; fall back to in-memory state.
+  const [localVoiceRec, setLocalVoiceRec] = useState<AvatarVoiceRecommendation | null>(null);
+  const voiceRec = cachedRecommendation ?? localVoiceRec;
+  const setVoiceRec = (rec: AvatarVoiceRecommendation) => {
+    setLocalVoiceRec(rec);
+    onRecommendationChange?.(rec);
+  };
+  const [voicesRelaxed, setVoicesRelaxed] = useState<string[]>([]);
+  const [showLowQuality, setShowLowQuality] = useState(false);
   const [langWarning, setLangWarning] = useState(false);
   const [pendingLanguage, setPendingLanguage] = useState("");
   const [generating, setGenerating] = useState(false);
@@ -297,11 +342,31 @@ const VozPremium: React.FC<Props> = ({
   useEffect(() => {
     if (mode !== "catalog") return;
     setLoadingVoices(true);
-    listVoices({ ...filters, search: searchText })
-      .then(setVoices)
+    setVoicesPage(1);
+    listVoices({ ...filters, search: searchText, page: 1, include_low_quality: showLowQuality })
+      .then((page) => {
+        setVoices(page.voices);
+        setVoicesHasMore(page.has_more);
+        setVoicesTotal(page.total_count);
+        setVoicesRelaxed(page.relaxed);
+      })
       .catch((e) => toast.error(e.message))
       .finally(() => setLoadingVoices(false));
-  }, [mode, filters, searchText]);
+  }, [mode, filters, searchText, showLowQuality]);
+
+  const handleLoadMoreVoices = () => {
+    if (loadingMoreVoices || !voicesHasMore) return;
+    const nextPage = voicesPage + 1;
+    setLoadingMoreVoices(true);
+    listVoices({ ...filters, search: searchText, page: nextPage, include_low_quality: showLowQuality })
+      .then((page) => {
+        setVoices((cur) => [...cur, ...page.voices]);
+        setVoicesPage(nextPage);
+        setVoicesHasMore(page.has_more);
+      })
+      .catch((e) => toast.error(e.message))
+      .finally(() => setLoadingMoreVoices(false));
+  };
 
   // Pre-select a voice once the catalog loads, based on defaultVoiceId.
   // Only fires when nothing is selected yet, so we never clobber a manual
@@ -797,18 +862,54 @@ const VozPremium: React.FC<Props> = ({
             {/* ── CATALOG ── */}
             {mode === "catalog" && (
               <div className="space-y-6">
+                <AIRecommendationPanel
+                  persona={copyAnswers}
+                  copyAnswers={copyAnswers}
+                  copy={approvedScript}
+                  variant="voice"
+                  cached={voiceRec}
+                  onChange={setVoiceRec}
+                  onApplyFilters={(rec) => {
+                    const ageMap: Record<string, 'young' | 'middle_aged' | 'old' | ''> = {
+                      young: 'young',
+                      middle_aged: 'middle_aged',
+                      old: 'old',
+                    };
+                    setFilters({
+                      gender: rec.voice.gender as 'male' | 'female',
+                      age: ageMap[rec.voice.age] || '',
+                      accent: rec.voice.accent,
+                      use_case: rec.voice.use_case,
+                      descriptive: rec.voice.descriptive,
+                      language: filters.language,
+                    });
+                    toast.success('Filtros sugeridos aplicados!');
+                  }}
+                />
+
                 {/* Filters */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-5">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Filter size={16} className="text-gray-400" />
-                    <span className="text-sm font-medium text-gray-700">
-                      Filtros
-                    </span>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <Filter size={16} className="text-gray-400" />
+                      <span className="text-sm font-medium text-gray-700">
+                        Filtros
+                      </span>
+                    </div>
+                    <label className="flex items-center gap-2 text-xs text-gray-500 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={showLowQuality}
+                        onChange={(e) => setShowLowQuality(e.target.checked)}
+                        className="accent-purple-600"
+                      />
+                      Incluir vozes pouco usadas
+                    </label>
                   </div>
                   <div className="space-y-3">
                     <div className="flex flex-wrap gap-2">
                       <span className="text-xs text-gray-400 w-16 pt-1.5">
-                        Sexo
+                        Gender
                       </span>
                       {GENDERS.map((g) =>
                         filterBtn(
@@ -822,7 +923,7 @@ const VozPremium: React.FC<Props> = ({
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <span className="text-xs text-gray-400 w-16 pt-1.5">
-                        Idade
+                        Age
                       </span>
                       {AGES.map((a) =>
                         filterBtn(
@@ -835,7 +936,7 @@ const VozPremium: React.FC<Props> = ({
                     </div>
                     <div className="flex flex-wrap gap-2 items-center">
                       <span className="text-xs text-gray-400 w-16 pt-1.5">
-                        Idioma
+                        Language
                       </span>
                       {LANGUAGES.map((l) =>
                         filterBtn(
@@ -848,13 +949,26 @@ const VozPremium: React.FC<Props> = ({
                       )}
                       {detectedLanguage && (
                         <span className="text-xs text-purple-500 bg-purple-50 px-2 py-0.5 rounded-full">
-                          detectado do roteiro
+                          detected from script
                         </span>
                       )}
                     </div>
                     <div className="flex flex-wrap gap-2 items-center">
                       <span className="text-xs text-gray-400 w-16 pt-1.5">
-                        Uso
+                        Accent
+                      </span>
+                      {ACCENTS.map((a) =>
+                        filterBtn(
+                          a.v,
+                          filters.accent || "",
+                          (v) => setFilters((f) => ({ ...f, accent: v })),
+                          a.l,
+                        ),
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-2 items-center">
+                      <span className="text-xs text-gray-400 w-16 pt-1.5">
+                        Use case
                       </span>
                       {USE_CASES.map((u) =>
                         filterBtn(
@@ -862,6 +976,19 @@ const VozPremium: React.FC<Props> = ({
                           filters.use_case || "",
                           (v) => setFilters((f) => ({ ...f, use_case: v })),
                           u.l,
+                        ),
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-2 items-center">
+                      <span className="text-xs text-gray-400 w-16 pt-1.5">
+                        Descriptive
+                      </span>
+                      {DESCRIPTIVES.map((d) =>
+                        filterBtn(
+                          d.v,
+                          filters.descriptive || "",
+                          (v) => setFilters((f) => ({ ...f, descriptive: v })),
+                          d.l,
                         ),
                       )}
                     </div>
@@ -877,11 +1004,33 @@ const VozPremium: React.FC<Props> = ({
                   </div>
                 </div>
 
+                {/* Relaxation banner */}
+                {voicesRelaxed.length > 0 && !loadingVoices && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-sm text-amber-900">
+                    <span className="font-bold">Combinação muito específica.</span>{" "}
+                    Removi temporariamente:{" "}
+                    {voicesRelaxed
+                      .map((f) =>
+                        f === "descriptive"
+                          ? "Descriptive"
+                          : f === "use_case"
+                            ? "Use case"
+                            : f === "accent"
+                              ? "Accent"
+                              : f,
+                      )
+                      .join(", ")}
+                    . Limpe outros filtros se quiser uma busca mais ampla.
+                  </div>
+                )}
+
                 {/* Voice list */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-5">
                   <h4 className="text-sm font-medium text-gray-700 mb-3">
                     {loadingVoices
                       ? "Carregando..."
+                      : voicesTotal > voices.length
+                      ? `${voices.length} de ${voicesTotal} vozes`
                       : `${voices.length} vozes encontradas`}
                   </h4>
                   {loadingVoices ? (
@@ -890,13 +1039,30 @@ const VozPremium: React.FC<Props> = ({
                       Carregando vozes...
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
-                      {voices.map((v) => (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[32rem] overflow-y-auto">
+                      {voices.map((v) => {
+                        const r = voiceRec?.voice;
+                        // Star requires all 5 AI-recommended fields match —
+                        // otherwise the star is misleading (a voice can have
+                        // the right gender+accent but wrong age/use_case).
+                        const isRecommended =
+                          !!r &&
+                          v.labels?.gender === r.gender &&
+                          v.labels?.age === r.age &&
+                          v.labels?.accent === r.accent &&
+                          v.labels?.use_case === r.use_case &&
+                          v.labels?.descriptive === r.descriptive;
+                        return (
                         <div
                           key={v.voice_id}
                           onClick={() => setSelectedVoice(v)}
-                          className={`text-left rounded-xl p-4 border-2 transition cursor-pointer ${selectedVoice?.voice_id === v.voice_id ? "border-purple-500 bg-purple-50/30" : "border-gray-100 hover:border-gray-300"}`}
+                          className={`text-left rounded-xl p-4 border-2 transition cursor-pointer relative ${selectedVoice?.voice_id === v.voice_id ? "border-purple-500 bg-purple-50/30" : "border-gray-100 hover:border-gray-300"}`}
                         >
+                          {isRecommended && (
+                            <span className="absolute -top-2 -right-2 bg-purple-600 text-white text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full shadow-md border-2 border-white">
+                              ⭐ IA
+                            </span>
+                          )}
                           <div className="flex items-center justify-between mb-1">
                             <span className="font-medium text-sm text-gray-900 truncate">
                               {v.name}
@@ -934,9 +1100,41 @@ const VozPremium: React.FC<Props> = ({
                                 {v.labels.use_case}
                               </span>
                             )}
+                            {v.labels?.accent && (
+                              <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">
+                                {v.labels.accent}
+                              </span>
+                            )}
+                            {v.labels?.descriptive && (
+                              <span className="text-xs bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full">
+                                {v.labels.descriptive}
+                              </span>
+                            )}
+                            {typeof v.cloned_by_count === "number" && (
+                              <span
+                                className="text-[10px] text-gray-400 px-1.5 py-0.5"
+                                title="Quantos usuários clonaram esta voz — sinal de popularidade e qualidade"
+                              >
+                                {v.cloned_by_count >= 1000
+                                  ? `${(v.cloned_by_count / 1000).toFixed(1)}k clones`
+                                  : `${v.cloned_by_count} clones`}
+                              </span>
+                            )}
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
+                    </div>
+                  )}
+                  {!loadingVoices && voicesHasMore && (
+                    <div className="flex justify-center mt-4">
+                      <button
+                        onClick={handleLoadMoreVoices}
+                        disabled={loadingMoreVoices}
+                        className="text-xs px-4 py-2 rounded-lg border border-gray-200 text-gray-600 hover:border-purple-400 hover:text-purple-700 disabled:opacity-50"
+                      >
+                        {loadingMoreVoices ? "Carregando..." : "Carregar mais vozes"}
+                      </button>
                     </div>
                   )}
                 </div>

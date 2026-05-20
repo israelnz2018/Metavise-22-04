@@ -104,41 +104,136 @@ elevenLabsRouter.post('/config', async (req, res) => {
 // --- Premium voice features (mounted at /api/elevenlabs-premium) ---
 export const elevenLabsPremiumRouter = Router();
 
+// Pulls from the shared voice library (~12k voices, ~1k in pt-BR) instead
+// of the user's own library (~146 voices). Filters are forwarded to the
+// upstream endpoint so server-side filtering is done by ElevenLabs.
+// Response shape is normalized to match the old user-library shape so the
+// frontend keeps working without changes: {voice_id, name, preview_url,
+// labels:{gender,age,language,accent,use_case,descriptive}, category}.
+//
+// Auto-relax: ElevenLabs lookups with many combined filters often return
+// 0 voices even when each individual filter has hundreds of matches. To
+// avoid dead-end states, the server progressively drops the most narrow
+// filters (descriptive → use_case → accent) until a non-empty result is
+// found, and reports which filters it had to drop via `relaxed`.
 elevenLabsPremiumRouter.get('/voices', async (req, res) => {
   const apiKey = getElevenLabsKey();
-  try {
-    const headers: Record<string, string> = {};
-    if (apiKey) headers['xi-api-key'] = apiKey;
+  if (!apiKey) return res.status(500).json({ error: 'ElevenLabs API Key ausente.' });
 
-    let r = await fetch('https://api.elevenlabs.io/v1/voices', { headers });
+  // Filters that may be safely relaxed when the combination yields 0
+  // voices. Order matters only as a tiebreaker when multiple single-drop
+  // candidates produce the same count — earlier = preferred to drop.
+  const OPTIONAL: ('descriptive' | 'use_case' | 'accent')[] = [
+    'descriptive',
+    'use_case',
+    'accent',
+  ];
 
-    if (!r.ok && r.status === 401) {
-      console.warn(
-        '[ElevenLabs Premium] Invalid API key detected, falling back to public voices...'
-      );
-      r = await fetch('https://api.elevenlabs.io/v1/voices', { method: 'GET' });
-    }
+  const buildParams = (drop: Set<string>) => {
+    const params = new URLSearchParams();
+    const pageSize = Math.min(Number(req.query.page_size) || 100, 100);
+    params.set('page_size', String(pageSize));
+    if (req.query.page) params.set('page', String(req.query.page));
+    if (req.query.gender) params.set('gender', String(req.query.gender));
+    if (req.query.age) params.set('age', String(req.query.age));
+    if (req.query.language) params.set('language', String(req.query.language));
+    if (req.query.accent && !drop.has('accent')) params.set('accent', String(req.query.accent));
+    if (req.query.use_case && !drop.has('use_case'))
+      params.set('use_cases', String(req.query.use_case));
+    if (req.query.descriptive && !drop.has('descriptive'))
+      params.set('descriptives', String(req.query.descriptive));
+    if (req.query.search) params.set('search', String(req.query.search));
+    return params;
+  };
 
+  const fetchPage = async (drop: Set<string>) => {
+    const params = buildParams(drop);
+    const r = await fetch(`https://api.elevenlabs.io/v1/shared-voices?${params.toString()}`, {
+      headers: { 'xi-api-key': apiKey },
+    });
     if (!r.ok) {
-      console.error('ElevenLabs voices error:', await r.text());
-      return res.status(r.status).json({ voices: [] });
+      const errText = await r.text();
+      throw new Error(`shared-voices ${r.status}: ${errText.substring(0, 200)}`);
+    }
+    return r.json();
+  };
+
+  try {
+    let json = await fetchPage(new Set());
+    let relaxed: string[] = [];
+
+    // Relax only on page 1 — pagination subsequent pages keep the agreed
+    // combo so the user's scroll position stays consistent.
+    const isFirstPage = !req.query.page || String(req.query.page) === '1';
+    if (isFirstPage && (json.voices?.length ?? 0) === 0) {
+      // Minimum-drop strategy: try dropping each optional filter
+      // individually in parallel. Pick the candidate that returns the
+      // MOST voices (closest to the user's intent). Tie-break by
+      // OPTIONAL order (descriptive first — generally the most subjective).
+      const presentOptional = OPTIONAL.filter((k) => req.query[k]);
+      const singleAttempts = await Promise.all(
+        presentOptional.map(async (k) => {
+          const r = await fetchPage(new Set([k]));
+          return { drop: k, count: r.voices?.length ?? 0, json: r };
+        })
+      );
+      const bestSingle = singleAttempts
+        .filter((a) => a.count > 0)
+        .sort((a, b) => b.count - a.count)[0];
+
+      if (bestSingle) {
+        json = bestSingle.json;
+        relaxed = [bestSingle.drop];
+      } else {
+        // No single drop unblocks the result set — fall back to the
+        // priority sweep that drops progressively more filters until
+        // something comes back.
+        const drop = new Set<string>();
+        for (const key of OPTIONAL) {
+          if (!req.query[key]) continue;
+          drop.add(key);
+          relaxed.push(key);
+          json = await fetchPage(drop);
+          if ((json.voices?.length ?? 0) > 0) break;
+        }
+      }
     }
 
-    const json = await r.json();
-    let voices = json.voices || [];
-    if (req.query.gender) voices = voices.filter((v: any) => v.labels?.gender === req.query.gender);
-    if (req.query.age) voices = voices.filter((v: any) => v.labels?.age === req.query.age);
-    if (req.query.language)
-      voices = voices.filter((v: any) =>
-        v.labels?.language?.toLowerCase().includes((req.query.language as string).toLowerCase())
-      );
-    if (req.query.use_case)
-      voices = voices.filter((v: any) => v.labels?.use_case === req.query.use_case);
-    if (req.query.search)
-      voices = voices.filter((v: any) =>
-        v.name.toLowerCase().includes((req.query.search as string).toLowerCase())
-      );
-    res.json({ voices });
+    // Quality floor: filter out the long-tail of shared voices with very
+    // few clones (typically poor-mic recordings from random users). The
+    // shared-voices feed is sorted by popularity so the top page is
+    // usually clean, but uncommon filter combos can surface low-clone
+    // voices. The client can opt out with `include_low_quality=1`.
+    const QUALITY_FLOOR = 10;
+    const includeLowQuality = req.query.include_low_quality === '1';
+    const filtered = includeLowQuality
+      ? json.voices || []
+      : (json.voices || []).filter(
+          (v: any) => (v.cloned_by_count ?? 0) >= QUALITY_FLOOR
+        );
+
+    const voices = filtered.map((v: any) => ({
+      voice_id: v.voice_id,
+      name: v.name,
+      preview_url: v.preview_url,
+      category: v.category,
+      cloned_by_count: v.cloned_by_count,
+      labels: {
+        gender: v.gender,
+        age: v.age,
+        language: v.language,
+        accent: v.accent,
+        use_case: v.use_case,
+        descriptive: v.descriptive,
+      },
+    }));
+
+    res.json({
+      voices,
+      has_more: json.has_more,
+      total_count: json.total_count,
+      relaxed,
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
