@@ -118,7 +118,6 @@ export const HEYGEN_NAME_KEYWORDS = {
       'sitting',
     ],
     UGC: ['ugc', 'selfie', 'creator', 'vlog', 'natural', 'authentic'],
-    Community: ['community', 'group', 'social', 'friendly'],
   },
   ages: {
     'Young Adult': ['young', 'teen', 'student', 'junior'],
