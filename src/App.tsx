@@ -9,7 +9,8 @@ import VozPremium from './components/VozPremium';
 import { IntegrationsTab } from './pages/IntegrationsTab';
 import { ProjectsTab } from './pages/ProjectsTab';
 import { SourceTab } from './pages/SourceTab';
-import type { ProductInfo } from './lib/claudeService';
+import { PlanTab } from './pages/PlanTab';
+import type { ProductInfo, MarketingPlan } from './lib/claudeService';
 import { cn, getVideoAspectRatioClass } from './lib/utils';
 import { VideoDurationBadge } from './components/VideoDurationBadge';
 import {
@@ -10288,6 +10289,24 @@ export default function App() {
               />
             )}
             {currentStep === 'persona' && renderPersonaStep()}
+            {currentStep === 'plan' && (
+              <PlanTab
+                productInfo={((config.copy as any)?.productInfo as ProductInfo | null) || undefined}
+                persona={config.copy?.answers || {}}
+                copyAnswers={config.copy?.answers || {}}
+                cached={((config.copy as any)?.marketingPlan as MarketingPlan | null) || null}
+                onChange={(plan) => {
+                  setConfig((prev) => ({
+                    ...prev,
+                    copy: { ...prev.copy, marketingPlan: plan } as any,
+                  }));
+                  handleSaveProject({
+                    copy: { ...config.copy, marketingPlan: plan } as any,
+                  } as any);
+                }}
+                onContinue={() => setCurrentStep('copy')}
+              />
+            )}
             {currentStep === 'copy' && renderCopyStep()}
             {currentStep === 'hook-visual' && (
               <HookVisualGenerator

@@ -570,6 +570,73 @@ export async function extractProductInfo(input: {
   return data.product;
 }
 
+// ─────────────────────────────────────────────
+// 7. PLANO DE MARKETING (Andromeda-aware)
+// ─────────────────────────────────────────────
+export interface MarketingPlan {
+  summary: string;
+  creativeVolume: {
+    totalCreatives: number;
+    rationale: string;
+    perAudience: number;
+  };
+  hookMix: Array<{
+    angle: string;
+    count: number;
+    example: string;
+    awarenessLevel: string;
+    rationale: string;
+  }>;
+  awarenessCoverage: Array<{
+    level: string;
+    creativeCount: number;
+    approach: string;
+  }>;
+  durations: Array<{
+    length: string;
+    purpose: string;
+    count: number;
+  }>;
+  adStructure: {
+    campaigns: number;
+    adSets: number;
+    creativesPerAdSet: number;
+    rationale: string;
+  };
+  budget: {
+    dailyMin: number;
+    dailyRecommended: number;
+    rationale: string;
+  };
+  iterationPlan: {
+    testDays: number;
+    killThreshold: string;
+    scaleThreshold: string;
+    iterationFrequency: string;
+  };
+  andromedaTips: string[];
+  nextSteps: string[];
+}
+
+export async function generateMarketingPlan(input: {
+  productInfo?: any;
+  persona?: any;
+  copyAnswers?: any;
+}): Promise<MarketingPlan> {
+  const response = await fetch('/api/claude/marketing-plan', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Marketing plan error: ${err}`);
+  }
+  const data = await response.json();
+  if (!data.success) throw new Error(data.error || 'Erro ao gerar plano de marketing.');
+  return data.plan;
+}
+
 export async function recommendAvatarAndVoice(input: {
   persona?: any;
   copyAnswers?: any;

@@ -10,6 +10,7 @@ export type Step =
   | 'projects'
   | 'source'
   | 'persona'
+  | 'plan'
   | 'copy'
   | 'hook-visual'
   | 'voz-premium'

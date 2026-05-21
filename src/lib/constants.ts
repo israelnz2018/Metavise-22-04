@@ -208,6 +208,7 @@ export const STEPS: { id: Step; label: string; icon: any }[] = [
   { id: 'projects', label: 'Meus Projetos', icon: Layout },
   { id: 'source', label: 'Fonte do Produto', icon: FileText },
   { id: 'persona', label: 'Identificar Persona', icon: Users },
+  { id: 'plan', label: 'Plano de Marketing', icon: Layout },
   { id: 'copy', label: 'Copy', icon: Edit3 },
   { id: 'hook-visual', label: 'Copy do Gancho', icon: Clapperboard },
   { id: 'voz-premium', label: 'Voz', icon: Sparkles },

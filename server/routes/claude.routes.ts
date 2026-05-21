@@ -396,6 +396,175 @@ Extraia as informações estruturadas. Retorne APENAS o JSON.`;
   }
 });
 
+// POST /api/claude/marketing-plan
+// Builds a complete Meta Ads launch plan tailored to the product + persona,
+// considering Andromeda (Meta's optimization system that favors volume +
+// diversity over per-creative perfection). Output drives the "Plano de
+// Marketing" tab so the user knows exactly how many variations to produce
+// and which angles to cover.
+//
+// Request:  { productInfo?: any, persona?: any, copyAnswers?: any }
+// Response: { success: true, plan: {...} }
+claudeRouter.post('/marketing-plan', async (req, res) => {
+  const apiKey = getClaudeKey();
+  if (!apiKey) {
+    return res.status(500).json({ success: false, error: 'CLAUDE_API_KEY não configurada.' });
+  }
+
+  const { productInfo = {}, persona = {}, copyAnswers = {} } = req.body || {};
+
+  const SYSTEM = `Você é um estrategista de Meta Ads com domínio dos updates recentes (Andromeda 2025+). Recebe info do produto + persona e gera um PLANO COMPLETO de lançamento.
+
+Princípios Andromeda que DEVE guiar o plano:
+- Volume e diversidade vencem perfeição individual. Meta escolhe melhor que humanos quando tem N criativos pra testar.
+- Múltiplos hooks > um hook "perfeito". Mínimo 3-5 ângulos diferentes por ad set.
+- Cobrir TODOS os níveis de consciência relevantes (cold, problem-aware, solution-aware, product-aware).
+- Mix de durações: 15-30s (scroll-stoppers) + 30-60s (storytelling) + 60-180s (VSL profunda) quando faz sentido pro produto.
+- Vídeo > estático na maioria dos casos. Avatar IA é viável e escala.
+- Iterar rápido: rodar 5-7 dias, matar perdedores, dobrar nos vencedores.
+
+Responda APENAS um JSON com esta estrutura (sem prosa, sem markdown):
+{
+  "summary": "1-2 parágrafos em PT-BR resumindo a estratégia macro",
+  "creativeVolume": {
+    "totalCreatives": 12,
+    "rationale": "explicação curta do número escolhido",
+    "perAudience": 4
+  },
+  "hookMix": [
+    {
+      "angle": "Curiosidade",
+      "count": 3,
+      "example": "exemplo concreto de hook desse ângulo pra esse produto",
+      "awarenessLevel": "unaware",
+      "rationale": "por que esse ângulo serve essa awareness"
+    }
+  ],
+  "awarenessCoverage": [
+    {
+      "level": "unaware|problem-aware|solution-aware|product-aware|most-aware",
+      "creativeCount": 3,
+      "approach": "como abordar esse público especificamente"
+    }
+  ],
+  "durations": [
+    {
+      "length": "15-30s",
+      "purpose": "scroll stopper / disrupt",
+      "count": 5
+    }
+  ],
+  "adStructure": {
+    "campaigns": 1,
+    "adSets": 3,
+    "creativesPerAdSet": 4,
+    "rationale": "explicação da estrutura escolhida"
+  },
+  "budget": {
+    "dailyMin": 50,
+    "dailyRecommended": 150,
+    "rationale": "PT-BR — explicação considerando que Andromeda precisa de volume mínimo pra otimizar"
+  },
+  "iterationPlan": {
+    "testDays": 5,
+    "killThreshold": "métrica + valor (ex: CPL > R$X depois de Yk impressões)",
+    "scaleThreshold": "métrica + valor pra dobrar budget",
+    "iterationFrequency": "a cada quantos dias revisar"
+  },
+  "andromedaTips": [
+    "tip específico aplicável a esse produto"
+  ],
+  "nextSteps": [
+    "ação concreta 1 que o usuário toma agora dentro do MetaVise",
+    "ação 2"
+  ]
+}
+
+Os valores numéricos devem ser realistas pro produto. Não invente totalCreatives=100 se o orçamento sugere produto pequeno. Para affiliates / produtos info novos, 8-15 criativos é típico. Para escala maior (ecom estabelecido), 20-40+.`;
+
+  const USER = `INFO DO PRODUTO:
+${JSON.stringify(productInfo, null, 2)}
+
+PERSONA:
+${JSON.stringify(persona, null, 2)}
+
+COPY ANSWERS:
+${JSON.stringify(copyAnswers, null, 2)}
+
+Gere o plano completo. Retorne APENAS o JSON.`;
+
+  // Use Opus 4.7 — strategy is creative judgment + product domain knowledge.
+  // Retry on overload (same pattern as /complete).
+  const requestBody = JSON.stringify({
+    model: DEFAULT_MODEL,
+    max_tokens: 4000,
+    system: SYSTEM,
+    messages: [{ role: 'user', content: USER }],
+  });
+
+  const MAX_ATTEMPTS = 5;
+  try {
+    let resp: Response | null = null;
+    let lastText = '';
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      resp = await fetch(ANTHROPIC_API, {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+        },
+        body: requestBody,
+      });
+      if (resp.ok) break;
+      lastText = await resp.text();
+      const retryable = resp.status === 529 || resp.status === 429 || resp.status >= 500;
+      if (!retryable || attempt === MAX_ATTEMPTS) {
+        return res.status(resp.status).json({
+          success: false,
+          error: `Claude API error: ${resp.status} ${lastText.substring(0, 200)}`,
+        });
+      }
+      const delay =
+        resp.status === 529 || resp.status === 429 ? 10000 + 5000 * attempt : 1000 * Math.pow(2, attempt - 1);
+      console.warn(
+        `[Claude marketing-plan] ${resp.status} attempt ${attempt}/${MAX_ATTEMPTS}, retrying in ${delay}ms…`
+      );
+      await new Promise((r) => setTimeout(r, delay));
+    }
+
+    if (!resp || !resp.ok) {
+      return res.status(503).json({
+        success: false,
+        error: 'Claude indisponível após múltiplas tentativas. Tente novamente em alguns minutos.',
+      });
+    }
+
+    const data = await resp.json();
+    const textBlock = Array.isArray(data.content)
+      ? data.content.find((b: any) => b?.type === 'text')
+      : null;
+    const responseText = textBlock?.text || '';
+    const clean = responseText.replace(/^```(?:json)?\s*|\s*```$/g, '').trim();
+
+    let plan;
+    try {
+      plan = JSON.parse(clean);
+    } catch {
+      return res.status(500).json({
+        success: false,
+        error: 'Claude retornou resposta inválida (não-JSON).',
+        raw: responseText.substring(0, 500),
+      });
+    }
+
+    res.json({ success: true, plan });
+  } catch (err: any) {
+    console.error('[Claude marketing-plan] Exception:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // POST /api/claude/recommend-avatar-voice
 // Returns structured avatar + voice criteria for the current project based on
 // persona answers + the approved copy. Used by the Avatar/Voz tabs to:
