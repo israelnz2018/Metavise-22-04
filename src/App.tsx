@@ -13,6 +13,7 @@ import { PlanTab } from './pages/PlanTab';
 import type { ProductInfo, MarketingPlan } from './lib/claudeService';
 import { personaFromProduct } from './lib/claudeService';
 import { cn, getVideoAspectRatioClass } from './lib/utils';
+import { authedFetch } from './lib/authedFetch';
 import { VideoDurationBadge } from './components/VideoDurationBadge';
 import {
   getRecomendedEstilo,
@@ -3021,7 +3022,7 @@ export default function App() {
             ? `Hook Clip - ${config.angle}`
             : `Video Ad - ${config.angle}`,
       };
-      const response = await fetch('/api/heygen/generate', {
+      const response = await authedFetch('/api/heygen/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(finalPayload),
