@@ -123,6 +123,7 @@ import { ElevenLabsConfigModal } from './components/ElevenLabsConfigModal';
 import { AvatarPreviewModal } from './components/AvatarPreviewModal';
 import { IntercutModal } from './components/IntercutModal';
 import { HeadlineModal } from './components/HeadlineModal';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import {
   ref,
   uploadBytes,
@@ -10277,6 +10278,10 @@ export default function App() {
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
           >
+            {/* Per-step error boundary — a crash inside one tab shows a
+                friendly recovery screen instead of taking down the app.
+                Keyed by step so navigating away resets the error state. */}
+            <ErrorBoundary key={`eb-${currentStep}`} scope={currentStep}>
             {currentStep === 'integrations' && (
               <IntegrationsTab
                 userRole={userRole}
@@ -10756,6 +10761,7 @@ export default function App() {
             {currentStep === 'edit2' && renderEdit2Step()}
 
             {currentStep === 'final' && renderFinalStep()}
+            </ErrorBoundary>
           </motion.div>
         </AnimatePresence>
 
