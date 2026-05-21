@@ -66,6 +66,9 @@ interface Props {
   // change.
   cachedRecommendation?: CachedRecommendation | null;
   onRecommendationChange?: (cached: CachedRecommendation) => void;
+  // Optional product info extracted from VSL/landing page — feeds the
+  // recommendation prompt so it considers offer + awareness + tone.
+  productInfo?: any;
 }
 
 const MODES: {
@@ -157,6 +160,7 @@ const VozPremium: React.FC<Props> = ({
   defaultVoiceId,
   cachedRecommendation = null,
   onRecommendationChange,
+  productInfo,
 }) => {
   const [mode, setMode] = useState<VozPremiumMode>("catalog");
   const [showRemoveActiveModal, setShowRemoveActiveModal] = useState(false);
@@ -868,6 +872,7 @@ const VozPremium: React.FC<Props> = ({
                   persona={copyAnswers}
                   copyAnswers={copyAnswers}
                   copy={approvedScript}
+                  productInfo={productInfo}
                   variant="voice"
                   cached={voiceRec}
                   onChange={setVoiceRec}

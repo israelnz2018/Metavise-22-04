@@ -1,8 +1,76 @@
 import { Router } from 'express';
 import fs from 'fs';
 import { YoutubeTranscript } from 'youtube-transcript';
-import { getClaudeKey } from '../config/apiKeys.js';
+import ytdl from '@distube/ytdl-core';
+import { getClaudeKey, getAssemblyAIKey } from '../config/apiKeys.js';
 import { CLAUDE_CONFIG_PATH } from '../config/paths.js';
+
+// Fallback path when YouTube captions are unavailable: download the audio
+// stream via ytdl + send to AssemblyAI for transcription. Returns the full
+// text or throws. Polls for up to 5 minutes.
+async function transcribeYoutubeWithAssemblyAI(videoId: string): Promise<string> {
+  const apiKey = getAssemblyAIKey();
+  if (!apiKey) throw new Error('AssemblyAI API key não configurada — não dá pra usar fallback.');
+
+  console.log(`[YouTube fallback] Fetching audio stream for ${videoId}...`);
+  const info = await ytdl.getInfo(videoId);
+  const audioFormat = ytdl.chooseFormat(info.formats, { quality: 'lowestaudio' });
+  if (!audioFormat?.url) {
+    throw new Error('Não consegui obter o áudio desse vídeo do YouTube.');
+  }
+
+  // Stream the audio bytes from YouTube into AssemblyAI's /v2/upload.
+  // AssemblyAI accepts arbitrary binary uploads and returns an `upload_url`
+  // that we then point /v2/transcript at.
+  console.log(`[YouTube fallback] Streaming audio to AssemblyAI...`);
+  const audioResp = await fetch(audioFormat.url);
+  if (!audioResp.ok || !audioResp.body) {
+    throw new Error(`Falha ao baixar áudio do YouTube (status ${audioResp.status}).`);
+  }
+  const audioBuffer = Buffer.from(await audioResp.arrayBuffer());
+
+  const uploadResp = await fetch('https://api.assemblyai.com/v2/upload', {
+    method: 'POST',
+    headers: { authorization: apiKey, 'content-type': 'application/octet-stream' },
+    body: audioBuffer,
+  });
+  if (!uploadResp.ok) {
+    throw new Error(`AssemblyAI upload falhou: ${uploadResp.status}`);
+  }
+  const { upload_url } = (await uploadResp.json()) as { upload_url: string };
+
+  // Submit for transcription.
+  const submitResp = await fetch('https://api.assemblyai.com/v2/transcript', {
+    method: 'POST',
+    headers: { authorization: apiKey, 'content-type': 'application/json' },
+    body: JSON.stringify({ audio_url: upload_url, language_detection: true }),
+  });
+  if (!submitResp.ok) {
+    throw new Error(`AssemblyAI submit falhou: ${submitResp.status}`);
+  }
+  const { id: transcriptId } = (await submitResp.json()) as { id: string };
+  console.log(`[YouTube fallback] AssemblyAI transcript ${transcriptId} submitted, polling...`);
+
+  // Poll. 5s interval, up to 5min ceiling. VSLs are usually transcribed
+  // in 30-90s; longer videos take proportionally longer.
+  for (let attempt = 0; attempt < 60; attempt++) {
+    await new Promise((r) => setTimeout(r, 5000));
+    const statusResp = await fetch(
+      `https://api.assemblyai.com/v2/transcript/${transcriptId}`,
+      { headers: { authorization: apiKey } }
+    );
+    if (!statusResp.ok) continue;
+    const data: any = await statusResp.json();
+    if (data.status === 'completed') {
+      console.log(`[YouTube fallback] AssemblyAI done — ${data.text?.length || 0} chars`);
+      return data.text || '';
+    }
+    if (data.status === 'error') {
+      throw new Error(`AssemblyAI error: ${data.error}`);
+    }
+  }
+  throw new Error('AssemblyAI transcrição passou de 5 minutos sem terminar.');
+}
 
 // Match common YouTube URL shapes (full, short, mobile, shorts) and pull
 // out the 11-character video ID.
@@ -255,22 +323,36 @@ claudeRouter.post('/extract-product-info', async (req, res) => {
         error: 'URL do YouTube inválida — não consegui extrair o ID do vídeo.',
       });
     }
+    let transcript = '';
     try {
       const segments = await YoutubeTranscript.fetchTranscript(videoId);
-      const transcript = segments.map((s: any) => s.text).join(' ').replace(/\s+/g, ' ').trim();
-      if (!transcript) {
+      transcript = segments.map((s: any) => s.text).join(' ').replace(/\s+/g, ' ').trim();
+    } catch (err: any) {
+      console.log(`[YouTube] captions fetch failed: ${err.message}, trying AssemblyAI fallback...`);
+    }
+
+    // Fallback: when YouTube doesn't expose captions (creator disabled them,
+    // or auto-captions failed to generate), stream the audio through
+    // AssemblyAI. Slower (~30-90s) and costs ~$0.10/10min audio, but works
+    // for the ~10% of videos without captions.
+    if (!transcript) {
+      try {
+        transcript = await transcribeYoutubeWithAssemblyAI(videoId);
+      } catch (err: any) {
         return res.status(400).json({
           success: false,
-          error: 'Vídeo do YouTube não tem legendas disponíveis.',
+          error: `Não consegui transcrever esse vídeo (sem legendas E fallback falhou: ${err.message}). Tente colar a transcrição manualmente.`,
         });
       }
-      sourceText = [sourceText, transcript].filter(Boolean).join('\n\n');
-    } catch (err: any) {
+    }
+
+    if (!transcript) {
       return res.status(400).json({
         success: false,
-        error: `Não consegui pegar a transcrição do YouTube: ${err.message}. Tente colar a transcrição manualmente.`,
+        error: 'Vídeo do YouTube sem texto utilizável. Tente colar a transcrição manualmente.',
       });
     }
+    sourceText = [sourceText, transcript].filter(Boolean).join('\n\n');
   }
 
   // Resolve landing page URL → plain text (strip HTML tags, limit length).
@@ -580,9 +662,9 @@ claudeRouter.post('/recommend-avatar-voice', async (req, res) => {
     return res.status(500).json({ success: false, error: 'CLAUDE_API_KEY não configurada.' });
   }
 
-  const { persona = {}, copyAnswers = {}, copy = '' } = req.body || {};
+  const { persona = {}, copyAnswers = {}, copy = '', productInfo = null } = req.body || {};
 
-  const SYSTEM = `You recommend the ideal HeyGen avatar profile and ElevenLabs voice profile for a Meta (Facebook/Instagram) video ad, based on the persona and approved copy.
+  const SYSTEM = `You recommend the ideal HeyGen avatar profile and ElevenLabs voice profile for a Meta (Facebook/Instagram) video ad, based on the product, persona, and approved copy.
 
 Return ONLY a JSON object with this exact shape (no prose, no markdown):
 {
@@ -605,7 +687,7 @@ Return ONLY a JSON object with this exact shape (no prose, no markdown):
 
 Match the avatar/voice to who the persona would TRUST most. Energetic upbeat voice for hype/youth products. Calm authoritative voice for B2B/health. Brazilian accent unless the copy or persona suggests otherwise.`;
 
-  const USER = `PERSONA:
+  const USER = `${productInfo ? `PRODUCT INFO:\n${JSON.stringify(productInfo, null, 2)}\n\n` : ''}PERSONA:
 ${JSON.stringify(persona, null, 2)}
 
 COPY ANSWERS:

@@ -5880,6 +5880,7 @@ export default function App() {
             persona={config.copy.answers}
             copyAnswers={config.copy.answers}
             copy={config.copy.finalScript || config.copy.optimizedScript || config.copy.generatedScript}
+            productInfo={((config.copy as any)?.productInfo as ProductInfo | null) || undefined}
             variant="avatar"
             cached={avatarRecommendation}
             onChange={setAvatarRecommendation}
@@ -10472,6 +10473,7 @@ export default function App() {
                     copyAnswers={config.copy?.answers || {}}
                     cachedRecommendation={avatarRecommendation}
                     onRecommendationChange={setAvatarRecommendation}
+                    productInfo={((config.copy as any)?.productInfo as ProductInfo | null) || undefined}
                     savedOptimizedScript={
                       isHook
                         ? ((config.copy as any)?.hookOptimizedScript as string | undefined) || ''

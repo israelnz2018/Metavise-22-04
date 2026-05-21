@@ -18,6 +18,7 @@ interface Props {
   persona?: any;
   copyAnswers?: any;
   copy?: string;
+  productInfo?: any;
 
   // Which side of the recommendation to display (avatar vs voice). The
   // panel always fetches both — the unused side stays hidden.
@@ -38,11 +39,13 @@ function buildInputsKey(
   persona: any,
   copyAnswers: any,
   copy: string | undefined,
+  productInfo: any,
 ) {
   return JSON.stringify({
     p: persona ?? null,
     a: copyAnswers ?? null,
     c: copy ?? '',
+    pi: productInfo ?? null,
   });
 }
 
@@ -95,12 +98,13 @@ export function AIRecommendationPanel({
   persona,
   copyAnswers,
   copy,
+  productInfo,
   variant,
   cached,
   onChange,
   onApplyFilters,
 }: Props) {
-  const currentInputsKey = buildInputsKey(persona, copyAnswers, copy);
+  const currentInputsKey = buildInputsKey(persona, copyAnswers, copy, productInfo);
   const cacheIsValid = cached && cached.inputsKey === currentInputsKey;
 
   const [rec, setRec] = useState<AvatarVoiceRecommendation | null>(
@@ -113,7 +117,7 @@ export function AIRecommendationPanel({
     setLoading(true);
     setError(null);
     try {
-      const r = await recommendAvatarAndVoice({ persona, copyAnswers, copy });
+      const r = await recommendAvatarAndVoice({ persona, copyAnswers, copy, productInfo });
       setRec(r);
       onChange?.({ rec: r, inputsKey: currentInputsKey });
     } catch (err: any) {

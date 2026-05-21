@@ -12,7 +12,9 @@ import {
   TrendingUp,
   Rocket,
   CheckSquare,
+  Download,
 } from 'lucide-react';
+import jsPDF from 'jspdf';
 import { generateMarketingPlan, type MarketingPlan } from '../lib/claudeService';
 
 interface Props {
@@ -66,6 +68,107 @@ export function PlanTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const handleDownloadPDF = () => {
+    if (!plan) return;
+    const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+    const margin = 50;
+    const maxWidth = 612 - 2 * margin;
+    let y = margin;
+
+    const writeLine = (text: string, size = 11, opts: { bold?: boolean; color?: [number, number, number] } = {}) => {
+      doc.setFontSize(size);
+      doc.setFont('helvetica', opts.bold ? 'bold' : 'normal');
+      if (opts.color) doc.setTextColor(...opts.color);
+      else doc.setTextColor(20, 20, 20);
+      const lines = doc.splitTextToSize(text, maxWidth);
+      for (const line of lines) {
+        if (y > 740) {
+          doc.addPage();
+          y = margin;
+        }
+        doc.text(line, margin, y);
+        y += size + 4;
+      }
+    };
+    const space = (n = 8) => {
+      y += n;
+    };
+    const heading = (text: string) => {
+      space(14);
+      writeLine(text, 16, { bold: true, color: [88, 28, 135] });
+      space(4);
+    };
+    const subheading = (text: string) => {
+      space(6);
+      writeLine(text, 12, { bold: true, color: [60, 60, 60] });
+    };
+
+    // Cover
+    writeLine('Plano de Marketing', 24, { bold: true, color: [88, 28, 135] });
+    writeLine('Gerado por MetaVise · Estratégia Andromeda-aware', 10, { color: [120, 120, 120] });
+    space(20);
+
+    heading('Estratégia macro');
+    writeLine(plan.summary);
+
+    heading('Volume de criativos');
+    writeLine(`Total: ${plan.creativeVolume.totalCreatives}  ·  Por audiência: ${plan.creativeVolume.perAudience}`, 11, { bold: true });
+    writeLine(plan.creativeVolume.rationale);
+
+    heading('Estrutura de campanha');
+    writeLine(
+      `${plan.adStructure.campaigns} campanha(s) · ${plan.adStructure.adSets} ad set(s) · ${plan.adStructure.creativesPerAdSet} criativos por set`,
+      11,
+      { bold: true },
+    );
+    writeLine(plan.adStructure.rationale);
+
+    heading('Mix de ganchos');
+    plan.hookMix.forEach((h, i) => {
+      subheading(`${i + 1}. ${h.angle} (${h.count}× · ${h.awarenessLevel})`);
+      writeLine(`Exemplo: "${h.example}"`, 10);
+      writeLine(`Razão: ${h.rationale}`, 10, { color: [90, 90, 90] });
+    });
+
+    heading('Cobertura de awareness');
+    plan.awarenessCoverage.forEach((a) => {
+      subheading(`${a.level} — ${a.creativeCount} criativos`);
+      writeLine(a.approach, 10);
+    });
+
+    heading('Mix de durações');
+    plan.durations.forEach((d) => {
+      writeLine(`• ${d.length} (${d.count}×) — ${d.purpose}`);
+    });
+
+    heading('Orçamento');
+    writeLine(
+      `Mínimo: R$${plan.budget.dailyMin}/dia  ·  Recomendado: R$${plan.budget.dailyRecommended}/dia`,
+      11,
+      { bold: true },
+    );
+    writeLine(plan.budget.rationale);
+
+    heading('Plano de iteração');
+    writeLine(`Janela de teste: ${plan.iterationPlan.testDays} dias`);
+    writeLine(`Matar quando: ${plan.iterationPlan.killThreshold}`);
+    writeLine(`Escalar quando: ${plan.iterationPlan.scaleThreshold}`);
+    writeLine(`Revisar: ${plan.iterationPlan.iterationFrequency}`);
+
+    if (plan.andromedaTips?.length) {
+      heading('Dicas Andromeda');
+      plan.andromedaTips.forEach((t) => writeLine(`→ ${t}`));
+    }
+
+    if (plan.nextSteps?.length) {
+      heading('Próximos passos');
+      plan.nextSteps.forEach((s, i) => writeLine(`${i + 1}. ${s}`));
+    }
+
+    const fileName = `plano-marketing-${new Date().toISOString().split('T')[0]}.pdf`;
+    doc.save(fileName);
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-8">
       <div className="flex items-start justify-between gap-4">
@@ -80,14 +183,25 @@ export function PlanTab({
             produto + persona.
           </p>
         </div>
-        <button
-          onClick={fetchPlan}
-          disabled={loading}
-          className="text-xs font-bold uppercase tracking-widest text-purple-700 hover:text-purple-900 flex items-center gap-1.5 disabled:opacity-50"
-        >
-          <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
-          Recalcular
-        </button>
+        <div className="flex items-center gap-4">
+          {plan && (
+            <button
+              onClick={handleDownloadPDF}
+              className="text-xs font-bold uppercase tracking-widest text-gray-700 hover:text-gray-900 flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 hover:border-gray-400"
+            >
+              <Download size={12} />
+              Baixar PDF
+            </button>
+          )}
+          <button
+            onClick={fetchPlan}
+            disabled={loading}
+            className="text-xs font-bold uppercase tracking-widest text-purple-700 hover:text-purple-900 flex items-center gap-1.5 disabled:opacity-50"
+          >
+            <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+            Recalcular
+          </button>
+        </div>
       </div>
 
       {loading && !plan && (

@@ -641,6 +641,7 @@ export async function recommendAvatarAndVoice(input: {
   persona?: any;
   copyAnswers?: any;
   copy?: string;
+  productInfo?: any;
 }): Promise<AvatarVoiceRecommendation> {
   const response = await fetch('/api/claude/recommend-avatar-voice', {
     method: 'POST',
