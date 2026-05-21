@@ -51,3 +51,6 @@ Thumbs.db
 
 # TypeScript build info
 *.tsbuildinfo
+
+# ytdl-core debug dumps (emitted on player parse failures)
+*-player-script.js
