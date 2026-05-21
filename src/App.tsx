@@ -1783,13 +1783,16 @@ export default function App() {
       setConfig(projectData.config as AdConfig);
       setShowNewProjectModal(false);
       setNewProjectName('');
+      // New projects always start at Source so the client can paste a
+      // VSL/landing-page link before stepping into Persona/Copy. Specialty
+      // project types (video/editing-only) still jump deeper.
       const firstStepByType: Record<string, any> = {
-        complete: 'copy',
-        copy: 'copy',
+        complete: 'source',
+        copy: 'source',
         video: 'voz-premium',
         editing: 'edit2',
       };
-      setCurrentStep(firstStepByType[newProjectType] || 'copy');
+      setCurrentStep(firstStepByType[newProjectType] || 'source');
     } catch (err) {
       console.error('Error creating project:', err);
       setError('Falha ao criar projeto.');
