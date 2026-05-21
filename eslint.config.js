@@ -51,6 +51,12 @@ export default [
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
       ],
       'no-empty': ['warn', { allowEmptyCatch: true }],
+      // React 19's react-hooks/set-state-in-effect flags the standard
+      // "auto-fetch on mount" pattern (useEffect → setLoading → fetch →
+      // setData). The rule is technically correct that this causes a
+      // cascading render, but the cascade is exactly what we want for
+      // data loading. Demoted to warn.
+      'react-hooks/set-state-in-effect': 'warn',
     },
   },
 

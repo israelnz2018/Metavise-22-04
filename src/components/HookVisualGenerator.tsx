@@ -144,7 +144,9 @@ export const HookVisualGenerator: React.FC<HookVisualGeneratorProps> = ({
   const [selectedImageModel, setSelectedImageModel] = useState(hookVisual?.modeloImagem || 'gemini-imagen');
   const [selectedImageQuality, setSelectedImageQuality] = useState('standard');
   const [isGeneratingImages, setIsGeneratingImages] = useState(false);
-  const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>(
+  // Lazy init: Math.random() runs only once during mount (not every render),
+  // satisfying the react-hooks/purity rule and producing stable IDs.
+  const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>(() =>
     hookVisual?.imagensGeradas?.map(url => ({
       id: Math.random().toString(36).substr(2, 9),
       url,

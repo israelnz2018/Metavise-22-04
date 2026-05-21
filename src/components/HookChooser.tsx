@@ -188,36 +188,24 @@ const HookChooser: React.FC<Props> = ({ language, awarenessLevel, approvedCopy =
     setIsSaved(false);
   };
 
-  const BlockCheckbox = ({ blockId, label }: { blockId: 'ai' | 'list' | 'custom'; label: string }) => {
-    const isActive = activeBlock === blockId;
-    return (
-      <button
-        onClick={() => {
-          if (isActive) {
-            setActiveBlock(null);
-            setChosenHook('');
-            setIsSaved(false);
-          } else {
-            setActiveBlock(blockId);
-            setChosenHook('');
-            setIsSaved(false);
-          }
-        }}
-        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition border-2 ${
-          isActive
-            ? 'bg-blue-600 border-blue-600 text-white shadow-md'
-            : 'bg-white border-gray-200 text-gray-500 hover:border-blue-300'
-        }`}
-      >
-        <div className={`w-4 h-4 rounded-md border-2 flex items-center justify-center transition ${
-          isActive ? 'bg-white border-white' : 'border-gray-300'
-        }`}>
-          {isActive && <Check size={12} className="text-blue-600" />}
-        </div>
-        {label}
-      </button>
-    );
-  };
+  // BlockCheckbox is defined at module scope below to keep React happy
+  // (creating components during render triggers cascading re-renders).
+  const renderBlockCheckbox = (blockId: 'ai' | 'list' | 'custom', label: string) => (
+    <BlockCheckbox
+      blockId={blockId}
+      label={label}
+      isActive={activeBlock === blockId}
+      onToggle={() => {
+        if (activeBlock === blockId) {
+          setActiveBlock(null);
+        } else {
+          setActiveBlock(blockId);
+        }
+        setChosenHook('');
+        setIsSaved(false);
+      }}
+    />
+  );
 
   return (
     <div className="space-y-8">
@@ -267,7 +255,7 @@ const HookChooser: React.FC<Props> = ({ language, awarenessLevel, approvedCopy =
               <Sparkles size={16} />
             </div>
             <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest flex-1">Opção 1: Hooks Recomendados pela IA</h3>
-            <BlockCheckbox blockId="ai" label="Usar este bloco" />
+            {renderBlockCheckbox('ai', 'Usar este bloco')}
           </div>
 
           {/* Filtros pré-selecionados (visualização do que foi usado) */}
@@ -373,7 +361,7 @@ const HookChooser: React.FC<Props> = ({ language, awarenessLevel, approvedCopy =
             <Search size={16} />
           </div>
           <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest flex-1">Opção 2: Buscar pela Lista Completa</h3>
-          <BlockCheckbox blockId="list" label="Usar este bloco" />
+          {renderBlockCheckbox('list', 'Usar este bloco')}
         </div>
 
         <div className="flex items-center gap-2 mb-4">
@@ -443,7 +431,7 @@ const HookChooser: React.FC<Props> = ({ language, awarenessLevel, approvedCopy =
             <Edit3 size={16} />
           </div>
           <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest flex-1">Opção 3: Escreva seu próprio hook</h3>
-          <BlockCheckbox blockId="custom" label="Usar este bloco" />
+          {renderBlockCheckbox('custom', 'Usar este bloco')}
         </div>
         <div className="flex gap-2">
           <input
@@ -549,5 +537,38 @@ const HookChooser: React.FC<Props> = ({ language, awarenessLevel, approvedCopy =
     </div>
   );
 };
+
+// Module-scope component so React doesn't see it being created during
+// each render of HookChooser (which would trigger cascading re-renders).
+function BlockCheckbox({
+  label,
+  isActive,
+  onToggle,
+}: {
+  blockId: 'ai' | 'list' | 'custom';
+  label: string;
+  isActive: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      onClick={onToggle}
+      className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition border-2 ${
+        isActive
+          ? 'bg-blue-600 border-blue-600 text-white shadow-md'
+          : 'bg-white border-gray-200 text-gray-500 hover:border-blue-300'
+      }`}
+    >
+      <div
+        className={`w-4 h-4 rounded-md border-2 flex items-center justify-center transition ${
+          isActive ? 'bg-white border-white' : 'border-gray-300'
+        }`}
+      >
+        {isActive && <Check size={12} className="text-blue-600" />}
+      </div>
+      {label}
+    </button>
+  );
+}
 
 export default HookChooser;
