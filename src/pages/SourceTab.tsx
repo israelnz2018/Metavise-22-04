@@ -19,10 +19,18 @@ interface Props {
   // Existing extracted info (persists across reopens via config.copy.productInfo).
   existingInfo?: ProductInfo | null;
   onExtracted: (info: ProductInfo, rawText: string) => void;
-  onContinue: () => void;
+  // Manual flow → goes to Persona for hand-fill. Auto flow → goes to Plano
+  // de Marketing because Source already populated persona+copy answers.
+  onContinueManual: () => void;
+  onContinueAuto: () => void;
 }
 
-export function SourceTab({ existingInfo, onExtracted, onContinue }: Props) {
+export function SourceTab({
+  existingInfo,
+  onExtracted,
+  onContinueManual,
+  onContinueAuto,
+}: Props) {
   // Always start with the manual-vs-auto question — even if the user has
   // a previous extraction saved. They can still see the saved info by
   // clicking "Automática" again.
@@ -47,7 +55,7 @@ export function SourceTab({ existingInfo, onExtracted, onContinue }: Props) {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <button
-            onClick={onContinue}
+            onClick={onContinueManual}
             className="group bg-white border-2 border-gray-200 hover:border-purple-500 hover:shadow-lg rounded-3xl p-8 text-left transition space-y-4"
           >
             <div className="w-14 h-14 bg-gray-100 group-hover:bg-purple-100 text-gray-600 group-hover:text-purple-700 rounded-2xl flex items-center justify-center transition">
@@ -276,10 +284,10 @@ export function SourceTab({ existingInfo, onExtracted, onContinue }: Props) {
           )}
 
           <button
-            onClick={onContinue}
+            onClick={onContinueAuto}
             className="w-full bg-gray-900 hover:bg-black text-white font-black uppercase text-sm tracking-widest py-5 rounded-2xl shadow-lg flex items-center justify-center gap-3"
           >
-            Ir para Identificar Persona
+            Ir para Plano de Marketing
             <ArrowRight size={18} />
           </button>
         </div>

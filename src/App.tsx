@@ -2358,13 +2358,16 @@ export default function App() {
 
       setHasUnsavedCopyChanges(false);
 
+      // Loading an existing project always lands on Source so the user can
+      // review/re-extract material before stepping forward. Specialty
+      // project types (video/editing-only) jump deeper into the flow.
       const firstStepByType: Record<string, string> = {
-        complete: 'copy',
-        copy: 'copy',
+        complete: 'source',
+        copy: 'source',
         video: 'voz-premium',
         editing: 'edit2',
       };
-      const resolvedStep = step || firstStepByType[project.type] || 'copy';
+      const resolvedStep = step || firstStepByType[project.type] || 'source';
       setCurrentStep(resolvedStep as Step);
       toast.success(`Projeto "${project.name}" carregado!`);
     } catch (err) {
@@ -10286,7 +10289,8 @@ export default function App() {
                     } as any,
                   } as any);
                 }}
-                onContinue={() => setCurrentStep('persona')}
+                onContinueManual={() => setCurrentStep('persona')}
+                onContinueAuto={() => setCurrentStep('plan')}
               />
             )}
             {currentStep === 'persona' && renderPersonaStep()}
