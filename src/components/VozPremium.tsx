@@ -27,11 +27,11 @@ import {
   cleanAudio,
   uploadReadyAudio,
 } from "../lib/vozPremiumService";
+import { optimizeCopyForElevenLabsWithClaude } from "../lib/claudeService";
 import {
-  optimizeCopyForElevenLabsWithClaude,
-  type AvatarVoiceRecommendation,
-} from "../lib/claudeService";
-import { AIRecommendationPanel } from "./AIRecommendationPanel";
+  AIRecommendationPanel,
+  type CachedRecommendation,
+} from "./AIRecommendationPanel";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage, auth } from "../lib/firebase";
 
@@ -62,8 +62,10 @@ interface Props {
   defaultVoiceId?: string;
   // Shared recommendation cache — both Avatar and Voz tabs read/write the
   // same config.copy.aiRecommendation so Recalcular in one updates both.
-  cachedRecommendation?: AvatarVoiceRecommendation | null;
-  onRecommendationChange?: (rec: AvatarVoiceRecommendation) => void;
+  // The cache embeds an inputsKey so it auto-invalidates when copy/persona
+  // change.
+  cachedRecommendation?: CachedRecommendation | null;
+  onRecommendationChange?: (cached: CachedRecommendation) => void;
 }
 
 const MODES: {
@@ -297,11 +299,11 @@ const VozPremium: React.FC<Props> = ({
   const [voicesTotal, setVoicesTotal] = useState(0);
   const [loadingMoreVoices, setLoadingMoreVoices] = useState(false);
   // Use shared cache if parent provided one; fall back to in-memory state.
-  const [localVoiceRec, setLocalVoiceRec] = useState<AvatarVoiceRecommendation | null>(null);
+  const [localVoiceRec, setLocalVoiceRec] = useState<CachedRecommendation | null>(null);
   const voiceRec = cachedRecommendation ?? localVoiceRec;
-  const setVoiceRec = (rec: AvatarVoiceRecommendation) => {
-    setLocalVoiceRec(rec);
-    onRecommendationChange?.(rec);
+  const setVoiceRec = (cached: CachedRecommendation) => {
+    setLocalVoiceRec(cached);
+    onRecommendationChange?.(cached);
   };
   const [voicesRelaxed, setVoicesRelaxed] = useState<string[]>([]);
   const [showLowQuality, setShowLowQuality] = useState(false);
@@ -1041,7 +1043,7 @@ const VozPremium: React.FC<Props> = ({
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[32rem] overflow-y-auto">
                       {voices.map((v) => {
-                        const r = voiceRec?.voice;
+                        const r = voiceRec?.rec?.voice;
                         // Star requires all 5 AI-recommended fields match —
                         // otherwise the star is misleading (a voice can have
                         // the right gender+accent but wrong age/use_case).

@@ -86,8 +86,10 @@ import {
   AVATAR_FILTER_TO_ENRICHMENT,
   HEYGEN_NAME_KEYWORDS,
 } from './lib/constants';
-import { AIRecommendationPanel } from './components/AIRecommendationPanel';
-import type { AvatarVoiceRecommendation } from './lib/claudeService';
+import {
+  AIRecommendationPanel,
+  type CachedRecommendation,
+} from './components/AIRecommendationPanel';
 import {
   AD_STYLES,
   STEPS,
@@ -1353,20 +1355,18 @@ export default function App() {
   });
   // Recommendation cache. Read from config.copy.aiRecommendation so it
   // survives tab reopens and project reloads (avoids re-spending Claude
-  // tokens on every visit). User can force a re-fetch via the Recalcular
-  // button in the panel.
+  // tokens on every visit). The cache embeds an `inputsKey` fingerprint
+  // — when persona/copy edits change the inputs, the panel auto-refetches.
   const avatarRecommendation =
-    ((config.copy as any)?.aiRecommendation as AvatarVoiceRecommendation | null | undefined) || null;
-  const setAvatarRecommendation = (rec: AvatarVoiceRecommendation | null) => {
+    ((config.copy as any)?.aiRecommendation as CachedRecommendation | null | undefined) || null;
+  const setAvatarRecommendation = (cached: CachedRecommendation) => {
     setConfig((prev) => ({
       ...prev,
-      copy: { ...prev.copy, aiRecommendation: rec } as any,
+      copy: { ...prev.copy, aiRecommendation: cached } as any,
     }));
-    if (rec) {
-      handleSaveProject({
-        copy: { ...config.copy, aiRecommendation: rec } as any,
-      } as any);
-    }
+    handleSaveProject({
+      copy: { ...config.copy, aiRecommendation: cached } as any,
+    } as any);
   };
 
   useEffect(() => {
@@ -6386,7 +6386,7 @@ export default function App() {
                 // Star marker: avatar fully matches the IA recommendation
                 // (gender + age + style + ethnicity). Elderly maps to mature
                 // and creative maps to ugc for matching purposes.
-                const recAvatar = avatarRecommendation?.avatar;
+                const recAvatar = avatarRecommendation?.rec?.avatar;
                 const ageMatches =
                   recAvatar?.age === enrichment.age ||
                   (recAvatar?.age === 'mature' && enrichment.age === 'elderly') ||

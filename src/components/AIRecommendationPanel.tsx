@@ -5,6 +5,14 @@ import {
   type AvatarVoiceRecommendation,
 } from '../lib/claudeService';
 
+// Cache shape includes a fingerprint of the inputs that produced the
+// recommendation. When the current inputs no longer match the cached
+// fingerprint (copy or persona was edited), the panel auto-refetches.
+export interface CachedRecommendation {
+  rec: AvatarVoiceRecommendation;
+  inputsKey: string;
+}
+
 interface Props {
   // Project context — used to build the prompt sent to Claude.
   persona?: any;
@@ -15,13 +23,27 @@ interface Props {
   // panel always fetches both — the unused side stays hidden.
   variant: 'avatar' | 'voice';
 
-  // Optional cached recommendation. When set, the panel won't auto-fetch;
-  // user can hit "Recalcular" to force a refresh.
-  cached?: AvatarVoiceRecommendation | null;
-  onChange?: (rec: AvatarVoiceRecommendation) => void;
+  // Optional cached recommendation. Auto-refetches when its inputsKey
+  // doesn't match the panel's current inputs.
+  cached?: CachedRecommendation | null;
+  onChange?: (cached: CachedRecommendation) => void;
 
   // Apply the suggested criteria to the parent's filter state.
   onApplyFilters?: (rec: AvatarVoiceRecommendation) => void;
+}
+
+// Stable serialization of the inputs Claude sees. Same string ⇒ same
+// recommendation should still be valid. Different ⇒ cache is stale.
+function buildInputsKey(
+  persona: any,
+  copyAnswers: any,
+  copy: string | undefined,
+) {
+  return JSON.stringify({
+    p: persona ?? null,
+    a: copyAnswers ?? null,
+    c: copy ?? '',
+  });
 }
 
 const AVATAR_LABEL_PT: Record<string, string> = {
@@ -78,7 +100,12 @@ export function AIRecommendationPanel({
   onChange,
   onApplyFilters,
 }: Props) {
-  const [rec, setRec] = useState<AvatarVoiceRecommendation | null>(cached ?? null);
+  const currentInputsKey = buildInputsKey(persona, copyAnswers, copy);
+  const cacheIsValid = cached && cached.inputsKey === currentInputsKey;
+
+  const [rec, setRec] = useState<AvatarVoiceRecommendation | null>(
+    cacheIsValid ? cached!.rec : null,
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -88,7 +115,7 @@ export function AIRecommendationPanel({
     try {
       const r = await recommendAvatarAndVoice({ persona, copyAnswers, copy });
       setRec(r);
-      onChange?.(r);
+      onChange?.({ rec: r, inputsKey: currentInputsKey });
     } catch (err: any) {
       setError(err?.message || 'Erro ao buscar recomendação.');
     } finally {
@@ -96,16 +123,14 @@ export function AIRecommendationPanel({
     }
   };
 
-  // Auto-fetch on first mount when nothing is cached.
+  // Auto-fetch on first mount when nothing is cached OR cache is stale.
+  // Re-runs only when the inputs hash changes — not on every render.
   useEffect(() => {
-    if (!cached && !rec && !loading && !error) {
+    if (!rec && !loading && !error) {
       void fetchRec();
     }
-    // Intentional: only run on mount; user controls re-fetch via the
-    // Recalcular button. Re-fetching every time persona/copy edits would
-    // burn Claude tokens unnecessarily.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [currentInputsKey]);
 
   const section = variant === 'avatar' ? rec?.avatar : rec?.voice;
 
