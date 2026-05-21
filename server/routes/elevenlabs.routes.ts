@@ -4,6 +4,8 @@ import path from 'path';
 import admin from 'firebase-admin';
 import { getElevenLabsKey } from '../config/apiKeys.js';
 import { CONFIG_PATH, GENERATED_DIR } from '../config/paths.js';
+import { createLogger } from '../utils/logger.js';
+const log = createLogger('ElevenLabs');
 
 export const elevenLabsRouter = Router();
 
@@ -12,7 +14,7 @@ elevenLabsRouter.get('/voices', async (_req, res) => {
   const apiKey = getElevenLabsKey();
 
   try {
-    console.log('[ElevenLabs Proxy] Fetching voices...');
+    log.info('[ElevenLabs Proxy] Fetching voices...');
     const headers: Record<string, string> = {};
     if (apiKey) {
       headers['xi-api-key'] = apiKey;
@@ -24,13 +26,13 @@ elevenLabsRouter.get('/voices', async (_req, res) => {
     });
 
     if (!response.ok && response.status === 401 && apiKey) {
-      console.warn('[ElevenLabs Proxy] Invalid API key detected, falling back to public voices...');
+      log.warn('[ElevenLabs Proxy] Invalid API key detected, falling back to public voices...');
       response = await fetch('https://api.elevenlabs.io/v1/voices', { method: 'GET' });
     }
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[ElevenLabs Proxy] Voices Error (${response.status}):`, errorText);
+      log.error(`[ElevenLabs Proxy] Voices Error (${response.status}):`, errorText);
       let errorData;
       try {
         errorData = JSON.parse(errorText);
@@ -43,7 +45,7 @@ elevenLabsRouter.get('/voices', async (_req, res) => {
     const data = await response.json();
     res.json(data);
   } catch (err: any) {
-    console.error('[ElevenLabs Proxy] Voices Exception:', err);
+    log.error('[ElevenLabs Proxy] Voices Exception:', err);
     res.status(500).json({ error: `Failed to fetch voices from ElevenLabs: ${err.message}` });
   }
 });
@@ -93,10 +95,10 @@ elevenLabsRouter.post('/config', async (req, res) => {
 
   try {
     fs.writeFileSync(CONFIG_PATH, JSON.stringify({ apiKey: trimmedKey }, null, 2));
-    console.log('[ElevenLabs Config] API Key updated successfully.');
+    log.info('[ElevenLabs Config] API Key updated successfully.');
     res.json({ message: 'ElevenLabs API Key updated successfully.' });
   } catch (err: any) {
-    console.error('[ElevenLabs Config] Error saving config:', err);
+    log.error('[ElevenLabs Config] Error saving config:', err);
     res.status(500).json({ error: `Failed to save API Key: ${err.message}` });
   }
 });
@@ -289,7 +291,7 @@ elevenLabsPremiumRouter.post('/generate', async (req, res) => {
         storagePath = firebasePath;
       }
     } catch (uploadErr: any) {
-      console.error(
+      log.error(
         '[VozPremium] Firebase Storage upload falhou, usando local:',
         uploadErr.message
       );

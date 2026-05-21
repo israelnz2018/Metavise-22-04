@@ -4,6 +4,8 @@ import { YoutubeTranscript } from 'youtube-transcript';
 import ytdl from '@distube/ytdl-core';
 import { getClaudeKey, getAssemblyAIKey } from '../config/apiKeys.js';
 import { CLAUDE_CONFIG_PATH } from '../config/paths.js';
+import { createLogger } from '../utils/logger.js';
+const log = createLogger('Claude');
 
 // Fallback path when YouTube captions are unavailable: download the audio
 // stream via ytdl + send to AssemblyAI for transcription. Returns the full
@@ -12,7 +14,7 @@ async function transcribeYoutubeWithAssemblyAI(videoId: string): Promise<string>
   const apiKey = getAssemblyAIKey();
   if (!apiKey) throw new Error('AssemblyAI API key não configurada — não dá pra usar fallback.');
 
-  console.log(`[YouTube fallback] Fetching audio stream for ${videoId}...`);
+  log.info(`[YouTube fallback] Fetching audio stream for ${videoId}...`);
   const info = await ytdl.getInfo(videoId);
   const audioFormat = ytdl.chooseFormat(info.formats, { quality: 'lowestaudio' });
   if (!audioFormat?.url) {
@@ -22,7 +24,7 @@ async function transcribeYoutubeWithAssemblyAI(videoId: string): Promise<string>
   // Stream the audio bytes from YouTube into AssemblyAI's /v2/upload.
   // AssemblyAI accepts arbitrary binary uploads and returns an `upload_url`
   // that we then point /v2/transcript at.
-  console.log(`[YouTube fallback] Streaming audio to AssemblyAI...`);
+  log.info(`[YouTube fallback] Streaming audio to AssemblyAI...`);
   const audioResp = await fetch(audioFormat.url);
   if (!audioResp.ok || !audioResp.body) {
     throw new Error(`Falha ao baixar áudio do YouTube (status ${audioResp.status}).`);
@@ -49,7 +51,7 @@ async function transcribeYoutubeWithAssemblyAI(videoId: string): Promise<string>
     throw new Error(`AssemblyAI submit falhou: ${submitResp.status}`);
   }
   const { id: transcriptId } = (await submitResp.json()) as { id: string };
-  console.log(`[YouTube fallback] AssemblyAI transcript ${transcriptId} submitted, polling...`);
+  log.info(`[YouTube fallback] AssemblyAI transcript ${transcriptId} submitted, polling...`);
 
   // Poll. 5s interval, up to 5min ceiling. VSLs are usually transcribed
   // in 30-90s; longer videos take proportionally longer.
@@ -62,7 +64,7 @@ async function transcribeYoutubeWithAssemblyAI(videoId: string): Promise<string>
     if (!statusResp.ok) continue;
     const data: any = await statusResp.json();
     if (data.status === 'completed') {
-      console.log(`[YouTube fallback] AssemblyAI done — ${data.text?.length || 0} chars`);
+      log.info(`[YouTube fallback] AssemblyAI done — ${data.text?.length || 0} chars`);
       return data.text || '';
     }
     if (data.status === 'error') {
@@ -109,10 +111,10 @@ claudeRouter.post('/config', async (req, res) => {
 
   try {
     fs.writeFileSync(CLAUDE_CONFIG_PATH, JSON.stringify({ apiKey: trimmedKey }, null, 2));
-    console.log('[Claude Config] API Key updated successfully.');
+    log.info('[Claude Config] API Key updated successfully.');
     res.json({ message: 'Claude API Key updated successfully.' });
   } catch (err: any) {
-    console.error('[Claude Config] Error saving config:', err);
+    log.error('[Claude Config] Error saving config:', err);
     res.status(500).json({ error: `Failed to save API Key: ${err.message}` });
   }
 });
@@ -179,7 +181,7 @@ claudeRouter.post('/complete', async (req, res) => {
 
   const max_tokens = Math.max(requestedMaxTokens, DEFAULT_MAX_TOKENS);
 
-  console.log(
+  log.info(
     `[Claude] /complete model=${model} thinking=${thinking ? THINKING_EFFORT : 'off'} ` +
       `max_tokens=${max_tokens} user_len=${user.length}`
   );
@@ -239,7 +241,7 @@ claudeRouter.post('/complete', async (req, res) => {
       lastText = await response.text();
       const retryable = response.status === 529 || response.status === 429 || response.status >= 500;
       if (!retryable || attempt === MAX_ATTEMPTS) {
-        console.error(
+        log.error(
           `[Claude] Anthropic API error (attempt ${attempt}/${MAX_ATTEMPTS}):`,
           response.status,
           lastText.substring(0, 500)
@@ -251,7 +253,7 @@ claudeRouter.post('/complete', async (req, res) => {
       }
 
       const delay = 1000 * Math.pow(2, attempt - 1);
-      console.warn(
+      log.warn(
         `[Claude] ${response.status} on attempt ${attempt}/${MAX_ATTEMPTS}, retrying in ${delay}ms…`
       );
       await new Promise((resolve) => setTimeout(resolve, delay));
@@ -272,7 +274,7 @@ claudeRouter.post('/complete', async (req, res) => {
       : null;
     const text = textBlock?.text;
     if (!text) {
-      console.error('[Claude] No text block in response:', JSON.stringify(data).substring(0, 500));
+      log.error('[Claude] No text block in response:', JSON.stringify(data).substring(0, 500));
       return res.status(500).json({
         success: false,
         error: 'Claude retornou resposta sem texto.',
@@ -280,12 +282,12 @@ claudeRouter.post('/complete', async (req, res) => {
     }
 
     const usage = data.usage || {};
-    console.log(
+    log.info(
       `[Claude] reply ok — input=${usage.input_tokens} cache_read=${usage.cache_read_input_tokens ?? 0} cache_write=${usage.cache_creation_input_tokens ?? 0} output=${usage.output_tokens} stop_reason=${data.stop_reason}`
     );
     res.json({ success: true, text });
   } catch (err: any) {
-    console.error('[Claude] Exception:', err);
+    log.error('[Claude] Exception:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -328,7 +330,7 @@ claudeRouter.post('/extract-product-info', async (req, res) => {
       const segments = await YoutubeTranscript.fetchTranscript(videoId);
       transcript = segments.map((s: any) => s.text).join(' ').replace(/\s+/g, ' ').trim();
     } catch (err: any) {
-      console.log(`[YouTube] captions fetch failed: ${err.message}, trying AssemblyAI fallback...`);
+      log.info(`[YouTube] captions fetch failed: ${err.message}, trying AssemblyAI fallback...`);
     }
 
     // Fallback: when YouTube doesn't expose captions (creator disabled them,
@@ -473,7 +475,7 @@ Extraia as informações estruturadas. Retorne APENAS o JSON.`;
 
     res.json({ success: true, product });
   } catch (err: any) {
-    console.error('[Claude extract-product-info] Exception:', err);
+    log.error('[Claude extract-product-info] Exception:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -596,7 +598,7 @@ Preencha todos os campos do formulário. Retorne APENAS o JSON.`;
 
     res.json({ success: true, answers });
   } catch (err: any) {
-    console.error('[Claude persona-from-product] Exception:', err);
+    log.error('[Claude persona-from-product] Exception:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -732,7 +734,7 @@ Gere o plano completo. Retorne APENAS o JSON.`;
       }
       const delay =
         resp.status === 529 || resp.status === 429 ? 10000 + 5000 * attempt : 1000 * Math.pow(2, attempt - 1);
-      console.warn(
+      log.warn(
         `[Claude marketing-plan] ${resp.status} attempt ${attempt}/${MAX_ATTEMPTS}, retrying in ${delay}ms…`
       );
       await new Promise((r) => setTimeout(r, delay));
@@ -765,7 +767,7 @@ Gere o plano completo. Retorne APENAS o JSON.`;
 
     res.json({ success: true, plan });
   } catch (err: any) {
-    console.error('[Claude marketing-plan] Exception:', err);
+    log.error('[Claude marketing-plan] Exception:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -855,7 +857,7 @@ Recommend the ideal avatar + voice profile. Respond with the JSON object only.`;
       if (attempt === SWITCH_MODEL_AFTER + 1 && currentModel !== FALLBACK_MODEL) {
         currentModel = FALLBACK_MODEL;
         requestBody = makeBody(FALLBACK_MODEL);
-        console.warn(`[Claude recommend] switching to fallback model ${FALLBACK_MODEL}`);
+        log.warn(`[Claude recommend] switching to fallback model ${FALLBACK_MODEL}`);
       }
       resp = await fetch(ANTHROPIC_API, {
         method: 'POST',
@@ -870,7 +872,7 @@ Recommend the ideal avatar + voice profile. Respond with the JSON object only.`;
       lastText = await resp.text();
       const retryable = resp.status === 529 || resp.status === 429 || resp.status >= 500;
       if (!retryable || attempt === MAX_ATTEMPTS) {
-        console.error('[Claude recommend] error', resp.status, lastText.substring(0, 300));
+        log.error('[Claude recommend] error', resp.status, lastText.substring(0, 300));
         return res.status(resp.status).json({
           success: false,
           error: `Claude API error: ${resp.status} ${lastText.substring(0, 200)}`,
@@ -882,7 +884,7 @@ Recommend the ideal avatar + voice profile. Respond with the JSON object only.`;
         resp.status === 529 || resp.status === 429
           ? 10000 + 5000 * attempt // 15s, 20s, 25s, 30s, 35s, 40s
           : 1000 * Math.pow(2, attempt - 1);
-      console.warn(
+      log.warn(
         `[Claude recommend] ${resp.status} attempt ${attempt}/${MAX_ATTEMPTS} (${currentModel}), retrying in ${delay}ms…`
       );
       await new Promise((r) => setTimeout(r, delay));
@@ -915,7 +917,7 @@ Recommend the ideal avatar + voice profile. Respond with the JSON object only.`;
 
     res.json({ success: true, recommendation });
   } catch (err: any) {
-    console.error('[Claude recommend] Exception:', err);
+    log.error('[Claude recommend] Exception:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });

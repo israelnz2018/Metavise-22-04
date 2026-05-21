@@ -5,6 +5,8 @@ import { formatApiError, processDataError } from '../utils/errorExtractor.js';
 import { logToFile } from '../utils/fileLogger.js';
 import { getZapCapKey, getAssemblyAIKey } from '../config/apiKeys.js';
 import { ZAPCAP_CONFIG_PATH } from '../config/paths.js';
+import { createLogger } from '../utils/logger.js';
+const log = createLogger('ZapCap');
 
 // Mirrors a finished ZapCap video into our Firebase Storage so the URL
 // the SPA persists is permanent. ZapCap's CDN URLs are signed and expire
@@ -13,7 +15,7 @@ import { ZAPCAP_CONFIG_PATH } from '../config/paths.js';
 // then falls back to the raw ZapCap URL).
 async function uploadZapCapToFirebase(sourceUrl: string, taskId: string): Promise<string | null> {
   if (admin.apps.length === 0) {
-    console.warn('[ZapCap Persist] Firebase Admin not initialised — skipping upload');
+    log.warn('[ZapCap Persist] Firebase Admin not initialised — skipping upload');
     return null;
   }
   try {
@@ -35,7 +37,7 @@ async function uploadZapCapToFirebase(sourceUrl: string, taskId: string): Promis
     logToFile(`[ZapCap Persist] Uploaded to ${publicUrl.split('?')[0]} (${buf.length} bytes)`);
     return publicUrl;
   } catch (err: any) {
-    console.error('[ZapCap Persist] upload failed:', err.message);
+    log.error('[ZapCap Persist] upload failed:', err.message);
     logToFile(`[ZapCap Persist] FAILED: ${err.message}`);
     return null;
   }
@@ -118,10 +120,10 @@ zapCapRouter.post('/config', async (req, res) => {
 
   try {
     fs.writeFileSync(ZAPCAP_CONFIG_PATH, JSON.stringify({ apiKey: trimmedKey }, null, 2));
-    console.log('[ZapCap Config] API Key updated successfully.');
+    log.info('[ZapCap Config] API Key updated successfully.');
     res.json({ message: 'ZapCap API Key updated successfully.' });
   } catch (err: any) {
-    console.error('[ZapCap Config] Error saving config:', err);
+    log.error('[ZapCap Config] Error saving config:', err);
     res.status(500).json({ error: `Failed to save API Key: ${err.message}` });
   }
 });
@@ -158,11 +160,11 @@ zapCapRouter.get('/templates', async (_req, res) => {
       const sample = Array.isArray(data) ? data[0] : data.templates[0];
       logToFile(`[ZapCap] Exemplo de template: ${JSON.stringify(sample)}`);
     }
-    console.log(`[ZapCap Debug] Success: Found ${templatesFound} templates.`);
+    log.info(`[ZapCap Debug] Success: Found ${templatesFound} templates.`);
     res.json(data);
   } catch (err: any) {
     logToFile(`[ZapCap Catch] ERRO: ${err.message}`);
-    console.error('[ZapCap] Erro ao buscar templates:', err);
+    log.error('[ZapCap] Erro ao buscar templates:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -194,7 +196,7 @@ zapCapRouter.post('/edit', async (req, res) => {
   const templateId = config.templateId;
 
   try {
-    console.log('[ZapCap] Iniciando edição para:', videoUrl);
+    log.info('[ZapCap] Iniciando edição para:', videoUrl);
 
     // 1. Re-fetch the AssemblyAI transcript (already processed in an earlier step).
     logToFile(`[ZapCap Edit] Buscando dados do AssemblyAI para ${transcriptId}...`);
@@ -259,7 +261,7 @@ zapCapRouter.post('/edit', async (req, res) => {
 
     const videoId = await uploadVideoMultipart(videoBuffer, videoFilename, apiKey, '[ZapCap Edit]');
 
-    console.log('[ZapCap] Video ID:', videoId);
+    log.info('[ZapCap] Video ID:', videoId);
     logToFile(`[ZapCap Edit] Video ID recebido: ${videoId}`);
 
     // 3. Pick the top 30% of highlights by rank, then mark every word that
@@ -376,11 +378,11 @@ zapCapRouter.post('/edit', async (req, res) => {
     }
 
     const { taskId } = await taskResponse.json();
-    console.log('[ZapCap] Task ID:', taskId);
+    log.info('[ZapCap] Task ID:', taskId);
 
     res.json({ videoId, taskId });
   } catch (err: any) {
-    console.error('[ZapCap] Erro:', err);
+    log.error('[ZapCap] Erro:', err);
     logToFile(`[ZapCap Edit] CATCH ERROR: ${err.message}`);
     if (err.stack) logToFile(`[ZapCap Edit] STACK: ${err.stack}`);
     res.status(500).json({ error: `ZapCap falhou: ${err.message}` });
@@ -438,7 +440,7 @@ zapCapRouter.post('/edit-simple', async (req, res) => {
 
   try {
     logToFile(`[ZapCap Simple] Iniciando. Template: ${templateId}, brollPercent: ${brollPercent}`);
-    console.log('[ZapCap Simple] Iniciando edição para:', videoUrl);
+    log.info('[ZapCap Simple] Iniciando edição para:', videoUrl);
 
     logToFile(`[ZapCap Simple] Baixando vídeo do storage...`);
     let videoBuffer: Buffer;
@@ -573,7 +575,7 @@ zapCapRouter.post('/edit-simple', async (req, res) => {
     }
 
     const { taskId } = await taskResponse.json();
-    console.log('[ZapCap Simple] Task ID:', taskId);
+    log.info('[ZapCap Simple] Task ID:', taskId);
     logToFile(`[ZapCap Simple] Task criada com sucesso. taskId: ${taskId}`);
 
     // Crop post-process is intentionally NOT triggered (user prefers to
@@ -582,7 +584,7 @@ zapCapRouter.post('/edit-simple', async (req, res) => {
 
     res.json({ videoId, taskId });
   } catch (err: any) {
-    console.error('[ZapCap Simple] Erro:', err);
+    log.error('[ZapCap Simple] Erro:', err);
     logToFile(`[ZapCap Simple] CATCH ERROR: ${err.message}`);
     if (err.stack) logToFile(`[ZapCap Simple] STACK: ${err.stack}`);
     res.status(500).json({ error: `ZapCap Simple falhou: ${err.message}` });
@@ -617,7 +619,7 @@ zapCapRouter.get('/status/:videoId/:taskId', async (req, res) => {
     if (data.status === 'failed' || data.status === 'error') {
       logToFile(`[ZapCap Poll] FAILED! Details: ${JSON.stringify(data)}`);
     }
-    console.log(`[ZapCap] Status para ${taskId}:`, data.status);
+    log.info(`[ZapCap] Status para ${taskId}:`, data.status);
 
     if (data.status === 'completed' && data.downloadUrl && !processedZapCapTasks.has(taskId)) {
       processedZapCapTasks.add(taskId);
@@ -645,7 +647,7 @@ zapCapRouter.get('/status/:videoId/:taskId', async (req, res) => {
     });
   } catch (err: any) {
     const errorDetail = processDataError(err);
-    console.error(`[ZapCap] Status check error: ${errorDetail}`);
+    log.error(`[ZapCap] Status check error: ${errorDetail}`);
     res.status(500).json({ error: errorDetail });
   }
 });
@@ -658,13 +660,13 @@ zapCapRouter.get('/health', async (_req, res) => {
   }
 
   try {
-    console.log(`[ZapCap Health Check] Pinging ${ZAPCAP_BASE}/templates...`);
+    log.info(`[ZapCap Health Check] Pinging ${ZAPCAP_BASE}/templates...`);
     const response = await fetch(`${ZAPCAP_BASE}/templates`, {
       method: 'GET',
       headers: { 'x-api-key': apiKey },
     });
 
-    console.log(`[ZapCap Health Check] Status: ${response.status}`);
+    log.info(`[ZapCap Health Check] Status: ${response.status}`);
 
     if (response.ok) {
       const data = await response.json();
@@ -675,7 +677,7 @@ zapCapRouter.get('/health', async (_req, res) => {
       });
     } else {
       const err = await response.text();
-      console.error(`[ZapCap Health Check] Error: ${err}`);
+      log.error(`[ZapCap Health Check] Error: ${err}`);
       return res.status(response.status).json({ status: 'error', message: err });
     }
   } catch (err: any) {
@@ -692,7 +694,7 @@ proxyImageRouter.get('/proxy-image', async (req, res) => {
   if (!imageUrl) return res.status(400).send('URL is required');
 
   try {
-    console.log(`[Proxy Image] Fetching: ${imageUrl}`);
+    log.info(`[Proxy Image] Fetching: ${imageUrl}`);
     // Add a UA header to dodge naive CDN bot-blocks.
     const response = await fetch(imageUrl, {
       headers: {
@@ -702,7 +704,7 @@ proxyImageRouter.get('/proxy-image', async (req, res) => {
     });
 
     if (!response.ok) {
-      console.error(
+      log.error(
         `[Proxy Image] Failed to fetch image: ${response.status} ${response.statusText} for URL: ${imageUrl}`
       );
       logToFile(`[Proxy Image] Error: ${response.status} fetching ${imageUrl}`);
@@ -716,7 +718,7 @@ proxyImageRouter.get('/proxy-image', async (req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=86400');
     res.send(Buffer.from(buffer));
   } catch (err: any) {
-    console.error('[Proxy Image] Exception:', err.message);
+    log.error('[Proxy Image] Exception:', err.message);
     res.status(500).send('Proxy internal error');
   }
 });

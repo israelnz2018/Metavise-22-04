@@ -4,6 +4,8 @@ import { logToFile } from '../utils/fileLogger.js';
 import { formatApiError } from '../utils/errorExtractor.js';
 import { getAssemblyAIKey } from '../config/apiKeys.js';
 import { ASSEMBLYAI_CONFIG_PATH } from '../config/paths.js';
+import { createLogger } from '../utils/logger.js';
+const log = createLogger('AssemblyAI');
 
 export const assemblyAIRouter = Router();
 
@@ -16,10 +18,10 @@ assemblyAIRouter.post('/config', async (req, res) => {
 
   try {
     fs.writeFileSync(ASSEMBLYAI_CONFIG_PATH, JSON.stringify({ apiKey: trimmedKey }, null, 2));
-    console.log('[AssemblyAI Config] API Key updated successfully.');
+    log.info('[AssemblyAI Config] API Key updated successfully.');
     res.json({ message: 'AssemblyAI API Key updated successfully.' });
   } catch (err: any) {
-    console.error('[AssemblyAI Config] Error saving config:', err);
+    log.error('[AssemblyAI Config] Error saving config:', err);
     res.status(500).json({ error: `Failed to save API Key: ${err.message}` });
   }
 });
@@ -40,7 +42,7 @@ assemblyAIRouter.post('/analyze', async (req, res) => {
   }
 
   try {
-    console.log('[AssemblyAI] Iniciando transcrição para:', videoUrl);
+    log.info('[AssemblyAI] Iniciando transcrição para:', videoUrl);
 
     const requestBody = {
       audio_url: videoUrl,
@@ -50,7 +52,7 @@ assemblyAIRouter.post('/analyze', async (req, res) => {
     };
 
     logToFile(`[AssemblyAI] Enviando requisição: ${JSON.stringify(requestBody, null, 2)}`);
-    console.log('[AssemblyAI] Request Body:', requestBody);
+    log.info('[AssemblyAI] Request Body:', requestBody);
 
     const submitResponse = await fetch('https://api.assemblyai.com/v2/transcript', {
       method: 'POST',
@@ -70,7 +72,7 @@ assemblyAIRouter.post('/analyze', async (req, res) => {
     const submitData = await submitResponse.json();
     const transcriptId = submitData.id;
     logToFile(`[AssemblyAI] Transcript ID gerado: ${transcriptId}`);
-    console.log('[AssemblyAI] Transcript ID:', transcriptId);
+    log.info('[AssemblyAI] Transcript ID:', transcriptId);
 
     // 2. Poll until completion (5s interval, 10min ceiling)
     let transcript: any = null;
@@ -94,7 +96,7 @@ assemblyAIRouter.post('/analyze', async (req, res) => {
 
       const data = await statusResponse.json();
       logToFile(`[AssemblyAI] Status atual: ${data.status}`);
-      console.log(`[AssemblyAI] Status (tentativa ${attempts}):`, data.status);
+      log.info(`[AssemblyAI] Status (tentativa ${attempts}):`, data.status);
 
       if (data.status === 'completed') {
         transcript = data;
@@ -131,13 +133,13 @@ assemblyAIRouter.post('/analyze', async (req, res) => {
 
     logToFile(`[AssemblyAI] Iniciando mapeamento de dados. Words: ${transcript.words?.length}`);
 
-    console.log('[AssemblyAI Debug] FULL TRANSCRIPT DATA:', JSON.stringify(transcript, null, 2));
+    log.info('[AssemblyAI Debug] FULL TRANSCRIPT DATA:', JSON.stringify(transcript, null, 2));
     logToFile(`[AssemblyAI] Full Transcript Keys: ${Object.keys(transcript).join(', ')}`);
 
     // 3. Deterministic post-processing
     const words = transcript.words || [];
 
-    console.log(
+    log.info(
       '[AssemblyAI Debug] Highlights Source:',
       transcript.auto_highlights_result
         ? 'auto_highlights_result'
@@ -161,7 +163,7 @@ assemblyAIRouter.post('/analyze', async (req, res) => {
     }
 
     logToFile(`[AssemblyAI] Highlights encontrados: ${highlights.length}`);
-    console.log(
+    log.info(
       `[AssemblyAI] Análise completa: ${highlights.length} highlights, ${words.length} palavras, ${sentences.length} sentences`
     );
 
@@ -176,7 +178,7 @@ assemblyAIRouter.post('/analyze', async (req, res) => {
     });
   } catch (err: any) {
     logToFile(`[AssemblyAI Catch] ERRO: ${err.message}`);
-    console.error('[AssemblyAI] Erro:', err);
+    log.error('[AssemblyAI] Erro:', err);
     res.status(500).json({ error: `AssemblyAI falhou: ${err.message}` });
   }
 });

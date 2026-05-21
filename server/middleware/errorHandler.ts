@@ -1,4 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
+import { createLogger } from '../utils/logger.js';
+const log = createLogger('HTTP');
 
 interface HttpError extends Error {
   status?: number;
@@ -14,7 +16,7 @@ export function errorHandler(
   res: Response,
   next: NextFunction
 ): void {
-  console.error(`[Server Error] ${req.method} ${req.path}:`, err);
+  log.error(`[Server Error] ${req.method} ${req.path}:`, err);
   if (req.path.startsWith('/api/')) {
     res.status(err.status ?? 500).json({
       error: err.message || 'Internal Server Error',

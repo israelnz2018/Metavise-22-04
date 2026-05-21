@@ -2,6 +2,8 @@ import { Router } from 'express';
 import fs from 'fs';
 import { getGeminiKey } from '../config/apiKeys.js';
 import { GEMINI_CONFIG_PATH } from '../config/paths.js';
+import { createLogger } from '../utils/logger.js';
+const log = createLogger('Gemini');
 
 export const geminiRouter = Router();
 
@@ -16,10 +18,10 @@ geminiRouter.post('/config', async (req, res) => {
 
   try {
     fs.writeFileSync(GEMINI_CONFIG_PATH, JSON.stringify({ apiKey: trimmedKey }, null, 2));
-    console.log('[Gemini Config] API Key updated successfully.');
+    log.info('[Gemini Config] API Key updated successfully.');
     res.json({ message: 'Gemini API Key updated successfully.' });
   } catch (err: any) {
-    console.error('[Gemini Config] Error saving config:', err);
+    log.error('[Gemini Config] Error saving config:', err);
     res.status(500).json({ error: `Failed to save API Key: ${err.message}` });
   }
 });

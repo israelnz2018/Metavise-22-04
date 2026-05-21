@@ -33,13 +33,13 @@ videoRouter.post('/compress', async (req, res) => {
     const sizeInMB = stats.size / (1024 * 1024);
 
     if (sizeInMB < 500) {
-      console.log(
+      log.info(
         `[Video Compress] Arquivo pequeno (${sizeInMB.toFixed(2)}MB), ignorando compressão.`
       );
       return res.json({ compressed: false, url: originalUrl });
     }
 
-    console.log(`[Video Compress] Comprimindo arquivo de ${sizeInMB.toFixed(2)}MB...`);
+    log.info(`[Video Compress] Comprimindo arquivo de ${sizeInMB.toFixed(2)}MB...`);
 
     await new Promise((resolve, reject) => {
       ffmpeg(localInputPath)
@@ -92,7 +92,7 @@ videoRouter.post('/compress', async (req, res) => {
 
     res.json({ compressed: true, url });
   } catch (err: any) {
-    console.error('[Video Compress] Erro:', err.message);
+    log.error('[Video Compress] Erro:', err.message);
     res.status(500).json({ error: processDataError(err) });
   } finally {
     if (fs.existsSync(localInputPath)) fs.unlinkSync(localInputPath);

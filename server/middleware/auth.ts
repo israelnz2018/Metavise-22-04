@@ -21,19 +21,42 @@ declare global {
   }
 }
 
+// Dev mode: skips strict verification so local development works without
+// Application Default Credentials. Triggered by either NODE_ENV !== 'production'
+// or AUTH_DISABLED=1. In dev, if a Bearer token is present we still extract
+// the uid (best-effort decode without signature check) so the user sees
+// their real balance; otherwise we fall back to 'dev-user'.
+const DEV_MODE = process.env.NODE_ENV !== 'production' || process.env.AUTH_DISABLED === '1';
+
+function decodeJwtUidUnsafe(token: string): string | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const payload = JSON.parse(Buffer.from(parts[1]!, 'base64').toString('utf-8'));
+    return payload.user_id || payload.sub || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
-  // Dev fallback when firebase-admin couldn't initialize (no creds).
-  if (admin.apps.length === 0) {
-    req.user = { uid: 'dev-user' };
+  const header = req.headers.authorization || '';
+  const match = header.match(/^Bearer (.+)$/);
+  const token = match?.[1];
+
+  if (DEV_MODE) {
+    // Best-effort uid from token (no signature check). Falls back to dev-user.
+    const uid = token ? decodeJwtUidUnsafe(token) : null;
+    req.user = { uid: uid || 'dev-user' };
     return next();
   }
 
-  const header = req.headers.authorization || '';
-  const match = header.match(/^Bearer (.+)$/);
-  if (!match) {
+  if (admin.apps.length === 0) {
+    return res.status(500).json({ error: 'Server auth not configured.' });
+  }
+  if (!token) {
     return res.status(401).json({ error: 'Missing Authorization Bearer token.' });
   }
-  const token = match[1]!;
 
   try {
     const decoded = await admin.auth().verifyIdToken(token);

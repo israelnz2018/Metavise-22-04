@@ -1,4 +1,6 @@
 import fs from 'fs';
+import { createLogger } from './logger.js';
+const log = createLogger('Download');
 
 // Downloads a URL to disk with 3 retries and 2s backoff.
 // Auto-appends GEMINI_API_KEY for Google Generative Language URLs.
@@ -16,7 +18,7 @@ export async function downloadFile(url: string, dest: string): Promise<void> {
   for (let i = 0; i < 3; i++) {
     response = await fetch(finalUrl);
     if (response.ok) break;
-    console.warn(`[downloadFile] Attempt ${i + 1} failed: ${response.statusText}. Retrying...`);
+    log.warn(`[downloadFile] Attempt ${i + 1} failed: ${response.statusText}. Retrying...`);
     if (i < 2) await new Promise((r) => setTimeout(r, 2000));
   }
 
