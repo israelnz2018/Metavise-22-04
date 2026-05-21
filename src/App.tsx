@@ -2124,7 +2124,7 @@ export default function App() {
     }
   };
 
-  const handleLoadVariant = async (variant: ProjectVariant, step: Step = 'copy') => {
+  const handleLoadVariant = async (variant: ProjectVariant, step: Step = 'source') => {
     if (process.env.NODE_ENV !== 'production') console.log('[Debug] Loading Variant:', variant.id);
     setIsProjectLoading(true);
 
