@@ -8,8 +8,15 @@ import HookVisualGenerator from './components/HookVisualGenerator';
 import VozPremium from './components/VozPremium';
 import { IntegrationsTab } from './pages/IntegrationsTab';
 import { ProjectsTab } from './pages/ProjectsTab';
-import { SourceTab } from './pages/SourceTab';
-import { PlanTab } from './pages/PlanTab';
+// SourceTab + PlanTab are lazy-loaded — they pull in jsPDF / heavy CSS
+// that aren't needed for the initial app boot. React.lazy splits them
+// into their own chunks loaded only when the user navigates there.
+const SourceTab = React.lazy(() =>
+  import('./pages/SourceTab').then((m) => ({ default: m.SourceTab }))
+);
+const PlanTab = React.lazy(() =>
+  import('./pages/PlanTab').then((m) => ({ default: m.PlanTab }))
+);
 import type { ProductInfo, MarketingPlan } from './lib/claudeService';
 import { personaFromProduct } from './lib/claudeService';
 import { cn, getVideoAspectRatioClass } from './lib/utils';
@@ -10364,6 +10371,7 @@ export default function App() {
               />
             )}
             {currentStep === 'source' && (
+              <React.Suspense fallback={<div className="text-center py-20 text-gray-400">Carregando...</div>}>
               <SourceTab
                 existingInfo={((config.copy as any)?.productInfo as ProductInfo | null) || null}
                 onExtracted={(info, rawText) => {
@@ -10407,9 +10415,11 @@ export default function App() {
                 onContinueManual={() => setCurrentStep('persona')}
                 onContinueAuto={() => setCurrentStep('persona')}
               />
+              </React.Suspense>
             )}
             {currentStep === 'persona' && renderPersonaStep()}
             {currentStep === 'plan' && (
+              <React.Suspense fallback={<div className="text-center py-20 text-gray-400">Carregando...</div>}>
               <PlanTab
                 productInfo={((config.copy as any)?.productInfo as ProductInfo | null) || undefined}
                 persona={config.copy?.answers || {}}
@@ -10426,6 +10436,7 @@ export default function App() {
                 }}
                 onContinue={() => setCurrentStep('copy')}
               />
+              </React.Suspense>
             )}
             {currentStep === 'copy' && renderCopyStep()}
             {currentStep === 'hook-visual' && (

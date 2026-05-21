@@ -18,8 +18,31 @@ export default defineConfig(({mode}) => {
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
+      // Do not modify — file watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
+    },
+    build: {
+      // Code-split the production bundle. Without manualChunks the main
+      // bundle reaches ~1.68MB (415KB gzipped) because every dependency
+      // gets concatenated into a single file. Grouping heavy vendors
+      // separately drops the initial parse cost and lets the browser
+      // cache them across deploys.
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            firebase: [
+              'firebase/app',
+              'firebase/auth',
+              'firebase/firestore',
+              'firebase/storage',
+            ],
+            lucide: ['lucide-react'],
+            motion: ['motion/react'],
+            jspdf: ['jspdf'],
+          },
+        },
+      },
+      chunkSizeWarningLimit: 800,
     },
   };
 });
