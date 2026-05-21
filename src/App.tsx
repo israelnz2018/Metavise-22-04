@@ -10177,6 +10177,12 @@ export default function App() {
                         setCurrentStep(step.id);
                       }
                     }}
+                    onMouseEnter={() => {
+                      // Pre-fetch lazy chunks on hover so the navigation
+                      // click feels instant. No-op for non-lazy steps.
+                      if (step.id === 'source') void import('./pages/SourceTab');
+                      else if (step.id === 'plan') void import('./pages/PlanTab');
+                    }}
                     className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all ${
                       isActive
                         ? 'bg-white text-blue-600 shadow-sm'
