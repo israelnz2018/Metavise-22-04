@@ -478,6 +478,110 @@ Extraia as informações estruturadas. Retorne APENAS o JSON.`;
   }
 });
 
+// POST /api/claude/persona-from-product
+// Maps the ProductInfo extracted from a VSL/landing page into the exact
+// persona answers schema the front-end form expects. Claude picks the
+// best-fitting option from each enum and writes free-text fields directly.
+//
+// Request:  { productInfo: any, options: { categories, urgencies, differentials, triedBefores, payingCapacities, hiddenDesires } }
+// Response: { success: true, answers: {...} }
+claudeRouter.post('/persona-from-product', async (req, res) => {
+  const apiKey = getClaudeKey();
+  if (!apiKey) {
+    return res.status(500).json({ success: false, error: 'CLAUDE_API_KEY não configurada.' });
+  }
+
+  const { productInfo, options } = req.body || {};
+  if (!productInfo || !options) {
+    return res.status(400).json({
+      success: false,
+      error: 'productInfo e options são obrigatórios.',
+    });
+  }
+
+  const SYSTEM = `Você recebe informações de um produto + listas de opções pré-definidas pra cada campo do formulário "Identificar Persona". Sua tarefa: preencher TODOS os campos, escolhendo as opções mais relevantes dos enums e escrevendo textos diretos onde for free-form.
+
+Responda APENAS um JSON com esta estrutura exata (sem prosa, sem markdown):
+{
+  "product": "nome curto do produto (1 frase)",
+  "category": "<UM valor exato de categories>",
+  "whatItDoes": "frase única: o que o produto faz",
+  "transformationFrom": "estado/dor antes de usar (curto)",
+  "transformationTo": "estado/resultado depois (curto)",
+  "productComment": "contexto opcional rico (1-2 frases)",
+  "urgency": "<UM valor exato de urgencies>",
+  "differentials": ["2-5 valores exatos de differentials"],
+  "problemComment": "contexto opcional sobre o problema (1 frase)",
+  "personaTriedBefore": ["1-5 valores exatos de triedBefores"],
+  "payingCapacity": "<UM valor exato de payingCapacities>",
+  "hiddenDesires": ["1-3 valores exatos de hiddenDesires"],
+  "clientComment": "contexto sobre o cliente (1 frase)"
+}
+
+Regras:
+- Pra campos com enum, SEMPRE escolha valores EXATOS da lista fornecida (case-sensitive). Nunca invente.
+- differentials precisa ter no mínimo 2 e máximo 5.
+- personaTriedBefore: 1 a 5.
+- hiddenDesires: 1 a 3.
+- Free-text deve ser CURTO e específico ao produto (não genérico).`;
+
+  const USER = `INFORMAÇÕES DO PRODUTO:
+${JSON.stringify(productInfo, null, 2)}
+
+OPÇÕES DISPONÍVEIS:
+${JSON.stringify(options, null, 2)}
+
+Preencha todos os campos do formulário. Retorne APENAS o JSON.`;
+
+  try {
+    const resp = await fetch(ANTHROPIC_API, {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: DEFAULT_MODEL,
+        max_tokens: 1500,
+        system: SYSTEM,
+        messages: [{ role: 'user', content: USER }],
+      }),
+    });
+
+    if (!resp.ok) {
+      const errText = await resp.text();
+      return res.status(resp.status).json({
+        success: false,
+        error: `Claude API error: ${resp.status} ${errText.substring(0, 200)}`,
+      });
+    }
+
+    const data = await resp.json();
+    const textBlock = Array.isArray(data.content)
+      ? data.content.find((b: any) => b?.type === 'text')
+      : null;
+    const responseText = textBlock?.text || '';
+    const clean = responseText.replace(/^```(?:json)?\s*|\s*```$/g, '').trim();
+
+    let answers;
+    try {
+      answers = JSON.parse(clean);
+    } catch {
+      return res.status(500).json({
+        success: false,
+        error: 'Claude retornou resposta inválida (não-JSON).',
+        raw: responseText.substring(0, 500),
+      });
+    }
+
+    res.json({ success: true, answers });
+  } catch (err: any) {
+    console.error('[Claude persona-from-product] Exception:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // POST /api/claude/marketing-plan
 // Builds a complete Meta Ads launch plan tailored to the product + persona,
 // considering Andromeda (Meta's optimization system that favors volume +

@@ -11,6 +11,7 @@ import { ProjectsTab } from './pages/ProjectsTab';
 import { SourceTab } from './pages/SourceTab';
 import { PlanTab } from './pages/PlanTab';
 import type { ProductInfo, MarketingPlan } from './lib/claudeService';
+import { personaFromProduct } from './lib/claudeService';
 import { cn, getVideoAspectRatioClass } from './lib/utils';
 import { VideoDurationBadge } from './components/VideoDurationBadge';
 import {
@@ -3529,17 +3530,60 @@ export default function App() {
 
     const personas: any[] = generatedPersona?.personas || [];
 
+    const productInfo = (config.copy as any)?.productInfo as ProductInfo | null;
+
+    const handleFillFromSource = async () => {
+      if (!productInfo) return;
+      const toastId = 'fill-from-source';
+      toast.loading('Preenchendo campos com IA...', { id: toastId });
+      try {
+        const filled = await personaFromProduct({
+          productInfo,
+          options: {
+            categories: PERSONA_CATEGORY_OPTIONS,
+            urgencies: PERSONA_URGENCY_OPTIONS.map((o) => o.value),
+            differentials: PERSONA_DIFFERENTIAL_OPTIONS,
+            triedBefores: PERSONA_TRIED_BEFORE_OPTIONS,
+            payingCapacities: PERSONA_PAYING_CAPACITY_OPTIONS,
+            hiddenDesires: PERSONA_HIDDEN_DESIRE_OPTIONS.map((o) => o.label),
+          },
+        });
+        setConfig((prev) => ({
+          ...prev,
+          copy: {
+            ...prev.copy,
+            answers: { ...prev.copy.answers, ...filled },
+          },
+        }));
+        toast.success('Campos preenchidos!', { id: toastId });
+      } catch (err: any) {
+        toast.error(err?.message || 'Erro ao preencher.', { id: toastId });
+      }
+    };
+
     return (
       <div className="max-w-[1100px] mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
-        <div>
-          <h3 className="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2">
-            <Users size={28} className="text-blue-600" />
-            Identificar Persona
-          </h3>
-          <p className="text-gray-500 text-sm mt-1">
-            Responda 9 perguntas — a IA gera 3 personas com nível de consciência. Escolha uma para
-            continuar.
-          </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 className="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2">
+              <Users size={28} className="text-blue-600" />
+              Identificar Persona
+            </h3>
+            <p className="text-gray-500 text-sm mt-1">
+              Responda 9 perguntas — a IA gera 3 personas com nível de consciência. Escolha uma para
+              continuar.
+            </p>
+          </div>
+          {productInfo && (
+            <button
+              onClick={handleFillFromSource}
+              className="shrink-0 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow flex items-center gap-2"
+              title="Usa a IA pra preencher os 9 campos com base na Fonte do Produto"
+            >
+              <Sparkles size={14} />
+              Preencher com fonte
+            </button>
+          )}
         </div>
 
         {/* ETAPA 1 — Produto */}
@@ -10290,7 +10334,7 @@ export default function App() {
                   } as any);
                 }}
                 onContinueManual={() => setCurrentStep('persona')}
-                onContinueAuto={() => setCurrentStep('plan')}
+                onContinueAuto={() => setCurrentStep('persona')}
               />
             )}
             {currentStep === 'persona' && renderPersonaStep()}

@@ -287,7 +287,7 @@ export function SourceTab({
             onClick={onContinueAuto}
             className="w-full bg-gray-900 hover:bg-black text-white font-black uppercase text-sm tracking-widest py-5 rounded-2xl shadow-lg flex items-center justify-center gap-3"
           >
-            Ir para Plano de Marketing
+            Ir para Identificar Persona
             <ArrowRight size={18} />
           </button>
         </div>

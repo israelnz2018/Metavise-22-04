@@ -551,6 +551,28 @@ export interface ProductInfo {
   hookAngles: string[];
 }
 
+export async function personaFromProduct(input: {
+  productInfo: any;
+  options: {
+    categories: string[];
+    urgencies: string[];
+    differentials: string[];
+    triedBefores: string[];
+    payingCapacities: string[];
+    hiddenDesires: string[];
+  };
+}): Promise<Record<string, any>> {
+  const response = await fetch('/api/claude/persona-from-product', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) throw new Error(`Persona fill error: ${await response.text()}`);
+  const data = await response.json();
+  if (!data.success) throw new Error(data.error || 'Erro ao preencher persona.');
+  return data.answers;
+}
+
 export async function extractProductInfo(input: {
   text?: string;
   url?: string;
