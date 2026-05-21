@@ -560,6 +560,11 @@ export async function personaFromProduct(input: {
     triedBefores: string[];
     payingCapacities: string[];
     hiddenDesires: string[];
+    languages: string[];
+    ageBuckets: string[];
+    businessModels: string[];
+    emotions: string[];
+    angles: string[];
   };
 }): Promise<Record<string, any>> {
   const response = await fetch('/api/claude/persona-from-product', {

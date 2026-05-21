@@ -499,7 +499,7 @@ claudeRouter.post('/persona-from-product', async (req, res) => {
     });
   }
 
-  const SYSTEM = `Você recebe informações de um produto + listas de opções pré-definidas pra cada campo do formulário "Identificar Persona". Sua tarefa: preencher TODOS os campos, escolhendo as opções mais relevantes dos enums e escrevendo textos diretos onde for free-form.
+  const SYSTEM = `Você recebe informações de um produto + listas de opções pré-definidas. Sua tarefa: preencher TODOS os campos dos formulários "Identificar Persona" E "Copy" — eles compartilham o mesmo objeto answers no front-end, então retorne tudo de uma vez.
 
 Responda APENAS um JSON com esta estrutura exata (sem prosa, sem markdown):
 {
@@ -508,22 +508,41 @@ Responda APENAS um JSON com esta estrutura exata (sem prosa, sem markdown):
   "whatItDoes": "frase única: o que o produto faz",
   "transformationFrom": "estado/dor antes de usar (curto)",
   "transformationTo": "estado/resultado depois (curto)",
-  "productComment": "contexto opcional rico (1-2 frases)",
+  "productComment": "contexto rico (1-2 frases)",
   "urgency": "<UM valor exato de urgencies>",
   "differentials": ["2-5 valores exatos de differentials"],
-  "problemComment": "contexto opcional sobre o problema (1 frase)",
+  "problemComment": "contexto sobre o problema (1 frase)",
   "personaTriedBefore": ["1-5 valores exatos de triedBefores"],
   "payingCapacity": "<UM valor exato de payingCapacities>",
   "hiddenDesires": ["1-3 valores exatos de hiddenDesires"],
-  "clientComment": "contexto sobre o cliente (1 frase)"
+  "clientComment": "contexto sobre o cliente (1 frase)",
+
+  "language": "<UM valor exato de languages>",
+  "audience": "descrição do público em 1 frase",
+  "age": ["faixas etárias relevantes — 1-3 valores exatos de ageBuckets"],
+  "situation": "situação atual do cliente em 1 frase",
+  "painPoints": "problema principal em 1 frase",
+  "triedBefore": "o que já tentou (free-text, 1 frase resumida)",
+  "mainObjection": "objeção principal que o cliente teria",
+  "hiddenDesire": "desejo profundo (free-text, NÃO o resultado superficial)",
+
+  "productName": "nome do produto",
+  "productProblem": "qual problema o produto resolve",
+  "productResult": "resultado concreto que entrega",
+  "uniqueMechanism": "o que torna o produto diferente",
+  "socialProof": "depoimento, número ou resultado mencionável",
+
+  "businessModel": "<UM valor exato de businessModels>",
+  "emotion": "<UM valor exato de emotions>",
+  "angleIdea": "<UM valor exato de angles>",
+  "basePhrase": "frase base no padrão 'O verdadeiro problema não é X, é Y' adaptada ao produto"
 }
 
 Regras:
-- Pra campos com enum, SEMPRE escolha valores EXATOS da lista fornecida (case-sensitive). Nunca invente.
-- differentials precisa ter no mínimo 2 e máximo 5.
-- personaTriedBefore: 1 a 5.
-- hiddenDesires: 1 a 3.
-- Free-text deve ser CURTO e específico ao produto (não genérico).`;
+- Enums: SEMPRE escolha valores EXATOS das listas (case-sensitive). Nunca invente.
+- differentials: 2-5 itens. personaTriedBefore: 1-5. hiddenDesires: 1-3. age: 1-3.
+- Free-text CURTO e específico (não genérico).
+- Se a informação não estiver clara no produto, use o melhor palpite com base no contexto.`;
 
   const USER = `INFORMAÇÕES DO PRODUTO:
 ${JSON.stringify(productInfo, null, 2)}

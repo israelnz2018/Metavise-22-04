@@ -3537,6 +3537,14 @@ export default function App() {
       const toastId = 'fill-from-source';
       toast.loading('Preenchendo campos com IA...', { id: toastId });
       try {
+        // Pull enum options out of the COPY_SECTIONS schema so Claude
+        // returns exact values the form accepts.
+        const allQuestions = COPY_SECTIONS.flatMap((s) => s.questions);
+        const optionsFor = (id: string): string[] => {
+          const q = allQuestions.find((q) => q.id === id);
+          return (q as any)?.options || [];
+        };
+
         const filled = await personaFromProduct({
           productInfo,
           options: {
@@ -3546,6 +3554,11 @@ export default function App() {
             triedBefores: PERSONA_TRIED_BEFORE_OPTIONS,
             payingCapacities: PERSONA_PAYING_CAPACITY_OPTIONS,
             hiddenDesires: PERSONA_HIDDEN_DESIRE_OPTIONS.map((o) => o.label),
+            languages: optionsFor('language'),
+            ageBuckets: optionsFor('age'),
+            businessModels: optionsFor('businessModel'),
+            emotions: optionsFor('emotion'),
+            angles: optionsFor('angleIdea'),
           },
         });
         setConfig((prev) => ({
@@ -4046,9 +4059,63 @@ export default function App() {
   const renderCopyStep = () => {
     const sections = COPY_SECTIONS;
     const modes = COPY_MODES;
+    const productInfo = (config.copy as any)?.productInfo as ProductInfo | null;
+
+    const handleFillFromSource = async () => {
+      if (!productInfo) return;
+      const toastId = 'fill-from-source-copy';
+      toast.loading('Preenchendo campos com IA...', { id: toastId });
+      try {
+        const allQuestions = COPY_SECTIONS.flatMap((s) => s.questions);
+        const optionsFor = (id: string): string[] => {
+          const q = allQuestions.find((q) => q.id === id);
+          return (q as any)?.options || [];
+        };
+        const filled = await personaFromProduct({
+          productInfo,
+          options: {
+            categories: PERSONA_CATEGORY_OPTIONS,
+            urgencies: PERSONA_URGENCY_OPTIONS.map((o) => o.value),
+            differentials: PERSONA_DIFFERENTIAL_OPTIONS,
+            triedBefores: PERSONA_TRIED_BEFORE_OPTIONS,
+            payingCapacities: PERSONA_PAYING_CAPACITY_OPTIONS,
+            hiddenDesires: PERSONA_HIDDEN_DESIRE_OPTIONS.map((o) => o.label),
+            languages: optionsFor('language'),
+            ageBuckets: optionsFor('age'),
+            businessModels: optionsFor('businessModel'),
+            emotions: optionsFor('emotion'),
+            angles: optionsFor('angleIdea'),
+          },
+        });
+        setConfig((prev) => ({
+          ...prev,
+          copy: {
+            ...prev.copy,
+            answers: { ...prev.copy.answers, ...filled },
+          },
+        }));
+        toast.success('Campos preenchidos!', { id: toastId });
+      } catch (err: any) {
+        toast.error(err?.message || 'Erro ao preencher.', { id: toastId });
+      }
+    };
 
     return (
       <div className="space-y-8 max-w-[1600px] mx-auto pb-20 overflow-x-hidden w-full">
+        {/* Sticky fill-from-source button when productInfo exists */}
+        {productInfo && (
+          <div className="flex justify-end">
+            <button
+              onClick={handleFillFromSource}
+              className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow flex items-center gap-2"
+              title="Preenche todos os campos de Copy com base na Fonte do Produto"
+            >
+              <Sparkles size={14} />
+              Preencher com fonte
+            </button>
+          </div>
+        )}
+
         {/* Loading Overlay for project opening */}
         {isProjectLoading && (
           <div className="fixed inset-0 z-[110] flex items-center justify-center bg-white/80 backdrop-blur-md animate-in fade-in duration-300">
