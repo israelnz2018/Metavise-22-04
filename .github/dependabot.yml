@@ -1,0 +1,46 @@
+# GitHub-native dependency updates. Opens PRs against `main` once per
+# week with grouped patch/minor bumps for npm and GitHub Actions. We
+# group routine bumps so a single review unblocks the whole batch
+# instead of seeing 10 separate PRs every Monday.
+#
+# Majors are NOT grouped — those are breaking by definition and want
+# individual review (e.g. firebase-admin@10 was the source of the
+# transitive vuln-fix tradeoff we tabled in task #92).
+#
+# Tip: enable "Allow auto-merge" on the repo + add a GitHub Actions
+# workflow that runs tests on PRs (see task E in the backlog) and
+# Dependabot can self-merge green patches without your involvement.
+
+version: 2
+updates:
+  # npm — frontend + backend share one package.json
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: America/Sao_Paulo
+    open-pull-requests-limit: 5
+    groups:
+      patches-and-minors:
+        update-types:
+          - patch
+          - minor
+    labels:
+      - dependencies
+      - automated
+
+  # GitHub Actions used in workflows under .github/workflows/.
+  # Will activate once you add any workflow files (e.g. CI).
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: America/Sao_Paulo
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - automated

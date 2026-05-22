@@ -36,6 +36,11 @@ Thumbs.db
 
 # Editor/IDE
 .vscode/
+# …but DO check in workspace-shared settings + recommended extensions
+# so the whole team gets identical format-on-save + the same prompt
+# to install Prettier/ESLint/Tailwind tooling.
+!.vscode/extensions.json
+!.vscode/settings.json
 .idea/
 *.swp
 *.swo

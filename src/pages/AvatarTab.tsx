@@ -1410,10 +1410,19 @@ export function AvatarTab({
                       : 'border-transparent hover:border-gray-200 shadow-sm'
                   }`}
                 >
+                  {/* Native lazy-load (loading="lazy") + async decode
+                      saves a lot of initial JS work and network on
+                      the avatar gallery — 1281 images × 200KB+ each
+                      otherwise queue up on the first render. The
+                      browser only fetches images that are about to
+                      scroll into view. */}
                   <img
                     src={a.preview_image_url || undefined}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover bg-gray-100 dark:bg-gray-800"
                     referrerPolicy="no-referrer"
+                    loading="lazy"
+                    decoding="async"
+                    alt={a.avatar_name}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent flex items-end p-4">
                     <div className="text-left w-full">
