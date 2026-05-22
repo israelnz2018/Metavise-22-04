@@ -67,6 +67,8 @@ import { PersonaEditModal } from './components/PersonaEditModal';
 import { PersonaPathModal } from './components/PersonaPathModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AutoSaveIndicator } from './components/AutoSaveIndicator';
+import { DarkModeToggle } from './components/DarkModeToggle';
+import { useDarkMode } from './hooks/useDarkMode';
 // Step tabs are lazy-loaded so the initial JS payload stays small.
 // Each tab is a ~600-1500 line module pulling its own helpers; loading
 // them on demand drops the main chunk significantly. AvatarTab is the
@@ -248,6 +250,10 @@ export interface AdConfig {
 }
 
 export default function App() {
+  // Theme (light/dark). Owned at the top so the whole tree re-renders
+  // exactly once when the user toggles. `.dark` class is set on <html>
+  // by the hook; Tailwind's `dark:` variant takes care of the rest.
+  const { isDark, toggle: toggleDarkMode } = useDarkMode();
   const [currentStep, setCurrentStep] = useState<Step>('projects');
   const [deleteProjectConfirmId, setDeleteProjectConfirmId] = useState<string | null>(null);
   const [voiceSource, setVoiceSource] = useState<'copy' | 'hook'>('copy');
@@ -4551,17 +4557,19 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-gray-900 font-sans selection:bg-blue-100">
+    <div className="min-h-screen bg-[#F8FAFC] dark:bg-gray-950 text-gray-900 dark:text-gray-100 font-sans selection:bg-blue-100 dark:selection:bg-blue-900">
       {/* Header */}
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
+      <header className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 sticky top-0 z-50">
         <div className="max-w-[1600px] mx-auto px-4 h-20 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200">
               <Sparkles className="text-white" size={24} />
             </div>
             <div>
-              <h1 className="text-lg font-black tracking-tight text-gray-900">METAVISE</h1>
-              <p className="text-[10px] font-bold text-blue-600 tracking-[0.2em] uppercase">
+              <h1 className="text-lg font-black tracking-tight text-gray-900 dark:text-white">
+                METAVISE
+              </h1>
+              <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 tracking-[0.2em] uppercase">
                 Criador de Anúncios
               </p>
             </div>
@@ -4569,9 +4577,9 @@ export default function App() {
 
           {currentProjectId && (
             <div className="hidden lg:flex items-center gap-3">
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-xl border border-gray-100">
-                <Folder size={14} className="text-gray-400" />
-                <span className="text-[10px] font-black text-gray-600 uppercase tracking-widest truncate max-w-[120px]">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
+                <Folder size={14} className="text-gray-400 dark:text-gray-500" />
+                <span className="text-[10px] font-black text-gray-600 dark:text-gray-300 uppercase tracking-widest truncate max-w-[120px]">
                   {projects.find((p) => p.id === currentProjectId)?.name ||
                     'Projeto Ativo'}
                 </span>
@@ -4584,7 +4592,7 @@ export default function App() {
             </div>
           )}
 
-          <div className="hidden md:flex items-center gap-1 bg-gray-50 p-1 rounded-2xl border border-gray-100">
+          <div className="hidden md:flex items-center gap-1 bg-gray-50 dark:bg-gray-800 p-1 rounded-2xl border border-gray-100 dark:border-gray-700">
             {STEPS.map((step, idx) => {
               const Icon = step.icon;
               const isActive = currentStep === step.id;
@@ -4632,21 +4640,24 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-xl border border-blue-100">
-              <Sparkles className="text-blue-600" size={16} />
-              <span className="text-sm font-black text-blue-700">{credits}</span>
-              <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">
+            <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-950/40 rounded-xl border border-blue-100 dark:border-blue-900">
+              <Sparkles className="text-blue-600 dark:text-blue-400" size={16} />
+              <span className="text-sm font-black text-blue-700 dark:text-blue-300">
+                {credits}
+              </span>
+              <span className="text-[10px] font-bold text-blue-400 dark:text-blue-500 uppercase tracking-widest">
                 Créditos
               </span>
             </div>
+            <DarkModeToggle isDark={isDark} onToggle={toggleDarkMode} />
             <button
               onClick={handleLogout}
-              className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+              className="p-2 text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 transition-colors"
               title="Sair"
             >
               <LogOut size={20} />
             </button>
-            <button className="p-2 text-gray-400 hover:text-gray-600 md:hidden">
+            <button className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 md:hidden">
               <Layout size={24} />
             </button>
           </div>

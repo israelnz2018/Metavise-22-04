@@ -1,6 +1,12 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
 
+/* Class-based dark variant. We toggle the `.dark` class on <html> from
+   useDarkMode() and any element with `dark:bg-...` / `dark:text-...`
+   responds. (Tailwind 4's default is media-query based; we override
+   so the user can pick a theme regardless of OS.) */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
@@ -8,5 +14,11 @@
 @layer base {
   body {
     @apply antialiased;
+  }
+  /* Smooth color transitions when toggling theme so the eye isn't
+     punched. 200ms is enough to feel intentional without dragging. */
+  html.dark body,
+  html:not(.dark) body {
+    transition: background-color 200ms ease, color 200ms ease;
   }
 }
