@@ -1,3 +1,4 @@
+import { useState, useMemo } from 'react';
 import { motion } from 'motion/react';
 import {
   ArrowLeft,
@@ -11,10 +12,26 @@ import {
   Play,
   Maximize,
   ChevronRight,
+  Search,
+  X,
+  Copy,
 } from 'lucide-react';
 import type { Project, ProjectVariant, Step } from '../types/project';
 import { VariantItem } from '../components/VariantItem';
 import { getAuthorizedUrl } from '../lib/gemini';
+
+type ProjectTypeFilter = 'all' | Project['type'];
+type SortMode = 'recent' | 'oldest' | 'name';
+
+// Defined outside the component so the chip-list reference is stable
+// across renders (avoids unnecessary re-renders of the filter row).
+const TYPE_FILTERS: { value: ProjectTypeFilter; label: string }[] = [
+  { value: 'all', label: 'Todos' },
+  { value: 'complete', label: 'Completo' },
+  { value: 'copy', label: 'Copy' },
+  { value: 'video', label: 'Vídeo' },
+  { value: 'editing', label: 'Edição' },
+];
 
 interface ProjectsTabProps {
   projects: Project[];
@@ -33,6 +50,9 @@ interface ProjectsTabProps {
   onRenameVariant: (pid: string, vid: string, newName: string) => void | Promise<void>;
   onDeleteAudio: (audio: { url: string; storagePath: string | null }) => void;
   onDeleteVideoFromArray: (video: any) => void | Promise<void>;
+  /** Creates a copy of the project with same config and "(cópia)"
+   *  suffix; opens it in the Copy step. Wired from App.tsx. */
+  onDuplicateProject: (p: Project) => void | Promise<void>;
 }
 
 export function ProjectsTab({
@@ -52,7 +72,41 @@ export function ProjectsTab({
   onRenameVariant,
   onDeleteAudio,
   onDeleteVideoFromArray,
+  onDuplicateProject,
 }: ProjectsTabProps) {
+  // Search + filter state for the list view. Persisted only in memory —
+  // navigating away resets the filters, which is the right default
+  // for now (most users search for one project, find it, go in).
+  const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState<ProjectTypeFilter>('all');
+  const [sortMode, setSortMode] = useState<SortMode>('recent');
+
+  // Memoized so unrelated parent re-renders don't reapply filters when
+  // the project list itself didn't change.
+  const filteredProjects = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    let list = projects;
+    if (term) {
+      list = list.filter((p) => p.name.toLowerCase().includes(term));
+    }
+    if (typeFilter !== 'all') {
+      list = list.filter((p) => p.type === typeFilter);
+    }
+    const toDate = (p: Project): number => {
+      const v = p.createdAt;
+      if (v?.toDate) return v.toDate().getTime();
+      if (v?.seconds) return v.seconds * 1000;
+      return 0;
+    };
+    if (sortMode === 'recent') {
+      list = [...list].sort((a, b) => toDate(b) - toDate(a));
+    } else if (sortMode === 'oldest') {
+      list = [...list].sort((a, b) => toDate(a) - toDate(b));
+    } else {
+      list = [...list].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+    }
+    return list;
+  }, [projects, search, typeFilter, sortMode]);
   // Detail view: a specific project is selected, show its subprojects and
   // a preview of the currently-viewed variant.
   if (viewingProjectId) {
@@ -312,6 +366,68 @@ export function ProjectsTab({
         </button>
       </div>
 
+      {/* Search + filter row — hidden when there are 0 projects so the
+          empty state below dominates. Shown otherwise even with a small
+          list because muscle memory is more important than minimalism. */}
+      {projects.length > 0 && (
+        <div className="bg-white p-4 rounded-3xl border-2 border-gray-50 shadow-sm flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search
+              size={16}
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300"
+            />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar pelo nome…"
+              className="w-full pl-11 pr-10 py-3 bg-gray-50 border border-transparent rounded-xl text-sm focus:bg-white focus:border-blue-400 outline-none transition-all"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500"
+                title="Limpar"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1 p-1 bg-gray-50 rounded-xl">
+            {TYPE_FILTERS.map((f) => (
+              <button
+                key={f.value}
+                onClick={() => setTypeFilter(f.value)}
+                className={`px-3 py-2 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all ${
+                  typeFilter === f.value
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          <select
+            value={sortMode}
+            onChange={(e) => setSortMode(e.target.value as SortMode)}
+            className="px-4 py-3 bg-gray-50 border border-transparent rounded-xl text-xs font-bold uppercase tracking-wider text-gray-600 focus:bg-white focus:border-blue-400 outline-none cursor-pointer"
+          >
+            <option value="recent">Mais recente</option>
+            <option value="oldest">Mais antigo</option>
+            <option value="name">Nome (A–Z)</option>
+          </select>
+
+          {(search || typeFilter !== 'all') && (
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-auto">
+              {filteredProjects.length} de {projects.length}
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {projects.length === 0 ? (
           <div className="col-span-full p-12 bg-white rounded-[40px] border-4 border-dashed border-gray-100 flex flex-col items-center justify-center text-center space-y-4">
@@ -331,8 +447,26 @@ export function ProjectsTab({
               Criar Primeiro Projeto
             </button>
           </div>
+        ) : filteredProjects.length === 0 ? (
+          <div className="col-span-full p-10 bg-white rounded-[32px] border-2 border-dashed border-gray-100 text-center space-y-3">
+            <p className="text-lg font-bold text-gray-900">
+              Nenhum projeto bate com sua busca
+            </p>
+            <p className="text-sm text-gray-400">
+              Tente outro termo ou limpe os filtros.
+            </p>
+            <button
+              onClick={() => {
+                setSearch('');
+                setTypeFilter('all');
+              }}
+              className="mt-2 px-5 py-2 bg-gray-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-black"
+            >
+              Limpar filtros
+            </button>
+          </div>
         ) : (
-          projects.map((project) => (
+          filteredProjects.map((project) => (
             <div
               key={project.id}
               className={`group p-6 bg-white rounded-[32px] border-4 transition-all hover:shadow-xl hover:scale-[1.02] cursor-pointer ${
@@ -354,16 +488,28 @@ export function ProjectsTab({
                     <Maximize size={24} />
                   )}
                 </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDeleteProject(project.id);
-                  }}
-                  className="p-2 text-gray-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
-                  title="Excluir Projeto"
-                >
-                  <Trash2 size={18} />
-                </button>
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDuplicateProject(project);
+                    }}
+                    className="p-2 text-gray-300 hover:text-blue-600 transition-colors"
+                    title="Duplicar Projeto"
+                  >
+                    <Copy size={18} />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteProject(project.id);
+                    }}
+                    className="p-2 text-gray-300 hover:text-red-500 transition-colors"
+                    title="Excluir Projeto"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
               </div>
 
               <h4 className="text-lg font-black text-gray-900 mb-1 truncate">{project.name}</h4>

@@ -2226,6 +2226,39 @@ export default function App() {
     setDeleteProjectConfirmId(projectId);
   };
 
+  // Creates a copy of the project at its current state (config snapshot,
+  // variants NOT carried over — those are per-render and re-makeable),
+  // assigns a "(cópia)" name, persists to Firestore, and opens it in
+  // the Copy step so the user can immediately tweak the duplicate.
+  const handleDuplicateProject = async (source: Project) => {
+    if (!user) {
+      toast.error('Você precisa estar logado para duplicar.');
+      return;
+    }
+    try {
+      const dup = {
+        userId: user.uid,
+        name: `${source.name} (cópia)`,
+        type: source.type,
+        // Strip variants — they're per-render artifacts, not source data.
+        // Same for the top-level audio/video URLs (kept on `audios`/`videos`).
+        config: {
+          ...source.config,
+          audios: source.config.audios || [],
+          videos: source.config.videos || [],
+        } as AdConfig,
+        createdAt: serverTimestamp(),
+      };
+      const docRef = await addDoc(collection(db, 'projects'), dup);
+      setCurrentProjectId(docRef.id);
+      setConfig(dup.config);
+      setCurrentStep('copy');
+      toast.success(`"${source.name}" duplicado!`);
+    } catch (err: any) {
+      toast.error(`Erro ao duplicar: ${err?.message || 'tente novamente'}`);
+    }
+  };
+
   const confirmDeleteProject = async () => {
     if (!deleteProjectConfirmId) return;
     const projectId = deleteProjectConfirmId;
@@ -4751,6 +4784,7 @@ export default function App() {
                   setShowDeleteModal(true);
                 }}
                 onDeleteVideoFromArray={handleDeleteVideoFromArray}
+                onDuplicateProject={handleDuplicateProject}
               />
             )}
             {currentStep === 'source' && (
