@@ -66,6 +66,7 @@ import { ConfirmModal } from './components/ConfirmModal';
 import { PersonaEditModal } from './components/PersonaEditModal';
 import { PersonaPathModal } from './components/PersonaPathModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { AutoSaveIndicator } from './components/AutoSaveIndicator';
 // Step tabs are lazy-loaded so the initial JS payload stays small.
 // Each tab is a ~600-1500 line module pulling its own helpers; loading
 // them on demand drops the main chunk significantly. AvatarTab is the
@@ -351,6 +352,10 @@ export default function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [isProjectLoading, setIsProjectLoading] = useState(false);
   const [hasUnsavedCopyChanges, setHasUnsavedCopyChanges] = useState(false);
+  // Timestamp of the last successful save (any field, any tab). Drives
+  // the AutoSaveIndicator chip — "Salvando…", "Salvo agora", "Salvo
+  // há Xmin". null means we haven't saved this session yet.
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
 
   const hydrateProjectConfig = (loadedConfig: AdConfig) => {
     // 0. Garantir hookVisual
@@ -2056,6 +2061,9 @@ export default function App() {
     } finally {
       setIsSaving(false);
       setHasUnsavedCopyChanges(false);
+      // Stamp the last-saved time so AutoSaveIndicator can show
+      // "Salvo agora" → "Salvo há Xmin" instead of staying stale.
+      setLastSavedAt(Date.now());
     }
   };
 
@@ -4560,11 +4568,19 @@ export default function App() {
           </div>
 
           {currentProjectId && (
-            <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-xl border border-gray-100">
-              <Folder size={14} className="text-gray-400" />
-              <span className="text-[10px] font-black text-gray-600 uppercase tracking-widest truncate max-w-[120px]">
-                {projects.find((p) => p.id === currentProjectId)?.name || 'Projeto Ativo'}
-              </span>
+            <div className="hidden lg:flex items-center gap-3">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-xl border border-gray-100">
+                <Folder size={14} className="text-gray-400" />
+                <span className="text-[10px] font-black text-gray-600 uppercase tracking-widest truncate max-w-[120px]">
+                  {projects.find((p) => p.id === currentProjectId)?.name ||
+                    'Projeto Ativo'}
+                </span>
+              </div>
+              <AutoSaveIndicator
+                isSaving={isSaving}
+                hasUnsavedChanges={hasUnsavedCopyChanges}
+                lastSavedAt={lastSavedAt}
+              />
             </div>
           )}
 
