@@ -54,14 +54,11 @@ import { ElevenLabsConfigModal } from '../components/ElevenLabsConfigModal';
 interface Props {
   config: any;
   setConfig: React.Dispatch<React.SetStateAction<any>>;
-  updateConfig: (section: any, sub: any, field: any, value: any) => void;
-  user: any;
 
   // Step nav + general loading.
   setCurrentStep: (step: any) => void;
   loading: boolean;
   setLoading: (v: boolean) => void;
-  isProjectLoading: boolean;
 
   // Mode toggle (body vs hook).
   avatarMode: 'body' | 'hook';
@@ -84,16 +81,12 @@ interface Props {
   videos: any[] | undefined;
   videoUrl: string | null | undefined;
   setVideoUrl: (v: any) => void;
-  videoStoragePath: string | null | undefined;
   setVideoStoragePath: (v: any) => void;
-  userVideos: { name: string; url: string; path: string }[];
   platformApiKey: string | null;
-  generatedScript: string | undefined;
 
   // Generation state machine.
   videoOp: any;
   setVideoOp: (v: any) => void;
-  generationStage: string | undefined;
   setGenerationStage: (v: any) => void;
   isTestMode: boolean;
   setIsTestMode: (v: boolean) => void;
@@ -115,7 +108,6 @@ interface Props {
   setShowElevenLabsConfig: (v: boolean) => void;
 
   // Delete confirmation modals.
-  showDeleteModal: boolean;
   setShowDeleteModal: (v: boolean) => void;
   videoToDelete: any;
   setVideoToDelete: (v: any) => void;
@@ -135,20 +127,14 @@ interface Props {
   }) => void | Promise<void>;
   handleTestElevenLabsKey: (key?: any) => any;
   handleUpdateElevenLabsKey: (key?: any) => any;
-  fetchHeyGenAvatars: () => void | Promise<void>;
-  handleSaveProject: (overrides?: any) => void | Promise<any>;
-  currentProjectId: string | null;
 }
 
 export function AvatarTab({
   config,
   setConfig,
-  updateConfig: _updateConfig,
-  user: _user,
   setCurrentStep,
   loading,
   setLoading,
-  isProjectLoading: _isProjectLoading,
   avatarMode,
   setAvatarMode,
   useHookFlow,
@@ -165,14 +151,10 @@ export function AvatarTab({
   videos,
   videoUrl,
   setVideoUrl,
-  videoStoragePath: _videoStoragePath,
   setVideoStoragePath,
-  userVideos: _userVideos,
   platformApiKey,
-  generatedScript: _generatedScript,
   videoOp,
   setVideoOp,
-  generationStage: _generationStage,
   setGenerationStage,
   isTestMode,
   setIsTestMode,
@@ -190,7 +172,6 @@ export function AvatarTab({
   setNewElevenLabsKey,
   showElevenLabsConfig,
   setShowElevenLabsConfig,
-  showDeleteModal: _showDeleteModal,
   setShowDeleteModal,
   videoToDelete,
   setVideoToDelete,
@@ -205,9 +186,6 @@ export function AvatarTab({
   handleDeleteVideoFromArray,
   handleTestElevenLabsKey,
   handleUpdateElevenLabsKey,
-  fetchHeyGenAvatars: _fetchHeyGenAvatars,
-  handleSaveProject: _handleSaveProject,
-  currentProjectId: _currentProjectId,
 }: Props) {
 
   let filteredAvatars = heygenAvatars.filter((a) => {

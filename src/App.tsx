@@ -5133,12 +5133,9 @@ export default function App() {
               <AvatarTab
                 config={config}
                 setConfig={setConfig}
-                updateConfig={updateConfig}
-                user={user}
                 setCurrentStep={setCurrentStep}
                 loading={loading}
                 setLoading={setLoading}
-                isProjectLoading={isProjectLoading}
                 avatarMode={avatarMode}
                 setAvatarMode={setAvatarMode}
                 useHookFlow={useHookFlow}
@@ -5155,14 +5152,10 @@ export default function App() {
                 videos={videos}
                 videoUrl={videoUrl}
                 setVideoUrl={setVideoUrl}
-                videoStoragePath={videoStoragePath}
                 setVideoStoragePath={setVideoStoragePath}
-                userVideos={userVideos}
                 platformApiKey={platformApiKey}
-                generatedScript={config.copy?.generatedScript}
                 videoOp={videoOp}
                 setVideoOp={setVideoOp}
-                generationStage={generationStage}
                 setGenerationStage={setGenerationStage}
                 isTestMode={isTestMode}
                 setIsTestMode={setIsTestMode}
@@ -5180,7 +5173,6 @@ export default function App() {
                 setNewElevenLabsKey={setNewElevenLabsKey}
                 showElevenLabsConfig={showElevenLabsConfig}
                 setShowElevenLabsConfig={setShowElevenLabsConfig}
-                showDeleteModal={showDeleteModal}
                 setShowDeleteModal={setShowDeleteModal}
                 videoToDelete={videoToDelete}
                 setVideoToDelete={setVideoToDelete}
@@ -5195,9 +5187,6 @@ export default function App() {
                 handleDeleteVideoFromArray={handleDeleteVideoFromArray}
                 handleTestElevenLabsKey={handleTestElevenLabsKey}
                 handleUpdateElevenLabsKey={handleUpdateElevenLabsKey}
-                fetchHeyGenAvatars={() => {}}
-                handleSaveProject={handleSaveProject}
-                currentProjectId={currentProjectId}
               />
             )}
             {currentStep === 'edit-zap' && (
