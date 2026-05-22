@@ -41,6 +41,9 @@ Thumbs.db
 *.swo
 *~
 
+# Local Claude Code config (preview tool launch.json, etc.)
+.claude/
+
 # Temp files
 *.tmp
 *.bak
