@@ -142,8 +142,20 @@ interface Project {
   createdAt: any;
 }
 
-interface AdConfig {
+// Exported so the extracted tab components in src/pages/*Tab.tsx can
+// type their `config` prop with the real shape instead of `any`. The
+// `useHook?: boolean` flag (project-level "does this project use a
+// separate hook?") lives at the top level alongside the section maps.
+//
+// Several fields here were originally accessed via `as any` casts in
+// the extracted tabs because they were added incrementally during the
+// migration (productInfo, hookVideos, zapVersions, etc.). They're now
+// part of the canonical shape — when you grep for `(config\.\w+ as
+// any)` in src/pages/* you should find none.
+export interface AdConfig {
   angle: string;
+  /** Set by setUseHookFlow; missing/`true` means use the hook flow. */
+  useHook?: boolean;
   copy: {
     mode: 'improve' | 'as-is' | 'questions';
     subMode?: 'zero' | 'improve' | 'ready';
@@ -158,6 +170,18 @@ interface AdConfig {
     targetWordCount?: number;
     hookSelecionado?: string;
     hooksHistorico?: { hook: string; createdAt: string }[];
+    // Persisted by SourceTab (auto-extracted ProductInfo via Claude).
+    productInfo?: ProductInfo | null;
+    // PlanTab output.
+    marketingPlan?: MarketingPlan | null;
+    // AIRecommendationPanel cache (auto-invalidates when copy/persona
+    // hashes change).
+    aiRecommendation?: CachedRecommendation | null;
+    // Hook-flow assets generated separately from the body.
+    hookAudioUrl?: string;
+    hookAudioStoragePath?: string | null;
+    hookVideoUrl?: string;
+    hookVideos?: AdConfig['videos'];
   };
   hookVisual: HookVisualData;
   avatar: {
@@ -182,6 +206,12 @@ interface AdConfig {
     timelineEdits?: TimelineEdit[];
     scenes?: Scene[];
     segments?: VideoSegment[];
+    // EditZapTab render outputs. Body / hook versions are kept
+    // separate because the UI lets you toggle which one you're editing.
+    // joined = "Juntar" feature output (hook+body concat).
+    zapVersions?: string[];
+    zapHookVersions?: string[];
+    zapJoinedVersions?: string[];
   };
   audioUrl?: string | null;
   audioStoragePath?: string | null;

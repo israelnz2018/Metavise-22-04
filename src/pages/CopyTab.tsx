@@ -10,12 +10,11 @@
 //      buttons, recommended duration + style, persona save button,
 //      and the post-generation script editor with save → finalScript
 //      Firestore write.
-// All state stays in App.tsx; we receive it via props. Loose `any` typing
-// because AdConfig isn't exported and matching the parent's exact
-// `keyof AdConfig` updater signature explicitly is more friction than
-// value.
+// All state stays in App.tsx; we receive it via props. `config` is
+// typed with the canonical `AdConfig` exported from App.tsx.
 
 import React from 'react';
+import type { AdConfig } from '../App';
 import { toast } from 'react-hot-toast';
 import {
   Users,
@@ -55,9 +54,9 @@ import {
 } from '../lib/helpers';
 
 interface Props {
-  config: any;
+  config: AdConfig;
   updateConfig: (section: any, sub: any, field: any, value: any) => void;
-  setConfig: React.Dispatch<React.SetStateAction<any>>;
+  setConfig: React.Dispatch<React.SetStateAction<AdConfig>>;
 
   // Step navigation. Typed `any` so it accepts App.tsx's tighter
   // `Dispatch<SetStateAction<Step>>` signature.
@@ -136,7 +135,7 @@ export function CopyTab({
 
   const sections = COPY_SECTIONS;
   const modes = COPY_MODES;
-  const productInfo = (config.copy as any)?.productInfo as ProductInfo | null;
+  const productInfo = config.copy?.productInfo as ProductInfo | null;
 
   const handleFillFromSource = async () => {
     if (!productInfo) return;

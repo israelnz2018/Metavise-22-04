@@ -5,6 +5,7 @@
 // by ~560 lines without changing any behavior.
 
 import { toast } from 'react-hot-toast';
+import type { AdConfig } from '../App';
 import { Users, Sparkles, Loader2, CheckCircle2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import {
@@ -22,11 +23,12 @@ interface Props {
   // Single source of truth for the form. Read `config.copy.answers` and
   // `config.copy.productInfo`; write via `updateConfig` (deep merge) or
   // `setConfig` (full overwrite, used by the auto-fill button).
-  config: any;
-  // Typed loosely as `any` so it accepts App.tsx's tighter
-  // `(section: keyof AdConfig, ...)` signature — AdConfig isn't exported.
+  config: AdConfig;
+  // Section/sub/field stay loose because the deep-merge pattern reads
+  // arbitrary nested paths — typing them strictly would require a giant
+  // discriminated union for every (section, sub, field) triple.
   updateConfig: (section: any, sub: any, field: any, value: any) => void;
-  setConfig: React.Dispatch<React.SetStateAction<any>>;
+  setConfig: React.Dispatch<React.SetStateAction<AdConfig>>;
 
   // Result of the last persona generation. `personasSaved` gates the
   // "Enviar persona pra Copy" button.
@@ -84,7 +86,7 @@ export function PersonaTab({
     hiddenDesires.length > 0;
 
   const personas: any[] = generatedPersona?.personas || [];
-  const productInfo = (config.copy as any)?.productInfo as ProductInfo | null;
+  const productInfo = config.copy?.productInfo as ProductInfo | null;
 
   const handleFillFromSource = async () => {
     if (!productInfo) return;

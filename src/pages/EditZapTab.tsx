@@ -14,6 +14,7 @@
 // individual named props.
 
 import React from 'react';
+import type { AdConfig } from '../App';
 import { toast } from 'react-hot-toast';
 import { Loader2, Layers, Trash2, Zap, Download } from 'lucide-react';
 import { cn, getVideoAspectRatioClass } from '../lib/utils';
@@ -35,8 +36,8 @@ interface Props {
   zap: ZapBundle;
 
   // Persisted config + parent-owned state.
-  config: any;
-  setConfig: React.Dispatch<React.SetStateAction<any>>;
+  config: AdConfig;
+  setConfig: React.Dispatch<React.SetStateAction<AdConfig>>;
   videos: Video[] | undefined;
   platformApiKey: string | null;
   user: any;
@@ -141,11 +142,11 @@ export function EditZapTab({
 
   const isHookEdit = editZapMode === 'hook';
   const hookVideosForEdit =
-    ((config.copy as any)?.hookVideos as typeof videos | undefined) || [];
+    (config.copy?.hookVideos as typeof videos | undefined) || [];
   const bodyZapVersions =
-    ((config.edit as any)?.zapVersions as string[] | undefined) || [];
+    (config.edit?.zapVersions as string[] | undefined) || [];
   const hookZapVersions =
-    ((config.edit as any)?.zapHookVersions as string[] | undefined) || [];
+    (config.edit?.zapHookVersions as string[] | undefined) || [];
   const activeZapVersions = isHookEdit ? hookZapVersions : bodyZapVersions;
 
   // Source video picker pulls from hook or body depending on mode.
@@ -1246,7 +1247,7 @@ export function EditZapTab({
           nenhum dos dois lados isoladamente. */}
       {useHookFlow && (() => {
         const joined =
-          ((config.edit as any)?.zapJoinedVersions as string[] | undefined) || [];
+          (config.edit?.zapJoinedVersions as string[] | undefined) || [];
         if (joined.length === 0) return null;
         return (
           <div className="space-y-4 pt-8">

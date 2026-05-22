@@ -9,11 +9,12 @@
 //   5. Video generation kick-off + progress + preview.
 //   6. Delete confirmation modals for avatar-rendered videos.
 //
-// Same prop-passing pattern as the other extracted tabs. Loose `any`
-// typing for the config + setter signatures so it accepts the parent's
-// tighter `keyof AdConfig` shape without type gymnastics.
+// Same prop-passing pattern as the other extracted tabs. Uses the
+// canonical `AdConfig` shape exported from App.tsx so the compiler
+// catches typos in field reads.
 
 import React, { useEffect, useState } from 'react';
+import type { AdConfig } from '../App';
 import { toast } from 'react-hot-toast';
 import { motion } from 'motion/react';
 import {
@@ -55,8 +56,8 @@ import { ConfirmModal } from '../components/ConfirmModal';
 import { ElevenLabsConfigModal } from '../components/ElevenLabsConfigModal';
 
 interface Props {
-  config: any;
-  setConfig: React.Dispatch<React.SetStateAction<any>>;
+  config: AdConfig;
+  setConfig: React.Dispatch<React.SetStateAction<AdConfig>>;
 
   // Step nav + general loading.
   setCurrentStep: (step: any) => void;
@@ -299,13 +300,13 @@ export function AvatarTab({
 
   const isHookMode = avatarMode === 'hook';
   const hookAudioUrl =
-    ((config.copy as any)?.hookAudioUrl as string | undefined) || '';
+    (config.copy?.hookAudioUrl as string | undefined) || '';
   const hookAudioStoragePath =
-    ((config.copy as any)?.hookAudioStoragePath as string | null | undefined) || null;
+    (config.copy?.hookAudioStoragePath as string | null | undefined) || null;
   const hookVideos =
-    ((config.copy as any)?.hookVideos as typeof videos | undefined) || [];
+    (config.copy?.hookVideos as typeof videos | undefined) || [];
   const hookVideoUrl =
-    ((config.copy as any)?.hookVideoUrl as string | undefined) || '';
+    (config.copy?.hookVideoUrl as string | undefined) || '';
   const displayedAudioUrl = isHookMode ? hookAudioUrl : config.audioUrl;
   const displayedAudioStoragePath = isHookMode
     ? hookAudioStoragePath
@@ -790,7 +791,7 @@ export function AvatarTab({
           persona={config.copy.answers}
           copyAnswers={config.copy.answers}
           copy={config.copy.finalScript || config.copy.optimizedScript || config.copy.generatedScript}
-          productInfo={((config.copy as any)?.productInfo as ProductInfo | null) || undefined}
+          productInfo={(config.copy?.productInfo as ProductInfo | null) || undefined}
           variant="avatar"
           cached={avatarRecommendation}
           onChange={setAvatarRecommendation}

@@ -1,4 +1,5 @@
 import { Loader2, AlertCircle, Sparkles, Download } from 'lucide-react';
+import type { AdConfig } from '../App';
 import { motion } from 'motion/react';
 import { SUBTITLE_STYLES, AVATARS } from '../lib/constants';
 import { getAuthorizedUrl } from '../lib/gemini';
@@ -7,7 +8,7 @@ import { getAuthorizedUrl } from '../lib/gemini';
 // de metadata sobre o projeto. Recebe state via props.
 
 interface Props {
-  config: any;
+  config: AdConfig;
   videoUrl: string | null;
   audioUrl: string | null;
   videoOp: any;
