@@ -5,7 +5,18 @@ import admin from 'firebase-admin';
 import { getElevenLabsKey } from '../config/apiKeys.js';
 import { CONFIG_PATH, GENERATED_DIR } from '../config/paths.js';
 import { createLogger } from '../utils/logger.js';
+import { createTTLCache } from '../utils/cache.js';
 const log = createLogger('ElevenLabs');
+
+// Shared-voices is a large upstream payload (~1k voices per page) and
+// the same filter combination typically returns the same result for
+// minutes — cache 10 min keyed by the full query string (after
+// auto-relax, which we re-run on miss anyway). maxEntries=200 covers
+// hundreds of distinct filter+page combinations before we LRU-evict.
+const sharedVoicesCache = createTTLCache<unknown>({
+  ttlMs: 10 * 60_000,
+  maxEntries: 200,
+});
 
 export const elevenLabsRouter = Router();
 
@@ -122,6 +133,17 @@ elevenLabsPremiumRouter.get('/voices', async (req, res) => {
   const apiKey = getElevenLabsKey();
   if (!apiKey) return res.status(500).json({ error: 'ElevenLabs API Key ausente.' });
 
+  // Build the cache key from the full request query — same filter combo +
+  // page = same response. include_low_quality flips a post-filter so
+  // it's part of the key too.
+  const cacheKey = new URLSearchParams(req.query as Record<string, string>)
+    .toString();
+  const cached = sharedVoicesCache.get(cacheKey);
+  if (cached) {
+    log.info(`[ElevenLabs Premium] voices served from cache (${cacheKey})`);
+    return res.json(cached);
+  }
+
   // Filters that may be safely relaxed when the combination yields 0
   // voices. Order matters only as a tiebreaker when multiple single-drop
   // candidates produce the same count — earlier = preferred to drop.
@@ -230,12 +252,14 @@ elevenLabsPremiumRouter.get('/voices', async (req, res) => {
       },
     }));
 
-    res.json({
+    const payload = {
       voices,
       has_more: json.has_more,
       total_count: json.total_count,
       relaxed,
-    });
+    };
+    sharedVoicesCache.set(cacheKey, payload);
+    res.json(payload);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
