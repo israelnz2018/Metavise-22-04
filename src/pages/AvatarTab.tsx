@@ -35,6 +35,7 @@ import {
   CheckCircle2,
   ChevronRight,
   Video,
+  Star,
 } from 'lucide-react';
 import { cn, getVideoAspectRatioClass } from '../lib/utils';
 import { getAuthorizedUrl } from '../lib/gemini';
@@ -47,6 +48,7 @@ import {
   loadAvatarEnrichment,
   type EnrichmentMap,
 } from '../lib/avatarEnrichment';
+import { useAvatarFavorites } from '../hooks/useAvatarFavorites';
 import {
   AIRecommendationPanel,
   type CachedRecommendation,
@@ -206,6 +208,11 @@ export function AvatarTab({
     };
   }, []);
 
+  // Per-browser favorites (localStorage). Star icon on each card toggles.
+  // `showOnlyFavorites` is a chip in the filter row.
+  const favorites = useAvatarFavorites();
+  const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
+
   let filteredAvatars = heygenAvatars.filter((a) => {
     const enrichment = AVATAR_ENRICHMENT[a.avatar_id] || {};
     const matchesSearch = a.avatar_name.toLowerCase().includes(avatarSearch.toLowerCase());
@@ -248,8 +255,10 @@ export function AvatarTab({
     const matchesAge = matchesFilter(avatarFilters.ages, 'ages');
     const matchesStyle = matchesFilter(avatarFilters.styles, 'styles');
     const matchesEthnicity = matchesFilter(avatarFilters.ethnicities, 'ethnicities');
+    // Favorites overrides everything when toggled on — that's the point.
+    const matchesFav = !showOnlyFavorites || favorites.isFavorite(a.avatar_id);
 
-    return matchesSearch && matchesGender && matchesAge && matchesStyle && matchesEthnicity;
+    return matchesSearch && matchesGender && matchesAge && matchesStyle && matchesEthnicity && matchesFav;
   });
 
   // Fallback: If strict filtering returns zero, but we HAVE selected filters,
@@ -837,6 +846,28 @@ export function AvatarTab({
         </div>
 
         <div className="bg-white p-6 rounded-[40px] border-2 border-gray-100 shadow-xl space-y-6">
+          {/* Favorites chip — own row so it's always visible without
+              eating the grid columns. Hidden when the user has zero
+              favorites yet (avoids tempting an empty list). */}
+          {favorites.favoriteCount > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setShowOnlyFavorites((v) => !v)}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest transition-all border-2 ${
+                  showOnlyFavorites
+                    ? 'bg-amber-400 text-amber-950 border-amber-400 shadow-md'
+                    : 'bg-white text-gray-500 border-gray-200 hover:border-amber-300 hover:text-amber-700'
+                }`}
+                title="Mostrar somente seus avatares favoritos"
+              >
+                <Star
+                  size={14}
+                  className={showOnlyFavorites ? 'fill-current' : ''}
+                />
+                Favoritos ({favorites.favoriteCount})
+              </button>
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="md:col-span-2 relative">
               <Search
@@ -1403,6 +1434,36 @@ export function AvatarTab({
                       </div>
                     </div>
                   </div>
+                  {/* Star button — pin/unpin this avatar to your
+                      favorites. Sits in the top-right unless the
+                      "selected" badge is already there, in which case
+                      we tuck the star into top-left next to the IA
+                      badge (which only shows when NOT selected). */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      favorites.toggle(a.avatar_id);
+                    }}
+                    className={`absolute z-10 ${
+                      config.avatar.faceId === a.avatar_id
+                        ? 'top-3 left-3'
+                        : 'top-3 right-3'
+                    } w-8 h-8 rounded-full flex items-center justify-center shadow-lg border-2 border-white transition-all ${
+                      favorites.isFavorite(a.avatar_id)
+                        ? 'bg-amber-400 text-amber-950'
+                        : 'bg-white/30 text-white hover:bg-amber-400 hover:text-amber-950 backdrop-blur-md'
+                    }`}
+                    title={
+                      favorites.isFavorite(a.avatar_id)
+                        ? 'Remover dos favoritos'
+                        : 'Adicionar aos favoritos'
+                    }
+                  >
+                    <Star
+                      size={14}
+                      className={favorites.isFavorite(a.avatar_id) ? 'fill-current' : ''}
+                    />
+                  </button>
                   {config.avatar.faceId === a.avatar_id && (
                     <div className="absolute top-3 right-3 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-lg border-2 border-white">
                       <CheckCircle2 size={18} />
