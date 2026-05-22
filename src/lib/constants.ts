@@ -39,12 +39,11 @@ export const DURATION_OPTIONS = [
   { label: '180s', words: 450 },
 ];
 
-import avatarEnrichmentBulk from './avatar-enrichment-bulk.json';
-
 // Manual hand-curated entries (gender + type='realistic'). Type is used by
 // the "Melhores para Anúncios" sort. These extend the bulk-classified JSON
-// produced by scripts/classify-avatars.ts.
-const MANUAL_AVATAR_ENRICHMENT: Record<string, any> = {
+// produced by scripts/classify-avatars.ts. Exported so the dynamic loader
+// in src/lib/avatarEnrichment.ts can merge them with the bulk JSON.
+export const MANUAL_AVATAR_ENRICHMENT: Record<string, any> = {
   josh_lite_20230714: { gender: 'male', age: 'young', type: 'realistic' },
   erica_lite_20230714: { gender: 'female', age: 'young', type: 'realistic' },
   ann_lite_20230714: { gender: 'female', age: 'adult', type: 'realistic' },
@@ -53,16 +52,11 @@ const MANUAL_AVATAR_ENRICHMENT: Record<string, any> = {
   clara_lite_20230714: { gender: 'female', age: 'mature', type: 'realistic' },
 };
 
-// Merge bulk (age/ethnicity/style/vibe per avatar_id) with manual overrides.
-// Manual wins on overlapping fields — for the 6 seed avatars we trust the
-// curation more than vision.
-export const AVATAR_ENRICHMENT: Record<string, any> = (() => {
-  const merged: Record<string, any> = { ...(avatarEnrichmentBulk as Record<string, any>) };
-  for (const [id, manual] of Object.entries(MANUAL_AVATAR_ENRICHMENT)) {
-    merged[id] = { ...(merged[id] || {}), ...manual };
-  }
-  return merged;
-})();
+// AVATAR_ENRICHMENT (merged bulk + manual map) is no longer exported as a
+// static const because the underlying JSON is ~175KB. It's now loaded on
+// demand via `loadAvatarEnrichment()` in src/lib/avatarEnrichment.ts. The
+// AvatarTab calls that loader in a useEffect and stores the result in
+// state; until it resolves, enrichment-based filters fall through.
 
 // Maps UI filter labels (e.g. "Young Adult", "Professional") to the
 // vocabulary used in AVATAR_ENRICHMENT (e.g. "young", "professional").

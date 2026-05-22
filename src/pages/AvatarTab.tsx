@@ -13,7 +13,7 @@
 // typing for the config + setter signatures so it accepts the parent's
 // tighter `keyof AdConfig` shape without type gymnastics.
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { motion } from 'motion/react';
 import {
@@ -39,10 +39,13 @@ import { cn, getVideoAspectRatioClass } from '../lib/utils';
 import { getAuthorizedUrl } from '../lib/gemini';
 import type { ProductInfo } from '../lib/claudeService';
 import {
-  AVATAR_ENRICHMENT,
   AVATAR_FILTER_TO_ENRICHMENT,
   HEYGEN_NAME_KEYWORDS,
 } from '../lib/constants';
+import {
+  loadAvatarEnrichment,
+  type EnrichmentMap,
+} from '../lib/avatarEnrichment';
 import {
   AIRecommendationPanel,
   type CachedRecommendation,
@@ -187,6 +190,20 @@ export function AvatarTab({
   handleTestElevenLabsKey,
   handleUpdateElevenLabsKey,
 }: Props) {
+  // Avatar enrichment data is ~175KB — loaded on demand the first time
+  // this tab mounts. While the promise is in flight, AVATAR_ENRICHMENT
+  // is `{}` and the filter falls back to legacy keyword-on-name matching.
+  // Cached at module level so revisits are instant.
+  const [AVATAR_ENRICHMENT, setAvatarEnrichment] = useState<EnrichmentMap>({});
+  useEffect(() => {
+    let alive = true;
+    loadAvatarEnrichment().then((map) => {
+      if (alive) setAvatarEnrichment(map);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   let filteredAvatars = heygenAvatars.filter((a) => {
     const enrichment = AVATAR_ENRICHMENT[a.avatar_id] || {};

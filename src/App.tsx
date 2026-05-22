@@ -66,12 +66,29 @@ import { ConfirmModal } from './components/ConfirmModal';
 import { PersonaEditModal } from './components/PersonaEditModal';
 import { PersonaPathModal } from './components/PersonaPathModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { PersonaTab } from './pages/PersonaTab';
-import { Edit2Tab } from './pages/Edit2Tab';
-import { FinalTab } from './pages/FinalTab';
-import { CopyTab } from './pages/CopyTab';
-import { EditZapTab } from './pages/EditZapTab';
-import { AvatarTab } from './pages/AvatarTab';
+// Step tabs are lazy-loaded so the initial JS payload stays small.
+// Each tab is a ~600-1500 line module pulling its own helpers; loading
+// them on demand drops the main chunk significantly. AvatarTab is the
+// heaviest because it imports the bulk-classified avatar enrichment
+// JSON (~175KB) via dynamic import inside the tab itself.
+const PersonaTab = React.lazy(() =>
+  import('./pages/PersonaTab').then((m) => ({ default: m.PersonaTab }))
+);
+const Edit2Tab = React.lazy(() =>
+  import('./pages/Edit2Tab').then((m) => ({ default: m.Edit2Tab }))
+);
+const FinalTab = React.lazy(() =>
+  import('./pages/FinalTab').then((m) => ({ default: m.FinalTab }))
+);
+const CopyTab = React.lazy(() =>
+  import('./pages/CopyTab').then((m) => ({ default: m.CopyTab }))
+);
+const EditZapTab = React.lazy(() =>
+  import('./pages/EditZapTab').then((m) => ({ default: m.EditZapTab }))
+);
+const AvatarTab = React.lazy(() =>
+  import('./pages/AvatarTab').then((m) => ({ default: m.AvatarTab }))
+);
 import { useZapState } from './hooks/useZapState';
 import {
   ref,
@@ -4754,17 +4771,19 @@ export default function App() {
               </React.Suspense>
             )}
             {currentStep === 'persona' && (
-              <PersonaTab
-                config={config}
-                updateConfig={updateConfig}
-                setConfig={setConfig}
-                generatedPersona={generatedPersona}
-                personasSaved={personasSaved}
-                loading={loading}
-                onGeneratePersona={handleGeneratePersona}
-                onSavePersonas={handleSavePersonas}
-                onSelectPersona={handleSelectPersona}
-              />
+              <React.Suspense fallback={<div className="text-center py-20 text-gray-400">Carregando...</div>}>
+                <PersonaTab
+                  config={config}
+                  updateConfig={updateConfig}
+                  setConfig={setConfig}
+                  generatedPersona={generatedPersona}
+                  personasSaved={personasSaved}
+                  loading={loading}
+                  onGeneratePersona={handleGeneratePersona}
+                  onSavePersonas={handleSavePersonas}
+                  onSelectPersona={handleSelectPersona}
+                />
+              </React.Suspense>
             )}
             {currentStep === 'plan' && (
               <React.Suspense fallback={<div className="text-center py-20 text-gray-400">Carregando...</div>}>
@@ -4787,35 +4806,37 @@ export default function App() {
               </React.Suspense>
             )}
             {currentStep === 'copy' && (
-              <CopyTab
-                config={config}
-                updateConfig={updateConfig}
-                setConfig={setConfig}
-                setCurrentStep={setCurrentStep}
-                setVoiceSource={setVoiceSource}
-                copyDiscoveryMode={copyDiscoveryMode}
-                setCopyDiscoveryMode={setCopyDiscoveryMode}
-                discoveryStep={discoveryStep}
-                setDiscoveryStep={setDiscoveryStep}
-                discoveryAnswers={discoveryAnswers}
-                setDiscoveryAnswers={setDiscoveryAnswers}
-                generatedPersona={generatedPersona}
-                onGeneratePersona={handleGeneratePersona}
-                copyFieldsApplied={copyFieldsApplied}
-                applyPersonaToCopy={applyPersonaToCopy}
-                setShowEditPersonaModal={setShowEditPersonaModal}
-                applyAwarenessLevelChange={applyAwarenessLevelChange}
-                setPendingAwarenessLevel={setPendingAwarenessLevel}
-                setShowAwarenessChangeModal={setShowAwarenessChangeModal}
-                hasUnsavedCopyChanges={hasUnsavedCopyChanges}
-                setHasUnsavedCopyChanges={setHasUnsavedCopyChanges}
-                isSaving={isSaving}
-                currentProjectId={currentProjectId}
-                handleSaveProject={handleSaveProject}
-                loading={loading}
-                handleGenerateCopy={handleGenerateCopy}
-                isProjectLoading={isProjectLoading}
-              />
+              <React.Suspense fallback={<div className="text-center py-20 text-gray-400">Carregando...</div>}>
+                <CopyTab
+                  config={config}
+                  updateConfig={updateConfig}
+                  setConfig={setConfig}
+                  setCurrentStep={setCurrentStep}
+                  setVoiceSource={setVoiceSource}
+                  copyDiscoveryMode={copyDiscoveryMode}
+                  setCopyDiscoveryMode={setCopyDiscoveryMode}
+                  discoveryStep={discoveryStep}
+                  setDiscoveryStep={setDiscoveryStep}
+                  discoveryAnswers={discoveryAnswers}
+                  setDiscoveryAnswers={setDiscoveryAnswers}
+                  generatedPersona={generatedPersona}
+                  onGeneratePersona={handleGeneratePersona}
+                  copyFieldsApplied={copyFieldsApplied}
+                  applyPersonaToCopy={applyPersonaToCopy}
+                  setShowEditPersonaModal={setShowEditPersonaModal}
+                  applyAwarenessLevelChange={applyAwarenessLevelChange}
+                  setPendingAwarenessLevel={setPendingAwarenessLevel}
+                  setShowAwarenessChangeModal={setShowAwarenessChangeModal}
+                  hasUnsavedCopyChanges={hasUnsavedCopyChanges}
+                  setHasUnsavedCopyChanges={setHasUnsavedCopyChanges}
+                  isSaving={isSaving}
+                  currentProjectId={currentProjectId}
+                  handleSaveProject={handleSaveProject}
+                  loading={loading}
+                  handleGenerateCopy={handleGenerateCopy}
+                  isProjectLoading={isProjectLoading}
+                />
+              </React.Suspense>
             )}
             {currentStep === 'hook-visual' && (
               <HookVisualGenerator
@@ -5130,128 +5151,136 @@ export default function App() {
               );
             })()}
             {currentStep === 'avatar' && (
-              <AvatarTab
-                config={config}
-                setConfig={setConfig}
-                setCurrentStep={setCurrentStep}
-                loading={loading}
-                setLoading={setLoading}
-                avatarMode={avatarMode}
-                setAvatarMode={setAvatarMode}
-                useHookFlow={useHookFlow}
-                heygenAvatars={heygenAvatars}
-                setHeygenAvatars={setHeygenAvatars}
-                avatarFilters={avatarFilters}
-                setAvatarFilters={setAvatarFilters}
-                avatarSearch={avatarSearch}
-                setAvatarSearch={setAvatarSearch}
-                previewAvatar={previewAvatar}
-                setPreviewAvatar={setPreviewAvatar}
-                avatarRecommendation={avatarRecommendation}
-                setAvatarRecommendation={setAvatarRecommendation}
-                videos={videos}
-                videoUrl={videoUrl}
-                setVideoUrl={setVideoUrl}
-                setVideoStoragePath={setVideoStoragePath}
-                platformApiKey={platformApiKey}
-                videoOp={videoOp}
-                setVideoOp={setVideoOp}
-                setGenerationStage={setGenerationStage}
-                isTestMode={isTestMode}
-                setIsTestMode={setIsTestMode}
-                useNativeFallback={useNativeFallback}
-                setUseNativeFallback={setUseNativeFallback}
-                logs={logs}
-                pollIntervalRef={pollIntervalRef}
-                isTestingKey={isTestingKey}
-                isUpdatingKey={isUpdatingKey}
-                audioUrl={audioUrl}
-                isVideoUpToDate={isVideoUpToDate}
-                loadingAvatars={loadingAvatars}
-                avatarError={avatarError}
-                newElevenLabsKey={newElevenLabsKey}
-                setNewElevenLabsKey={setNewElevenLabsKey}
-                showElevenLabsConfig={showElevenLabsConfig}
-                setShowElevenLabsConfig={setShowElevenLabsConfig}
-                setShowDeleteModal={setShowDeleteModal}
-                videoToDelete={videoToDelete}
-                setVideoToDelete={setVideoToDelete}
-                setAudioToDelete={setAudioToDelete}
-                showDeleteVideoModal={showDeleteVideoModal}
-                setShowDeleteVideoModal={setShowDeleteVideoModal}
-                showDeleteHistoryVideoModal={showDeleteHistoryVideoModal}
-                setShowDeleteHistoryVideoModal={setShowDeleteHistoryVideoModal}
-                handleGenerateVideo={handleGenerateVideo}
-                handleCancelGeneration={handleCancelGeneration}
-                handleDeleteVideo={handleDeleteVideo}
-                handleDeleteVideoFromArray={handleDeleteVideoFromArray}
-                handleTestElevenLabsKey={handleTestElevenLabsKey}
-                handleUpdateElevenLabsKey={handleUpdateElevenLabsKey}
-              />
+              <React.Suspense fallback={<div className="text-center py-20 text-gray-400">Carregando...</div>}>
+                <AvatarTab
+                  config={config}
+                  setConfig={setConfig}
+                  setCurrentStep={setCurrentStep}
+                  loading={loading}
+                  setLoading={setLoading}
+                  avatarMode={avatarMode}
+                  setAvatarMode={setAvatarMode}
+                  useHookFlow={useHookFlow}
+                  heygenAvatars={heygenAvatars}
+                  setHeygenAvatars={setHeygenAvatars}
+                  avatarFilters={avatarFilters}
+                  setAvatarFilters={setAvatarFilters}
+                  avatarSearch={avatarSearch}
+                  setAvatarSearch={setAvatarSearch}
+                  previewAvatar={previewAvatar}
+                  setPreviewAvatar={setPreviewAvatar}
+                  avatarRecommendation={avatarRecommendation}
+                  setAvatarRecommendation={setAvatarRecommendation}
+                  videos={videos}
+                  videoUrl={videoUrl}
+                  setVideoUrl={setVideoUrl}
+                  setVideoStoragePath={setVideoStoragePath}
+                  platformApiKey={platformApiKey}
+                  videoOp={videoOp}
+                  setVideoOp={setVideoOp}
+                  setGenerationStage={setGenerationStage}
+                  isTestMode={isTestMode}
+                  setIsTestMode={setIsTestMode}
+                  useNativeFallback={useNativeFallback}
+                  setUseNativeFallback={setUseNativeFallback}
+                  logs={logs}
+                  pollIntervalRef={pollIntervalRef}
+                  isTestingKey={isTestingKey}
+                  isUpdatingKey={isUpdatingKey}
+                  audioUrl={audioUrl}
+                  isVideoUpToDate={isVideoUpToDate}
+                  loadingAvatars={loadingAvatars}
+                  avatarError={avatarError}
+                  newElevenLabsKey={newElevenLabsKey}
+                  setNewElevenLabsKey={setNewElevenLabsKey}
+                  showElevenLabsConfig={showElevenLabsConfig}
+                  setShowElevenLabsConfig={setShowElevenLabsConfig}
+                  setShowDeleteModal={setShowDeleteModal}
+                  videoToDelete={videoToDelete}
+                  setVideoToDelete={setVideoToDelete}
+                  setAudioToDelete={setAudioToDelete}
+                  showDeleteVideoModal={showDeleteVideoModal}
+                  setShowDeleteVideoModal={setShowDeleteVideoModal}
+                  showDeleteHistoryVideoModal={showDeleteHistoryVideoModal}
+                  setShowDeleteHistoryVideoModal={setShowDeleteHistoryVideoModal}
+                  handleGenerateVideo={handleGenerateVideo}
+                  handleCancelGeneration={handleCancelGeneration}
+                  handleDeleteVideo={handleDeleteVideo}
+                  handleDeleteVideoFromArray={handleDeleteVideoFromArray}
+                  handleTestElevenLabsKey={handleTestElevenLabsKey}
+                  handleUpdateElevenLabsKey={handleUpdateElevenLabsKey}
+                />
+              </React.Suspense>
             )}
             {currentStep === 'edit-zap' && (
-              <EditZapTab
-                zap={zap}
-                config={config}
-                setConfig={setConfig}
-                videos={videos}
-                platformApiKey={platformApiKey}
-                user={user}
-                useHookFlow={useHookFlow}
-                loading={loading}
-                handleRenderZapSimple={handleRenderZapSimple}
-                handleDeleteVideoFromArray={handleDeleteVideoFromArray}
-                handleRenderHeadline={handleRenderHeadline}
-                handleRenderIntercut={handleRenderIntercut}
-                fetchZapCapTemplates={fetchZapCapTemplates}
-                zapCapTemplates={zapCapTemplates}
-              />
+              <React.Suspense fallback={<div className="text-center py-20 text-gray-400">Carregando...</div>}>
+                <EditZapTab
+                  zap={zap}
+                  config={config}
+                  setConfig={setConfig}
+                  videos={videos}
+                  platformApiKey={platformApiKey}
+                  user={user}
+                  useHookFlow={useHookFlow}
+                  loading={loading}
+                  handleRenderZapSimple={handleRenderZapSimple}
+                  handleDeleteVideoFromArray={handleDeleteVideoFromArray}
+                  handleRenderHeadline={handleRenderHeadline}
+                  handleRenderIntercut={handleRenderIntercut}
+                  fetchZapCapTemplates={fetchZapCapTemplates}
+                  zapCapTemplates={zapCapTemplates}
+                />
+              </React.Suspense>
             )}
             {currentStep === 'edit2' && (
-              <Edit2Tab
-                videoUrl={videoUrl}
-                setVideoUrl={setVideoUrl}
-                uploadProgress={uploadProgress}
-                userVideos={userVideos}
-                platformApiKey={platformApiKey}
-                autoEditState={autoEditState}
-                setAutoEditState={setAutoEditState}
-                brollPercent={brollPercent}
-                setBrollPercent={setBrollPercent}
-                recommendedBrollPercent={recommendedBrollPercent}
-                zapCapTemplates={zapCapTemplates}
-                zapCapRenderConfig={zapCapRenderConfig}
-                setZapCapRenderConfig={setZapCapRenderConfig}
-                loading={loading}
-                isDragging={isDragging}
-                setIsDragging={setIsDragging}
-                isRenderingRef={isRenderingRef}
-                handleUploadVideo={handleUploadVideo}
-                handleStartAutoEdit={handleStartAutoEdit}
-                handleRenderZapCap={handleRenderZapCap}
-                handleApproveAndDownload={handleApproveAndDownload}
-                toggleBrollSelection={toggleBrollSelection}
-              />
+              <React.Suspense fallback={<div className="text-center py-20 text-gray-400">Carregando...</div>}>
+                <Edit2Tab
+                  videoUrl={videoUrl}
+                  setVideoUrl={setVideoUrl}
+                  uploadProgress={uploadProgress}
+                  userVideos={userVideos}
+                  platformApiKey={platformApiKey}
+                  autoEditState={autoEditState}
+                  setAutoEditState={setAutoEditState}
+                  brollPercent={brollPercent}
+                  setBrollPercent={setBrollPercent}
+                  recommendedBrollPercent={recommendedBrollPercent}
+                  zapCapTemplates={zapCapTemplates}
+                  zapCapRenderConfig={zapCapRenderConfig}
+                  setZapCapRenderConfig={setZapCapRenderConfig}
+                  loading={loading}
+                  isDragging={isDragging}
+                  setIsDragging={setIsDragging}
+                  isRenderingRef={isRenderingRef}
+                  handleUploadVideo={handleUploadVideo}
+                  handleStartAutoEdit={handleStartAutoEdit}
+                  handleRenderZapCap={handleRenderZapCap}
+                  handleApproveAndDownload={handleApproveAndDownload}
+                  toggleBrollSelection={toggleBrollSelection}
+                />
+              </React.Suspense>
             )}
 
             {currentStep === 'final' && (
-              <FinalTab
-                config={config}
-                videoUrl={videoUrl}
-                audioUrl={audioUrl}
-                videoOp={videoOp}
-                loading={loading}
-                currentTime={currentTime}
-                setCurrentTime={setCurrentTime}
-                isExpanded={isExpanded}
-                generationStage={generationStage}
-                heygenAvatars={heygenAvatars}
-                platformApiKey={platformApiKey}
-                videoRef={videoRef}
-                logs={logs}
-                handleGenerateVideo={handleGenerateVideo}
-                handleGenerateSubtitles={handleGenerateSubtitles}
-              />
+              <React.Suspense fallback={<div className="text-center py-20 text-gray-400">Carregando...</div>}>
+                <FinalTab
+                  config={config}
+                  videoUrl={videoUrl}
+                  audioUrl={audioUrl}
+                  videoOp={videoOp}
+                  loading={loading}
+                  currentTime={currentTime}
+                  setCurrentTime={setCurrentTime}
+                  isExpanded={isExpanded}
+                  generationStage={generationStage}
+                  heygenAvatars={heygenAvatars}
+                  platformApiKey={platformApiKey}
+                  videoRef={videoRef}
+                  logs={logs}
+                  handleGenerateVideo={handleGenerateVideo}
+                  handleGenerateSubtitles={handleGenerateSubtitles}
+                />
+              </React.Suspense>
             )}
             </ErrorBoundary>
           </motion.div>
