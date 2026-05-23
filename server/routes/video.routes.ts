@@ -9,6 +9,7 @@ import { downloadFile } from '../utils/download.js';
 import { processDataError } from '../utils/errorExtractor.js';
 import { createLogger } from '../utils/logger.js';
 import { withFfmpegQueue } from '../services/jobQueue.js';
+import { ENCODE_BALANCED } from '../config/ffmpeg.js';
 
 const log = createLogger('Video');
 
@@ -49,16 +50,10 @@ videoRouter.post(
 
       await new Promise((resolve, reject) => {
         ffmpeg(localInputPath)
-          .outputOptions([
-            '-c:v libx264',
-            '-crf 23',
-            '-preset fast',
-            '-vf',
-            'scale=1920:-2',
-            '-c:a aac',
-            '-b:a 128k',
-            '-movflags +faststart',
-          ])
+          // Shared balanced profile + a scale filter to clamp to 1920w.
+          // The profile gives us multi-threading + decode-friendly output
+          // out of the box.
+          .outputOptions([...ENCODE_BALANCED, '-vf', 'scale=1920:-2'])
           .save(localOutputPath)
           .on('end', resolve)
           .on('error', reject);
