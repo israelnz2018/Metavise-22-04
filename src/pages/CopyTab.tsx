@@ -167,8 +167,51 @@ export function CopyTab({
     }
   };
 
+  // Blueprint v2 — show a small banner when this CopyTab session was
+  // opened from a creative brief (via PlanTab → "Criar Subprojeto").
+  // Read activeBriefId + creativeBriefs from config to find the brief
+  // metadata. Read-only display — user can still edit any field below.
+  const activeBriefId = (config.copy as any)?.activeBriefId as string | undefined;
+  const briefList = ((config.copy as any)?.creativeBriefs as any[] | undefined) || [];
+  const activeBrief = activeBriefId ? briefList.find((b: any) => b?.id === activeBriefId) : null;
+
   return (
     <div className="space-y-8 max-w-[1600px] mx-auto pb-20 overflow-x-hidden w-full">
+      {/* Active brief banner — visible only when user came from PlanTab */}
+      {activeBrief && (
+        <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30 ring-1 ring-blue-200/60 dark:ring-blue-900/40 rounded-2xl px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white text-xs font-black shadow-sm shadow-blue-200/60 dark:shadow-blue-900/30">
+              {activeBrief.index}
+            </span>
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-widest text-blue-700 dark:text-blue-300">
+                Executando criativo do plano
+              </p>
+              <p className="text-sm font-bold text-gray-900 dark:text-gray-50 truncate">
+                {activeBrief.targetPersonaName} · {activeBrief.angle} · Consc.
+                {activeBrief.awareness === 'unaware'
+                  ? '1'
+                  : activeBrief.awareness === 'problem_aware'
+                    ? '2'
+                    : activeBrief.awareness === 'solution_aware'
+                      ? '3'
+                      : activeBrief.awareness === 'product_aware'
+                        ? '4'
+                        : '5'}{' '}
+                · {activeBrief.durationTarget}s
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setCurrentStep('plan')}
+            className="shrink-0 text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-50 px-3 py-1.5 rounded-lg bg-white dark:bg-gray-900/60 ring-1 ring-gray-200/60 dark:ring-gray-700/60 hover:ring-gray-400 transition-all"
+          >
+            ← Voltar ao plano
+          </button>
+        </div>
+      )}
+
       {/* Sticky fill-from-source button when productInfo exists */}
       {productInfo && (
         <div className="flex justify-end">
