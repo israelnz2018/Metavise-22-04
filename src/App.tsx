@@ -1812,6 +1812,105 @@ export default function App() {
     setCurrentStep('copy');
   };
 
+  /**
+   * Blueprint Path 2 — user wants to generate the full marketing plan
+   * (with 15 creative briefs) using a SUBSET of the 3 discovered
+   * personas. Selected list comes from the checkboxes in PersonaTab.
+   *
+   * What this does:
+   *   1. Maps the raw LLM persona objects into the WeightedPersona shape
+   *      (assigns stable IDs, copies the confidence/weight fields, falls
+   *      back to sensible defaults when the new fields aren't present
+   *      — back-compat with old saved personas).
+   *   2. Re-normalises suggestedWeight across the SELECTED subset so it
+   *      sums to 1.0 (the server expects this).
+   *   3. Persists to `config.copy.personasWithWeights` (new field added
+   *      in Phase 1.1). Survives reloads / re-opens.
+   *   4. Navigates to the Plan step. The plan tab reads from
+   *      personasWithWeights and lets the user trigger generation.
+   *
+   * Does NOT generate the plan here — that's an explicit click in
+   * PlanTab. Tab-to-tab transitions just carry data.
+   */
+  const handleGoToPlan = (selectedPersonas: any[]) => {
+    if (!selectedPersonas || selectedPersonas.length === 0) {
+      toast.error('Selecione pelo menos 1 persona pra gerar o plano.');
+      return;
+    }
+    // Map raw LLM output → WeightedPersona[] (back-compat defaults
+    // when fields are missing). Stable IDs use rank-based slugs so
+    // they're predictable across re-generations.
+    const mapped = selectedPersonas.map((p: any, idx: number) => {
+      const rank = (p.rank || '').toString().toLowerCase();
+      const id = rank
+        ? `persona_${rank}`
+        : `persona_${idx}_${p.name?.toLowerCase().replace(/\s+/g, '_').slice(0, 12) || 'unknown'}`;
+      const conf = typeof p.confidence === 'number' ? p.confidence : 0.6;
+      const weight =
+        typeof p.suggestedWeight === 'number'
+          ? p.suggestedWeight
+          : // Sensible default when LLM didn't return the field:
+            // ranked weights 0.55/0.30/0.15
+            idx === 0
+            ? 0.55
+            : idx === 1
+              ? 0.3
+              : 0.15;
+      return {
+        id,
+        name: p.name || `Persona ${idx + 1}`,
+        description: p.description || '',
+        awareness:
+          typeof p.awarenessLevel === 'string' || typeof p.awarenessLevel === 'number'
+            ? mapNumericAwarenessToString(p.awarenessLevel)
+            : 'solution_aware',
+        painPoints: [p.mainPain, p.dominantFear, p.hiddenDesire].filter(Boolean) as string[],
+        confidence: conf,
+        suggestedWeight: weight,
+        evidence: Array.isArray(p.evidence) ? p.evidence : [],
+        isStretch: p.isStretch === true,
+        // Stash the original LLM object so PlanTab/CopyTab can still
+        // access fields like recommendedVideoAngle, recommendedHookType,
+        // etc. when building briefs.
+        raw: p,
+      };
+    });
+
+    // Re-normalise weights so SELECTED subset sums to 1.0.
+    const total = mapped.reduce((acc, p) => acc + (p.suggestedWeight || 0), 0);
+    const normalised =
+      total > 0
+        ? mapped.map((p) => ({ ...p, suggestedWeight: p.suggestedWeight / total }))
+        : mapped;
+
+    setConfig((prev) => ({
+      ...prev,
+      copy: { ...prev.copy, personasWithWeights: normalised as any },
+    }));
+    handleSaveProject({
+      copy: { ...config.copy, personasWithWeights: normalised as any },
+    } as any);
+    setCurrentStep('plan');
+  };
+
+  /** Maps the persona's awarenessLevel field (which can come back as
+   *  "1"-"5", "1=Inconsciente", or a string like "solution_aware") to
+   *  the canonical AwarenessLevel enum used by the blueprint shape. */
+  function mapNumericAwarenessToString(value: any): string {
+    const s = String(value).toLowerCase().trim();
+    if (s.startsWith('1')) return 'unaware';
+    if (s.startsWith('2')) return 'problem_aware';
+    if (s.startsWith('3')) return 'solution_aware';
+    if (s.startsWith('4')) return 'product_aware';
+    if (s.startsWith('5')) return 'most_aware';
+    if (s.includes('unaware')) return 'unaware';
+    if (s.includes('problem')) return 'problem_aware';
+    if (s.includes('solution')) return 'solution_aware';
+    if (s.includes('product')) return 'product_aware';
+    if (s.includes('most')) return 'most_aware';
+    return 'solution_aware';
+  }
+
   // Mapeamento de emotionalTrigger / hiddenDesire → emoção das 15 opções
   const mapToEmotion = (persona: any): string => {
     const trigger = (persona.emotionalTrigger || '').toLowerCase();
@@ -5002,6 +5101,7 @@ export default function App() {
                     onGeneratePersona={handleGeneratePersona}
                     onSavePersonas={handleSavePersonas}
                     onSelectPersona={handleSelectPersona}
+                    onGoToPlan={handleGoToPlan}
                   />
                 </LazyTab>
               )}
