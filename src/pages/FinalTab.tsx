@@ -139,7 +139,7 @@ export function FinalTab({
             )}
           </>
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center p-8 text-gray-500">
+          <div className="w-full h-full flex flex-col items-center justify-center p-8 text-gray-500 dark:text-gray-400 dark:text-gray-500">
             {loading ||
             (videoOp && videoOp.status !== 'completed' && videoOp.status !== 'failed') ? (
               <>
@@ -158,7 +158,7 @@ export function FinalTab({
 
                 {generationStage === 'video' && videoOp && (
                   <div className="mt-4 space-y-2 w-full max-w-[240px]">
-                    <div className="flex justify-between text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                    <div className="flex justify-between text-[10px] font-black text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-widest">
                       <span>Fila: {videoOp.queuedTime || 0}s</span>
                       <span>Render: {videoOp.renderTime || 0}s</span>
                     </div>
@@ -169,7 +169,7 @@ export function FinalTab({
                         className="h-full bg-blue-500"
                       />
                     </div>
-                    <div className="flex justify-between text-[9px] font-bold text-gray-400 uppercase tracking-widest">
+                    <div className="flex justify-between text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
                       <span>Status: {videoOp.displayStatus}</span>
                       <span>
                         {videoOp.lastPoll
@@ -244,7 +244,7 @@ export function FinalTab({
                   {logs.map((log, i) => (
                     <p
                       key={`log-item-${i}`}
-                      className="text-[10px] text-gray-500 font-mono text-left opacity-60"
+                      className="text-[10px] text-gray-500 dark:text-gray-400 dark:text-gray-500 font-mono text-left opacity-60"
                     >
                       {log}
                     </p>
@@ -271,7 +271,7 @@ export function FinalTab({
                   <h3 className="text-xl font-black text-white uppercase tracking-tight">
                     Pronto para Gerar?
                   </h3>
-                  <p className="text-sm text-gray-400 max-w-xs mx-auto">
+                  <p className="text-sm text-gray-400 dark:text-gray-500 max-w-xs mx-auto">
                     Clique no botão abaixo para iniciar a geração do vídeo com o avatar e voz
                     selecionados.
                   </p>
@@ -282,7 +282,7 @@ export function FinalTab({
                 >
                   Gerar Vídeo Final
                 </button>
-                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">
+                <p className="text-[10px] text-gray-500 dark:text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest">
                   Custo: 100 Créditos
                 </p>
               </div>
@@ -325,7 +325,7 @@ export function FinalTab({
         {videoUrl && onDuplicateAsVariant && (
           <button
             onClick={onDuplicateAsVariant}
-            className="w-full py-3 bg-white border-2 border-blue-200 text-blue-700 rounded-2xl font-black flex items-center justify-center gap-3 hover:bg-blue-50 transition-all dark:bg-gray-900 dark:border-blue-900 dark:text-blue-300 dark:hover:bg-blue-950/30"
+            className="w-full py-3 bg-white dark:bg-gray-900/80 border-2 border-blue-200 text-blue-700 dark:text-blue-300 rounded-2xl font-black flex items-center justify-center gap-3 hover:bg-blue-50 dark:bg-blue-950/40 transition-all dark:bg-gray-900 dark:border-blue-900 dark:text-blue-300 dark:hover:bg-blue-950/30"
             title="Duplica este projeto como variante A/B para você testar outro avatar"
           >
             <Copy size={18} />
@@ -335,35 +335,37 @@ export function FinalTab({
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-left">
-        <div className="p-4 bg-gray-50 rounded-xl">
-          <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
+        <div className="p-4 bg-gray-50 dark:bg-gray-800/60 rounded-xl">
+          <span className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 tracking-wider">
             Ângulo
           </span>
-          <p className="text-sm font-bold text-gray-700 truncate">{config.angle}</p>
+          <p className="text-sm font-bold text-gray-700 dark:text-gray-300 dark:text-gray-600 truncate">
+            {config.angle}
+          </p>
         </div>
-        <div className="p-4 bg-gray-50 rounded-xl">
-          <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
+        <div className="p-4 bg-gray-50 dark:bg-gray-800/60 rounded-xl">
+          <span className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 tracking-wider">
             Avatar
           </span>
-          <p className="text-sm font-bold text-gray-700 truncate">
+          <p className="text-sm font-bold text-gray-700 dark:text-gray-300 dark:text-gray-600 truncate">
             {config.avatar.faceId === 'custom'
               ? 'Personalizado'
               : AVATARS.find((a) => a.id === config.avatar.faceId)?.name}
           </p>
         </div>
-        <div className="p-4 bg-gray-50 rounded-xl">
-          <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
+        <div className="p-4 bg-gray-50 dark:bg-gray-800/60 rounded-xl">
+          <span className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 tracking-wider">
             Edição
           </span>
-          <p className="text-sm font-bold text-gray-700 truncate">
+          <p className="text-sm font-bold text-gray-700 dark:text-gray-300 dark:text-gray-600 truncate">
             {config.edit.transition !== 'none' ? 'Com Efeitos' : 'Básica'}
           </p>
         </div>
-        <div className="p-4 bg-gray-50 rounded-xl">
-          <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
+        <div className="p-4 bg-gray-50 dark:bg-gray-800/60 rounded-xl">
+          <span className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 tracking-wider">
             Trilha
           </span>
-          <p className="text-sm font-bold text-gray-700 truncate">
+          <p className="text-sm font-bold text-gray-700 dark:text-gray-300 dark:text-gray-600 truncate">
             {config.edit.backgroundMusic !== 'none' ? 'Ativa' : 'Sem Música'}
           </p>
         </div>

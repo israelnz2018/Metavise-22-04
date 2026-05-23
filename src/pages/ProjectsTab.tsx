@@ -125,13 +125,15 @@ export function ProjectsTab({
                 setViewingProjectId(null);
                 setViewingVariant(null);
               }}
-              className="p-3 bg-white border-2 border-gray-100 rounded-2xl text-gray-400 hover:text-blue-600 hover:border-blue-100 transition-all"
+              className="p-3 bg-white dark:bg-gray-900/80 border-2 border-gray-200 dark:border-gray-800 rounded-2xl text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:text-blue-400 hover:border-blue-100 dark:border-blue-900 transition-all"
             >
               <ArrowLeft size={20} />
             </button>
             <div>
-              <h2 className="text-3xl font-black text-gray-900 tracking-tight">{project.name}</h2>
-              <p className="text-sm text-gray-400 font-medium">
+              <h2 className="text-3xl font-black text-gray-900 dark:text-gray-50 tracking-tight">
+                {project.name}
+              </h2>
+              <p className="text-sm text-gray-400 dark:text-gray-500 font-medium">
                 Gerencie as versões e conteúdos deste projeto.
               </p>
             </div>
@@ -139,7 +141,7 @@ export function ProjectsTab({
           <div className="flex items-center gap-3">
             <button
               onClick={() => onDeleteProject(project.id)}
-              className="px-6 py-3 bg-red-50 text-red-600 rounded-2xl font-bold hover:bg-red-100 transition-all flex items-center gap-2"
+              className="px-6 py-3 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 rounded-2xl font-bold hover:bg-red-100 transition-all flex items-center gap-2"
             >
               <Trash2 size={18} />
               Excluir Projeto
@@ -154,10 +156,10 @@ export function ProjectsTab({
           </div>
         </div>
 
-        <div className="bg-white rounded-[40px] border-2 border-gray-100 shadow-xl overflow-hidden">
-          <div className="p-8 border-b border-gray-50 bg-gray-50/30">
+        <div className="bg-white dark:bg-gray-900/80 rounded-[40px] border-2 border-gray-200 dark:border-gray-800 shadow-xl overflow-hidden">
+          <div className="p-8 border-b border-gray-50 bg-gray-50 dark:bg-gray-800/60/30">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+              <h3 className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest flex items-center gap-2">
                 <Tag size={14} /> Subprojetos / Versões ({project.variants?.length || 0})
               </h3>
               <button
@@ -188,8 +190,10 @@ export function ProjectsTab({
                   />
                 ))
               ) : (
-                <div className="p-12 text-center bg-white rounded-3xl border-2 border-dashed border-gray-100">
-                  <p className="text-gray-400 font-bold">Nenhuma versão arquivada ainda.</p>
+                <div className="p-12 text-center bg-white dark:bg-gray-900/80 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-800">
+                  <p className="text-gray-400 dark:text-gray-500 font-bold">
+                    Nenhuma versão arquivada ainda.
+                  </p>
                 </div>
               )}
             </div>
@@ -203,10 +207,10 @@ export function ProjectsTab({
             >
               <div className="space-y-6">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-amber-50 text-amber-600 rounded-lg flex items-center justify-center">
+                  <div className="w-8 h-8 bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 rounded-lg flex items-center justify-center">
                     <Edit3 size={16} />
                   </div>
-                  <h4 className="font-black text-gray-900 uppercase tracking-widest text-xs">
+                  <h4 className="font-black text-gray-900 dark:text-gray-50 uppercase tracking-widest text-xs">
                     Formulário Preenchido
                   </h4>
                 </div>
@@ -214,11 +218,14 @@ export function ProjectsTab({
                   {Object.entries(viewingVariant.config.copy.answers).map(([key, value]) => {
                     if (key === 'existingCopy' || !value) return null;
                     return (
-                      <div key={key} className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">
+                      <div
+                        key={key}
+                        className="p-4 bg-gray-50 dark:bg-gray-800/60 rounded-2xl border border-gray-200 dark:border-gray-800"
+                      >
+                        <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">
                           {key}
                         </p>
-                        <p className="text-sm font-bold text-gray-700">
+                        <p className="text-sm font-bold text-gray-700 dark:text-gray-300 dark:text-gray-600">
                           {Array.isArray(value) ? value.join(', ') : String(value)}
                         </p>
                       </div>
@@ -229,17 +236,17 @@ export function ProjectsTab({
 
               <div className="space-y-6">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center">
+                  <div className="w-8 h-8 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 rounded-lg flex items-center justify-center">
                     <Sparkles size={16} />
                   </div>
-                  <h4 className="font-black text-gray-900 uppercase tracking-widest text-xs">
+                  <h4 className="font-black text-gray-900 dark:text-gray-50 uppercase tracking-widest text-xs">
                     Conteúdo Gerado
                   </h4>
                 </div>
 
                 {viewingVariant.config.videoUrl && (
                   <div className="space-y-4">
-                    <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">
+                    <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">
                       Vídeo Finalizado
                     </p>
                     <div className="aspect-video w-full max-w-2xl mx-auto bg-black rounded-[32px] overflow-hidden shadow-2xl border-4 border-white">
@@ -296,9 +303,9 @@ export function ProjectsTab({
                             return (
                               <div
                                 key={`variant-hook-${i}-${hookText}`}
-                                className="p-4 bg-amber-50/50 rounded-2xl border border-amber-100"
+                                className="p-4 bg-amber-50 dark:bg-amber-950/40/50 rounded-2xl border border-amber-100"
                               >
-                                <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-2">
+                                <p className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest mb-2">
                                   Hook {i + 1}
                                 </p>
                                 <p className="text-sm font-medium text-gray-800 italic">
@@ -310,8 +317,8 @@ export function ProjectsTab({
                         </div>
                       )}
                     <div className="space-y-4">
-                      <div className="p-8 bg-gray-100 text-gray-800 rounded-[32px] shadow-sm relative overflow-hidden border-2 border-gray-200">
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">
+                      <div className="p-8 bg-gray-100 dark:bg-gray-800 text-gray-800 rounded-[32px] shadow-sm relative overflow-hidden border-2 border-gray-200 dark:border-gray-700">
+                        <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-4">
                           Copy Original
                         </p>
                         <p className="text-sm font-medium leading-relaxed relative z-10 whitespace-pre-wrap">
@@ -335,8 +342,8 @@ export function ProjectsTab({
                     </div>
                   </div>
                 ) : (
-                  <div className="p-12 text-center bg-gray-50 rounded-[32px] border-2 border-dashed border-gray-200">
-                    <p className="text-gray-400 font-bold">
+                  <div className="p-12 text-center bg-gray-50 dark:bg-gray-800/60 rounded-[32px] border-2 border-dashed border-gray-200 dark:border-gray-700">
+                    <p className="text-gray-400 dark:text-gray-500 font-bold">
                       Nenhum conteúdo gerado para esta versão.
                     </p>
                   </div>
@@ -357,7 +364,7 @@ export function ProjectsTab({
           <h3 className="text-2xl font-black text-gray-900 dark:text-gray-50 tracking-tight">
             Meus Projetos
           </h3>
-          <p className="text-gray-500 dark:text-gray-400 text-sm">
+          <p className="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm">
             Gerencie seus projetos e criações.
           </p>
         </div>
@@ -378,19 +385,19 @@ export function ProjectsTab({
           <div className="relative flex-1 min-w-[200px]">
             <Search
               size={16}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 dark:text-gray-600"
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 dark:text-gray-600 dark:text-gray-400 dark:text-gray-500"
             />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar pelo nome…"
-              className="w-full pl-11 pr-10 py-3 bg-gray-50 dark:bg-gray-800/60 border border-transparent rounded-xl text-sm focus:bg-white dark:focus:bg-gray-800 focus:border-blue-400 dark:focus:border-blue-700 outline-none transition-all dark:text-gray-100 dark:placeholder:text-gray-500"
+              className="w-full pl-11 pr-10 py-3 bg-gray-50 dark:bg-gray-800/60 border border-transparent rounded-xl text-sm focus:bg-white dark:bg-gray-900/80 dark:focus:bg-gray-800 focus:border-blue-400 dark:focus:border-blue-700 outline-none transition-all dark:text-gray-100 dark:placeholder:text-gray-500 dark:text-gray-400 dark:text-gray-500"
             />
             {search && (
               <button
                 onClick={() => setSearch('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-300"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 dark:text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:hover:text-gray-300 dark:text-gray-600"
                 title="Limpar"
               >
                 <X size={14} />
@@ -398,15 +405,15 @@ export function ProjectsTab({
             )}
           </div>
 
-          <div className="flex items-center gap-1 p-1 bg-gray-100/70 dark:bg-gray-800/60 rounded-xl">
+          <div className="flex items-center gap-1 p-1 bg-gray-100 dark:bg-gray-800/70 dark:bg-gray-800/60 rounded-xl">
             {TYPE_FILTERS.map((f) => (
               <button
                 key={f.value}
                 onClick={() => setTypeFilter(f.value)}
                 className={`px-3 py-2 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all ${
                   typeFilter === f.value
-                    ? 'bg-white text-blue-600 shadow-sm dark:bg-gray-900 dark:text-blue-300'
-                    : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
+                    ? 'bg-white dark:bg-gray-900/80 text-blue-600 dark:text-blue-400 shadow-sm dark:bg-gray-900 dark:text-blue-300'
+                    : 'text-gray-400 dark:text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:hover:text-gray-300 dark:text-gray-600'
                 }`}
               >
                 {f.label}
@@ -417,7 +424,7 @@ export function ProjectsTab({
           <select
             value={sortMode}
             onChange={(e) => setSortMode(e.target.value as SortMode)}
-            className="px-4 py-3 bg-gray-50 dark:bg-gray-800/60 border border-transparent rounded-xl text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-300 focus:bg-white dark:focus:bg-gray-800 focus:border-blue-400 dark:focus:border-blue-700 outline-none cursor-pointer"
+            className="px-4 py-3 bg-gray-50 dark:bg-gray-800/60 border border-transparent rounded-xl text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-300 dark:text-gray-600 focus:bg-white dark:bg-gray-900/80 dark:focus:bg-gray-800 focus:border-blue-400 dark:focus:border-blue-700 outline-none cursor-pointer"
           >
             <option value="recent">Mais recente</option>
             <option value="oldest">Mais antigo</option>
@@ -425,7 +432,7 @@ export function ProjectsTab({
           </select>
 
           {(search || typeFilter !== 'all') && (
-            <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-auto">
+            <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-auto">
               {filteredProjects.length} de {projects.length}
             </span>
           )}
@@ -442,7 +449,7 @@ export function ProjectsTab({
               <p className="text-lg font-bold text-gray-900 dark:text-gray-50">
                 Nenhum projeto encontrado
               </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">
                 Comece criando seu primeiro projeto agora mesmo.
               </p>
             </div>
@@ -458,7 +465,7 @@ export function ProjectsTab({
             <p className="text-lg font-bold text-gray-900 dark:text-gray-50">
               Nenhum projeto bate com sua busca
             </p>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500">
               Tente outro termo ou limpe os filtros.
             </p>
             <button
@@ -466,7 +473,7 @@ export function ProjectsTab({
                 setSearch('');
                 setTypeFilter('all');
               }}
-              className="mt-2 px-5 py-2 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-black dark:hover:bg-white transition-colors"
+              className="mt-2 px-5 py-2 bg-gray-900 dark:bg-gray-100 dark:bg-gray-800 text-white dark:text-gray-900 dark:text-gray-50 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-black dark:hover:bg-white dark:bg-gray-900/80 transition-colors"
             >
               Limpar filtros
             </button>
@@ -490,7 +497,7 @@ export function ProjectsTab({
                   </span>
                 )}
                 <div className="flex items-start justify-between mb-4">
-                  <div className="w-11 h-11 bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600 dark:from-blue-950/40 dark:to-blue-900/30 dark:text-blue-400 rounded-xl flex items-center justify-center ring-1 ring-blue-100/60 dark:ring-blue-900/40 group-hover:from-blue-500 group-hover:to-blue-600 group-hover:text-white group-hover:ring-blue-400 transition-all">
+                  <div className="w-11 h-11 bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600 dark:text-blue-400 dark:from-blue-950/40 dark:to-blue-900/30 dark:text-blue-400 rounded-xl flex items-center justify-center ring-1 ring-blue-100/60 dark:ring-blue-900/40 group-hover:from-blue-500 group-hover:to-blue-600 group-hover:text-white group-hover:ring-blue-400 transition-all">
                     {project.type === 'complete' ? (
                       <Video size={22} />
                     ) : project.type === 'copy' ? (
@@ -507,7 +514,7 @@ export function ProjectsTab({
                         e.stopPropagation();
                         onDuplicateProject(project);
                       }}
-                      className="p-1.5 text-gray-300 dark:text-gray-600 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-lg transition-colors"
+                      className="p-1.5 text-gray-300 dark:text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-400 hover:bg-blue-50 dark:bg-blue-950/40 dark:hover:bg-blue-950/40 rounded-lg transition-colors"
                       title="Duplicar Projeto"
                     >
                       <Copy size={16} />
@@ -517,7 +524,7 @@ export function ProjectsTab({
                         e.stopPropagation();
                         onDeleteProject(project.id);
                       }}
-                      className="p-1.5 text-gray-300 dark:text-gray-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors"
+                      className="p-1.5 text-gray-300 dark:text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:text-red-500 hover:bg-red-50 dark:bg-red-950/40 dark:hover:bg-red-950/40 rounded-lg transition-colors"
                       title="Excluir Projeto"
                     >
                       <Trash2 size={16} />
@@ -539,7 +546,7 @@ export function ProjectsTab({
                 </p>
 
                 <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-800">
-                  <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+                  <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-widest">
                     {project.createdAt?.toDate
                       ? project.createdAt.toDate().toLocaleDateString()
                       : 'Recentemente'}
