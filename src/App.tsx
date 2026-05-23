@@ -4628,9 +4628,12 @@ export default function App() {
 
           {currentProjectId && (
             <div className="hidden lg:flex items-center gap-3">
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
-                <Folder size={14} className="text-gray-400 dark:text-gray-500" />
-                <span className="text-[10px] font-black text-gray-600 dark:text-gray-300 uppercase tracking-widest truncate max-w-[120px]">
+              {/* Active project chip. Subtle gradient, softer ring,
+                  small dot indicator that the project is live. */}
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-br from-gray-50 to-gray-100/60 dark:from-gray-800/80 dark:to-gray-800/40 rounded-xl ring-1 ring-gray-200/60 dark:ring-gray-700/60">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-sm shadow-green-500/40 animate-pulse" />
+                <Folder size={13} className="text-gray-400 dark:text-gray-500" />
+                <span className="text-[10px] font-black text-gray-600 dark:text-gray-300 uppercase tracking-widest truncate max-w-[140px]">
                   {projects.find((p) => p.id === currentProjectId)?.name || 'Projeto Ativo'}
                 </span>
               </div>
@@ -4697,10 +4700,14 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-950/40 rounded-xl border border-blue-100 dark:border-blue-900">
-              <Sparkles className="text-blue-600 dark:text-blue-400" size={16} />
-              <span className="text-sm font-black text-blue-700 dark:text-blue-300">{credits}</span>
-              <span className="text-[10px] font-bold text-blue-400 dark:text-blue-500 uppercase tracking-widest">
+            {/* Credits chip. Gradient + soft glow so it feels like a
+                premium status indicator, not just an info pill. */}
+            <div className="hidden sm:flex items-center gap-2 px-3.5 py-2 bg-gradient-to-br from-blue-50 to-blue-100/60 dark:from-blue-950/40 dark:to-blue-900/30 rounded-xl ring-1 ring-blue-200/60 dark:ring-blue-800/60 shadow-sm shadow-blue-200/30 dark:shadow-blue-900/20">
+              <Sparkles className="text-blue-600 dark:text-blue-400" size={15} />
+              <span className="text-sm font-black text-blue-700 dark:text-blue-300 tabular-nums">
+                {credits}
+              </span>
+              <span className="text-[10px] font-bold text-blue-500/70 dark:text-blue-500 uppercase tracking-widest">
                 Créditos
               </span>
             </div>
