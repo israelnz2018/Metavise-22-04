@@ -558,6 +558,23 @@ REGRAS:
 - Inferir dor, desejo, medo e objeção mesmo sem o usuário ter dito explicitamente.
 - Ângulo de vídeo deve ser concreto, não genérico.
 
+⚠️ ATENÇÃO — CAMPOS NOVOS DE CONFIDENCE (críticos pra distribuição de criativos):
+- "confidence" (0.0-1.0): quão FORTE a fonte sustenta essa persona.
+  • 0.85-1.0 → fonte fala diretamente desse perfil
+  • 0.6-0.84 → inferência clara mas não explícita
+  • 0.4-0.59 → inferência razoável mas com lacunas
+  • < 0.4   → especulação, persona "esticada"
+- "suggestedWeight" (0.0-1.0): % sugerido de criativos pra essa persona.
+  • Soma das 3 personas DEVE SER EXATAMENTE 1.0
+  • Reflete: confidence × potencial de conversão estimado
+- "evidence": 1-3 frases curtas (citações ou paráfrases) da fonte que justificam essa persona
+- "isStretch" (boolean): true SOMENTE quando confidence < 0.5 — persona é especulação adjacente, não dado da fonte. Quando true, suggestedWeight deve ser ≤ 0.15.
+
+EXEMPLO DE PESOS típico:
+- VSL mono-persona forte → 0.85 / 0.15 / 0.0 (ou marque terciária com isStretch:true)
+- VSL com cuidador implícito (estilo Arya Leaf) → 0.65 / 0.30 / 0.05
+- Produto que serve 3 públicos distintos → 0.50 / 0.30 / 0.20
+
 FORMATO (JSON apenas):
 {
   "personas": [
@@ -580,10 +597,14 @@ FORMATO (JSON apenas):
       "recommendedHookType": "Tipo de hook",
       "communicationTone": "Tom",
       "strongestPromise": "Promessa mais forte",
-      "recommendedCTA": "CTA específico"
+      "recommendedCTA": "CTA específico",
+      "confidence": 0.85,
+      "suggestedWeight": 0.55,
+      "evidence": ["citação 1", "citação 2"],
+      "isStretch": false
     },
-    { "rank": "secundaria", ... mesmos campos },
-    { "rank": "terciaria", ... mesmos campos }
+    { "rank": "secundaria", ... mesmos campos incluindo confidence/suggestedWeight/evidence/isStretch },
+    { "rank": "terciaria", ... mesmos campos incluindo confidence/suggestedWeight/evidence/isStretch }
   ]
 }`;
 
