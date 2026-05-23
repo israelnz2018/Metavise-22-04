@@ -135,7 +135,7 @@ export function IntegrationsTab({
       <div className="p-8 bg-white/80 dark:bg-gray-900/60 rounded-3xl ring-1 ring-gray-200/60 dark:ring-gray-800/60 shadow-xl shadow-gray-200/40 dark:shadow-black/30 space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-500/30 dark:shadow-blue-900/40 ring-1 ring-inset ring-white/20">
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-blue-200/60 dark:shadow-blue-900/30 ring-1 ring-inset ring-white/20">
               <RefreshCw size={22} />
             </div>
             <div>

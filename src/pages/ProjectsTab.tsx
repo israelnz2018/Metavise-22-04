@@ -370,7 +370,7 @@ export function ProjectsTab({
         </div>
         <button
           onClick={() => setShowNewProjectModal(true)}
-          className="px-5 py-2.5 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl font-bold hover:from-blue-600 hover:to-blue-700 active:scale-[0.98] transition-all shadow-lg shadow-blue-500/30 dark:shadow-blue-900/40 ring-1 ring-inset ring-white/20 flex items-center gap-2"
+          className="px-5 py-2.5 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl font-bold hover:from-blue-600 hover:to-blue-700 active:scale-[0.98] transition-all shadow-xl shadow-blue-200/60 dark:shadow-blue-900/30 ring-1 ring-inset ring-white/20 flex items-center gap-2"
         >
           <Sparkles size={16} />
           Criar Novo Projeto
@@ -455,7 +455,7 @@ export function ProjectsTab({
             </div>
             <button
               onClick={() => setShowNewProjectModal(true)}
-              className="px-6 py-2.5 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl font-bold hover:from-blue-600 hover:to-blue-700 active:scale-[0.98] transition-all shadow-lg shadow-blue-500/30"
+              className="px-6 py-2.5 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl font-bold hover:from-blue-600 hover:to-blue-700 active:scale-[0.98] transition-all shadow-xl shadow-blue-200/60 dark:shadow-blue-900/30"
             >
               Criar Primeiro Projeto
             </button>

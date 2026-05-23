@@ -75,7 +75,7 @@ export function SourceTab({ existingInfo, onExtracted, onContinueManual, onConti
             onClick={() => setMode('auto')}
             className="group relative bg-gradient-to-br from-white to-purple-50/30 dark:from-gray-900/80 dark:to-purple-950/20 ring-1 ring-purple-300/60 dark:ring-purple-800/60 hover:ring-purple-500 dark:hover:ring-purple-500 hover:shadow-xl hover:shadow-purple-200/40 dark:hover:shadow-purple-900/40 hover:-translate-y-0.5 rounded-2xl p-7 text-left transition-all duration-200 space-y-4"
           >
-            <span className="absolute top-4 right-4 text-[10px] font-black uppercase tracking-widest bg-gradient-to-br from-purple-500 to-purple-700 text-white px-2.5 py-1 rounded-full shadow-md shadow-purple-500/30 ring-1 ring-inset ring-white/20">
+            <span className="absolute top-4 right-4 text-[10px] font-black uppercase tracking-widest bg-gradient-to-br from-purple-500 to-purple-700 text-white px-2.5 py-1 rounded-full shadow-xl shadow-purple-200/60 dark:shadow-purple-900/30 ring-1 ring-inset ring-white/20">
               Recomendado
             </span>
             <div className="w-12 h-12 bg-gradient-to-br from-purple-100 to-purple-200/60 dark:from-purple-950/40 dark:to-purple-900/20 text-purple-700 dark:text-purple-400 rounded-xl flex items-center justify-center ring-1 ring-purple-200/60 dark:ring-purple-900/40 transition-all">
@@ -228,7 +228,7 @@ export function SourceTab({ existingInfo, onExtracted, onContinueManual, onConti
       <button
         onClick={handleExtract}
         disabled={loading || (!text.trim() && !url.trim() && !youtubeUrl.trim())}
-        className="w-full bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 disabled:from-gray-200 disabled:to-gray-300 dark:disabled:from-gray-800 dark:disabled:to-gray-700 disabled:text-gray-400 disabled:shadow-none text-white font-black uppercase text-sm tracking-widest py-4 rounded-xl shadow-lg shadow-purple-500/30 dark:shadow-purple-900/40 ring-1 ring-inset ring-white/20 flex items-center justify-center gap-3 transition-all active:scale-[0.99] disabled:active:scale-100 disabled:cursor-not-allowed"
+        className="w-full bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 disabled:from-gray-200 disabled:to-gray-300 dark:disabled:from-gray-800 dark:disabled:to-gray-700 disabled:text-gray-400 disabled:shadow-none text-white font-black uppercase text-sm tracking-widest py-4 rounded-xl shadow-xl shadow-purple-200/60 dark:shadow-purple-900/30 ring-1 ring-inset ring-white/20 flex items-center justify-center gap-3 transition-all active:scale-[0.99] disabled:active:scale-100 disabled:cursor-not-allowed"
       >
         {loading ? (
           <>

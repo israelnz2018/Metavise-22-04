@@ -148,7 +148,7 @@ export function NewProjectModal({
           <button
             onClick={onCreate}
             disabled={isSaving || !name.trim()}
-            className="flex-1 py-3 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl font-black uppercase text-[10px] tracking-widest hover:from-blue-600 hover:to-blue-700 active:scale-[0.98] transition-all shadow-lg shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-blue-500 flex items-center justify-center gap-2 ring-1 ring-inset ring-white/20"
+            className="flex-1 py-3 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl font-black uppercase text-[10px] tracking-widest hover:from-blue-600 hover:to-blue-700 active:scale-[0.98] transition-all shadow-xl shadow-blue-200/60 dark:shadow-blue-900/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-blue-500 flex items-center justify-center gap-2 ring-1 ring-inset ring-white/20"
           >
             {isSaving ? <Loader2 className="animate-spin" size={16} /> : 'Criar Projeto'}
           </button>

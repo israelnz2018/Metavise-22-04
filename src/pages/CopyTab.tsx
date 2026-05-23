@@ -1300,7 +1300,7 @@ export function CopyTab({
               <button
                 onClick={handleGenerateCopy}
                 disabled={loading}
-                className="px-12 py-8 bg-blue-700 text-white rounded-[32px] font-black text-2xl flex items-center justify-center gap-4 shadow-2xl shadow-blue-500/30 hover:bg-blue-800 transition-all hover:scale-[1.02] active:scale-95 ring-8 ring-blue-500/10 border-4 border-blue-400/20 disabled:opacity-50"
+                className="px-12 py-8 bg-blue-700 text-white rounded-[32px] font-black text-2xl flex items-center justify-center gap-4 shadow-xl shadow-blue-200/60 dark:shadow-blue-900/30 hover:bg-blue-800 transition-all hover:scale-[1.02] active:scale-95 ring-8 ring-blue-500/10 border-4 border-blue-400/20 disabled:opacity-50"
               >
                 {loading ? (
                   <Loader2 className="animate-spin" size={32} />
