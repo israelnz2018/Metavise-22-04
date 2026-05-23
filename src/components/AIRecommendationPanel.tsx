@@ -1,9 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Sparkles, Loader2, RefreshCw, Wand2 } from 'lucide-react';
-import {
-  recommendAvatarAndVoice,
-  type AvatarVoiceRecommendation,
-} from '../lib/claudeService';
+import { recommendAvatarAndVoice, type AvatarVoiceRecommendation } from '@/lib/claudeService';
 
 // Cache shape includes a fingerprint of the inputs that produced the
 // recommendation. When the current inputs no longer match the cached
@@ -39,7 +36,7 @@ function buildInputsKey(
   persona: any,
   copyAnswers: any,
   copy: string | undefined,
-  productInfo: any,
+  productInfo: any
 ) {
   return JSON.stringify({
     p: persona ?? null,
@@ -92,7 +89,7 @@ const AVATAR_LABEL_PT: Record<string, string> = {
   excited: 'Empolgado',
 };
 
-const t = (v?: string) => (v ? AVATAR_LABEL_PT[v] ?? v : '—');
+const t = (v?: string) => (v ? (AVATAR_LABEL_PT[v] ?? v) : '—');
 
 export function AIRecommendationPanel({
   persona,
@@ -108,7 +105,7 @@ export function AIRecommendationPanel({
   const cacheIsValid = cached && cached.inputsKey === currentInputsKey;
 
   const [rec, setRec] = useState<AvatarVoiceRecommendation | null>(
-    cacheIsValid ? cached!.rec : null,
+    cacheIsValid ? cached!.rec : null
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -149,9 +146,7 @@ export function AIRecommendationPanel({
             <h4 className="text-sm font-black uppercase tracking-widest text-purple-900">
               IA recomenda — {variant === 'avatar' ? 'Avatar ideal' : 'Voz ideal'}
             </h4>
-            <p className="text-xs text-purple-600 mt-0.5">
-              Baseado na persona + copy do projeto
-            </p>
+            <p className="text-xs text-purple-600 mt-0.5">Baseado na persona + copy do projeto</p>
           </div>
         </div>
         <button
@@ -181,8 +176,7 @@ export function AIRecommendationPanel({
                 : 'Não consegui gerar a recomendação.'}
             </p>
             <p className="text-xs text-amber-800">
-              Você pode continuar escolhendo manualmente e tentar novamente em
-              alguns minutos.
+              Você pode continuar escolhendo manualmente e tentar novamente em alguns minutos.
             </p>
           </div>
           <button

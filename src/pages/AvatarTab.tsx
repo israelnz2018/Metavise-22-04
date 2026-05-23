@@ -14,7 +14,7 @@
 // catches typos in field reads.
 
 import React, { useEffect, useState } from 'react';
-import type { AdConfig } from '../App';
+import type { AdConfig } from '@/App';
 import { toast } from 'react-hot-toast';
 import { motion } from 'motion/react';
 import {
@@ -37,25 +37,19 @@ import {
   Video,
   Star,
 } from 'lucide-react';
-import { cn, getVideoAspectRatioClass } from '../lib/utils';
-import { getAuthorizedUrl } from '../lib/gemini';
-import type { ProductInfo } from '../lib/claudeService';
-import {
-  AVATAR_FILTER_TO_ENRICHMENT,
-  HEYGEN_NAME_KEYWORDS,
-} from '../lib/constants';
-import {
-  loadAvatarEnrichment,
-  type EnrichmentMap,
-} from '../lib/avatarEnrichment';
-import { useAvatarFavorites } from '../hooks/useAvatarFavorites';
+import { cn, getVideoAspectRatioClass } from '@/lib/utils';
+import { getAuthorizedUrl } from '@/lib/gemini';
+import type { ProductInfo } from '@/lib/claudeService';
+import { AVATAR_FILTER_TO_ENRICHMENT, HEYGEN_NAME_KEYWORDS } from '@/lib/constants';
+import { loadAvatarEnrichment, type EnrichmentMap } from '@/lib/avatarEnrichment';
+import { useAvatarFavorites } from '@/hooks/useAvatarFavorites';
 import {
   AIRecommendationPanel,
   type CachedRecommendation,
-} from '../components/AIRecommendationPanel';
-import { AvatarPreviewModal } from '../components/AvatarPreviewModal';
-import { ConfirmModal } from '../components/ConfirmModal';
-import { ElevenLabsConfigModal } from '../components/ElevenLabsConfigModal';
+} from '@/components/AIRecommendationPanel';
+import { AvatarPreviewModal } from '@/components/AvatarPreviewModal';
+import { ConfirmModal } from '@/components/ConfirmModal';
+import { ElevenLabsConfigModal } from '@/components/ElevenLabsConfigModal';
 
 interface Props {
   config: AdConfig;
@@ -228,12 +222,11 @@ export function AvatarTab({
     // the avatar name (lossy heuristic) when the avatar isn't in the JSON.
     const matchesFilter = (
       selectedItems: string[],
-      filterType: keyof typeof HEYGEN_NAME_KEYWORDS,
+      filterType: keyof typeof HEYGEN_NAME_KEYWORDS
     ) => {
       if (selectedItems.length === 0) return true;
       return selectedItems.some((selectedItem) => {
-        const enrichmentValues =
-          AVATAR_FILTER_TO_ENRICHMENT[filterType][selectedItem] || [];
+        const enrichmentValues = AVATAR_FILTER_TO_ENRICHMENT[filterType][selectedItem] || [];
         const enrichmentField =
           filterType === 'ages'
             ? enrichment.age
@@ -258,7 +251,9 @@ export function AvatarTab({
     // Favorites overrides everything when toggled on — that's the point.
     const matchesFav = !showOnlyFavorites || favorites.isFavorite(a.avatar_id);
 
-    return matchesSearch && matchesGender && matchesAge && matchesStyle && matchesEthnicity && matchesFav;
+    return (
+      matchesSearch && matchesGender && matchesAge && matchesStyle && matchesEthnicity && matchesFav
+    );
   });
 
   // Fallback: If strict filtering returns zero, but we HAVE selected filters,
@@ -308,14 +303,11 @@ export function AvatarTab({
   });
 
   const isHookMode = avatarMode === 'hook';
-  const hookAudioUrl =
-    (config.copy?.hookAudioUrl as string | undefined) || '';
+  const hookAudioUrl = (config.copy?.hookAudioUrl as string | undefined) || '';
   const hookAudioStoragePath =
     (config.copy?.hookAudioStoragePath as string | null | undefined) || null;
-  const hookVideos =
-    (config.copy?.hookVideos as typeof videos | undefined) || [];
-  const hookVideoUrl =
-    (config.copy?.hookVideoUrl as string | undefined) || '';
+  const hookVideos = (config.copy?.hookVideos as typeof videos | undefined) || [];
+  const hookVideoUrl = (config.copy?.hookVideoUrl as string | undefined) || '';
   const displayedAudioUrl = isHookMode ? hookAudioUrl : config.audioUrl;
   const displayedAudioStoragePath = isHookMode
     ? hookAudioStoragePath
@@ -333,24 +325,18 @@ export function AvatarTab({
           <button
             onClick={() => setAvatarMode('body')}
             className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-              !isHookMode
-                ? 'bg-gray-900 text-white shadow-md'
-                : 'text-gray-500 hover:bg-gray-50'
+              !isHookMode ? 'bg-gray-900 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'
             }`}
           >
             Avatar do Corpo
             {(config.videos || []).length > 0 && (
-              <span className="ml-2 text-[9px] opacity-70">
-                ({(config.videos || []).length})
-              </span>
+              <span className="ml-2 text-[9px] opacity-70">({(config.videos || []).length})</span>
             )}
           </button>
           <button
             onClick={() => setAvatarMode('hook')}
             className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-              isHookMode
-                ? 'bg-amber-500 text-white shadow-md'
-                : 'text-gray-500 hover:bg-amber-50'
+              isHookMode ? 'bg-amber-500 text-white shadow-md' : 'text-gray-500 hover:bg-amber-50'
             }`}
           >
             Avatar do Gancho
@@ -516,12 +502,10 @@ export function AvatarTab({
               <RefreshCw size={24} />
             </div>
             <div className="space-y-1">
-              <h4 className="text-lg font-black text-amber-900">
-                Modo de Fallback (Diagnóstico)
-              </h4>
+              <h4 className="text-lg font-black text-amber-900">Modo de Fallback (Diagnóstico)</h4>
               <p className="text-amber-700 text-sm font-medium">
-                Se a geração com áudio externo falhar, use esta opção para testar com uma voz
-                nativa do HeyGen.
+                Se a geração com áudio externo falhar, use esta opção para testar com uma voz nativa
+                do HeyGen.
               </p>
             </div>
           </div>
@@ -554,8 +538,7 @@ export function AvatarTab({
           >
             <video
               src={
-                getAuthorizedUrl(displayedVideoUrl || '', platformApiKey || undefined) ||
-                undefined
+                getAuthorizedUrl(displayedVideoUrl || '', platformApiKey || undefined) || undefined
               }
               controls
               className="w-full h-full object-contain"
@@ -642,7 +625,7 @@ export function AvatarTab({
       )}
 
       {/* Video History List */}
-      {(isHookMode ? hookVideos : (videos || [])).length > 0 && (
+      {(isHookMode ? hookVideos : videos || []).length > 0 && (
         <div className="bg-white p-8 rounded-[40px] border-2 border-gray-100 shadow-xl space-y-6">
           <div className="flex items-center justify-between border-b border-gray-50 pb-6">
             <div className="space-y-1">
@@ -655,13 +638,13 @@ export function AvatarTab({
               </p>
             </div>
             <span className="px-3 py-1 bg-gray-100 text-gray-500 rounded-full text-[10px] font-black uppercase tracking-widest">
-              {(isHookMode ? hookVideos : (videos || [])).length}{' '}
-              {(isHookMode ? hookVideos : (videos || [])).length === 1 ? 'Vídeo' : 'Vídeos'}
+              {(isHookMode ? hookVideos : videos || []).length}{' '}
+              {(isHookMode ? hookVideos : videos || []).length === 1 ? 'Vídeo' : 'Vídeos'}
             </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
-            {(isHookMode ? hookVideos : (videos || [])).map((video, idx) => (
+            {(isHookMode ? hookVideos : videos || []).map((video, idx) => (
               <div
                 key={`variant-video-${idx}-${video.url || 'no-url'}`}
                 onClick={() => {
@@ -799,7 +782,9 @@ export function AvatarTab({
         <AIRecommendationPanel
           persona={config.copy.answers}
           copyAnswers={config.copy.answers}
-          copy={config.copy.finalScript || config.copy.optimizedScript || config.copy.generatedScript}
+          copy={
+            config.copy.finalScript || config.copy.optimizedScript || config.copy.generatedScript
+          }
           productInfo={(config.copy?.productInfo as ProductInfo | null) || undefined}
           variant="avatar"
           cached={avatarRecommendation}
@@ -831,7 +816,9 @@ export function AvatarTab({
               gender: rec.avatar.gender,
               ages: ageReverse[rec.avatar.age] ? [ageReverse[rec.avatar.age]!] : [],
               styles: styleReverse[rec.avatar.style] ? [styleReverse[rec.avatar.style]!] : [],
-              ethnicities: ethReverse[rec.avatar.ethnicity] ? [ethReverse[rec.avatar.ethnicity]!] : [],
+              ethnicities: ethReverse[rec.avatar.ethnicity]
+                ? [ethReverse[rec.avatar.ethnicity]!]
+                : [],
             }));
             toast.success('Filtros sugeridos aplicados!');
           }}
@@ -860,10 +847,7 @@ export function AvatarTab({
                 }`}
                 title="Mostrar somente seus avatares favoritos"
               >
-                <Star
-                  size={14}
-                  className={showOnlyFavorites ? 'fill-current' : ''}
-                />
+                <Star size={14} className={showOnlyFavorites ? 'fill-current' : ''} />
                 Favoritos ({favorites.favoriteCount})
               </button>
             </div>
@@ -1118,8 +1102,7 @@ export function AvatarTab({
                     Vídeo Atualizado
                   </span>
                   <span className="text-[8px] font-bold opacity-70">
-                    Gerado em{' '}
-                    {new Date(config.lastVideoMetadata?.createdAt || '').toLocaleString()}
+                    Gerado em {new Date(config.lastVideoMetadata?.createdAt || '').toLocaleString()}
                   </span>
                 </div>
               </div>
@@ -1232,9 +1215,7 @@ export function AvatarTab({
                       <p className="text-[10px] font-black text-red-500 uppercase tracking-widest">
                         Alerta de Travamento
                       </p>
-                      <p className="text-[10px] text-red-400 font-medium">
-                        {videoOp.stuckReason}
-                      </p>
+                      <p className="text-[10px] text-red-400 font-medium">{videoOp.stuckReason}</p>
                     </div>
                   </div>
                 )}
@@ -1454,9 +1435,7 @@ export function AvatarTab({
                       favorites.toggle(a.avatar_id);
                     }}
                     className={`absolute z-10 ${
-                      config.avatar.faceId === a.avatar_id
-                        ? 'top-3 left-3'
-                        : 'top-3 right-3'
+                      config.avatar.faceId === a.avatar_id ? 'top-3 left-3' : 'top-3 right-3'
                     } w-8 h-8 rounded-full flex items-center justify-center shadow-lg border-2 border-white transition-all ${
                       favorites.isFavorite(a.avatar_id)
                         ? 'bg-amber-400 text-amber-950'

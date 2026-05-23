@@ -15,7 +15,7 @@ import {
   Download,
 } from 'lucide-react';
 import jsPDF from 'jspdf';
-import { generateMarketingPlan, type MarketingPlan } from '../lib/claudeService';
+import { generateMarketingPlan, type MarketingPlan } from '@/lib/claudeService';
 
 interface Props {
   productInfo?: any;
@@ -75,7 +75,11 @@ export function PlanTab({
     const maxWidth = 612 - 2 * margin;
     let y = margin;
 
-    const writeLine = (text: string, size = 11, opts: { bold?: boolean; color?: [number, number, number] } = {}) => {
+    const writeLine = (
+      text: string,
+      size = 11,
+      opts: { bold?: boolean; color?: [number, number, number] } = {}
+    ) => {
       doc.setFontSize(size);
       doc.setFont('helvetica', opts.bold ? 'bold' : 'normal');
       if (opts.color) doc.setTextColor(...opts.color);
@@ -112,14 +116,18 @@ export function PlanTab({
     writeLine(plan.summary);
 
     heading('Volume de criativos');
-    writeLine(`Total: ${plan.creativeVolume.totalCreatives}  ·  Por audiência: ${plan.creativeVolume.perAudience}`, 11, { bold: true });
+    writeLine(
+      `Total: ${plan.creativeVolume.totalCreatives}  ·  Por audiência: ${plan.creativeVolume.perAudience}`,
+      11,
+      { bold: true }
+    );
     writeLine(plan.creativeVolume.rationale);
 
     heading('Estrutura de campanha');
     writeLine(
       `${plan.adStructure.campaigns} campanha(s) · ${plan.adStructure.adSets} ad set(s) · ${plan.adStructure.creativesPerAdSet} criativos por set`,
       11,
-      { bold: true },
+      { bold: true }
     );
     writeLine(plan.adStructure.rationale);
 
@@ -145,7 +153,7 @@ export function PlanTab({
     writeLine(
       `Mínimo: R$${plan.budget.dailyMin}/dia  ·  Recomendado: R$${plan.budget.dailyRecommended}/dia`,
       11,
-      { bold: true },
+      { bold: true }
     );
     writeLine(plan.budget.rationale);
 
@@ -173,14 +181,11 @@ export function PlanTab({
     <div className="max-w-6xl mx-auto space-y-8">
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-2">
-          <h2 className="text-3xl font-black text-gray-900 tracking-tight">
-            Plano de Marketing
-          </h2>
+          <h2 className="text-3xl font-black text-gray-900 tracking-tight">Plano de Marketing</h2>
           <p className="text-sm text-gray-600 max-w-2xl">
-            Estratégia completa pra Meta Ads considerando Andromeda: volume e
-            diversidade vencem perfeição individual. Quantos criativos, quais
-            ângulos, durações, estrutura de campanha — tudo calculado pra esse
-            produto + persona.
+            Estratégia completa pra Meta Ads considerando Andromeda: volume e diversidade vencem
+            perfeição individual. Quantos criativos, quais ângulos, durações, estrutura de campanha
+            — tudo calculado pra esse produto + persona.
           </p>
         </div>
         <div className="flex items-center gap-4">
@@ -207,9 +212,7 @@ export function PlanTab({
       {/* Skip-to-copy shortcut: user can bypass the plan and jump straight
           to copywriting if they don't need the strategy guide right now. */}
       <div className="bg-gray-50 border border-gray-200 rounded-2xl px-5 py-3 flex items-center justify-between gap-4">
-        <p className="text-xs text-gray-600">
-          Não quer ver o plano agora? Pode pular pra Copy.
-        </p>
+        <p className="text-xs text-gray-600">Não quer ver o plano agora? Pode pular pra Copy.</p>
         <button
           onClick={onContinue}
           className="text-xs font-black uppercase tracking-widest text-gray-700 hover:text-gray-900 flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white border border-gray-200 hover:border-gray-400"
@@ -222,9 +225,7 @@ export function PlanTab({
       {loading && !plan && (
         <div className="bg-purple-50 border-2 border-purple-200 rounded-3xl p-12 text-center">
           <Loader2 className="animate-spin mx-auto mb-3 text-purple-600" size={32} />
-          <p className="text-sm text-purple-800 font-bold">
-            Construindo plano de marketing...
-          </p>
+          <p className="text-sm text-purple-800 font-bold">Construindo plano de marketing...</p>
           <p className="text-xs text-purple-600 mt-1">
             Pode levar 20-40s (Claude analisando produto + persona)
           </p>
@@ -288,10 +289,7 @@ export function PlanTab({
               <div className="flex gap-4 mb-2">
                 <Stat label="Campanhas" value={plan.adStructure.campaigns} />
                 <Stat label="Ad sets" value={plan.adStructure.adSets} />
-                <Stat
-                  label="Crtvs/set"
-                  value={plan.adStructure.creativesPerAdSet}
-                />
+                <Stat label="Crtvs/set" value={plan.adStructure.creativesPerAdSet} />
               </div>
               <p className="text-xs text-gray-500 mt-3 leading-relaxed">
                 {plan.adStructure.rationale}
@@ -321,9 +319,7 @@ export function PlanTab({
                       {h.count}×
                     </span>
                   </div>
-                  <p className="text-sm text-gray-900 font-medium italic">
-                    "{h.example}"
-                  </p>
+                  <p className="text-sm text-gray-900 font-medium italic">"{h.example}"</p>
                   <div className="flex flex-wrap gap-2 text-[10px]">
                     <span className="bg-white border border-amber-200 text-amber-800 px-2 py-0.5 rounded-full">
                       {AWARENESS_PT[h.awarenessLevel] || h.awarenessLevel}
@@ -352,9 +348,7 @@ export function PlanTab({
                       <div className="text-xs font-black text-purple-900">
                         {AWARENESS_PT[a.level] || a.level}
                       </div>
-                      <div className="text-[11px] text-gray-600 mt-0.5">
-                        {a.approach}
-                      </div>
+                      <div className="text-[11px] text-gray-600 mt-0.5">{a.approach}</div>
                     </div>
                     <span className="text-xs font-black bg-purple-200 text-purple-900 px-2 py-0.5 rounded-full whitespace-nowrap">
                       {a.creativeCount}×
@@ -364,11 +358,7 @@ export function PlanTab({
               </div>
             </PlanCard>
 
-            <PlanCard
-              icon={<Clock size={18} />}
-              label="Mix de durações"
-              accent="text-blue-700"
-            >
+            <PlanCard icon={<Clock size={18} />} label="Mix de durações" accent="text-blue-700">
               <div className="space-y-2 mt-2">
                 {plan.durations.map((d, i) => (
                   <div
@@ -376,12 +366,8 @@ export function PlanTab({
                     className="flex items-start justify-between gap-3 p-2 bg-blue-50 rounded-lg"
                   >
                     <div className="flex-1">
-                      <div className="text-xs font-black text-blue-900">
-                        {d.length}
-                      </div>
-                      <div className="text-[11px] text-gray-600 mt-0.5">
-                        {d.purpose}
-                      </div>
+                      <div className="text-xs font-black text-blue-900">{d.length}</div>
+                      <div className="text-[11px] text-gray-600 mt-0.5">{d.purpose}</div>
                     </div>
                     <span className="text-xs font-black bg-blue-200 text-blue-900 px-2 py-0.5 rounded-full whitespace-nowrap">
                       {d.count}×
@@ -419,9 +405,7 @@ export function PlanTab({
                   </div>
                 </div>
               </div>
-              <p className="text-[11px] text-gray-600 leading-relaxed">
-                {plan.budget.rationale}
-              </p>
+              <p className="text-[11px] text-gray-600 leading-relaxed">{plan.budget.rationale}</p>
             </PlanCard>
 
             <PlanCard
@@ -431,9 +415,7 @@ export function PlanTab({
             >
               <div className="space-y-2 text-xs">
                 <div>
-                  <span className="font-black text-orange-700">
-                    Janela de teste:
-                  </span>{' '}
+                  <span className="font-black text-orange-700">Janela de teste:</span>{' '}
                   <span className="text-gray-900">{plan.iterationPlan.testDays} dias</span>
                 </div>
                 <div>
@@ -442,15 +424,11 @@ export function PlanTab({
                 </div>
                 <div>
                   <span className="font-black text-green-700">Escalar quando:</span>{' '}
-                  <span className="text-gray-900">
-                    {plan.iterationPlan.scaleThreshold}
-                  </span>
+                  <span className="text-gray-900">{plan.iterationPlan.scaleThreshold}</span>
                 </div>
                 <div>
                   <span className="font-black text-gray-700">Revisar:</span>{' '}
-                  <span className="text-gray-900">
-                    {plan.iterationPlan.iterationFrequency}
-                  </span>
+                  <span className="text-gray-900">{plan.iterationPlan.iterationFrequency}</span>
                 </div>
               </div>
             </PlanCard>
@@ -534,9 +512,7 @@ function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div>
       <div className="text-3xl font-black text-gray-900">{value}</div>
-      <div className="text-[9px] uppercase tracking-widest text-gray-500 font-bold">
-        {label}
-      </div>
+      <div className="text-[9px] uppercase tracking-widest text-gray-500 font-bold">{label}</div>
     </div>
   );
 }

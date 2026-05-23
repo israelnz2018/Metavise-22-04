@@ -1,8 +1,8 @@
-import { Loader2, AlertCircle, Sparkles, Download } from 'lucide-react';
-import type { AdConfig } from '../App';
+import { Loader2, AlertCircle, Sparkles, Download, Copy } from 'lucide-react';
+import type { AdConfig } from '@/App';
 import { motion } from 'motion/react';
-import { SUBTITLE_STYLES, AVATARS } from '../lib/constants';
-import { getAuthorizedUrl } from '../lib/gemini';
+import { SUBTITLE_STYLES, AVATARS } from '@/lib/constants';
+import { getAuthorizedUrl } from '@/lib/gemini';
 
 // Exporta a versão final — preview do vídeo com legenda overlay + grid
 // de metadata sobre o projeto. Recebe state via props.
@@ -23,6 +23,8 @@ interface Props {
   logs: string[];
   handleGenerateVideo: (forceRegenerate?: boolean) => void;
   handleGenerateSubtitles: () => void;
+  // MM — A/B variant duplication. Optional so callers can opt out.
+  onDuplicateAsVariant?: () => void;
 }
 
 export function FinalTab({
@@ -41,6 +43,7 @@ export function FinalTab({
   logs,
   handleGenerateVideo,
   handleGenerateSubtitles,
+  onDuplicateAsVariant,
 }: Props) {
   const aspectRatioClass =
     config.format.aspectRatio === '9:16'
@@ -99,9 +102,7 @@ export function FinalTab({
               poster={posterUrl}
               className="w-full h-full object-contain bg-black"
               referrerPolicy={
-                videoUrl?.includes('generativelanguage.googleapis.com')
-                  ? 'no-referrer'
-                  : undefined
+                videoUrl?.includes('generativelanguage.googleapis.com') ? 'no-referrer' : undefined
               }
               onError={(e) => {
                 if (videoUrl?.startsWith('/generated/')) {
@@ -203,12 +204,7 @@ export function FinalTab({
                       <p className="text-xs font-bold text-white mb-3 uppercase tracking-widest">
                         Ouça a voz gerada:
                       </p>
-                      <audio
-                        src={audioUrl || undefined}
-                        autoPlay
-                        controls
-                        className="w-full h-8"
-                      />
+                      <audio src={audioUrl || undefined} autoPlay controls className="w-full h-8" />
                     </div>
                     <div className="flex gap-2 w-full">
                       <button
@@ -303,8 +299,7 @@ export function FinalTab({
           }
           className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-blue-700 disabled:opacity-50 transition-all shadow-xl shadow-blue-200"
         >
-          {loading ||
-          (videoOp && videoOp.status !== 'completed' && videoOp.status !== 'failed') ? (
+          {loading || (videoOp && videoOp.status !== 'completed' && videoOp.status !== 'failed') ? (
             <Loader2 className="animate-spin" />
           ) : (
             <Sparkles />
@@ -323,6 +318,19 @@ export function FinalTab({
             <Download size={20} />
             Baixar Vídeo Final
           </a>
+        )}
+
+        {/* MM — A/B variant button. Only shown when the user has a
+            finished video (otherwise there's nothing to compare yet). */}
+        {videoUrl && onDuplicateAsVariant && (
+          <button
+            onClick={onDuplicateAsVariant}
+            className="w-full py-3 bg-white border-2 border-blue-200 text-blue-700 rounded-2xl font-black flex items-center justify-center gap-3 hover:bg-blue-50 transition-all dark:bg-gray-900 dark:border-blue-900 dark:text-blue-300 dark:hover:bg-blue-950/30"
+            title="Duplica este projeto como variante A/B para você testar outro avatar"
+          >
+            <Copy size={18} />
+            Criar Variante A/B (outro avatar)
+          </button>
         )}
       </div>
 

@@ -1,6 +1,6 @@
 import { motion } from 'motion/react';
 import { Loader2 } from 'lucide-react';
-import type { ProjectType } from '../types/project';
+import type { ProjectType } from '@/types/project';
 
 // New-project picker dialog. Opens from the Projects tab "+ Novo" button
 // and from the empty-state CTA. Owns no state of its own — App.tsx
@@ -159,6 +159,10 @@ const SHORTCUT_TYPES: { id: ProjectType; icon: string; label: string; desc: stri
 
 const COPY_SUBMODES: { id: 'zero' | 'improve' | 'ready'; label: string; desc: string }[] = [
   { id: 'zero', label: 'Criar do zero', desc: 'A IA cria o roteiro respondendo perguntas' },
-  { id: 'improve', label: 'Já tenho, quero melhorar', desc: 'Tenho um rascunho e quero aperfeiçoar' },
+  {
+    id: 'improve',
+    label: 'Já tenho, quero melhorar',
+    desc: 'Tenho um rascunho e quero aperfeiçoar',
+  },
   { id: 'ready', label: 'Já está pronta', desc: 'Só quero otimizar para o ElevenLabs' },
 ];

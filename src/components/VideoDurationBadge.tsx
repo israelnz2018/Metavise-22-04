@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { formatVideoDuration } from '../lib/utils';
+import { formatVideoDuration } from '@/lib/utils';
 
 // Loads only the metadata of `src` in a hidden <video> and renders an
 // absolute-positioned badge with the duration. Drops into any positioned

@@ -16,9 +16,9 @@ import {
   X,
   Copy,
 } from 'lucide-react';
-import type { Project, ProjectVariant, Step } from '../types/project';
-import { VariantItem } from '../components/VariantItem';
-import { getAuthorizedUrl } from '../lib/gemini';
+import type { Project, ProjectVariant, Step } from '@/types/project';
+import { VariantItem } from '@/components/VariantItem';
+import { getAuthorizedUrl } from '@/lib/gemini';
 
 type ProjectTypeFilter = 'all' | Project['type'];
 type SortMode = 'recent' | 'oldest' | 'name';
@@ -372,10 +372,7 @@ export function ProjectsTab({
       {projects.length > 0 && (
         <div className="bg-white p-4 rounded-3xl border-2 border-gray-50 shadow-sm flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-[200px]">
-            <Search
-              size={16}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300"
-            />
+            <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" />
             <input
               type="text"
               value={search}
@@ -449,12 +446,8 @@ export function ProjectsTab({
           </div>
         ) : filteredProjects.length === 0 ? (
           <div className="col-span-full p-10 bg-white rounded-[32px] border-2 border-dashed border-gray-100 text-center space-y-3">
-            <p className="text-lg font-bold text-gray-900">
-              Nenhum projeto bate com sua busca
-            </p>
-            <p className="text-sm text-gray-400">
-              Tente outro termo ou limpe os filtros.
-            </p>
+            <p className="text-lg font-bold text-gray-900">Nenhum projeto bate com sua busca</p>
+            <p className="text-sm text-gray-400">Tente outro termo ou limpe os filtros.</p>
             <button
               onClick={() => {
                 setSearch('');

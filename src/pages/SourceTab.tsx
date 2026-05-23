@@ -11,7 +11,7 @@ import {
   Hand,
   Wand2,
 } from 'lucide-react';
-import { extractProductInfo, type ProductInfo } from '../lib/claudeService';
+import { extractProductInfo, type ProductInfo } from '@/lib/claudeService';
 
 type Mode = 'choose' | 'auto';
 
@@ -25,12 +25,7 @@ interface Props {
   onContinueAuto: () => void;
 }
 
-export function SourceTab({
-  existingInfo,
-  onExtracted,
-  onContinueManual,
-  onContinueAuto,
-}: Props) {
+export function SourceTab({ existingInfo, onExtracted, onContinueManual, onContinueAuto }: Props) {
   // Always start with the manual-vs-auto question — even if the user has
   // a previous extraction saved. They can still see the saved info by
   // clicking "Automática" again.
@@ -64,8 +59,8 @@ export function SourceTab({
             <div className="space-y-2">
               <h3 className="text-lg font-black text-gray-900">De forma manual</h3>
               <p className="text-sm text-gray-600">
-                Você responde as perguntas sobre persona e produto direto na próxima aba.
-                Mais controle, ideal se você já conhece bem o avatar do cliente.
+                Você responde as perguntas sobre persona e produto direto na próxima aba. Mais
+                controle, ideal se você já conhece bem o avatar do cliente.
               </p>
             </div>
             <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-gray-500 group-hover:text-purple-700 transition">
@@ -87,8 +82,8 @@ export function SourceTab({
             <div className="space-y-2">
               <h3 className="text-lg font-black text-gray-900">De forma automática</h3>
               <p className="text-sm text-gray-600">
-                Cole a transcrição da sua VSL ou link da landing page. A IA extrai persona,
-                dores, oferta, ângulos — e popula as próximas etapas automaticamente.
+                Cole a transcrição da sua VSL ou link da landing page. A IA extrai persona, dores,
+                oferta, ângulos — e popula as próximas etapas automaticamente.
               </p>
             </div>
             <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-purple-600 transition">
@@ -114,10 +109,7 @@ export function SourceTab({
         youtubeUrl: youtubeUrl.trim() || undefined,
       });
       setInfo(product);
-      const summary =
-        text.trim() ||
-        `[YouTube: ${youtubeUrl}]` ||
-        `[URL: ${url}]`;
+      const summary = text.trim() || `[YouTube: ${youtubeUrl}]` || `[URL: ${url}]`;
       onExtracted(product, summary);
       toast.success('Informações extraídas!');
     } catch (err: any) {
@@ -131,12 +123,10 @@ export function SourceTab({
     <div className="max-w-5xl mx-auto space-y-8">
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-2">
-          <h2 className="text-3xl font-black text-gray-900 tracking-tight">
-            Material do Produto
-          </h2>
+          <h2 className="text-3xl font-black text-gray-900 tracking-tight">Material do Produto</h2>
           <p className="text-sm text-gray-600">
-            Cole a transcrição da sua VSL, copy da landing page, ou link da página de vendas.
-            A IA extrai tudo: persona, dores, oferta, ângulos — e popula as próximas etapas
+            Cole a transcrição da sua VSL, copy da landing page, ou link da página de vendas. A IA
+            extrai tudo: persona, dores, oferta, ângulos — e popula as próximas etapas
             automaticamente.
           </p>
         </div>
@@ -158,8 +148,8 @@ export function SourceTab({
             </h3>
           </div>
           <p className="text-xs text-gray-500">
-            A IA pega a transcrição automática do YouTube — sem download, sem custo
-            adicional. Funciona pra ~90% dos vídeos.
+            A IA pega a transcrição automática do YouTube — sem download, sem custo adicional.
+            Funciona pra ~90% dos vídeos.
           </p>
           <input
             type="url"
@@ -183,8 +173,8 @@ export function SourceTab({
             </h3>
           </div>
           <p className="text-xs text-gray-500">
-            A IA acessa a página, extrai o texto e processa. Funciona com a maioria
-            das LPs públicas.
+            A IA acessa a página, extrai o texto e processa. Funciona com a maioria das LPs
+            públicas.
           </p>
           <input
             type="url"
@@ -194,9 +184,7 @@ export function SourceTab({
             className="w-full p-4 border-2 border-gray-200 rounded-xl text-sm focus:border-purple-500 focus:outline-none"
             disabled={loading}
           />
-          <p className="text-[10px] text-gray-400">
-            Funciona com a maioria das LPs públicas.
-          </p>
+          <p className="text-[10px] text-gray-400">Funciona com a maioria das LPs públicas.</p>
         </div>
 
         {/* Paste text */}
@@ -218,15 +206,13 @@ export function SourceTab({
             className="w-full p-4 border-2 border-gray-200 rounded-xl text-sm focus:border-purple-500 focus:outline-none resize-none"
             disabled={loading}
           />
-          <p className="text-[10px] text-gray-400">
-            {text.length.toLocaleString()} caracteres
-          </p>
+          <p className="text-[10px] text-gray-400">{text.length.toLocaleString()} caracteres</p>
         </div>
       </div>
 
       <p className="text-[11px] text-gray-400 text-center">
-        Pode usar qualquer um dos três — ou combinar. Se preencher múltiplos, a IA
-        junta tudo na análise.
+        Pode usar qualquer um dos três — ou combinar. Se preencher múltiplos, a IA junta tudo na
+        análise.
       </p>
 
       <button
@@ -251,9 +237,7 @@ export function SourceTab({
         <div className="space-y-4">
           <div className="flex items-center gap-2 text-green-700">
             <CheckCircle2 size={20} />
-            <h3 className="font-black uppercase text-sm tracking-widest">
-              Informações extraídas
-            </h3>
+            <h3 className="font-black uppercase text-sm tracking-widest">Informações extraídas</h3>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

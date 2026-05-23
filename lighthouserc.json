@@ -1,0 +1,40 @@
+{
+  "ci": {
+    "collect": {
+      "comment": "Boot the prod build via vite preview and audit the projects landing page. Auth UI is fine for an unauthenticated audit — it's what cold visitors see.",
+      "startServerCommand": "npm run preview -- --port 4173",
+      "startServerReadyPattern": "Local:",
+      "url": ["http://localhost:4173/"],
+      "numberOfRuns": 3,
+      "settings": {
+        "preset": "desktop",
+        "throttling": {
+          "rttMs": 40,
+          "throughputKbps": 10240,
+          "cpuSlowdownMultiplier": 1
+        }
+      }
+    },
+    "assert": {
+      "comment": "Performance budgets — anchored to where the app is today plus a small drift buffer. Tighten these as we ship optimisations.",
+      "assertions": {
+        "categories:performance": ["warn", { "minScore": 0.7 }],
+        "categories:accessibility": ["warn", { "minScore": 0.85 }],
+        "categories:best-practices": ["warn", { "minScore": 0.85 }],
+        "categories:seo": ["warn", { "minScore": 0.85 }],
+        "first-contentful-paint": ["warn", { "maxNumericValue": 2000 }],
+        "largest-contentful-paint": ["warn", { "maxNumericValue": 3500 }],
+        "cumulative-layout-shift": ["error", { "maxNumericValue": 0.1 }],
+        "total-blocking-time": ["warn", { "maxNumericValue": 400 }],
+        "interactive": ["warn", { "maxNumericValue": 4000 }],
+        "resource-summary:script:size": ["warn", { "maxNumericValue": 1000000 }],
+        "resource-summary:total:size": ["warn", { "maxNumericValue": 2500000 }]
+      }
+    },
+    "upload": {
+      "comment": "Default to local-only reports. Switch to 'lhci' / 'temporary-public-storage' when you want hosted history.",
+      "target": "filesystem",
+      "outputDir": "./.lighthouseci"
+    }
+  }
+}

@@ -1,5 +1,5 @@
 import { Users } from 'lucide-react';
-import type { Project } from '../types/project';
+import type { Project } from '@/types/project';
 
 // Asks "do you already know your audience?" the first time a user
 // creates a subproject. The answer (known vs discover) flips the

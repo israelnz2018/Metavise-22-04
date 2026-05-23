@@ -11,9 +11,9 @@ import {
   Video,
   Scissors,
 } from 'lucide-react';
-import type { Project, ProjectVariant, Step } from '../types/project';
-import { cn, getVideoAspectRatioClass } from '../lib/utils';
-import { getAuthorizedUrl } from '../lib/gemini';
+import type { Project, ProjectVariant, Step } from '@/types/project';
+import { cn, getVideoAspectRatioClass } from '@/lib/utils';
+import { getAuthorizedUrl } from '@/lib/gemini';
 
 interface VariantItemProps {
   variant: ProjectVariant;

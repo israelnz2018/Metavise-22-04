@@ -14,15 +14,10 @@ import { ProjectsTab } from './pages/ProjectsTab';
 const SourceTab = React.lazy(() =>
   import('./pages/SourceTab').then((m) => ({ default: m.SourceTab }))
 );
-const PlanTab = React.lazy(() =>
-  import('./pages/PlanTab').then((m) => ({ default: m.PlanTab }))
-);
+const PlanTab = React.lazy(() => import('./pages/PlanTab').then((m) => ({ default: m.PlanTab })));
 import type { ProductInfo, MarketingPlan } from './lib/claudeService';
 import { authedFetch } from './lib/authedFetch';
-import {
-  detectDuration,
-  detectVideoFormat,
-} from './lib/helpers';
+import { detectDuration, detectVideoFormat } from './lib/helpers';
 import type {
   Step,
   Scene,
@@ -34,8 +29,9 @@ import type {
   BrollCandidate,
   AutoEditState,
   ZapCapRenderConfig,
+  Project,
+  ProjectVariant,
 } from './types/project';
-
 
 import {
   Video,
@@ -48,16 +44,12 @@ import {
   Loader2,
   Download,
   LogOut,
+  Settings,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Toaster, toast } from 'react-hot-toast';
-import {
-  getAuthorizedUrl,
-} from './lib/gemini';
-import {
-  generateAdCopyWithClaude,
-  discoverPersonaWithClaude,
-} from './lib/claudeService';
+import { getAuthorizedUrl } from './lib/gemini';
+import { generateAdCopyWithClaude, discoverPersonaWithClaude } from './lib/claudeService';
 import { auth, db, storage } from './lib/firebase';
 import { type CachedRecommendation } from './components/AIRecommendationPanel';
 import { STEPS, AD_STYLES } from './lib/constants';
@@ -66,9 +58,13 @@ import { ConfirmModal } from './components/ConfirmModal';
 import { PersonaEditModal } from './components/PersonaEditModal';
 import { PersonaPathModal } from './components/PersonaPathModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { LazyTab } from './components/LazyTab';
 import { AutoSaveIndicator } from './components/AutoSaveIndicator';
 import { DarkModeToggle } from './components/DarkModeToggle';
 import { useDarkMode } from './hooks/useDarkMode';
+import { ensureNotificationPermission, notifyIfHidden } from './lib/notifications';
+import { COSTS } from './lib/costs';
+import { CostConfirmModal } from './components/CostConfirmModal';
 // Step tabs are lazy-loaded so the initial JS payload stays small.
 // Each tab is a ~600-1500 line module pulling its own helpers; loading
 // them on demand drops the main chunk significantly. AvatarTab is the
@@ -83,9 +79,7 @@ const Edit2Tab = React.lazy(() =>
 const FinalTab = React.lazy(() =>
   import('./pages/FinalTab').then((m) => ({ default: m.FinalTab }))
 );
-const CopyTab = React.lazy(() =>
-  import('./pages/CopyTab').then((m) => ({ default: m.CopyTab }))
-);
+const CopyTab = React.lazy(() => import('./pages/CopyTab').then((m) => ({ default: m.CopyTab })));
 const EditZapTab = React.lazy(() =>
   import('./pages/EditZapTab').then((m) => ({ default: m.EditZapTab }))
 );
@@ -127,23 +121,9 @@ import {
 
 // --- Constants & Types ---
 
-
-interface ProjectVariant {
-  id: string;
-  name: string;
-  config: AdConfig;
-  createdAt: any;
-}
-
-interface Project {
-  id: string;
-  userId: string;
-  name: string;
-  type: 'complete' | 'copy' | 'video' | 'editing';
-  config: AdConfig;
-  variants?: ProjectVariant[];
-  createdAt: any;
-}
+// Project + ProjectVariant types now live in src/types/project.ts as
+// generics; we parameterise them with AdConfig here so all the project
+// reads/writes in this file stay fully typed.
 
 // Exported so the extracted tab components in src/pages/*Tab.tsx can
 // type their `config` prop with the real shape instead of `any`. The
@@ -354,7 +334,7 @@ export default function App() {
   const [showDeleteVideoModal, setShowDeleteVideoModal] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
   const [platformApiKey, setPlatformApiKey] = useState<string | null>(null);
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [projects, setProjects] = useState<Project<AdConfig>[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isProjectLoading, setIsProjectLoading] = useState(false);
   const [hasUnsavedCopyChanges, setHasUnsavedCopyChanges] = useState(false);
@@ -586,8 +566,7 @@ export default function App() {
     // in, so locate the video by URL and route the removal accordingly.
     const hookVideos = ((config.copy as any)?.hookVideos as typeof videos | undefined) || [];
     const isHookVideo =
-      hookVideos.some((v) => v.url === video.url) &&
-      !videos.some((v) => v.url === video.url);
+      hookVideos.some((v) => v.url === video.url) && !videos.some((v) => v.url === video.url);
 
     try {
       if (video.storagePath) {
@@ -607,7 +586,7 @@ export default function App() {
           ? newHookVideos.length > 0
             ? newHookVideos[newHookVideos.length - 1]!.storagePath
             : null
-          : ((config.copy as any)?.hookVideoStoragePath as string | null | undefined) ?? null;
+          : (((config.copy as any)?.hookVideoStoragePath as string | null | undefined) ?? null);
 
         setConfig((prev) => ({
           ...prev,
@@ -939,7 +918,7 @@ export default function App() {
   const [discoveryAnswers, setDiscoveryAnswers] = useState<Record<string, string>>({});
   const [generatedPersona, setGeneratedPersona] = useState<any>(null);
   const [showEditPersonaModal, setShowEditPersonaModal] = useState(false);
-  const [pendingNewSubproject, setPendingNewSubproject] = useState<Project | null>(null);
+  const [pendingNewSubproject, setPendingNewSubproject] = useState<Project<AdConfig> | null>(null);
   const [copyFieldsApplied, setCopyFieldsApplied] = useState(false);
   const [personasSaved, setPersonasSaved] = useState(false);
 
@@ -1198,7 +1177,7 @@ export default function App() {
   // toggles in Voz/Avatar/Edição Zap hide, Juntar button hides.
   const useHookFlow = (config as any).useHook !== false;
   const setUseHookFlow = (next: boolean) => {
-    setConfig((prev) => ({ ...(prev as any), useHook: next } as any));
+    setConfig((prev) => ({ ...(prev as any), useHook: next }) as any);
     handleSaveProject({ useHook: next } as any);
     if (!next) {
       // Snap any active hook modes back to body so nothing references the
@@ -1283,7 +1262,7 @@ export default function App() {
   const [elevenLabsVoices, setElevenLabsVoices] = useState<any[]>([]);
 
   const [viewingProjectId, setViewingProjectId] = useState<string | null>(null);
-  const [viewingVariant, setViewingVariant] = useState<ProjectVariant | null>(null);
+  const [viewingVariant, setViewingVariant] = useState<ProjectVariant<AdConfig> | null>(null);
   const [heygenAvatars, setHeygenAvatars] = useState<any[]>([]);
   const [loadingAvatars, setLoadingAvatars] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
@@ -1594,7 +1573,7 @@ export default function App() {
         return {
           id: doc.id,
           ...data,
-        } as Project;
+        } as Project<AdConfig>;
       });
       setProjects(projectsData);
     });
@@ -2147,6 +2126,79 @@ export default function App() {
     }
   };
 
+  /**
+   * MM — Duplicate current project as an A/B variant.
+   *
+   * Clones the current in-memory config (copy, persona, plan, hook visual)
+   * but resets the avatar + generated outputs so the user can pick a
+   * different avatar on the same script. Saves the new variant onto the
+   * SAME parent project (variants[] grows), loads it as the active
+   * variant, then jumps to the Avatar tab where the actual A/B work
+   * happens.
+   *
+   * If there's no currentProjectId yet (the user hasn't created the
+   * project), we no-op and toast a friendlier prompt.
+   */
+  const handleDuplicateAsVariant = async () => {
+    if (!currentProjectId) {
+      toast.error('Salve o projeto antes de criar uma variante.');
+      return;
+    }
+    try {
+      const projectRef = doc(db, 'projects', currentProjectId);
+      const projectSnap = await getDoc(projectRef);
+      if (!projectSnap.exists()) {
+        toast.error('Projeto não encontrado.');
+        return;
+      }
+
+      const data = projectSnap.data();
+      const existingVariants = (data.variants || []) as any[];
+      const variantNumber = existingVariants.length + 1;
+
+      // Strip generated outputs — the whole point is to re-render
+      // with a different avatar. Keep all the upstream creative work
+      // (copy, persona, plan, hook visual, format).
+      const clonedConfig: AdConfig = {
+        ...config,
+        // Reset render outputs so the user is forced to re-generate
+        // them against the new avatar choice.
+        videoUrl: null,
+        videoStoragePath: null,
+        videos: [],
+        lastVideoMetadata: null,
+        generationStage: 'idle',
+        edit: {
+          ...config.edit,
+          zapVersions: [],
+          zapHookVersions: [],
+          zapJoinedVersions: [],
+        },
+      };
+
+      const newVariant = {
+        id: `variant_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        name: `Variante A/B ${variantNumber}`,
+        config: clonedConfig,
+        createdAt: new Date().toISOString(),
+      };
+
+      const updatedVariants = [...existingVariants, newVariant];
+      await setDoc(projectRef, { variants: updatedVariants }, { merge: true });
+
+      // Activate the new variant in the UI and navigate to the Avatar
+      // tab — that's where the A/B differentiation lives.
+      setCurrentVariantId(newVariant.id);
+      setConfig(clonedConfig);
+      setCurrentStep('avatar');
+
+      toast.success(`Variante criada! Escolha um avatar diferente pra rodar o A/B.`);
+    } catch (err) {
+      console.error('Error duplicating as variant:', err);
+      toast.error('Falha ao criar variante.');
+    }
+  };
+
   const handleRenameVariant = async (projectId: string, variantId: string, newName: string) => {
     if (!newName.trim()) {
       toast.error('Nome não pode ser vazio.');
@@ -2459,8 +2511,6 @@ export default function App() {
     }
   };
 
-
-
   const handleGenerateCopy = async () => {
     if (!isOnline) {
       setError('Você está offline. Verifique sua conexão com a internet.');
@@ -2478,7 +2528,9 @@ export default function App() {
     setError(null);
     setProviderError(null);
     try {
-      const selectedStyle = AD_STYLES.find((s: any) => s.label === config.copy.answers.estiloAnuncio);
+      const selectedStyle = AD_STYLES.find(
+        (s: any) => s.label === config.copy.answers.estiloAnuncio
+      );
       const styleWithDesc = selectedStyle
         ? `${selectedStyle.label} — ${selectedStyle.desc}`
         : config.copy.answers.estiloAnuncio;
@@ -2528,11 +2580,9 @@ export default function App() {
     }
   };
 
-
   const addLog = (message: string) => {
     setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${message}`]);
   };
-
 
   const handleGenerateSubtitles = async () => {
     setLoading(true);
@@ -2550,7 +2600,6 @@ export default function App() {
       setLoading(false);
     }
   };
-
 
   const startPolling = (videoId: string) => {
     if (pollIntervalRef.current) {
@@ -2742,7 +2791,7 @@ export default function App() {
                   if (avatarModeRef.current === 'hook') {
                     setConfig((prev) => {
                       const prevHookVideos =
-                        ((prev.copy as any)?.hookVideos as typeof newVideo[] | undefined) || [];
+                        ((prev.copy as any)?.hookVideos as (typeof newVideo)[] | undefined) || [];
                       return {
                         ...prev,
                         copy: {
@@ -2780,7 +2829,7 @@ export default function App() {
                 if (avatarModeRef.current === 'hook') {
                   setConfig((prev) => {
                     const prevHookVideos =
-                      ((prev.copy as any)?.hookVideos as typeof newVideo[] | undefined) || [];
+                      ((prev.copy as any)?.hookVideos as (typeof newVideo)[] | undefined) || [];
                     return {
                       ...prev,
                       copy: {
@@ -2816,6 +2865,10 @@ export default function App() {
                 );
                 setGenerationStage('video_ready');
                 setLoading(false);
+                notifyIfHidden('Vídeo pronto!', {
+                  body: 'Seu render do HeyGen terminou.',
+                  tag: 'metavise-render',
+                });
 
                 // Auto-save after video generation
                 handleSaveProject({
@@ -2836,6 +2889,10 @@ export default function App() {
               setVideoUrl(statusData.video_url);
               setGenerationStage('video_ready');
               setLoading(false);
+              notifyIfHidden('Vídeo pronto!', {
+                body: 'Seu render do HeyGen terminou.',
+                tag: 'metavise-render',
+              });
             }
           } else {
             addLog('VIDEO_FAILED');
@@ -2883,7 +2940,28 @@ export default function App() {
     pollStatus();
   };
 
+  // Cost-confirm gate. handleGenerateVideo (the public name the tabs
+  // call) opens the preview modal; executeGenerateVideo holds the real
+  // generation body and is only invoked from the modal's Confirm.
+  // Skips the modal when localStorage flag 'metavise-skip-cost-preview'
+  // is set (power-user opt-out).
+  const [pendingVideoGen, setPendingVideoGen] = useState<{
+    forceRegenerate: boolean;
+  } | null>(null);
+
   const handleGenerateVideo = async (forceRegenerate = false) => {
+    if (!isOnline) {
+      setError('Você está offline. Verifique sua conexão com a internet.');
+      return;
+    }
+
+    if (localStorage.getItem('metavise-skip-cost-preview') === '1') {
+      return executeGenerateVideo(forceRegenerate);
+    }
+    setPendingVideoGen({ forceRegenerate });
+  };
+
+  const executeGenerateVideo = async (forceRegenerate = false) => {
     if (!isOnline) {
       setError('Você está offline. Verifique sua conexão com a internet.');
       return;
@@ -2964,6 +3042,9 @@ export default function App() {
 
       setGenerationStage('video');
       addLog('VIDEO_STARTED');
+      // Ask once (silently no-ops on re-entry) — the user is about to
+      // wait 3–5 min, so the notification is the payoff for granting.
+      ensureNotificationPermission();
       console.log(`[Video Generation] Starting with Aspect Ratio: ${config.format.aspectRatio}`);
 
       // If we are in 'square' mode, we generate at native aspect ratio and then crop locally
@@ -2982,8 +3063,7 @@ export default function App() {
       // We also override the script with hookSelecionado so HeyGen's native
       // TTS fallback path produces hook content if the audio is missing.
       const isHookGen = avatarModeRef.current === 'hook';
-      const hookAudioUrl =
-        ((config.copy as any)?.hookAudioUrl as string | undefined) || '';
+      const hookAudioUrl = ((config.copy as any)?.hookAudioUrl as string | undefined) || '';
       const effectiveAudioUrl = isHookGen ? hookAudioUrl || audioUrl : audioUrl;
       const effectiveScript = isHookGen
         ? config.copy?.hookSelecionado || avatarScript
@@ -3091,22 +3171,6 @@ export default function App() {
     }
   };
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   const handleCancelGeneration = () => {
     if (pollIntervalRef.current) {
       clearInterval(pollIntervalRef.current);
@@ -3158,9 +3222,6 @@ export default function App() {
   };
 
   // --- Step Renderers ---
-
-
-
 
   const handleSaveElevenLabsKey = async () => {
     if (!elevenLabsKey) return;
@@ -3475,18 +3536,6 @@ export default function App() {
     }
   };
 
-
-
-
-
-
-
-
-
-
-
-
-
   const handleStartAutoEdit = async () => {
     if (!videoUrl) {
       toast.error('Nenhum vídeo disponível para analisar.');
@@ -3692,9 +3741,7 @@ export default function App() {
         progress: 100,
         originalVideoUrl: zapState.originalVideoUrl || zapVideoUrl,
         finalVideoUrl: zapVideoUrl,
-        versions: wasHookEdit
-          ? prev.versions
-          : [...(prev.versions || []), zapVideoUrl],
+        versions: wasHookEdit ? prev.versions : [...(prev.versions || []), zapVideoUrl],
       }));
       setConfig((prev) => {
         const key = wasHookEdit ? 'zapHookVersions' : 'zapVersions';
@@ -3850,6 +3897,10 @@ export default function App() {
           isZapRenderingRef.current = false;
           clearInterval(zapPollRef.current!);
           zapPollRef.current = null;
+          notifyIfHidden('Edição finalizada!', {
+            body: 'Sua edição ZapCap está pronta.',
+            tag: 'metavise-zapcap',
+          });
 
           const wasHookEdit = editZapModeRef.current === 'hook';
           setZapState((prev) => {
@@ -4038,8 +4089,7 @@ export default function App() {
       const newUrl: string = json.url;
       // Headline is hook-only, so always append to zapHookVersions.
       setConfig((prev) => {
-        const current =
-          ((prev.edit as any).zapHookVersions as string[] | undefined) || [];
+        const current = ((prev.edit as any).zapHookVersions as string[] | undefined) || [];
         return {
           ...prev,
           edit: {
@@ -4134,10 +4184,10 @@ export default function App() {
           },
         };
       });
-      toast.success(
-        `Vídeo com cortes pretos criado (${data.blackCount ?? texts.length} cortes).`,
-        { id: toastId, duration: 5000 }
-      );
+      toast.success(`Vídeo com cortes pretos criado (${data.blackCount ?? texts.length} cortes).`, {
+        id: toastId,
+        duration: 5000,
+      });
       setIntercutSourceUrl(null);
     } catch (err: any) {
       console.error('[INTERCUT] error:', err);
@@ -4406,7 +4456,6 @@ export default function App() {
     }
   };
 
-
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -4580,8 +4629,7 @@ export default function App() {
               <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
                 <Folder size={14} className="text-gray-400 dark:text-gray-500" />
                 <span className="text-[10px] font-black text-gray-600 dark:text-gray-300 uppercase tracking-widest truncate max-w-[120px]">
-                  {projects.find((p) => p.id === currentProjectId)?.name ||
-                    'Projeto Ativo'}
+                  {projects.find((p) => p.id === currentProjectId)?.name || 'Projeto Ativo'}
                 </span>
               </div>
               <AutoSaveIndicator
@@ -4642,14 +4690,24 @@ export default function App() {
           <div className="flex items-center gap-4">
             <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-950/40 rounded-xl border border-blue-100 dark:border-blue-900">
               <Sparkles className="text-blue-600 dark:text-blue-400" size={16} />
-              <span className="text-sm font-black text-blue-700 dark:text-blue-300">
-                {credits}
-              </span>
+              <span className="text-sm font-black text-blue-700 dark:text-blue-300">{credits}</span>
               <span className="text-[10px] font-bold text-blue-400 dark:text-blue-500 uppercase tracking-widest">
                 Créditos
               </span>
             </div>
             <DarkModeToggle isDark={isDark} onToggle={toggleDarkMode} />
+            <button
+              onClick={() => setCurrentStep('integrations')}
+              className={`p-2 transition-colors ${
+                currentStep === 'integrations'
+                  ? 'text-blue-600 dark:text-blue-400'
+                  : 'text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300'
+              }`}
+              title="Configurações"
+              aria-label="Configurações"
+            >
+              <Settings size={20} />
+            </button>
             <button
               onClick={handleLogout}
               className="p-2 text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 transition-colors"
@@ -4720,659 +4778,666 @@ export default function App() {
                 friendly recovery screen instead of taking down the app.
                 Keyed by step so navigating away resets the error state. */}
             <ErrorBoundary key={`eb-${currentStep}`} scope={currentStep}>
-            {currentStep === 'integrations' && (
-              <IntegrationsTab
-                userRole={userRole}
-                credits={credits}
-                loading={loading}
-                elevenlabs={{
-                  apiKey: elevenLabsKey,
-                  onApiKeyChange: setElevenLabsKey,
-                  showKey,
-                  onToggleShowKey: () => setShowKey(!showKey),
-                  testStatus,
-                  onSave: handleSaveElevenLabsKey,
-                  onTest: handleTestElevenLabsConnection,
-                }}
-                heygen={{
-                  apiKey: heygenKey,
-                  onApiKeyChange: setHeygenKey,
-                  showKey: heygenShowKey,
-                  onToggleShowKey: () => setHeygenShowKey(!heygenShowKey),
-                  testStatus: heygenTestStatus,
-                  onSave: handleSaveHeyGenKey,
-                  onTest: handleTestHeyGenConnection,
-                }}
-                runway={{
-                  apiKey: runwayKey,
-                  onApiKeyChange: setRunwayKey,
-                  showKey: runwayShowKey,
-                  onToggleShowKey: () => setRunwayShowKey(!runwayShowKey),
-                  testStatus: runwayTestStatus,
-                  onSave: handleSaveRunwayKey,
-                  onTest: handleTestRunwayConnection,
-                }}
-                gemini={{
-                  apiKey: geminiKey,
-                  onApiKeyChange: setGeminiKey,
-                  showKey: geminiShowKey,
-                  onToggleShowKey: () => setGeminiShowKey(!geminiShowKey),
-                  testStatus: geminiTestStatus,
-                  onSave: handleSaveGeminiKey,
-                  onTest: handleTestGeminiConnection,
-                }}
-                claude={{
-                  apiKey: claudeKey,
-                  onApiKeyChange: setClaudeKey,
-                  showKey: claudeShowKey,
-                  onToggleShowKey: () => setClaudeShowKey(!claudeShowKey),
-                  testStatus: claudeTestStatus,
-                  onSave: handleSaveClaudeKey,
-                  onTest: handleTestClaudeConnection,
-                }}
-                assemblyai={{
-                  apiKey: assemblyKey,
-                  onApiKeyChange: setAssemblyKey,
-                  showKey: assemblyShowKey,
-                  onToggleShowKey: () => setAssemblyShowKey(!assemblyShowKey),
-                  testStatus: assemblyTestStatus,
-                  onSave: handleSaveAssemblyAIKey,
-                  onTest: handleTestAssemblyAIConnection,
-                }}
-                zapcap={{
-                  apiKey: zapcapKey,
-                  onApiKeyChange: setZapcapKey,
-                  showKey: zapcapShowKey,
-                  onToggleShowKey: () => setZapcapShowKey(!zapcapShowKey),
-                  testStatus: zapcapTestStatus,
-                  onSave: handleSaveZapCapKey,
-                  onTest: handleTestZapCapConnection,
-                }}
-              />
-            )}
-            {currentStep === 'projects' && (
-              <ProjectsTab
-                projects={projects}
-                currentProjectId={currentProjectId}
-                viewingProjectId={viewingProjectId}
-                setViewingProjectId={setViewingProjectId}
-                viewingVariant={viewingVariant}
-                setViewingVariant={setViewingVariant}
-                platformApiKey={platformApiKey}
-                setShowNewProjectModal={setShowNewProjectModal}
-                onDeleteProject={handleDeleteProject}
-                onLoadProject={handleLoadProject}
-                onNewSubproject={handleNewSubproject}
-                onLoadVariant={handleLoadVariant}
-                onDeleteVariant={handleDeleteVariant}
-                onRenameVariant={handleRenameVariant}
-                onDeleteAudio={(audio) => {
-                  setAudioToDelete(audio);
-                  setShowDeleteModal(true);
-                }}
-                onDeleteVideoFromArray={handleDeleteVideoFromArray}
-                onDuplicateProject={handleDuplicateProject}
-              />
-            )}
-            {currentStep === 'source' && (
-              <React.Suspense fallback={<div className="text-center py-20 text-gray-400">Carregando...</div>}>
-              <SourceTab
-                existingInfo={((config.copy as any)?.productInfo as ProductInfo | null) || null}
-                onExtracted={(info, rawText) => {
-                  // Persist extracted info AND seed the persona/copy answers
-                  // so the user lands in the next tab pre-filled. Manual
-                  // edits in those tabs override these seeds.
-                  setConfig((prev) => ({
-                    ...prev,
-                    copy: {
-                      ...prev.copy,
-                      productInfo: info,
-                      sourceText: rawText,
-                      answers: {
-                        ...prev.copy.answers,
-                        audience: prev.copy.answers?.audience || info.audience,
-                        situation: prev.copy.answers?.situation || info.mainPain,
-                        painPoints:
-                          prev.copy.answers?.painPoints ||
-                          [info.mainPain, ...(info.secondaryPains || [])]
-                            .filter(Boolean)
-                            .join('. '),
-                        awarenessLevel:
-                          prev.copy.answers?.awarenessLevel || info.awarenessLevel,
-                        productName: info.productName,
-                        offer: info.offer,
-                        promise: info.promise,
-                        differentiator: info.differentiator,
-                        tone: info.tone,
-                        guarantee: info.guarantee || '',
-                      },
-                    } as any,
-                  }));
-                  handleSaveProject({
-                    copy: {
-                      ...config.copy,
-                      productInfo: info,
-                      sourceText: rawText,
-                    } as any,
-                  } as any);
-                }}
-                onContinueManual={() => setCurrentStep('persona')}
-                onContinueAuto={() => setCurrentStep('persona')}
-              />
-              </React.Suspense>
-            )}
-            {currentStep === 'persona' && (
-              <React.Suspense fallback={<div className="text-center py-20 text-gray-400">Carregando...</div>}>
-                <PersonaTab
-                  config={config}
-                  updateConfig={updateConfig}
-                  setConfig={setConfig}
-                  generatedPersona={generatedPersona}
-                  personasSaved={personasSaved}
+              {currentStep === 'integrations' && (
+                <IntegrationsTab
+                  userRole={userRole}
+                  credits={credits}
                   loading={loading}
-                  onGeneratePersona={handleGeneratePersona}
-                  onSavePersonas={handleSavePersonas}
-                  onSelectPersona={handleSelectPersona}
+                  elevenlabs={{
+                    apiKey: elevenLabsKey,
+                    onApiKeyChange: setElevenLabsKey,
+                    showKey,
+                    onToggleShowKey: () => setShowKey(!showKey),
+                    testStatus,
+                    onSave: handleSaveElevenLabsKey,
+                    onTest: handleTestElevenLabsConnection,
+                  }}
+                  heygen={{
+                    apiKey: heygenKey,
+                    onApiKeyChange: setHeygenKey,
+                    showKey: heygenShowKey,
+                    onToggleShowKey: () => setHeygenShowKey(!heygenShowKey),
+                    testStatus: heygenTestStatus,
+                    onSave: handleSaveHeyGenKey,
+                    onTest: handleTestHeyGenConnection,
+                  }}
+                  runway={{
+                    apiKey: runwayKey,
+                    onApiKeyChange: setRunwayKey,
+                    showKey: runwayShowKey,
+                    onToggleShowKey: () => setRunwayShowKey(!runwayShowKey),
+                    testStatus: runwayTestStatus,
+                    onSave: handleSaveRunwayKey,
+                    onTest: handleTestRunwayConnection,
+                  }}
+                  gemini={{
+                    apiKey: geminiKey,
+                    onApiKeyChange: setGeminiKey,
+                    showKey: geminiShowKey,
+                    onToggleShowKey: () => setGeminiShowKey(!geminiShowKey),
+                    testStatus: geminiTestStatus,
+                    onSave: handleSaveGeminiKey,
+                    onTest: handleTestGeminiConnection,
+                  }}
+                  claude={{
+                    apiKey: claudeKey,
+                    onApiKeyChange: setClaudeKey,
+                    showKey: claudeShowKey,
+                    onToggleShowKey: () => setClaudeShowKey(!claudeShowKey),
+                    testStatus: claudeTestStatus,
+                    onSave: handleSaveClaudeKey,
+                    onTest: handleTestClaudeConnection,
+                  }}
+                  assemblyai={{
+                    apiKey: assemblyKey,
+                    onApiKeyChange: setAssemblyKey,
+                    showKey: assemblyShowKey,
+                    onToggleShowKey: () => setAssemblyShowKey(!assemblyShowKey),
+                    testStatus: assemblyTestStatus,
+                    onSave: handleSaveAssemblyAIKey,
+                    onTest: handleTestAssemblyAIConnection,
+                  }}
+                  zapcap={{
+                    apiKey: zapcapKey,
+                    onApiKeyChange: setZapcapKey,
+                    showKey: zapcapShowKey,
+                    onToggleShowKey: () => setZapcapShowKey(!zapcapShowKey),
+                    testStatus: zapcapTestStatus,
+                    onSave: handleSaveZapCapKey,
+                    onTest: handleTestZapCapConnection,
+                  }}
                 />
-              </React.Suspense>
-            )}
-            {currentStep === 'plan' && (
-              <React.Suspense fallback={<div className="text-center py-20 text-gray-400">Carregando...</div>}>
-              <PlanTab
-                productInfo={((config.copy as any)?.productInfo as ProductInfo | null) || undefined}
-                persona={config.copy?.answers || {}}
-                copyAnswers={config.copy?.answers || {}}
-                cached={((config.copy as any)?.marketingPlan as MarketingPlan | null) || null}
-                onChange={(plan) => {
-                  setConfig((prev) => ({
-                    ...prev,
-                    copy: { ...prev.copy, marketingPlan: plan } as any,
-                  }));
-                  handleSaveProject({
-                    copy: { ...config.copy, marketingPlan: plan } as any,
-                  } as any);
-                }}
-                onContinue={() => setCurrentStep('copy')}
-              />
-              </React.Suspense>
-            )}
-            {currentStep === 'copy' && (
-              <React.Suspense fallback={<div className="text-center py-20 text-gray-400">Carregando...</div>}>
-                <CopyTab
-                  config={config}
-                  updateConfig={updateConfig}
-                  setConfig={setConfig}
-                  setCurrentStep={setCurrentStep}
-                  setVoiceSource={setVoiceSource}
-                  copyDiscoveryMode={copyDiscoveryMode}
-                  setCopyDiscoveryMode={setCopyDiscoveryMode}
-                  discoveryStep={discoveryStep}
-                  setDiscoveryStep={setDiscoveryStep}
-                  discoveryAnswers={discoveryAnswers}
-                  setDiscoveryAnswers={setDiscoveryAnswers}
-                  generatedPersona={generatedPersona}
-                  onGeneratePersona={handleGeneratePersona}
-                  copyFieldsApplied={copyFieldsApplied}
-                  applyPersonaToCopy={applyPersonaToCopy}
-                  setShowEditPersonaModal={setShowEditPersonaModal}
-                  applyAwarenessLevelChange={applyAwarenessLevelChange}
-                  setPendingAwarenessLevel={setPendingAwarenessLevel}
-                  setShowAwarenessChangeModal={setShowAwarenessChangeModal}
-                  hasUnsavedCopyChanges={hasUnsavedCopyChanges}
-                  setHasUnsavedCopyChanges={setHasUnsavedCopyChanges}
-                  isSaving={isSaving}
+              )}
+              {currentStep === 'projects' && (
+                <ProjectsTab
+                  projects={projects}
                   currentProjectId={currentProjectId}
-                  handleSaveProject={handleSaveProject}
-                  loading={loading}
-                  handleGenerateCopy={handleGenerateCopy}
-                  isProjectLoading={isProjectLoading}
+                  viewingProjectId={viewingProjectId}
+                  setViewingProjectId={setViewingProjectId}
+                  viewingVariant={viewingVariant}
+                  setViewingVariant={setViewingVariant}
+                  platformApiKey={platformApiKey}
+                  setShowNewProjectModal={setShowNewProjectModal}
+                  onDeleteProject={handleDeleteProject}
+                  onLoadProject={handleLoadProject}
+                  onNewSubproject={handleNewSubproject}
+                  onLoadVariant={handleLoadVariant}
+                  onDeleteVariant={handleDeleteVariant}
+                  onRenameVariant={handleRenameVariant}
+                  onDeleteAudio={(audio) => {
+                    setAudioToDelete(audio);
+                    setShowDeleteModal(true);
+                  }}
+                  onDeleteVideoFromArray={handleDeleteVideoFromArray}
+                  onDuplicateProject={handleDuplicateProject}
                 />
-              </React.Suspense>
-            )}
-            {currentStep === 'hook-visual' && (
-              <HookVisualGenerator
-                approvedHook={config.copy.hookSelecionado || ''}
-                projectId={currentProjectId || 'temp-project'}
-                hookVisual={config.hookVisual}
-                useHookFlow={useHookFlow}
-                onToggleUseHook={setUseHookFlow}
-                onSave={(data) => updateProjectHookVisual(currentProjectId || '', data)}
-                language={config.copy?.answers?.language}
-                awarenessLevel={config.copy?.answers?.awarenessLevel}
-                approvedCopy={config.copy?.generatedScript || ''}
-                hooksHistorico={config.copy?.hooksHistorico || []}
-                onDeleteHookFromHistory={(hook) => {
-                  const newHistorico = (config.copy?.hooksHistorico || []).filter(
-                    (h) => h.hook !== hook
-                  );
-                  setConfig((prev) => ({
-                    ...prev,
-                    copy: { ...prev.copy, hooksHistorico: newHistorico },
-                  }));
-                  handleSaveProject({
-                    copy: { ...config.copy, hooksHistorico: newHistorico },
-                  } as any);
-                }}
-                onGoToVoz={() => {
-                  setVoiceSource('hook');
-                  setCurrentStep('voz-premium');
-                }}
-                onGoToAvatar={() => setCurrentStep('avatar')}
-                onSaveHook={(hook) => {
-                  const existing = config.copy?.hooksHistorico || [];
-                  const alreadyInHistory = existing.some((h) => h.hook === hook);
-                  const newHistorico = alreadyInHistory
-                    ? existing
-                    : [{ hook, createdAt: new Date().toISOString() }, ...existing].slice(0, 50);
-                  setConfig((prev) => ({
-                    ...prev,
-                    copy: {
-                      ...prev.copy,
-                      hookSelecionado: hook,
-                      hooksHistorico: newHistorico,
-                    },
-                  }));
-                  handleSaveProject({
-                    copy: {
-                      ...config.copy,
-                      hookSelecionado: hook,
-                      hooksHistorico: newHistorico,
-                    },
-                  } as any);
-                }}
-                onProceedToVoice={() => {
-                  const generatedCopy =
-                    config.copy?.optimizedScript || config.copy?.generatedScript;
-                  const hook = (config.copy?.hookSelecionado || '').trim();
-                  let finalScriptToSave = config.copy?.finalScript || '';
-                  if (generatedCopy && hook) {
-                    const copyStart = generatedCopy
-                      .trim()
-                      .substring(0, hook.length + 5)
-                      .toLowerCase();
-                    const hookLower = hook.toLowerCase();
-                    const alreadyHasHook = copyStart.includes(
-                      hookLower.substring(0, Math.min(40, hookLower.length))
+              )}
+              {currentStep === 'source' && (
+                <LazyTab>
+                  <SourceTab
+                    existingInfo={((config.copy as any)?.productInfo as ProductInfo | null) || null}
+                    onExtracted={(info, rawText) => {
+                      // Persist extracted info AND seed the persona/copy answers
+                      // so the user lands in the next tab pre-filled. Manual
+                      // edits in those tabs override these seeds.
+                      setConfig((prev) => ({
+                        ...prev,
+                        copy: {
+                          ...prev.copy,
+                          productInfo: info,
+                          sourceText: rawText,
+                          answers: {
+                            ...prev.copy.answers,
+                            audience: prev.copy.answers?.audience || info.audience,
+                            situation: prev.copy.answers?.situation || info.mainPain,
+                            painPoints:
+                              prev.copy.answers?.painPoints ||
+                              [info.mainPain, ...(info.secondaryPains || [])]
+                                .filter(Boolean)
+                                .join('. '),
+                            awarenessLevel:
+                              prev.copy.answers?.awarenessLevel || info.awarenessLevel,
+                            productName: info.productName,
+                            offer: info.offer,
+                            promise: info.promise,
+                            differentiator: info.differentiator,
+                            tone: info.tone,
+                            guarantee: info.guarantee || '',
+                          },
+                        } as any,
+                      }));
+                      handleSaveProject({
+                        copy: {
+                          ...config.copy,
+                          productInfo: info,
+                          sourceText: rawText,
+                        } as any,
+                      } as any);
+                    }}
+                    onContinueManual={() => setCurrentStep('persona')}
+                    onContinueAuto={() => setCurrentStep('persona')}
+                  />
+                </LazyTab>
+              )}
+              {currentStep === 'persona' && (
+                <LazyTab>
+                  <PersonaTab
+                    config={config}
+                    updateConfig={updateConfig}
+                    setConfig={setConfig}
+                    generatedPersona={generatedPersona}
+                    personasSaved={personasSaved}
+                    loading={loading}
+                    onGeneratePersona={handleGeneratePersona}
+                    onSavePersonas={handleSavePersonas}
+                    onSelectPersona={handleSelectPersona}
+                  />
+                </LazyTab>
+              )}
+              {currentStep === 'plan' && (
+                <LazyTab>
+                  <PlanTab
+                    productInfo={
+                      ((config.copy as any)?.productInfo as ProductInfo | null) || undefined
+                    }
+                    persona={config.copy?.answers || {}}
+                    copyAnswers={config.copy?.answers || {}}
+                    cached={((config.copy as any)?.marketingPlan as MarketingPlan | null) || null}
+                    onChange={(plan) => {
+                      setConfig((prev) => ({
+                        ...prev,
+                        copy: { ...prev.copy, marketingPlan: plan } as any,
+                      }));
+                      handleSaveProject({
+                        copy: { ...config.copy, marketingPlan: plan } as any,
+                      } as any);
+                    }}
+                    onContinue={() => setCurrentStep('copy')}
+                  />
+                </LazyTab>
+              )}
+              {currentStep === 'copy' && (
+                <LazyTab>
+                  <CopyTab
+                    config={config}
+                    updateConfig={updateConfig}
+                    setConfig={setConfig}
+                    setCurrentStep={setCurrentStep}
+                    setVoiceSource={setVoiceSource}
+                    copyDiscoveryMode={copyDiscoveryMode}
+                    setCopyDiscoveryMode={setCopyDiscoveryMode}
+                    discoveryStep={discoveryStep}
+                    setDiscoveryStep={setDiscoveryStep}
+                    discoveryAnswers={discoveryAnswers}
+                    setDiscoveryAnswers={setDiscoveryAnswers}
+                    generatedPersona={generatedPersona}
+                    onGeneratePersona={handleGeneratePersona}
+                    copyFieldsApplied={copyFieldsApplied}
+                    applyPersonaToCopy={applyPersonaToCopy}
+                    setShowEditPersonaModal={setShowEditPersonaModal}
+                    applyAwarenessLevelChange={applyAwarenessLevelChange}
+                    setPendingAwarenessLevel={setPendingAwarenessLevel}
+                    setShowAwarenessChangeModal={setShowAwarenessChangeModal}
+                    hasUnsavedCopyChanges={hasUnsavedCopyChanges}
+                    setHasUnsavedCopyChanges={setHasUnsavedCopyChanges}
+                    isSaving={isSaving}
+                    currentProjectId={currentProjectId}
+                    handleSaveProject={handleSaveProject}
+                    loading={loading}
+                    handleGenerateCopy={handleGenerateCopy}
+                    isProjectLoading={isProjectLoading}
+                  />
+                </LazyTab>
+              )}
+              {currentStep === 'hook-visual' && (
+                <HookVisualGenerator
+                  approvedHook={config.copy.hookSelecionado || ''}
+                  projectId={currentProjectId || 'temp-project'}
+                  hookVisual={config.hookVisual}
+                  useHookFlow={useHookFlow}
+                  onToggleUseHook={setUseHookFlow}
+                  onSave={(data) => updateProjectHookVisual(currentProjectId || '', data)}
+                  language={config.copy?.answers?.language}
+                  awarenessLevel={config.copy?.answers?.awarenessLevel}
+                  approvedCopy={config.copy?.generatedScript || ''}
+                  hooksHistorico={config.copy?.hooksHistorico || []}
+                  onDeleteHookFromHistory={(hook) => {
+                    const newHistorico = (config.copy?.hooksHistorico || []).filter(
+                      (h) => h.hook !== hook
                     );
-                    finalScriptToSave = alreadyHasHook
-                      ? generatedCopy.trim()
-                      : hook + '\n\n' + generatedCopy.trim();
-                  } else if (hook && !generatedCopy) {
-                    finalScriptToSave = hook;
-                  }
-                  if (finalScriptToSave && finalScriptToSave !== config.copy?.finalScript) {
                     setConfig((prev) => ({
                       ...prev,
-                      copy: { ...prev.copy, finalScript: finalScriptToSave },
+                      copy: { ...prev.copy, hooksHistorico: newHistorico },
                     }));
-                    setTimeout(() => handleSaveProject(), 50);
-                  }
-                  setVoiceSource('hook');
-                  setCurrentStep('voz-premium');
-                }}
-              />
-            )}
-            {currentStep === 'voz-premium' && (() => {
-              const isHook = voiceSource === 'hook';
-              const bodyAudios = config.audios || [];
-              const hookAudios =
-                (((config.copy as any)?.hookAudios as typeof bodyAudios | undefined) || []);
-              const lastBodyVoice = bodyAudios.length > 0 ? bodyAudios[bodyAudios.length - 1]!.voiceId : '';
-              const lastHookVoice = hookAudios.length > 0 ? hookAudios[hookAudios.length - 1]!.voiceId : '';
-              // Auto-preselect: prefer the mode's own last voice; fall back
-              // to the OTHER mode's last voice so the user doesn't have to
-              // reselect every time. Then they can override in the UI.
-              const defaultVoiceId = isHook
-                ? lastHookVoice || lastBodyVoice || config.avatar?.voiceId || ''
-                : lastBodyVoice || lastHookVoice || config.avatar?.voiceId || '';
-
-              const activeAudioUrl = isHook
-                ? ((config.copy as any)?.hookAudioUrl as string | undefined) || ''
-                : config.audioUrl || '';
-              const activeAudios = isHook ? hookAudios : bodyAudios;
-              const activeScript = isHook
-                ? config.copy?.hookSelecionado ||
-                  config.copy?.finalScript ||
-                  config.copy?.generatedScript ||
-                  ''
-                : config.copy?.finalScript || config.copy?.generatedScript || '';
-
-              return (
-                <>
-                  {/* Toggle: which audio are we working on? Hidden when the
-                      project doesn't use a separate hook. */}
-                  {useHookFlow && (
-                    <div className="max-w-4xl mx-auto px-6 pt-6">
-                      <div className="bg-white p-2 rounded-2xl border-2 border-gray-100 shadow-sm flex gap-1">
-                        <button
-                          onClick={() => setVoiceSource('copy')}
-                          className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-                            !isHook
-                              ? 'bg-gray-900 text-white shadow-md'
-                              : 'text-gray-500 hover:bg-gray-50'
-                          }`}
-                        >
-                          Voz do Corpo
-                          {bodyAudios.length > 0 && (
-                            <span className="ml-2 text-[9px] opacity-70">
-                              ({bodyAudios.length})
-                            </span>
-                          )}
-                        </button>
-                        <button
-                          onClick={() => setVoiceSource('hook')}
-                          className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-                            isHook
-                              ? 'bg-amber-500 text-white shadow-md'
-                              : 'text-gray-500 hover:bg-amber-50'
-                          }`}
-                        >
-                          Voz do Gancho
-                          {hookAudios.length > 0 && (
-                            <span className="ml-2 text-[9px] opacity-70">
-                              ({hookAudios.length})
-                            </span>
-                          )}
-                        </button>
-                      </div>
-                      <p className="text-[10px] text-gray-500 mt-2 px-2">
-                        {isHook
-                          ? 'Você está gerando o áudio do gancho (parte inicial curta).'
-                          : 'Você está gerando o áudio do corpo do vídeo (script principal).'}
-                      </p>
-                    </div>
-                  )}
-
-                  <VozPremium
-                    key={isHook ? 'voz-hook' : 'voz-body'}
-                    approvedScript={activeScript}
-                    personaGender={config.copy?.answers?.personaGender || ''}
-                    personaAge={config.copy?.answers?.personaAgePrimary || ''}
-                    savedAudioUrl={activeAudioUrl || undefined}
-                    savedAudios={activeAudios}
-                    copyAnswers={config.copy?.answers || {}}
-                    cachedRecommendation={avatarRecommendation}
-                    onRecommendationChange={setAvatarRecommendation}
-                    productInfo={((config.copy as any)?.productInfo as ProductInfo | null) || undefined}
-                    savedOptimizedScript={
-                      isHook
-                        ? ((config.copy as any)?.hookOptimizedScript as string | undefined) || ''
-                        : config.copy?.optimizedScript || ''
+                    handleSaveProject({
+                      copy: { ...config.copy, hooksHistorico: newHistorico },
+                    } as any);
+                  }}
+                  onGoToVoz={() => {
+                    setVoiceSource('hook');
+                    setCurrentStep('voz-premium');
+                  }}
+                  onGoToAvatar={() => setCurrentStep('avatar')}
+                  onSaveHook={(hook) => {
+                    const existing = config.copy?.hooksHistorico || [];
+                    const alreadyInHistory = existing.some((h) => h.hook === hook);
+                    const newHistorico = alreadyInHistory
+                      ? existing
+                      : [{ hook, createdAt: new Date().toISOString() }, ...existing].slice(0, 50);
+                    setConfig((prev) => ({
+                      ...prev,
+                      copy: {
+                        ...prev.copy,
+                        hookSelecionado: hook,
+                        hooksHistorico: newHistorico,
+                      },
+                    }));
+                    handleSaveProject({
+                      copy: {
+                        ...config.copy,
+                        hookSelecionado: hook,
+                        hooksHistorico: newHistorico,
+                      },
+                    } as any);
+                  }}
+                  onProceedToVoice={() => {
+                    const generatedCopy =
+                      config.copy?.optimizedScript || config.copy?.generatedScript;
+                    const hook = (config.copy?.hookSelecionado || '').trim();
+                    let finalScriptToSave = config.copy?.finalScript || '';
+                    if (generatedCopy && hook) {
+                      const copyStart = generatedCopy
+                        .trim()
+                        .substring(0, hook.length + 5)
+                        .toLowerCase();
+                      const hookLower = hook.toLowerCase();
+                      const alreadyHasHook = copyStart.includes(
+                        hookLower.substring(0, Math.min(40, hookLower.length))
+                      );
+                      finalScriptToSave = alreadyHasHook
+                        ? generatedCopy.trim()
+                        : hook + '\n\n' + generatedCopy.trim();
+                    } else if (hook && !generatedCopy) {
+                      finalScriptToSave = hook;
                     }
-                    defaultVoiceId={defaultVoiceId || undefined}
-                    onApprovedScriptEdit={(edited) => {
-                      // The "approved script" is the editable source text shown
-                      // in VozPremium. Body edits go to finalScript (existing).
-                      // Hook edits go to hookSelecionado so the next render in
-                      // hook mode picks them up too.
-                      if (isHook) {
-                        setConfig((prev) => ({
-                          ...prev,
-                          copy: { ...prev.copy, hookSelecionado: edited },
-                        }));
-                        handleSaveProject({
-                          copy: { ...config.copy, hookSelecionado: edited },
-                        } as any);
-                      } else {
-                        setConfig((prev) => ({
-                          ...prev,
-                          copy: { ...prev.copy, finalScript: edited },
-                        }));
-                        handleSaveProject({
-                          copy: { ...config.copy, finalScript: edited },
-                        } as any);
-                      }
-                    }}
-                    onOptimizedScript={(optimized) => {
-                      if (isHook) {
-                        setConfig((prev) => ({
-                          ...prev,
-                          copy: {
-                            ...prev.copy,
-                            hookOptimizedScript: optimized,
-                          } as any,
-                        }));
-                        handleSaveProject({
-                          copy: { ...config.copy, hookOptimizedScript: optimized },
-                        } as any);
-                      } else {
-                        setConfig((prev) => ({
-                          ...prev,
-                          copy: { ...prev.copy, optimizedScript: optimized },
-                        }));
-                        handleSaveProject({
-                          copy: { ...config.copy, optimizedScript: optimized },
-                        } as any);
-                      }
-                    }}
-                    onGoToVideo={() => setCurrentStep('avatar')}
-                    onAudioReady={(audioUrl, voiceId, storagePath) => {
-                      // Clearing the active audio.
-                      if (!audioUrl) {
-                        if (isHook) {
-                          setConfig((prev) => ({
-                            ...prev,
-                            copy: {
-                              ...prev.copy,
-                              hookAudioUrl: '',
-                              hookAudioStoragePath: null,
-                            } as any,
-                          }));
-                          handleSaveProject({
-                            copy: {
-                              ...config.copy,
-                              hookAudioUrl: '',
-                              hookAudioStoragePath: null,
-                            },
-                          } as any);
-                        } else {
-                          setAudioUrl('');
-                          setConfig((prev) => ({
-                            ...prev,
-                            audioUrl: '',
-                            audioStoragePath: null,
-                          }));
-                          handleSaveProject({
-                            audioUrl: '',
-                            audioStoragePath: null,
-                          });
+                    if (finalScriptToSave && finalScriptToSave !== config.copy?.finalScript) {
+                      setConfig((prev) => ({
+                        ...prev,
+                        copy: { ...prev.copy, finalScript: finalScriptToSave },
+                      }));
+                      setTimeout(() => handleSaveProject(), 50);
+                    }
+                    setVoiceSource('hook');
+                    setCurrentStep('voz-premium');
+                  }}
+                />
+              )}
+              {currentStep === 'voz-premium' &&
+                (() => {
+                  const isHook = voiceSource === 'hook';
+                  const bodyAudios = config.audios || [];
+                  const hookAudios =
+                    ((config.copy as any)?.hookAudios as typeof bodyAudios | undefined) || [];
+                  const lastBodyVoice =
+                    bodyAudios.length > 0 ? bodyAudios[bodyAudios.length - 1]!.voiceId : '';
+                  const lastHookVoice =
+                    hookAudios.length > 0 ? hookAudios[hookAudios.length - 1]!.voiceId : '';
+                  // Auto-preselect: prefer the mode's own last voice; fall back
+                  // to the OTHER mode's last voice so the user doesn't have to
+                  // reselect every time. Then they can override in the UI.
+                  const defaultVoiceId = isHook
+                    ? lastHookVoice || lastBodyVoice || config.avatar?.voiceId || ''
+                    : lastBodyVoice || lastHookVoice || config.avatar?.voiceId || '';
+
+                  const activeAudioUrl = isHook
+                    ? ((config.copy as any)?.hookAudioUrl as string | undefined) || ''
+                    : config.audioUrl || '';
+                  const activeAudios = isHook ? hookAudios : bodyAudios;
+                  const activeScript = isHook
+                    ? config.copy?.hookSelecionado ||
+                      config.copy?.finalScript ||
+                      config.copy?.generatedScript ||
+                      ''
+                    : config.copy?.finalScript || config.copy?.generatedScript || '';
+
+                  return (
+                    <>
+                      {/* Toggle: which audio are we working on? Hidden when the
+                      project doesn't use a separate hook. */}
+                      {useHookFlow && (
+                        <div className="max-w-4xl mx-auto px-6 pt-6">
+                          <div className="bg-white p-2 rounded-2xl border-2 border-gray-100 shadow-sm flex gap-1">
+                            <button
+                              onClick={() => setVoiceSource('copy')}
+                              className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                                !isHook
+                                  ? 'bg-gray-900 text-white shadow-md'
+                                  : 'text-gray-500 hover:bg-gray-50'
+                              }`}
+                            >
+                              Voz do Corpo
+                              {bodyAudios.length > 0 && (
+                                <span className="ml-2 text-[9px] opacity-70">
+                                  ({bodyAudios.length})
+                                </span>
+                              )}
+                            </button>
+                            <button
+                              onClick={() => setVoiceSource('hook')}
+                              className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                                isHook
+                                  ? 'bg-amber-500 text-white shadow-md'
+                                  : 'text-gray-500 hover:bg-amber-50'
+                              }`}
+                            >
+                              Voz do Gancho
+                              {hookAudios.length > 0 && (
+                                <span className="ml-2 text-[9px] opacity-70">
+                                  ({hookAudios.length})
+                                </span>
+                              )}
+                            </button>
+                          </div>
+                          <p className="text-[10px] text-gray-500 mt-2 px-2">
+                            {isHook
+                              ? 'Você está gerando o áudio do gancho (parte inicial curta).'
+                              : 'Você está gerando o áudio do corpo do vídeo (script principal).'}
+                          </p>
+                        </div>
+                      )}
+
+                      <VozPremium
+                        key={isHook ? 'voz-hook' : 'voz-body'}
+                        approvedScript={activeScript}
+                        personaGender={config.copy?.answers?.personaGender || ''}
+                        personaAge={config.copy?.answers?.personaAgePrimary || ''}
+                        savedAudioUrl={activeAudioUrl || undefined}
+                        savedAudios={activeAudios}
+                        copyAnswers={config.copy?.answers || {}}
+                        cachedRecommendation={avatarRecommendation}
+                        onRecommendationChange={setAvatarRecommendation}
+                        productInfo={
+                          ((config.copy as any)?.productInfo as ProductInfo | null) || undefined
                         }
-                        return;
-                      }
+                        savedOptimizedScript={
+                          isHook
+                            ? ((config.copy as any)?.hookOptimizedScript as string | undefined) ||
+                              ''
+                            : config.copy?.optimizedScript || ''
+                        }
+                        defaultVoiceId={defaultVoiceId || undefined}
+                        onApprovedScriptEdit={(edited) => {
+                          // The "approved script" is the editable source text shown
+                          // in VozPremium. Body edits go to finalScript (existing).
+                          // Hook edits go to hookSelecionado so the next render in
+                          // hook mode picks them up too.
+                          if (isHook) {
+                            setConfig((prev) => ({
+                              ...prev,
+                              copy: { ...prev.copy, hookSelecionado: edited },
+                            }));
+                            handleSaveProject({
+                              copy: { ...config.copy, hookSelecionado: edited },
+                            } as any);
+                          } else {
+                            setConfig((prev) => ({
+                              ...prev,
+                              copy: { ...prev.copy, finalScript: edited },
+                            }));
+                            handleSaveProject({
+                              copy: { ...config.copy, finalScript: edited },
+                            } as any);
+                          }
+                        }}
+                        onOptimizedScript={(optimized) => {
+                          if (isHook) {
+                            setConfig((prev) => ({
+                              ...prev,
+                              copy: {
+                                ...prev.copy,
+                                hookOptimizedScript: optimized,
+                              } as any,
+                            }));
+                            handleSaveProject({
+                              copy: { ...config.copy, hookOptimizedScript: optimized },
+                            } as any);
+                          } else {
+                            setConfig((prev) => ({
+                              ...prev,
+                              copy: { ...prev.copy, optimizedScript: optimized },
+                            }));
+                            handleSaveProject({
+                              copy: { ...config.copy, optimizedScript: optimized },
+                            } as any);
+                          }
+                        }}
+                        onGoToVideo={() => setCurrentStep('avatar')}
+                        onAudioReady={(audioUrl, voiceId, storagePath) => {
+                          // Clearing the active audio.
+                          if (!audioUrl) {
+                            if (isHook) {
+                              setConfig((prev) => ({
+                                ...prev,
+                                copy: {
+                                  ...prev.copy,
+                                  hookAudioUrl: '',
+                                  hookAudioStoragePath: null,
+                                } as any,
+                              }));
+                              handleSaveProject({
+                                copy: {
+                                  ...config.copy,
+                                  hookAudioUrl: '',
+                                  hookAudioStoragePath: null,
+                                },
+                              } as any);
+                            } else {
+                              setAudioUrl('');
+                              setConfig((prev) => ({
+                                ...prev,
+                                audioUrl: '',
+                                audioStoragePath: null,
+                              }));
+                              handleSaveProject({
+                                audioUrl: '',
+                                audioStoragePath: null,
+                              });
+                            }
+                            return;
+                          }
 
-                      const currentAudios = activeAudios;
-                      const existing = currentAudios.find((a) => a.url === audioUrl);
-                      const newAudio = {
-                        url: audioUrl,
-                        storagePath: storagePath || null,
-                        voiceId: voiceId || '',
-                        createdAt: new Date().toISOString(),
-                      };
-                      const newAudios = existing
-                        ? currentAudios
-                        : [...currentAudios, newAudio];
+                          const currentAudios = activeAudios;
+                          const existing = currentAudios.find((a) => a.url === audioUrl);
+                          const newAudio = {
+                            url: audioUrl,
+                            storagePath: storagePath || null,
+                            voiceId: voiceId || '',
+                            createdAt: new Date().toISOString(),
+                          };
+                          const newAudios = existing ? currentAudios : [...currentAudios, newAudio];
 
-                      if (isHook) {
-                        setConfig((prev) => ({
-                          ...prev,
-                          copy: {
-                            ...prev.copy,
-                            hookAudioUrl: audioUrl,
-                            hookAudioStoragePath: storagePath || null,
-                            hookAudios: newAudios,
-                          } as any,
-                        }));
-                        handleSaveProject({
-                          copy: {
-                            ...config.copy,
-                            hookAudioUrl: audioUrl,
-                            hookAudioStoragePath: storagePath || null,
-                            hookAudios: newAudios,
-                          },
-                        } as any);
-                      } else {
-                        if (!existing) setAudios(newAudios);
-                        setAudioUrl(audioUrl);
-                        setConfig((prev) => ({
-                          ...prev,
-                          audioUrl,
-                          audioStoragePath: storagePath || null,
-                          audios: newAudios,
-                          ...(voiceId ? { avatar: { ...prev.avatar, voiceId } } : {}),
-                        }));
-                        handleSaveProject({
-                          audioUrl,
-                          audioStoragePath: storagePath || null,
-                          audios: newAudios,
-                          ...(voiceId ? { 'avatar.voiceId': voiceId } : {}),
-                        });
-                      }
-                    }}
-                    onDeleteAudioFromHistory={(
-                      urlToDelete: string,
-                      storagePathToDelete: string | null
-                    ) => {
-                      setAudioToDeleteFromHistory({
-                        url: urlToDelete,
-                        storagePath: storagePathToDelete,
-                      });
-                    }}
+                          if (isHook) {
+                            setConfig((prev) => ({
+                              ...prev,
+                              copy: {
+                                ...prev.copy,
+                                hookAudioUrl: audioUrl,
+                                hookAudioStoragePath: storagePath || null,
+                                hookAudios: newAudios,
+                              } as any,
+                            }));
+                            handleSaveProject({
+                              copy: {
+                                ...config.copy,
+                                hookAudioUrl: audioUrl,
+                                hookAudioStoragePath: storagePath || null,
+                                hookAudios: newAudios,
+                              },
+                            } as any);
+                          } else {
+                            if (!existing) setAudios(newAudios);
+                            setAudioUrl(audioUrl);
+                            setConfig((prev) => ({
+                              ...prev,
+                              audioUrl,
+                              audioStoragePath: storagePath || null,
+                              audios: newAudios,
+                              ...(voiceId ? { avatar: { ...prev.avatar, voiceId } } : {}),
+                            }));
+                            handleSaveProject({
+                              audioUrl,
+                              audioStoragePath: storagePath || null,
+                              audios: newAudios,
+                              ...(voiceId ? { 'avatar.voiceId': voiceId } : {}),
+                            });
+                          }
+                        }}
+                        onDeleteAudioFromHistory={(
+                          urlToDelete: string,
+                          storagePathToDelete: string | null
+                        ) => {
+                          setAudioToDeleteFromHistory({
+                            url: urlToDelete,
+                            storagePath: storagePathToDelete,
+                          });
+                        }}
+                      />
+                    </>
+                  );
+                })()}
+              {currentStep === 'avatar' && (
+                <LazyTab>
+                  <AvatarTab
+                    config={config}
+                    setConfig={setConfig}
+                    setCurrentStep={setCurrentStep}
+                    loading={loading}
+                    setLoading={setLoading}
+                    avatarMode={avatarMode}
+                    setAvatarMode={setAvatarMode}
+                    useHookFlow={useHookFlow}
+                    heygenAvatars={heygenAvatars}
+                    setHeygenAvatars={setHeygenAvatars}
+                    avatarFilters={avatarFilters}
+                    setAvatarFilters={setAvatarFilters}
+                    avatarSearch={avatarSearch}
+                    setAvatarSearch={setAvatarSearch}
+                    previewAvatar={previewAvatar}
+                    setPreviewAvatar={setPreviewAvatar}
+                    avatarRecommendation={avatarRecommendation}
+                    setAvatarRecommendation={setAvatarRecommendation}
+                    videos={videos}
+                    videoUrl={videoUrl}
+                    setVideoUrl={setVideoUrl}
+                    setVideoStoragePath={setVideoStoragePath}
+                    platformApiKey={platformApiKey}
+                    videoOp={videoOp}
+                    setVideoOp={setVideoOp}
+                    setGenerationStage={setGenerationStage}
+                    isTestMode={isTestMode}
+                    setIsTestMode={setIsTestMode}
+                    useNativeFallback={useNativeFallback}
+                    setUseNativeFallback={setUseNativeFallback}
+                    logs={logs}
+                    pollIntervalRef={pollIntervalRef}
+                    isTestingKey={isTestingKey}
+                    isUpdatingKey={isUpdatingKey}
+                    audioUrl={audioUrl}
+                    isVideoUpToDate={isVideoUpToDate}
+                    loadingAvatars={loadingAvatars}
+                    avatarError={avatarError}
+                    newElevenLabsKey={newElevenLabsKey}
+                    setNewElevenLabsKey={setNewElevenLabsKey}
+                    showElevenLabsConfig={showElevenLabsConfig}
+                    setShowElevenLabsConfig={setShowElevenLabsConfig}
+                    setShowDeleteModal={setShowDeleteModal}
+                    videoToDelete={videoToDelete}
+                    setVideoToDelete={setVideoToDelete}
+                    setAudioToDelete={setAudioToDelete}
+                    showDeleteVideoModal={showDeleteVideoModal}
+                    setShowDeleteVideoModal={setShowDeleteVideoModal}
+                    showDeleteHistoryVideoModal={showDeleteHistoryVideoModal}
+                    setShowDeleteHistoryVideoModal={setShowDeleteHistoryVideoModal}
+                    handleGenerateVideo={handleGenerateVideo}
+                    handleCancelGeneration={handleCancelGeneration}
+                    handleDeleteVideo={handleDeleteVideo}
+                    handleDeleteVideoFromArray={handleDeleteVideoFromArray}
+                    handleTestElevenLabsKey={handleTestElevenLabsKey}
+                    handleUpdateElevenLabsKey={handleUpdateElevenLabsKey}
                   />
-                </>
-              );
-            })()}
-            {currentStep === 'avatar' && (
-              <React.Suspense fallback={<div className="text-center py-20 text-gray-400">Carregando...</div>}>
-                <AvatarTab
-                  config={config}
-                  setConfig={setConfig}
-                  setCurrentStep={setCurrentStep}
-                  loading={loading}
-                  setLoading={setLoading}
-                  avatarMode={avatarMode}
-                  setAvatarMode={setAvatarMode}
-                  useHookFlow={useHookFlow}
-                  heygenAvatars={heygenAvatars}
-                  setHeygenAvatars={setHeygenAvatars}
-                  avatarFilters={avatarFilters}
-                  setAvatarFilters={setAvatarFilters}
-                  avatarSearch={avatarSearch}
-                  setAvatarSearch={setAvatarSearch}
-                  previewAvatar={previewAvatar}
-                  setPreviewAvatar={setPreviewAvatar}
-                  avatarRecommendation={avatarRecommendation}
-                  setAvatarRecommendation={setAvatarRecommendation}
-                  videos={videos}
-                  videoUrl={videoUrl}
-                  setVideoUrl={setVideoUrl}
-                  setVideoStoragePath={setVideoStoragePath}
-                  platformApiKey={platformApiKey}
-                  videoOp={videoOp}
-                  setVideoOp={setVideoOp}
-                  setGenerationStage={setGenerationStage}
-                  isTestMode={isTestMode}
-                  setIsTestMode={setIsTestMode}
-                  useNativeFallback={useNativeFallback}
-                  setUseNativeFallback={setUseNativeFallback}
-                  logs={logs}
-                  pollIntervalRef={pollIntervalRef}
-                  isTestingKey={isTestingKey}
-                  isUpdatingKey={isUpdatingKey}
-                  audioUrl={audioUrl}
-                  isVideoUpToDate={isVideoUpToDate}
-                  loadingAvatars={loadingAvatars}
-                  avatarError={avatarError}
-                  newElevenLabsKey={newElevenLabsKey}
-                  setNewElevenLabsKey={setNewElevenLabsKey}
-                  showElevenLabsConfig={showElevenLabsConfig}
-                  setShowElevenLabsConfig={setShowElevenLabsConfig}
-                  setShowDeleteModal={setShowDeleteModal}
-                  videoToDelete={videoToDelete}
-                  setVideoToDelete={setVideoToDelete}
-                  setAudioToDelete={setAudioToDelete}
-                  showDeleteVideoModal={showDeleteVideoModal}
-                  setShowDeleteVideoModal={setShowDeleteVideoModal}
-                  showDeleteHistoryVideoModal={showDeleteHistoryVideoModal}
-                  setShowDeleteHistoryVideoModal={setShowDeleteHistoryVideoModal}
-                  handleGenerateVideo={handleGenerateVideo}
-                  handleCancelGeneration={handleCancelGeneration}
-                  handleDeleteVideo={handleDeleteVideo}
-                  handleDeleteVideoFromArray={handleDeleteVideoFromArray}
-                  handleTestElevenLabsKey={handleTestElevenLabsKey}
-                  handleUpdateElevenLabsKey={handleUpdateElevenLabsKey}
-                />
-              </React.Suspense>
-            )}
-            {currentStep === 'edit-zap' && (
-              <React.Suspense fallback={<div className="text-center py-20 text-gray-400">Carregando...</div>}>
-                <EditZapTab
-                  zap={zap}
-                  config={config}
-                  setConfig={setConfig}
-                  videos={videos}
-                  platformApiKey={platformApiKey}
-                  user={user}
-                  useHookFlow={useHookFlow}
-                  loading={loading}
-                  handleRenderZapSimple={handleRenderZapSimple}
-                  handleDeleteVideoFromArray={handleDeleteVideoFromArray}
-                  handleRenderHeadline={handleRenderHeadline}
-                  handleRenderIntercut={handleRenderIntercut}
-                  fetchZapCapTemplates={fetchZapCapTemplates}
-                  zapCapTemplates={zapCapTemplates}
-                />
-              </React.Suspense>
-            )}
-            {currentStep === 'edit2' && (
-              <React.Suspense fallback={<div className="text-center py-20 text-gray-400">Carregando...</div>}>
-                <Edit2Tab
-                  videoUrl={videoUrl}
-                  setVideoUrl={setVideoUrl}
-                  uploadProgress={uploadProgress}
-                  userVideos={userVideos}
-                  platformApiKey={platformApiKey}
-                  autoEditState={autoEditState}
-                  setAutoEditState={setAutoEditState}
-                  brollPercent={brollPercent}
-                  setBrollPercent={setBrollPercent}
-                  recommendedBrollPercent={recommendedBrollPercent}
-                  zapCapTemplates={zapCapTemplates}
-                  zapCapRenderConfig={zapCapRenderConfig}
-                  setZapCapRenderConfig={setZapCapRenderConfig}
-                  loading={loading}
-                  isDragging={isDragging}
-                  setIsDragging={setIsDragging}
-                  isRenderingRef={isRenderingRef}
-                  handleUploadVideo={handleUploadVideo}
-                  handleStartAutoEdit={handleStartAutoEdit}
-                  handleRenderZapCap={handleRenderZapCap}
-                  handleApproveAndDownload={handleApproveAndDownload}
-                  toggleBrollSelection={toggleBrollSelection}
-                />
-              </React.Suspense>
-            )}
+                </LazyTab>
+              )}
+              {currentStep === 'edit-zap' && (
+                <LazyTab>
+                  <EditZapTab
+                    zap={zap}
+                    config={config}
+                    setConfig={setConfig}
+                    videos={videos}
+                    platformApiKey={platformApiKey}
+                    user={user}
+                    useHookFlow={useHookFlow}
+                    loading={loading}
+                    handleRenderZapSimple={handleRenderZapSimple}
+                    handleDeleteVideoFromArray={handleDeleteVideoFromArray}
+                    handleRenderHeadline={handleRenderHeadline}
+                    handleRenderIntercut={handleRenderIntercut}
+                    fetchZapCapTemplates={fetchZapCapTemplates}
+                    zapCapTemplates={zapCapTemplates}
+                  />
+                </LazyTab>
+              )}
+              {currentStep === 'edit2' && (
+                <LazyTab>
+                  <Edit2Tab
+                    videoUrl={videoUrl}
+                    setVideoUrl={setVideoUrl}
+                    uploadProgress={uploadProgress}
+                    userVideos={userVideos}
+                    platformApiKey={platformApiKey}
+                    autoEditState={autoEditState}
+                    setAutoEditState={setAutoEditState}
+                    brollPercent={brollPercent}
+                    setBrollPercent={setBrollPercent}
+                    recommendedBrollPercent={recommendedBrollPercent}
+                    zapCapTemplates={zapCapTemplates}
+                    zapCapRenderConfig={zapCapRenderConfig}
+                    setZapCapRenderConfig={setZapCapRenderConfig}
+                    loading={loading}
+                    isDragging={isDragging}
+                    setIsDragging={setIsDragging}
+                    isRenderingRef={isRenderingRef}
+                    handleUploadVideo={handleUploadVideo}
+                    handleStartAutoEdit={handleStartAutoEdit}
+                    handleRenderZapCap={handleRenderZapCap}
+                    handleApproveAndDownload={handleApproveAndDownload}
+                    toggleBrollSelection={toggleBrollSelection}
+                  />
+                </LazyTab>
+              )}
 
-            {currentStep === 'final' && (
-              <React.Suspense fallback={<div className="text-center py-20 text-gray-400">Carregando...</div>}>
-                <FinalTab
-                  config={config}
-                  videoUrl={videoUrl}
-                  audioUrl={audioUrl}
-                  videoOp={videoOp}
-                  loading={loading}
-                  currentTime={currentTime}
-                  setCurrentTime={setCurrentTime}
-                  isExpanded={isExpanded}
-                  generationStage={generationStage}
-                  heygenAvatars={heygenAvatars}
-                  platformApiKey={platformApiKey}
-                  videoRef={videoRef}
-                  logs={logs}
-                  handleGenerateVideo={handleGenerateVideo}
-                  handleGenerateSubtitles={handleGenerateSubtitles}
-                />
-              </React.Suspense>
-            )}
+              {currentStep === 'final' && (
+                <LazyTab>
+                  <FinalTab
+                    config={config}
+                    videoUrl={videoUrl}
+                    audioUrl={audioUrl}
+                    videoOp={videoOp}
+                    loading={loading}
+                    currentTime={currentTime}
+                    setCurrentTime={setCurrentTime}
+                    isExpanded={isExpanded}
+                    generationStage={generationStage}
+                    heygenAvatars={heygenAvatars}
+                    platformApiKey={platformApiKey}
+                    videoRef={videoRef}
+                    logs={logs}
+                    handleGenerateVideo={handleGenerateVideo}
+                    handleGenerateSubtitles={handleGenerateSubtitles}
+                    onDuplicateAsVariant={handleDuplicateAsVariant}
+                  />
+                </LazyTab>
+              )}
             </ErrorBoundary>
           </motion.div>
         </AnimatePresence>
@@ -5428,6 +5493,19 @@ export default function App() {
         onCopySubModeChange={setCopySubMode}
         onClose={() => setShowNewProjectModal(false)}
         onCreate={handleCreateProject}
+      />
+
+      <CostConfirmModal
+        isOpen={!!pendingVideoGen}
+        action="heygen_video"
+        cost={COSTS.heygen_video}
+        currentCredits={credits}
+        onCancel={() => setPendingVideoGen(null)}
+        onConfirm={() => {
+          const pending = pendingVideoGen;
+          setPendingVideoGen(null);
+          if (pending) executeGenerateVideo(pending.forceRegenerate);
+        }}
       />
 
       {/* Delete Audio Modal — renderizado no topo para evitar z-index/overflow issues */}
@@ -5516,9 +5594,7 @@ export default function App() {
         onSave={() => {
           setShowEditPersonaModal(false);
           setCopyFieldsApplied(false);
-          toast.success(
-            "Persona atualizado! Clique em 'Atualizar Campos da Copy' para aplicar."
-          );
+          toast.success("Persona atualizado! Clique em 'Atualizar Campos da Copy' para aplicar.");
         }}
       />
 

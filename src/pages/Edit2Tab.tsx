@@ -15,10 +15,10 @@ import {
   RefreshCw,
   Download,
 } from 'lucide-react';
-import { cn } from '../lib/utils';
-import { detectVideoFormatFromUrl } from '../lib/helpers';
-import { getAuthorizedUrl } from '../lib/gemini';
-import type { AutoEditState, ZapCapTemplate, ZapCapRenderConfig } from '../types/project';
+import { cn } from '@/lib/utils';
+import { detectVideoFormatFromUrl } from '@/lib/helpers';
+import { getAuthorizedUrl } from '@/lib/gemini';
+import type { AutoEditState, ZapCapTemplate, ZapCapRenderConfig } from '@/types/project';
 
 // Edição Inteligente V2 tab — AssemblyAI analysis + ZapCap captioned
 // render. Extracted from App.tsx as a pure prop-driven component; all
@@ -276,9 +276,7 @@ export function Edit2Tab({
               <CheckCircle2 size={24} />
             </div>
             <div>
-              <h4 className="font-black text-green-900 text-sm">
-                ✅ Vídeo carregado com sucesso
-              </h4>
+              <h4 className="font-black text-green-900 text-sm">✅ Vídeo carregado com sucesso</h4>
               <p className="text-[10px] font-bold text-green-600 uppercase tracking-widest">
                 Formato detectado:{' '}
                 {autoEditState.videoFormat === '9:16'
@@ -834,18 +832,14 @@ export function Edit2Tab({
                         className="w-full h-3 bg-gray-200 rounded-full appearance-none cursor-pointer accent-blue-600"
                       />
                       <div className="flex justify-between mt-3 px-1">
-                        <span className="text-[10px] font-black text-gray-400 uppercase">
-                          20%
-                        </span>
+                        <span className="text-[10px] font-black text-gray-400 uppercase">20%</span>
                         <div className="flex flex-col items-center">
                           <div className="w-1 h-1 bg-blue-600 rounded-full mb-1" />
                           <span className="text-[10px] font-black text-blue-600 uppercase">
                             ⭐ {recommendedBrollPercent}% recomendado
                           </span>
                         </div>
-                        <span className="text-[10px] font-black text-gray-400 uppercase">
-                          70%
-                        </span>
+                        <span className="text-[10px] font-black text-gray-400 uppercase">70%</span>
                       </div>
                     </div>
                   </div>
@@ -855,14 +849,15 @@ export function Edit2Tab({
                 <div className="pt-6 border-t border-gray-100">
                   <button
                     onClick={handleRenderZapCap}
+                    // Intentional ref read during render — guards against the
+                    // double-click race where two clicks fire before `loading`
+                    // state propagates. Converting to state would defeat the
+                    // purpose (it'd re-render on every poll tick).
+                    // eslint-disable-next-line react-hooks/refs
                     disabled={loading || isRenderingRef.current || !zapCapRenderConfig.templateId}
                     className="w-full py-8 bg-blue-600 text-white rounded-[32px] font-black uppercase text-xl tracking-[0.2em] hover:bg-blue-700 transition-all shadow-2xl flex items-center justify-center gap-4 active:scale-95 disabled:opacity-50"
                   >
-                    {loading ? (
-                      <Loader2 className="animate-spin" size={24} />
-                    ) : (
-                      <Film size={24} />
-                    )}
+                    {loading ? <Loader2 className="animate-spin" size={24} /> : <Film size={24} />}
                     Renderizar Nova Versão
                   </button>
                   <p className="text-center mt-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">

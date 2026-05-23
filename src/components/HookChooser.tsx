@@ -1,10 +1,22 @@
 import React, { useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { toast } from 'react-hot-toast';
-import { Search, CheckCircle2, Library, Check, Edit3, RotateCcw, Star, Sparkles, Loader2, History, Trash2 } from 'lucide-react';
-import hooksBibleEn from '../data/hooksBible_en.json';
-import hooksBiblePt from '../data/hooksBible_pt.json';
-import { chooseHooksFromCopy } from '../lib/claudeService';
+import {
+  Search,
+  CheckCircle2,
+  Library,
+  Check,
+  Edit3,
+  RotateCcw,
+  Star,
+  Sparkles,
+  Loader2,
+  History,
+  Trash2,
+} from 'lucide-react';
+import hooksBibleEn from '@/data/hooksBible_en.json';
+import hooksBiblePt from '@/data/hooksBible_pt.json';
+import { chooseHooksFromCopy } from '@/lib/claudeService';
 
 interface Props {
   language?: string;
@@ -16,35 +28,40 @@ interface Props {
 }
 
 const HOOK_TYPES_BY_LEVEL: Record<string, string[]> = {
-  "1": ["Surpresa / Choque", "Curiosidade / Pergunta", "Identificação"],
-  "2": ["Identificação", "Confissão / História", "Quebra de Paradigma"],
-  "3": ["Quebra de Paradigma", "Contraste / Antes-Depois", "Resultado / Promessa"],
-  "4": ["Resultado / Promessa", "Contraste / Antes-Depois", "Surpresa / Choque"],
-  "5": ["Resultado / Promessa", "Urgência / Notícia", "Humor / Absurdo"]
+  '1': ['Surpresa / Choque', 'Curiosidade / Pergunta', 'Identificação'],
+  '2': ['Identificação', 'Confissão / História', 'Quebra de Paradigma'],
+  '3': ['Quebra de Paradigma', 'Contraste / Antes-Depois', 'Resultado / Promessa'],
+  '4': ['Resultado / Promessa', 'Contraste / Antes-Depois', 'Surpresa / Choque'],
+  '5': ['Resultado / Promessa', 'Urgência / Notícia', 'Humor / Absurdo'],
 };
 
 const ALL_HOOK_TYPES = [
-  "Quebra de Paradigma",
-  "Contraste / Antes-Depois",
-  "Resultado / Promessa",
-  "Identificação",
-  "Confissão / História",
-  "Surpresa / Choque",
-  "Curiosidade / Pergunta",
-  "Humor / Absurdo",
-  "Urgência / Notícia"
+  'Quebra de Paradigma',
+  'Contraste / Antes-Depois',
+  'Resultado / Promessa',
+  'Identificação',
+  'Confissão / História',
+  'Surpresa / Choque',
+  'Curiosidade / Pergunta',
+  'Humor / Absurdo',
+  'Urgência / Notícia',
 ];
 
 const TONES = [
-  { id: 'Direto' as const,    label: 'Direto'    },
-  { id: 'Pergunta' as const,  label: 'Pergunta'  },
-  { id: 'História' as const,  label: 'História'  },
-  { id: 'Choque' as const,    label: 'Choque'    },
+  { id: 'Direto' as const, label: 'Direto' },
+  { id: 'Pergunta' as const, label: 'Pergunta' },
+  { id: 'História' as const, label: 'História' },
+  { id: 'Choque' as const, label: 'Choque' },
 ];
 
 const getHooksBible = (language?: string) => {
   if (language === 'Português (Brasileiro)') {
-    if (hooksBiblePt && (hooksBiblePt as any).hooks && Array.isArray((hooksBiblePt as any).hooks) && (hooksBiblePt as any).hooks.length > 0) {
+    if (
+      hooksBiblePt &&
+      (hooksBiblePt as any).hooks &&
+      Array.isArray((hooksBiblePt as any).hooks) &&
+      (hooksBiblePt as any).hooks.length > 0
+    ) {
       return hooksBiblePt as any;
     }
   }
@@ -54,9 +71,18 @@ const getHooksBible = (language?: string) => {
   return { hooks: [], total: 0, idioma: 'en' };
 };
 
-const HookChooser: React.FC<Props> = ({ language, awarenessLevel, approvedCopy = '', hooksHistorico = [], onSaveHook, onDeleteHookFromHistory }) => {
+const HookChooser: React.FC<Props> = ({
+  language,
+  awarenessLevel,
+  approvedCopy = '',
+  hooksHistorico = [],
+  onSaveHook,
+  onDeleteHookFromHistory,
+}) => {
   const [search, setSearch] = useState('');
-  const [tone, setTone] = useState<'Direto' | 'Pergunta' | 'História' | 'Choque' | 'Todos'>('Todos');
+  const [tone, setTone] = useState<'Direto' | 'Pergunta' | 'História' | 'Choque' | 'Todos'>(
+    'Todos'
+  );
   const [levelFilters, setLevelFilters] = useState<number[]>([]);
   const [typeFilters, setTypeFilters] = useState<string[]>([]);
   const [chosenHook, setChosenHook] = useState<string>('');
@@ -90,13 +116,24 @@ const HookChooser: React.FC<Props> = ({ language, awarenessLevel, approvedCopy =
   const dropdownSet = useMemo(() => {
     let working = allHooks;
     if (search) {
-      working = working.filter((h: any) => h?.template?.toLowerCase()?.includes(search.toLowerCase()));
+      working = working.filter((h: any) =>
+        h?.template?.toLowerCase()?.includes(search.toLowerCase())
+      );
     }
     if (tone !== 'Todos') {
       if (tone === 'Pergunta') working = working.filter((h: any) => h?.template?.endsWith('?'));
-      else if (tone === 'História') working = working.filter((h: any) => h.tipo === 'Confissão / História');
-      else if (tone === 'Choque') working = working.filter((h: any) => h.tipo === 'Surpresa / Choque');
-      else if (tone === 'Direto') working = working.filter((h: any) => h?.template && !h.template.endsWith('?') && h.tipo !== 'Confissão / História' && h.tipo !== 'Surpresa / Choque');
+      else if (tone === 'História')
+        working = working.filter((h: any) => h.tipo === 'Confissão / História');
+      else if (tone === 'Choque')
+        working = working.filter((h: any) => h.tipo === 'Surpresa / Choque');
+      else if (tone === 'Direto')
+        working = working.filter(
+          (h: any) =>
+            h?.template &&
+            !h.template.endsWith('?') &&
+            h.tipo !== 'Confissão / História' &&
+            h.tipo !== 'Surpresa / Choque'
+        );
     }
     return working;
   }, [allHooks, search, tone]);
@@ -115,9 +152,11 @@ const HookChooser: React.FC<Props> = ({ language, awarenessLevel, approvedCopy =
       // Build candidates: top 15 per recommended type, filtered by level
       const lvlStr = String(awarenessLevel).split('-')[0] ?? '';
       const lvlNum = parseInt(lvlStr) || 3;
-      const filteredByLevel = allHooks.filter((h: any) => Array.isArray(h.niveis) && h.niveis.includes(lvlNum));
+      const filteredByLevel = allHooks.filter(
+        (h: any) => Array.isArray(h.niveis) && h.niveis.includes(lvlNum)
+      );
       const candidates: any[] = [];
-      recommendedTypes.forEach(t => {
+      recommendedTypes.forEach((t) => {
         const typeHooks = filteredByLevel.filter((h: any) => h.tipo === t).slice(0, 15);
         candidates.push(...typeHooks);
       });
@@ -176,7 +215,10 @@ const HookChooser: React.FC<Props> = ({ language, awarenessLevel, approvedCopy =
   };
 
   const handleSave = () => {
-    if (!chosenHook.trim()) { toast.error('Escolha ou escreva um hook antes de salvar.'); return; }
+    if (!chosenHook.trim()) {
+      toast.error('Escolha ou escreva um hook antes de salvar.');
+      return;
+    }
     onSaveHook?.(chosenHook.trim());
     setIsSaved(true);
     toast.success('Hook salvo!');
@@ -209,7 +251,6 @@ const HookChooser: React.FC<Props> = ({ language, awarenessLevel, approvedCopy =
 
   return (
     <div className="space-y-8">
-
       {/* ─── TOPO: COPY APROVADA (read-only) ─── */}
       {approvedCopy ? (
         <div className="bg-blue-50 rounded-3xl border-2 border-blue-200 p-6 shadow-sm">
@@ -217,11 +258,15 @@ const HookChooser: React.FC<Props> = ({ language, awarenessLevel, approvedCopy =
             <div className="bg-blue-600 p-1.5 rounded-lg text-white">
               <Library size={16} />
             </div>
-            <h3 className="text-sm font-black text-blue-900 uppercase tracking-widest">Copy Aprovada</h3>
+            <h3 className="text-sm font-black text-blue-900 uppercase tracking-widest">
+              Copy Aprovada
+            </h3>
             <span className="text-xs text-blue-600 ml-auto">vinda da etapa anterior</span>
           </div>
           <div className="bg-white rounded-2xl p-5 max-h-72 overflow-y-auto border border-blue-100">
-            <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{approvedCopy}</p>
+            <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+              {approvedCopy}
+            </p>
           </div>
           <p className="text-[10px] text-blue-600/70 mt-2 italic">
             Para editar a copy, volte para a etapa de Copywriting.
@@ -229,7 +274,9 @@ const HookChooser: React.FC<Props> = ({ language, awarenessLevel, approvedCopy =
         </div>
       ) : (
         <div className="bg-orange-50 rounded-3xl border-2 border-orange-200 p-6 text-center">
-          <p className="text-sm text-orange-700 font-bold">Nenhuma copy aprovada. Volte à aba Copywriting e gere uma copy primeiro.</p>
+          <p className="text-sm text-orange-700 font-bold">
+            Nenhuma copy aprovada. Volte à aba Copywriting e gere uma copy primeiro.
+          </p>
         </div>
       )}
 
@@ -241,7 +288,11 @@ const HookChooser: React.FC<Props> = ({ language, awarenessLevel, approvedCopy =
             disabled={isRecommending}
             className="px-12 py-5 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-2xl font-black uppercase tracking-widest hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 transition-all shadow-xl shadow-purple-100 flex items-center gap-3 text-base"
           >
-            {isRecommending ? <Loader2 className="animate-spin" size={20} /> : <Sparkles size={20} />}
+            {isRecommending ? (
+              <Loader2 className="animate-spin" size={20} />
+            ) : (
+              <Sparkles size={20} />
+            )}
             {isRecommending ? 'Analisando copy e gerando hooks...' : 'Analisar Copy e Gerar Hooks'}
           </button>
         </div>
@@ -249,27 +300,37 @@ const HookChooser: React.FC<Props> = ({ language, awarenessLevel, approvedCopy =
 
       {/* ─── BLOCO 1: HOOKS GERADOS PELA IA + FILTROS ─── */}
       {aiGeneratedGroups.length > 0 && (
-        <div className={`bg-white rounded-3xl border-2 p-6 shadow-sm transition-all ${activeBlock === 'ai' ? 'border-blue-500 shadow-lg ring-2 ring-blue-100' : 'border-gray-100 opacity-90'}`}>
+        <div
+          className={`bg-white rounded-3xl border-2 p-6 shadow-sm transition-all ${activeBlock === 'ai' ? 'border-blue-500 shadow-lg ring-2 ring-blue-100' : 'border-gray-100 opacity-90'}`}
+        >
           <div className="flex items-center gap-2 mb-4">
             <div className="bg-purple-600 p-1.5 rounded-lg text-white">
               <Sparkles size={16} />
             </div>
-            <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest flex-1">Opção 1: Hooks Recomendados pela IA</h3>
+            <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest flex-1">
+              Opção 1: Hooks Recomendados pela IA
+            </h3>
             {renderBlockCheckbox('ai', 'Usar este bloco')}
           </div>
 
           {/* Filtros pré-selecionados (visualização do que foi usado) */}
           <div className="mb-4 p-4 bg-purple-50 rounded-2xl border border-purple-100">
-            <p className="text-[10px] font-black text-purple-700 uppercase tracking-widest mb-3">Filtros usados para gerar os 9 hooks</p>
+            <p className="text-[10px] font-black text-purple-700 uppercase tracking-widest mb-3">
+              Filtros usados para gerar os 9 hooks
+            </p>
             <div className="mb-3">
-              <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">Nível de Consciência</p>
+              <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">
+                Nível de Consciência
+              </p>
               <div className="flex gap-1.5">
-                {[1,2,3,4,5].map(lvl => {
+                {[1, 2, 3, 4, 5].map((lvl) => {
                   const active = levelFilters.includes(lvl);
                   const showStar = lvl === projectLevel;
                   return (
-                    <div key={`ai-lvl-${lvl}`}
-                      className={`relative w-9 h-9 rounded-lg font-black text-xs flex items-center justify-center gap-0.5 ${active ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-400'}`}>
+                    <div
+                      key={`ai-lvl-${lvl}`}
+                      className={`relative w-9 h-9 rounded-lg font-black text-xs flex items-center justify-center gap-0.5 ${active ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-400'}`}
+                    >
                       {lvl}
                       {showStar && <span className="text-[8px]">⭐</span>}
                     </div>
@@ -279,16 +340,20 @@ const HookChooser: React.FC<Props> = ({ language, awarenessLevel, approvedCopy =
             </div>
             <div>
               <div className="flex items-center justify-between mb-1">
-                <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Tipos de Hook</p>
+                <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest">
+                  Tipos de Hook
+                </p>
                 <p className="text-[9px] text-amber-600 font-bold">⭐ = recomendado pelo nível</p>
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {ALL_HOOK_TYPES.map(t => {
+                {ALL_HOOK_TYPES.map((t) => {
                   const active = typeFilters.includes(t);
                   const showStar = recommendedTypes.includes(t);
                   return (
-                    <div key={`ai-type-${t}`}
-                      className={`relative px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-1 ${active ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-400'}`}>
+                    <div
+                      key={`ai-type-${t}`}
+                      className={`relative px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-1 ${active ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-400'}`}
+                    >
                       <span>{t}</span>
                       {showStar && <span className="text-[8px]">⭐</span>}
                     </div>
@@ -322,18 +387,24 @@ const HookChooser: React.FC<Props> = ({ language, awarenessLevel, approvedCopy =
                           isSelected
                             ? 'border-blue-600 bg-blue-50 shadow-lg ring-2 ring-blue-100'
                             : isDisabled
-                            ? 'border-gray-50 bg-gray-50/50 cursor-not-allowed opacity-60'
-                            : 'border-gray-50 bg-gray-50 hover:border-blue-200 hover:bg-white'
+                              ? 'border-gray-50 bg-gray-50/50 cursor-not-allowed opacity-60'
+                              : 'border-gray-50 bg-gray-50 hover:border-blue-200 hover:bg-white'
                         }`}
                       >
                         <div className="flex items-start gap-4">
-                          <div className={`mt-1 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${
-                            isSelected ? 'bg-blue-600 border-blue-600' : 'border-gray-200 bg-white'
-                          }`}>
+                          <div
+                            className={`mt-1 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${
+                              isSelected
+                                ? 'bg-blue-600 border-blue-600'
+                                : 'border-gray-200 bg-white'
+                            }`}
+                          >
                             {isSelected && <div className="w-2 h-2 bg-white rounded-full"></div>}
                           </div>
                           <div className="flex-1 pr-16">
-                            <p className={`text-sm font-bold leading-relaxed ${isSelected ? 'text-blue-900' : 'text-gray-700'}`}>
+                            <p
+                              className={`text-sm font-bold leading-relaxed ${isSelected ? 'text-blue-900' : 'text-gray-700'}`}
+                            >
                               {text}
                             </p>
                           </div>
@@ -341,7 +412,9 @@ const HookChooser: React.FC<Props> = ({ language, awarenessLevel, approvedCopy =
                         {isHookRecommended && (
                           <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-amber-100 text-amber-700 px-3 py-1.5 rounded-xl border border-amber-200 shadow-sm">
                             <Star size={12} fill="currentColor" />
-                            <span className="text-[10px] font-black uppercase tracking-tighter">Recomendado</span>
+                            <span className="text-[10px] font-black uppercase tracking-tighter">
+                              Recomendado
+                            </span>
                           </div>
                         )}
                       </button>
@@ -355,12 +428,16 @@ const HookChooser: React.FC<Props> = ({ language, awarenessLevel, approvedCopy =
       )}
 
       {/* ─── BLOCO 2: BUSCAR PELA LISTA COMPLETA ─── */}
-      <div className={`bg-white rounded-3xl border-2 p-6 shadow-sm transition-all ${activeBlock === 'list' ? 'border-blue-500 shadow-lg ring-2 ring-blue-100' : 'border-gray-100 opacity-90'}`}>
+      <div
+        className={`bg-white rounded-3xl border-2 p-6 shadow-sm transition-all ${activeBlock === 'list' ? 'border-blue-500 shadow-lg ring-2 ring-blue-100' : 'border-gray-100 opacity-90'}`}
+      >
         <div className="flex items-center gap-2 mb-4">
           <div className="bg-purple-600 p-1.5 rounded-lg text-white">
             <Search size={16} />
           </div>
-          <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest flex-1">Opção 2: Buscar pela Lista Completa</h3>
+          <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest flex-1">
+            Opção 2: Buscar pela Lista Completa
+          </h3>
           {renderBlockCheckbox('list', 'Usar este bloco')}
         </div>
 
@@ -376,13 +453,18 @@ const HookChooser: React.FC<Props> = ({ language, awarenessLevel, approvedCopy =
 
         {/* Tom */}
         <div className="mb-4">
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Tom do Hook</p>
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">
+            Tom do Hook
+          </p>
           <div className="flex flex-wrap gap-2">
-            {TONES.map(t => {
+            {TONES.map((t) => {
               const active = tone === t.id;
               return (
-                <button key={`opt3-tone-${t.id}`} onClick={() => setTone(active ? 'Todos' : t.id)}
-                  className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition ${active ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                <button
+                  key={`opt3-tone-${t.id}`}
+                  onClick={() => setTone(active ? 'Todos' : t.id)}
+                  className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition ${active ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                >
                   {t.label}
                 </button>
               );
@@ -393,7 +475,8 @@ const HookChooser: React.FC<Props> = ({ language, awarenessLevel, approvedCopy =
         {/* DROPDOWN */}
         <div className="mb-2">
           <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">
-            Selecione um Hook ({dropdownSet.length} {dropdownSet.length === 1 ? 'disponível' : 'disponíveis'})
+            Selecione um Hook ({dropdownSet.length}{' '}
+            {dropdownSet.length === 1 ? 'disponível' : 'disponíveis'})
           </p>
           <select
             value=""
@@ -414,7 +497,8 @@ const HookChooser: React.FC<Props> = ({ language, awarenessLevel, approvedCopy =
             <option value="">— Escolha um hook da lista —</option>
             {dropdownSet.map((h: any, i: number) => (
               <option key={`drop-${h.id || i}-${i}`} value={i}>
-                [{h.tipo}] {h.template.length > 80 ? h.template.substring(0, 80) + '...' : h.template}
+                [{h.tipo}]{' '}
+                {h.template.length > 80 ? h.template.substring(0, 80) + '...' : h.template}
               </option>
             ))}
           </select>
@@ -425,12 +509,16 @@ const HookChooser: React.FC<Props> = ({ language, awarenessLevel, approvedCopy =
       </div>
 
       {/* ─── BLOCO 3: HOOK CUSTOMIZADO ─── */}
-      <div className={`bg-white rounded-3xl border-2 p-6 shadow-sm transition-all ${activeBlock === 'custom' ? 'border-blue-500 shadow-lg ring-2 ring-blue-100' : 'border-gray-100 opacity-90'}`}>
+      <div
+        className={`bg-white rounded-3xl border-2 p-6 shadow-sm transition-all ${activeBlock === 'custom' ? 'border-blue-500 shadow-lg ring-2 ring-blue-100' : 'border-gray-100 opacity-90'}`}
+      >
         <div className="flex items-center gap-2 mb-4">
           <div className="bg-purple-600 p-1.5 rounded-lg text-white">
             <Edit3 size={16} />
           </div>
-          <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest flex-1">Opção 3: Escreva seu próprio hook</h3>
+          <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest flex-1">
+            Opção 3: Escreva seu próprio hook
+          </h3>
           {renderBlockCheckbox('custom', 'Usar este bloco')}
         </div>
         <div className="flex gap-2">
@@ -444,12 +532,16 @@ const HookChooser: React.FC<Props> = ({ language, awarenessLevel, approvedCopy =
           <button
             onClick={() => {
               const t = customHook.trim();
-              if (!t) { toast.error('Escreva um hook antes.'); return; }
+              if (!t) {
+                toast.error('Escreva um hook antes.');
+                return;
+              }
               setChosenHook(t);
               setIsSaved(false);
             }}
             disabled={activeBlock !== 'custom'}
-            className="px-5 py-3 bg-gray-900 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-black transition disabled:bg-gray-300 disabled:cursor-not-allowed">
+            className="px-5 py-3 bg-gray-900 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-black transition disabled:bg-gray-300 disabled:cursor-not-allowed"
+          >
             Usar
           </button>
         </div>
@@ -462,21 +554,34 @@ const HookChooser: React.FC<Props> = ({ language, awarenessLevel, approvedCopy =
             <div className="bg-gray-700 p-1.5 rounded-lg text-white">
               <History size={16} />
             </div>
-            <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest">Hooks Salvos Anteriormente</h3>
-            <span className="text-xs text-gray-400 ml-auto">{hooksHistorico.length} no histórico</span>
+            <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest">
+              Hooks Salvos Anteriormente
+            </h3>
+            <span className="text-xs text-gray-400 ml-auto">
+              {hooksHistorico.length} no histórico
+            </span>
           </div>
           <div className="space-y-2 max-h-80 overflow-y-auto pr-2">
             {hooksHistorico.map((item, idx) => {
               const isSelected = chosenHook === item.hook;
               const date = new Date(item.createdAt);
-              const dateStr = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+              const dateStr = date.toLocaleDateString('pt-BR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              });
               return (
-                <div key={`hist-${idx}`}
-                  className={`group p-4 rounded-2xl border-2 transition-all ${isSelected ? 'border-blue-600 bg-blue-50' : 'border-gray-100 bg-gray-50 hover:border-blue-200'}`}>
+                <div
+                  key={`hist-${idx}`}
+                  className={`group p-4 rounded-2xl border-2 transition-all ${isSelected ? 'border-blue-600 bg-blue-50' : 'border-gray-100 bg-gray-50 hover:border-blue-200'}`}
+                >
                   <div className="flex items-start gap-3">
-                    <button onClick={() => handlePickHook(item.hook)}
-                      className="flex-1 text-left">
-                      <p className={`text-sm font-bold leading-relaxed ${isSelected ? 'text-blue-900' : 'text-gray-700'}`}>
+                    <button onClick={() => handlePickHook(item.hook)} className="flex-1 text-left">
+                      <p
+                        className={`text-sm font-bold leading-relaxed ${isSelected ? 'text-blue-900' : 'text-gray-700'}`}
+                      >
                         {item.hook}
                       </p>
                       <p className="text-[10px] text-gray-400 mt-1">Salvo em {dateStr}</p>
@@ -510,15 +615,22 @@ const HookChooser: React.FC<Props> = ({ language, awarenessLevel, approvedCopy =
           animate={{ opacity: 1, y: 0 }}
           className="bg-blue-600 rounded-3xl p-6 shadow-xl text-white sticky bottom-4 z-10"
         >
-          <p className="text-[10px] font-black uppercase tracking-widest text-white/70 mb-2">🔵 Hook Final</p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-white/70 mb-2">
+            🔵 Hook Final
+          </p>
           <input
             value={chosenHook}
-            onChange={(e) => { setChosenHook(e.target.value); setIsSaved(false); }}
+            onChange={(e) => {
+              setChosenHook(e.target.value);
+              setIsSaved(false);
+            }}
             className="w-full bg-transparent text-xl font-bold text-white border-b-2 border-white/30 focus:border-white outline-none pb-2"
           />
           <div className="flex items-center justify-between gap-3 mt-5">
-            <button onClick={handleReset}
-              className="text-xs text-white/70 font-bold uppercase tracking-widest flex items-center gap-2 hover:text-white">
+            <button
+              onClick={handleReset}
+              className="text-xs text-white/70 font-bold uppercase tracking-widest flex items-center gap-2 hover:text-white"
+            >
               <RotateCcw size={14} /> Limpar
             </button>
             <button
@@ -532,8 +644,6 @@ const HookChooser: React.FC<Props> = ({ language, awarenessLevel, approvedCopy =
           </div>
         </motion.div>
       )}
-
-
     </div>
   );
 };

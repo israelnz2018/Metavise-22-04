@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { cn } from '../lib/utils';
+import { cn } from '@/lib/utils';
 
 // Textarea that auto-grows to fit its content. Used across the Copy tab
 // (long answers + script editor). Width comes from className; height

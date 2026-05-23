@@ -5,9 +5,9 @@
 // by ~560 lines without changing any behavior.
 
 import { toast } from 'react-hot-toast';
-import type { AdConfig } from '../App';
+import type { AdConfig } from '@/App';
 import { Users, Sparkles, Loader2, CheckCircle2 } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn } from '@/lib/utils';
 import {
   PERSONA_CATEGORY_OPTIONS,
   PERSONA_URGENCY_OPTIONS,
@@ -16,8 +16,8 @@ import {
   PERSONA_PAYING_CAPACITY_OPTIONS,
   PERSONA_HIDDEN_DESIRE_OPTIONS,
   COPY_SECTIONS,
-} from '../lib/constants';
-import { personaFromProduct, type ProductInfo } from '../lib/claudeService';
+} from '@/lib/constants';
+import { personaFromProduct, type ProductInfo } from '@/lib/claudeService';
 
 interface Props {
   // Single source of truth for the form. Read `config.copy.answers` and
@@ -185,7 +185,7 @@ export function PersonaTab({
                   'px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all',
                   a.category === cat
                     ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white text-gray-700 border-gray-200 hover:border-blue-300',
+                    : 'bg-white text-gray-700 border-gray-200 hover:border-blue-300'
                 )}
               >
                 {cat}
@@ -277,7 +277,7 @@ export function PersonaTab({
                   'p-3 rounded-2xl border-2 transition-all text-left',
                   a.urgency === opt.value
                     ? 'bg-blue-50 border-blue-600'
-                    : 'bg-white border-gray-100 hover:border-blue-200',
+                    : 'bg-white border-gray-100 hover:border-blue-200'
                 )}
               >
                 <div className="text-sm font-black text-gray-900">{opt.label}</div>
@@ -301,7 +301,7 @@ export function PersonaTab({
                   'px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all',
                   differentials.includes(d)
                     ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white text-gray-700 border-gray-200 hover:border-blue-300',
+                    : 'bg-white text-gray-700 border-gray-200 hover:border-blue-300'
                 )}
               >
                 {d}
@@ -346,7 +346,7 @@ export function PersonaTab({
                   'px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all',
                   personaTriedBefore.includes(t)
                     ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white text-gray-700 border-gray-200 hover:border-blue-300',
+                    : 'bg-white text-gray-700 border-gray-200 hover:border-blue-300'
                 )}
               >
                 {t}
@@ -368,7 +368,7 @@ export function PersonaTab({
                   'px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all',
                   a.payingCapacity === p
                     ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white text-gray-700 border-gray-200 hover:border-blue-300',
+                    : 'bg-white text-gray-700 border-gray-200 hover:border-blue-300'
                 )}
               >
                 {p}
@@ -383,9 +383,9 @@ export function PersonaTab({
             <span className="text-[10px] text-gray-400 font-bold ml-2">(escolha 1-3)</span>
           </label>
           <p className="text-xs text-gray-500 italic leading-relaxed">
-            Não é o que o produto faz na superfície (ex: "perder peso") — é o que a pessoa
-            REALMENTE quer ao resolver o problema (ex: "ser admirada nas fotos", "se sentir
-            desejada de novo"). Pense no que ela diria se ninguém estivesse ouvindo.
+            Não é o que o produto faz na superfície (ex: "perder peso") — é o que a pessoa REALMENTE
+            quer ao resolver o problema (ex: "ser admirada nas fotos", "se sentir desejada de
+            novo"). Pense no que ela diria se ninguém estivesse ouvindo.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">
             {PERSONA_HIDDEN_DESIRE_OPTIONS.map((d) => (
@@ -396,7 +396,7 @@ export function PersonaTab({
                   'p-3 rounded-2xl border-2 transition-all text-left flex items-start gap-2',
                   hiddenDesires.includes(d.label)
                     ? 'bg-blue-50 border-blue-600'
-                    : 'bg-white border-gray-100 hover:border-blue-200',
+                    : 'bg-white border-gray-100 hover:border-blue-200'
                 )}
               >
                 <span className="text-xl shrink-0">{d.emoji}</span>
@@ -451,7 +451,7 @@ export function PersonaTab({
                     'bg-white p-6 rounded-[28px] border-4 shadow-sm space-y-3 flex flex-col',
                     rankColor === 'blue' && 'border-blue-600',
                     rankColor === 'purple' && 'border-purple-400',
-                    rankColor === 'gray' && 'border-gray-200',
+                    rankColor === 'gray' && 'border-gray-200'
                   )}
                 >
                   <div className="flex items-center justify-between">
@@ -460,7 +460,7 @@ export function PersonaTab({
                         'px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest',
                         rankColor === 'blue' && 'bg-blue-600 text-white',
                         rankColor === 'purple' && 'bg-purple-400 text-white',
-                        rankColor === 'gray' && 'bg-gray-200 text-gray-700',
+                        rankColor === 'gray' && 'bg-gray-200 text-gray-700'
                       )}
                     >
                       {p.rank}
@@ -562,7 +562,7 @@ export function PersonaTab({
                       'w-full mt-3 py-3 rounded-2xl font-black uppercase tracking-widest text-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed',
                       rankColor === 'blue' && 'bg-blue-600 text-white hover:bg-blue-700',
                       rankColor === 'purple' && 'bg-purple-500 text-white hover:bg-purple-600',
-                      rankColor === 'gray' && 'bg-gray-900 text-white hover:bg-black',
+                      rankColor === 'gray' && 'bg-gray-900 text-white hover:bg-black'
                     )}
                   >
                     {personasSaved ? 'Enviar este Persona pra Copy →' : '🔒 Salve os 3 primeiro'}

@@ -57,6 +57,15 @@ Thumbs.db
 .vitest/
 .nyc_output/
 
+# Playwright artefacts: HTML reports, traces, screenshots, videos.
+# Browser binaries land in ~/Library/Caches/ms-playwright (out of repo).
+playwright-report/
+test-results/
+playwright/.cache/
+
+# Lighthouse CI local report output
+.lighthouseci/
+
 # TypeScript build info
 *.tsbuildinfo
 

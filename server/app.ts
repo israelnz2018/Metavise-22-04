@@ -21,6 +21,7 @@ import { zapCapRouter, proxyImageRouter } from './routes/zapcap.routes.js';
 import { geminiRouter } from './routes/gemini.routes.js';
 import { claudeRouter } from './routes/claude.routes.js';
 import { webhooksRouter } from './routes/webhooks.routes.js';
+import { telemetryRouter } from './routes/telemetry.routes.js';
 
 // Builds and returns a fully wired Express app: middleware, routers, error
 // handler, and the dev/prod SPA pipeline. Does NOT call listen() — see
@@ -54,6 +55,7 @@ export async function createApp(): Promise<Express> {
   // Mounted under /api/webhooks for the POSTs, but the GET /jobs/...
   // endpoint also lives under it. See webhooks.routes.ts for setup.
   app.use('/api/webhooks', webhooksRouter);
+  app.use('/api/telemetry', telemetryRouter);
   app.use('/api', proxyImageRouter);
 
   // /api/* 404 + global error handler must come last in the API chain.

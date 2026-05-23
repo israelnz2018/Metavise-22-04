@@ -1,5 +1,5 @@
 import { RefreshCw, Shield, Volume2, User, Sparkles, Zap, Film, Bot } from 'lucide-react';
-import { IntegrationCard, type TestStatus } from '../components/IntegrationCard';
+import { IntegrationCard, type TestStatus } from '@/components/IntegrationCard';
 
 // One provider's worth of state + callbacks. App.tsx still owns the state;
 // this tab is pure presentation and just routes events back up.

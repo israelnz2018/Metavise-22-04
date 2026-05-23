@@ -14,7 +14,7 @@
 // typed with the canonical `AdConfig` exported from App.tsx.
 
 import React from 'react';
-import type { AdConfig } from '../App';
+import type { AdConfig } from '@/App';
 import { toast } from 'react-hot-toast';
 import {
   Users,
@@ -29,8 +29,8 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../lib/firebase';
-import { AutoResizeTextarea } from '../components/AutoResizeTextarea';
+import { db } from '@/lib/firebase';
+import { AutoResizeTextarea } from '@/components/AutoResizeTextarea';
 import {
   AD_STYLES,
   DURATION_OPTIONS,
@@ -42,16 +42,9 @@ import {
   PERSONA_HIDDEN_DESIRE_OPTIONS,
   COPY_SECTIONS,
   COPY_MODES,
-} from '../lib/constants';
-import {
-  personaFromProduct,
-  type ProductInfo,
-} from '../lib/claudeService';
-import {
-  getRecomendedEstilo,
-  getRecomendacaoTempo,
-  countWords,
-} from '../lib/helpers';
+} from '@/lib/constants';
+import { personaFromProduct, type ProductInfo } from '@/lib/claudeService';
+import { getRecomendedEstilo, getRecomendacaoTempo, countWords } from '@/lib/helpers';
 
 interface Props {
   config: AdConfig;
@@ -69,9 +62,7 @@ interface Props {
   discoveryStep: number;
   setDiscoveryStep: React.Dispatch<React.SetStateAction<number>>;
   discoveryAnswers: Record<string, any>;
-  setDiscoveryAnswers: React.Dispatch<
-    React.SetStateAction<Record<string, any>>
-  >;
+  setDiscoveryAnswers: React.Dispatch<React.SetStateAction<Record<string, any>>>;
   generatedPersona: any;
   onGeneratePersona: (answers: Record<string, any>) => Promise<void> | void;
 
@@ -249,9 +240,7 @@ export function CopyTab({
               <div className="flex items-center gap-3">
                 <span className="text-2xl group-hover:scale-110 transition-transform">🔍</span>
                 <div>
-                  <p className="font-black text-gray-900 uppercase italic">
-                    Me ajuda a descobrir
-                  </p>
+                  <p className="font-black text-gray-900 uppercase italic">Me ajuda a descobrir</p>
                   <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
                     A IA gera 3 personas com nível de consciência
                   </p>
@@ -381,8 +370,7 @@ export function CopyTab({
                 {
                   id: 'result',
                   label: 'Qual resultado concreto ele entrega?',
-                  placeholder:
-                    'Ex: Em 30 dias a pessoa consegue quitar dívidas e começar a poupar',
+                  placeholder: 'Ex: Em 30 dias a pessoa consegue quitar dívidas e começar a poupar',
                   hint: 'Seja específico — números e tempo ajudam',
                 },
                 {
@@ -1174,9 +1162,7 @@ export function CopyTab({
                           : 'border-gray-100 hover:border-blue-200'
                       }`}
                     >
-                      <p className="text-sm font-bold text-gray-900">
-                        ✨ Deixar a IA criar o CTA
-                      </p>
+                      <p className="text-sm font-bold text-gray-900">✨ Deixar a IA criar o CTA</p>
                       <p className="text-[10px] text-gray-400 mt-0.5">
                         A IA vai criar o melhor CTA baseado no nível de consciência e destino do
                         clique
@@ -1191,9 +1177,7 @@ export function CopyTab({
                           : 'border-gray-100 hover:border-blue-200'
                       }`}
                     >
-                      <p className="text-sm font-bold text-gray-900">
-                        ✏️ Escrever meu próprio CTA
-                      </p>
+                      <p className="text-sm font-bold text-gray-900">✏️ Escrever meu próprio CTA</p>
                       <p className="text-[10px] text-gray-400 mt-0.5">
                         Você controla exatamente o que será dito no final do anúncio
                       </p>

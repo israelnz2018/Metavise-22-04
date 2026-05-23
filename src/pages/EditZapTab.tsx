@@ -14,15 +14,15 @@
 // individual named props.
 
 import React from 'react';
-import type { AdConfig } from '../App';
+import type { AdConfig } from '@/App';
 import { toast } from 'react-hot-toast';
 import { Loader2, Layers, Trash2, Zap, Download } from 'lucide-react';
-import { cn, getVideoAspectRatioClass } from '../lib/utils';
-import { getAuthorizedUrl } from '../lib/gemini';
-import { VideoDurationBadge } from '../components/VideoDurationBadge';
-import { HeadlineModal } from '../components/HeadlineModal';
-import { IntercutModal } from '../components/IntercutModal';
-import type { ZapBundle } from '../hooks/useZapState';
+import { cn, getVideoAspectRatioClass } from '@/lib/utils';
+import { getAuthorizedUrl } from '@/lib/gemini';
+import { VideoDurationBadge } from '@/components/VideoDurationBadge';
+import { HeadlineModal } from '@/components/HeadlineModal';
+import { IntercutModal } from '@/components/IntercutModal';
+import type { ZapBundle } from '@/hooks/useZapState';
 
 interface Video {
   url: string;
@@ -77,59 +77,111 @@ export function EditZapTab({
   // Destructure everything from `zap` — the giant union exists so the
   // body below reads exactly like the pre-extraction code.
   const {
-    zapState, setZapState,
-    zapPollRef, isZapRenderingRef, zapAutoRetryRef,
-    zapVideoUrl, setZapVideoUrl,
-    zapTemplateId, setZapTemplateId,
-    zapBrollPercent, setZapBrollPercent,
-    zapEmoji, setZapEmoji,
-    zapAnimation, setZapAnimation,
-    zapEmphasizeKeywords, setZapEmphasizeKeywords,
-    zapSilenceRemoval, setZapSilenceRemoval,
-    zapLanguage, setZapLanguage,
-    zapVideoFormat, setZapVideoFormat,
-    zapSubtitleTop, setZapSubtitleTop,
-    zapFontUppercase, setZapFontUppercase,
-    zapFontSize, setZapFontSize,
-    zapDisplayWords, setZapDisplayWords,
-    zapFontColor, setZapFontColor,
-    zapStrokeColor, setZapStrokeColor,
-    zapUseCustomHighlight, setZapUseCustomHighlight,
-    zapHl1, setZapHl1,
-    zapHl2, setZapHl2,
-    zapHl3, setZapHl3,
-    editZapMode, setEditZapMode,
-    joinRendering, setJoinRendering,
-    selectedJoinHookUrl, setSelectedJoinHookUrl,
-    selectedJoinBodyUrl, setSelectedJoinBodyUrl,
-    headlineSourceUrl, setHeadlineSourceUrl,
-    headlineText, setHeadlineText,
-    headlineBgColor, setHeadlineBgColor,
-    headlineTextColor, setHeadlineTextColor,
-    headlineStrokeColor, setHeadlineStrokeColor,
-    headlineStrokeWidth, setHeadlineStrokeWidth,
-    headlineHl1, setHeadlineHl1,
-    headlineHl2, setHeadlineHl2,
-    headlineHl3, setHeadlineHl3,
-    headlineBgHl1, setHeadlineBgHl1,
-    headlineBgHl2, setHeadlineBgHl2,
-    headlineBgHl3, setHeadlineBgHl3,
-    headlineWordStyles, setHeadlineWordStyles,
-    headline2Enabled, setHeadline2Enabled,
-    headlineSwitchPct, setHeadlineSwitchPct,
-    headlineAutoTime, setHeadlineAutoTime,
+    zapState,
+    setZapState,
+    zapPollRef,
+    isZapRenderingRef,
+    zapAutoRetryRef,
+    zapVideoUrl,
+    setZapVideoUrl,
+    zapTemplateId,
+    setZapTemplateId,
+    zapBrollPercent,
+    setZapBrollPercent,
+    zapEmoji,
+    setZapEmoji,
+    zapAnimation,
+    setZapAnimation,
+    zapEmphasizeKeywords,
+    setZapEmphasizeKeywords,
+    zapSilenceRemoval,
+    setZapSilenceRemoval,
+    zapLanguage,
+    setZapLanguage,
+    zapVideoFormat,
+    setZapVideoFormat,
+    zapSubtitleTop,
+    setZapSubtitleTop,
+    zapFontUppercase,
+    setZapFontUppercase,
+    zapFontSize,
+    setZapFontSize,
+    zapDisplayWords,
+    setZapDisplayWords,
+    zapFontColor,
+    setZapFontColor,
+    zapStrokeColor,
+    setZapStrokeColor,
+    zapUseCustomHighlight,
+    setZapUseCustomHighlight,
+    zapHl1,
+    setZapHl1,
+    zapHl2,
+    setZapHl2,
+    zapHl3,
+    setZapHl3,
+    editZapMode,
+    setEditZapMode,
+    joinRendering,
+    setJoinRendering,
+    selectedJoinHookUrl,
+    setSelectedJoinHookUrl,
+    selectedJoinBodyUrl,
+    setSelectedJoinBodyUrl,
+    headlineSourceUrl,
+    setHeadlineSourceUrl,
+    headlineText,
+    setHeadlineText,
+    headlineBgColor,
+    setHeadlineBgColor,
+    headlineTextColor,
+    setHeadlineTextColor,
+    headlineStrokeColor,
+    setHeadlineStrokeColor,
+    headlineStrokeWidth,
+    setHeadlineStrokeWidth,
+    headlineHl1,
+    setHeadlineHl1,
+    headlineHl2,
+    setHeadlineHl2,
+    headlineHl3,
+    setHeadlineHl3,
+    headlineBgHl1,
+    setHeadlineBgHl1,
+    headlineBgHl2,
+    setHeadlineBgHl2,
+    headlineBgHl3,
+    setHeadlineBgHl3,
+    headlineWordStyles,
+    setHeadlineWordStyles,
+    headline2Enabled,
+    setHeadline2Enabled,
+    headlineSwitchPct,
+    setHeadlineSwitchPct,
+    headlineAutoTime,
+    setHeadlineAutoTime,
     headlineSourceDims,
-    headline2Text, setHeadline2Text,
-    headline2BgColor, setHeadline2BgColor,
-    headline2WordStyles, setHeadline2WordStyles,
-    headlineFontSize, setHeadlineFontSize,
-    headlineBarHeightPct, setHeadlineBarHeightPct,
+    headline2Text,
+    setHeadline2Text,
+    headline2BgColor,
+    setHeadline2BgColor,
+    headline2WordStyles,
+    setHeadline2WordStyles,
+    headlineFontSize,
+    setHeadlineFontSize,
+    headlineBarHeightPct,
+    setHeadlineBarHeightPct,
     headlineRendering,
-    intercutSourceUrl, setIntercutSourceUrl,
-    intercutAvatarSec, setIntercutAvatarSec,
-    intercutBlackSec, setIntercutBlackSec,
-    intercutFontSize, setIntercutFontSize,
-    intercutTexts, setIntercutTexts,
+    intercutSourceUrl,
+    setIntercutSourceUrl,
+    intercutAvatarSec,
+    setIntercutAvatarSec,
+    intercutBlackSec,
+    setIntercutBlackSec,
+    intercutFontSize,
+    setIntercutFontSize,
+    intercutTexts,
+    setIntercutTexts,
     intercutRendering,
   } = zap;
   // Touch refs/state we destructure but might not use directly here so
@@ -141,18 +193,13 @@ export function EditZapTab({
   const isRendering = zapState.status === 'rendering' || zapState.status === 'uploading';
 
   const isHookEdit = editZapMode === 'hook';
-  const hookVideosForEdit =
-    (config.copy?.hookVideos as typeof videos | undefined) || [];
-  const bodyZapVersions =
-    (config.edit?.zapVersions as string[] | undefined) || [];
-  const hookZapVersions =
-    (config.edit?.zapHookVersions as string[] | undefined) || [];
+  const hookVideosForEdit = (config.copy?.hookVideos as typeof videos | undefined) || [];
+  const bodyZapVersions = (config.edit?.zapVersions as string[] | undefined) || [];
+  const hookZapVersions = (config.edit?.zapHookVersions as string[] | undefined) || [];
   const activeZapVersions = isHookEdit ? hookZapVersions : bodyZapVersions;
 
   // Source video picker pulls from hook or body depending on mode.
-  const availableVideos = (isHookEdit ? hookVideosForEdit : videos || []).filter(
-    (v) => v.url
-  );
+  const availableVideos = (isHookEdit ? hookVideosForEdit : videos || []).filter((v) => v.url);
 
   return (
     <div className="max-w-[1100px] mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
@@ -197,9 +244,7 @@ export function EditZapTab({
               setZapVideoUrl(null);
             }}
             className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-              isHookEdit
-                ? 'bg-amber-500 text-white shadow-md'
-                : 'text-gray-500 hover:bg-amber-50'
+              isHookEdit ? 'bg-amber-500 text-white shadow-md' : 'text-gray-500 hover:bg-amber-50'
             }`}
           >
             Editar Gancho
@@ -338,9 +383,7 @@ export function EditZapTab({
               )}
             >
               <div className="text-3xl mb-2">🚫</div>
-              <p className="text-xs font-black text-gray-700 uppercase tracking-widest">
-                Nenhuma
-              </p>
+              <p className="text-xs font-black text-gray-700 uppercase tracking-widest">Nenhuma</p>
               <p className="text-[9px] text-gray-500 mt-1 leading-tight">
                 Pula a legenda. Útil pra aplicar só Cortes/Headline.
               </p>
@@ -724,9 +767,9 @@ export function EditZapTab({
                     </p>
                     <p className="text-[10px] text-red-800 leading-tight">
                       As cores customizadas só aparecem quando{' '}
-                      <strong>"Destacar Palavras-Chave" está LIGADO</strong> (lá embaixo
-                      em "Ajustes"). Sem isso, o ZapCap não destaca nenhuma palavra e
-                      as cores são ignoradas.
+                      <strong>"Destacar Palavras-Chave" está LIGADO</strong> (lá embaixo em
+                      "Ajustes"). Sem isso, o ZapCap não destaca nenhuma palavra e as cores são
+                      ignoradas.
                     </p>
                     <button
                       onClick={() => setZapEmphasizeKeywords(true)}
@@ -738,18 +781,18 @@ export function EditZapTab({
                 )}
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 space-y-1">
                   <p className="text-[10px] text-amber-900 leading-tight">
-                    <strong>O ZapCap expõe só 3 cores</strong> ({'randomColour 1/2/3'}) e
-                    cada template usa elas de um jeito.
+                    <strong>O ZapCap expõe só 3 cores</strong> ({'randomColour 1/2/3'}) e cada
+                    template usa elas de um jeito.
                   </p>
                   <p className="text-[10px] text-amber-800 leading-tight">
-                    Em templates como o <strong>Viktor</strong>, a cor 1 costuma virar o
-                    fundo da palavra falada e a cor 2 a letra por dentro. Em outros
-                    templates as 3 cores são rotacionadas aleatoriamente. Teste mudando
-                    uma de cada vez pra mapear o seu template.
+                    Em templates como o <strong>Viktor</strong>, a cor 1 costuma virar o fundo da
+                    palavra falada e a cor 2 a letra por dentro. Em outros templates as 3 cores são
+                    rotacionadas aleatoriamente. Teste mudando uma de cada vez pra mapear o seu
+                    template.
                   </p>
                   <p className="text-[10px] text-amber-800 leading-tight">
-                    Alguns templates simples (sem destaque embutido) podem ignorar essas
-                    cores — se nada mudar, tente outro template.
+                    Alguns templates simples (sem destaque embutido) podem ignorar essas cores — se
+                    nada mudar, tente outro template.
                   </p>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
@@ -789,9 +832,7 @@ export function EditZapTab({
                           className="flex-1 p-1.5 border-2 border-gray-200 rounded-lg text-[10px] font-mono focus:border-yellow-500 focus:outline-none min-w-0"
                         />
                       </div>
-                      <p className="text-[8px] text-gray-400 mt-1 leading-tight">
-                        {hl.hint}
-                      </p>
+                      <p className="text-[8px] text-gray-400 mt-1 leading-tight">{hl.hint}</p>
                     </div>
                   ))}
                 </div>
@@ -889,8 +930,7 @@ export function EditZapTab({
             className="w-full"
           />
           <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-            0 = desligado · 0.2-0.4 = corte suave · 0.5-0.7 = corte médio · 0.8-1 = corte
-            agressivo
+            0 = desligado · 0.2-0.4 = corte suave · 0.5-0.7 = corte médio · 0.8-1 = corte agressivo
           </p>
         </div>
       </div>
@@ -898,6 +938,9 @@ export function EditZapTab({
       {/* BOTÃO GERAR */}
       <button
         onClick={() => handleRenderZapSimple()}
+        // Intentional ref read during render — same double-click guard
+        // rationale as Edit2Tab. See note on isRenderingRef there.
+        // eslint-disable-next-line react-hooks/refs
         disabled={!zapVideoUrl || !zapTemplateId || isRendering || isZapRenderingRef.current}
         className="w-full py-6 bg-yellow-500 text-white rounded-[32px] font-black uppercase tracking-widest hover:bg-yellow-600 transition-all shadow-2xl shadow-yellow-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 text-lg"
       >
@@ -1074,249 +1117,247 @@ export function EditZapTab({
       {/* JUNTAR Gancho + Corpo — picker livre (escondido se o projeto
           não usa gancho). Defaults para a última versão de cada lado,
           mas qualquer combinação é permitida. */}
-      {useHookFlow && hookZapVersions.length > 0 && bodyZapVersions.length > 0 && (() => {
-        const effectiveHookUrl =
-          selectedJoinHookUrl && hookZapVersions.includes(selectedJoinHookUrl)
-            ? selectedJoinHookUrl
-            : hookZapVersions[hookZapVersions.length - 1];
-        const effectiveBodyUrl =
-          selectedJoinBodyUrl && bodyZapVersions.includes(selectedJoinBodyUrl)
-            ? selectedJoinBodyUrl
-            : bodyZapVersions[bodyZapVersions.length - 1];
+      {useHookFlow &&
+        hookZapVersions.length > 0 &&
+        bodyZapVersions.length > 0 &&
+        (() => {
+          const effectiveHookUrl =
+            selectedJoinHookUrl && hookZapVersions.includes(selectedJoinHookUrl)
+              ? selectedJoinHookUrl
+              : hookZapVersions[hookZapVersions.length - 1];
+          const effectiveBodyUrl =
+            selectedJoinBodyUrl && bodyZapVersions.includes(selectedJoinBodyUrl)
+              ? selectedJoinBodyUrl
+              : bodyZapVersions[bodyZapVersions.length - 1];
 
-        return (
-          <div className="bg-gradient-to-br from-amber-50 to-yellow-50 p-8 rounded-[40px] border-4 border-amber-200 shadow-xl space-y-5 mt-8">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-white">
-                <Layers size={22} />
+          return (
+            <div className="bg-gradient-to-br from-amber-50 to-yellow-50 p-8 rounded-[40px] border-4 border-amber-200 shadow-xl space-y-5 mt-8">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-white">
+                  <Layers size={22} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-gray-900 uppercase italic">
+                    Juntar Gancho + Corpo
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    Escolha qualquer versão do gancho e qualquer versão do corpo. O resultado vai
+                    pra galeria "Vídeos Completos" abaixo.
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-xl font-black text-gray-900 uppercase italic">
-                  Juntar Gancho + Corpo
-                </h3>
-                <p className="text-xs text-gray-500">
-                  Escolha qualquer versão do gancho e qualquer versão do corpo. O
-                  resultado vai pra galeria "Vídeos Completos" abaixo.
-                </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Hook picker */}
+                <div className="bg-white p-4 rounded-2xl border-2 border-amber-100 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">
+                      Gancho (1º)
+                    </span>
+                    <span className="text-[10px] text-gray-400 font-bold">
+                      {hookZapVersions.length} {hookZapVersions.length === 1 ? 'versão' : 'versões'}
+                    </span>
+                  </div>
+                  <select
+                    value={effectiveHookUrl}
+                    onChange={(e) => setSelectedJoinHookUrl(e.target.value)}
+                    className="w-full p-2 border-2 border-gray-200 rounded-xl text-xs focus:border-amber-500 focus:outline-none"
+                  >
+                    {hookZapVersions.map((url, i) => (
+                      <option key={url} value={url}>
+                        Gancho {i + 1}
+                        {i === hookZapVersions.length - 1 ? ' (mais recente)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="relative bg-black rounded-xl overflow-hidden aspect-[9/16] max-h-48 mx-auto">
+                    <video
+                      src={
+                        getAuthorizedUrl(effectiveHookUrl, platformApiKey || undefined) || undefined
+                      }
+                      className="w-full h-full object-contain"
+                      controls
+                      muted
+                    />
+                    <VideoDurationBadge src={effectiveHookUrl || ''} />
+                  </div>
+                </div>
+
+                {/* Body picker */}
+                <div className="bg-white p-4 rounded-2xl border-2 border-yellow-100 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black text-yellow-600 uppercase tracking-widest">
+                      Corpo (2º)
+                    </span>
+                    <span className="text-[10px] text-gray-400 font-bold">
+                      {bodyZapVersions.length} {bodyZapVersions.length === 1 ? 'versão' : 'versões'}
+                    </span>
+                  </div>
+                  <select
+                    value={effectiveBodyUrl}
+                    onChange={(e) => setSelectedJoinBodyUrl(e.target.value)}
+                    className="w-full p-2 border-2 border-gray-200 rounded-xl text-xs focus:border-yellow-500 focus:outline-none"
+                  >
+                    {bodyZapVersions.map((url, i) => (
+                      <option key={url} value={url}>
+                        Versão {i + 1}
+                        {i === bodyZapVersions.length - 1 ? ' (mais recente)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="relative bg-black rounded-xl overflow-hidden aspect-[9/16] max-h-48 mx-auto">
+                    <video
+                      src={
+                        getAuthorizedUrl(effectiveBodyUrl, platformApiKey || undefined) || undefined
+                      }
+                      className="w-full h-full object-contain"
+                      controls
+                      muted
+                    />
+                    <VideoDurationBadge src={effectiveBodyUrl || ''} />
+                  </div>
+                </div>
               </div>
+
+              <button
+                onClick={async () => {
+                  if (!user?.uid) {
+                    toast.error('Faça login antes de juntar.');
+                    return;
+                  }
+                  setJoinRendering(true);
+                  const toastId = 'join-render';
+                  toast.loading('Juntando gancho + corpo...', { id: toastId, duration: 60000 });
+                  try {
+                    const res = await fetch('/api/video/concat', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        videos: [effectiveHookUrl, effectiveBodyUrl],
+                        userId: user.uid,
+                      }),
+                    });
+                    const json = await res.json();
+                    if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
+                    // Persist into the dedicated "joined" array — visible in
+                    // both Body and Hook modes so the user always sees it.
+                    setConfig((prev: any) => {
+                      const current =
+                        ((prev.edit as any).zapJoinedVersions as string[] | undefined) || [];
+                      return {
+                        ...prev,
+                        edit: {
+                          ...prev.edit,
+                          zapJoinedVersions: [...current, json.url],
+                        },
+                      };
+                    });
+                    toast.success('Vídeo completo (gancho + corpo) criado!', {
+                      id: toastId,
+                      duration: 5000,
+                    });
+                  } catch (err: any) {
+                    toast.error(`Falha ao juntar: ${err.message}`, {
+                      id: toastId,
+                      duration: 6000,
+                    });
+                  } finally {
+                    setJoinRendering(false);
+                  }
+                }}
+                disabled={joinRendering}
+                className="w-full py-4 bg-amber-600 text-white rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-amber-700 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {joinRendering ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Juntando...
+                  </>
+                ) : (
+                  <>
+                    <Layers size={16} />
+                    Juntar agora (gancho → corpo)
+                  </>
+                )}
+              </button>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Hook picker */}
-              <div className="bg-white p-4 rounded-2xl border-2 border-amber-100 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">
-                    Gancho (1º)
-                  </span>
-                  <span className="text-[10px] text-gray-400 font-bold">
-                    {hookZapVersions.length}{' '}
-                    {hookZapVersions.length === 1 ? 'versão' : 'versões'}
-                  </span>
-                </div>
-                <select
-                  value={effectiveHookUrl}
-                  onChange={(e) => setSelectedJoinHookUrl(e.target.value)}
-                  className="w-full p-2 border-2 border-gray-200 rounded-xl text-xs focus:border-amber-500 focus:outline-none"
-                >
-                  {hookZapVersions.map((url, i) => (
-                    <option key={url} value={url}>
-                      Gancho {i + 1}
-                      {i === hookZapVersions.length - 1 ? ' (mais recente)' : ''}
-                    </option>
-                  ))}
-                </select>
-                <div className="relative bg-black rounded-xl overflow-hidden aspect-[9/16] max-h-48 mx-auto">
-                  <video
-                    src={
-                      getAuthorizedUrl(effectiveHookUrl, platformApiKey || undefined) ||
-                      undefined
-                    }
-                    className="w-full h-full object-contain"
-                    controls
-                    muted
-                  />
-                  <VideoDurationBadge src={effectiveHookUrl || ''} />
-                </div>
-              </div>
-
-              {/* Body picker */}
-              <div className="bg-white p-4 rounded-2xl border-2 border-yellow-100 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black text-yellow-600 uppercase tracking-widest">
-                    Corpo (2º)
-                  </span>
-                  <span className="text-[10px] text-gray-400 font-bold">
-                    {bodyZapVersions.length}{' '}
-                    {bodyZapVersions.length === 1 ? 'versão' : 'versões'}
-                  </span>
-                </div>
-                <select
-                  value={effectiveBodyUrl}
-                  onChange={(e) => setSelectedJoinBodyUrl(e.target.value)}
-                  className="w-full p-2 border-2 border-gray-200 rounded-xl text-xs focus:border-yellow-500 focus:outline-none"
-                >
-                  {bodyZapVersions.map((url, i) => (
-                    <option key={url} value={url}>
-                      Versão {i + 1}
-                      {i === bodyZapVersions.length - 1 ? ' (mais recente)' : ''}
-                    </option>
-                  ))}
-                </select>
-                <div className="relative bg-black rounded-xl overflow-hidden aspect-[9/16] max-h-48 mx-auto">
-                  <video
-                    src={
-                      getAuthorizedUrl(effectiveBodyUrl, platformApiKey || undefined) ||
-                      undefined
-                    }
-                    className="w-full h-full object-contain"
-                    controls
-                    muted
-                  />
-                  <VideoDurationBadge src={effectiveBodyUrl || ''} />
-                </div>
-              </div>
-            </div>
-
-            <button
-              onClick={async () => {
-                if (!user?.uid) {
-                  toast.error('Faça login antes de juntar.');
-                  return;
-                }
-                setJoinRendering(true);
-                const toastId = 'join-render';
-                toast.loading('Juntando gancho + corpo...', { id: toastId, duration: 60000 });
-                try {
-                  const res = await fetch('/api/video/concat', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      videos: [effectiveHookUrl, effectiveBodyUrl],
-                      userId: user.uid,
-                    }),
-                  });
-                  const json = await res.json();
-                  if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
-                  // Persist into the dedicated "joined" array — visible in
-                  // both Body and Hook modes so the user always sees it.
-                  setConfig((prev: any) => {
-                    const current =
-                      ((prev.edit as any).zapJoinedVersions as string[] | undefined) || [];
-                    return {
-                      ...prev,
-                      edit: {
-                        ...prev.edit,
-                        zapJoinedVersions: [...current, json.url],
-                      },
-                    };
-                  });
-                  toast.success('Vídeo completo (gancho + corpo) criado!', {
-                    id: toastId,
-                    duration: 5000,
-                  });
-                } catch (err: any) {
-                  toast.error(`Falha ao juntar: ${err.message}`, {
-                    id: toastId,
-                    duration: 6000,
-                  });
-                } finally {
-                  setJoinRendering(false);
-                }
-              }}
-              disabled={joinRendering}
-              className="w-full py-4 bg-amber-600 text-white rounded-2xl text-sm font-black uppercase tracking-widest hover:bg-amber-700 disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {joinRendering ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" />
-                  Juntando...
-                </>
-              ) : (
-                <>
-                  <Layers size={16} />
-                  Juntar agora (gancho → corpo)
-                </>
-              )}
-            </button>
-          </div>
-        );
-      })()}
+          );
+        })()}
 
       {/* Galeria compartilhada de vídeos completos (gancho+corpo). Sempre
           visível, em qualquer modo, porque o "juntado" não pertence a
           nenhum dos dois lados isoladamente. */}
-      {useHookFlow && (() => {
-        const joined =
-          (config.edit?.zapJoinedVersions as string[] | undefined) || [];
-        if (joined.length === 0) return null;
-        return (
-          <div className="space-y-4 pt-8">
-            <h4 className="text-xl font-black text-gray-900 uppercase italic flex items-center gap-2">
-              <Layers size={20} className="text-amber-500" />
-              Vídeos Completos (Gancho + Corpo)
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {joined.map((vUrl, idx) => (
-                <div key={`zap-joined-${idx}-${vUrl}`} className="space-y-3">
-                  <div className="relative bg-black rounded-[28px] overflow-hidden border-4 border-amber-300 ring-4 ring-amber-50 aspect-[9/16]">
-                    <video
-                      src={getAuthorizedUrl(vUrl, platformApiKey || undefined) || undefined}
-                      className="w-full h-full object-contain"
-                      controls
-                      crossOrigin={
-                        vUrl?.includes('generativelanguage.googleapis.com')
-                          ? ('anonymous' as const)
-                          : undefined
-                      }
-                    />
-                    <div className="absolute top-3 left-3 bg-amber-600 text-white text-[9px] font-black px-2 py-1 rounded uppercase tracking-widest">
-                      Completo {idx + 1}
+      {useHookFlow &&
+        (() => {
+          const joined = (config.edit?.zapJoinedVersions as string[] | undefined) || [];
+          if (joined.length === 0) return null;
+          return (
+            <div className="space-y-4 pt-8">
+              <h4 className="text-xl font-black text-gray-900 uppercase italic flex items-center gap-2">
+                <Layers size={20} className="text-amber-500" />
+                Vídeos Completos (Gancho + Corpo)
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {joined.map((vUrl, idx) => (
+                  <div key={`zap-joined-${idx}-${vUrl}`} className="space-y-3">
+                    <div className="relative bg-black rounded-[28px] overflow-hidden border-4 border-amber-300 ring-4 ring-amber-50 aspect-[9/16]">
+                      <video
+                        src={getAuthorizedUrl(vUrl, platformApiKey || undefined) || undefined}
+                        className="w-full h-full object-contain"
+                        controls
+                        crossOrigin={
+                          vUrl?.includes('generativelanguage.googleapis.com')
+                            ? ('anonymous' as const)
+                            : undefined
+                        }
+                      />
+                      <div className="absolute top-3 left-3 bg-amber-600 text-white text-[9px] font-black px-2 py-1 rounded uppercase tracking-widest">
+                        Completo {idx + 1}
+                      </div>
+                      <VideoDurationBadge src={vUrl} />
                     </div>
-                    <VideoDurationBadge src={vUrl} />
-                  </div>
-                  <div className="flex gap-2">
-                    <a
-                      href={vUrl}
-                      download={`video_completo_${idx + 1}.mp4`}
-                      className="flex-1 py-2 bg-gray-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black flex items-center justify-center gap-2"
-                    >
-                      <Download size={12} />
-                      Baixar
-                    </a>
-                    <button
-                      onClick={() => {
-                        if (
-                          !window.confirm(
-                            `Excluir Vídeo Completo ${idx + 1}? Esta ação não pode ser desfeita.`
+                    <div className="flex gap-2">
+                      <a
+                        href={vUrl}
+                        download={`video_completo_${idx + 1}.mp4`}
+                        className="flex-1 py-2 bg-gray-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black flex items-center justify-center gap-2"
+                      >
+                        <Download size={12} />
+                        Baixar
+                      </a>
+                      <button
+                        onClick={() => {
+                          if (
+                            !window.confirm(
+                              `Excluir Vídeo Completo ${idx + 1}? Esta ação não pode ser desfeita.`
+                            )
                           )
-                        )
-                          return;
-                        setConfig((prev: any) => {
-                          const current =
-                            ((prev.edit as any).zapJoinedVersions as string[] | undefined) ||
-                            [];
-                          return {
-                            ...prev,
-                            edit: {
-                              ...prev.edit,
-                              zapJoinedVersions: current.filter((u) => u !== vUrl),
-                            },
-                          };
-                        });
-                        toast.success(`Vídeo Completo ${idx + 1} excluído.`);
-                      }}
-                      className="px-3 py-2 bg-red-50 text-red-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-100 flex items-center justify-center gap-1"
-                      title="Excluir este vídeo completo"
-                    >
-                      <Trash2 size={12} />
-                    </button>
+                            return;
+                          setConfig((prev: any) => {
+                            const current =
+                              ((prev.edit as any).zapJoinedVersions as string[] | undefined) || [];
+                            return {
+                              ...prev,
+                              edit: {
+                                ...prev.edit,
+                                zapJoinedVersions: current.filter((u) => u !== vUrl),
+                              },
+                            };
+                          });
+                          toast.success(`Vídeo Completo ${idx + 1} excluído.`);
+                        }}
+                        className="px-3 py-2 bg-red-50 text-red-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-100 flex items-center justify-center gap-1"
+                        title="Excluir este vídeo completo"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        );
-      })()}
+          );
+        })()}
 
       <IntercutModal
         open={!!intercutSourceUrl}

@@ -19,11 +19,15 @@ import {
   Wand2,
   Zap,
 } from 'lucide-react';
-import type { Step } from '../types/project';
+import type { Step } from '@/types/project';
 
 // Three modes the Copy tab can run in. Lives outside renderCopyStep so
 // the icon refs don't re-allocate on every Copy-tab re-render.
-export const COPY_MODES: { id: 'questions' | 'improve' | 'as-is'; label: string; icon: typeof Sparkles }[] = [
+export const COPY_MODES: {
+  id: 'questions' | 'improve' | 'as-is';
+  label: string;
+  icon: typeof Sparkles;
+}[] = [
   { id: 'questions', label: 'Gerar com IA (Q&A)', icon: Sparkles },
   { id: 'improve', label: 'Melhorar minha copy', icon: RefreshCw },
   { id: 'as-is', label: 'Usar como está', icon: CheckCircle2 },
@@ -319,7 +323,6 @@ export const AVATARS = [
   },
 ];
 
-
 // ─── Persona-step form options ──────────────────────────────────────
 
 export const PERSONA_CATEGORY_OPTIONS = [
@@ -435,24 +438,89 @@ export const COPY_SECTIONS: CopySection[] = [
   {
     title: 'AUDIÊNCIA',
     questions: [
-      { id: 'language', label: 'Idioma', type: 'select', options: ['Português (Brasileiro)', 'Inglês', 'Espanhol'] },
-      { id: 'audience', label: 'Público (quem vai ver)', type: 'text', placeholder: 'ex: Mães ocupadas' },
-      { id: 'age', label: 'Idade', type: 'multi-select', options: ['18-24', '25-34', '35-44', '45-54', '55+'] },
-      { id: 'situation', label: 'Situação atual', type: 'text', placeholder: 'ex: Tentando emagrecer sem sucesso' },
-      { id: 'painPoints', label: 'Problema principal', type: 'text', placeholder: 'ex: Falta de tempo para exercícios' },
-      { id: 'triedBefore', label: 'O que já tentou', type: 'text', placeholder: 'ex: Dietas restritivas, academia' },
-      { id: 'mainObjection', label: 'Objeção principal do cliente', type: 'text', placeholder: 'ex: Já tentei tudo, não confio mais' },
-      { id: 'hiddenDesire', label: 'Desejo profundo (não o resultado superficial)', type: 'text', placeholder: 'ex: Voltar a dançar com o marido nas festas' },
+      {
+        id: 'language',
+        label: 'Idioma',
+        type: 'select',
+        options: ['Português (Brasileiro)', 'Inglês', 'Espanhol'],
+      },
+      {
+        id: 'audience',
+        label: 'Público (quem vai ver)',
+        type: 'text',
+        placeholder: 'ex: Mães ocupadas',
+      },
+      {
+        id: 'age',
+        label: 'Idade',
+        type: 'multi-select',
+        options: ['18-24', '25-34', '35-44', '45-54', '55+'],
+      },
+      {
+        id: 'situation',
+        label: 'Situação atual',
+        type: 'text',
+        placeholder: 'ex: Tentando emagrecer sem sucesso',
+      },
+      {
+        id: 'painPoints',
+        label: 'Problema principal',
+        type: 'text',
+        placeholder: 'ex: Falta de tempo para exercícios',
+      },
+      {
+        id: 'triedBefore',
+        label: 'O que já tentou',
+        type: 'text',
+        placeholder: 'ex: Dietas restritivas, academia',
+      },
+      {
+        id: 'mainObjection',
+        label: 'Objeção principal do cliente',
+        type: 'text',
+        placeholder: 'ex: Já tentei tudo, não confio mais',
+      },
+      {
+        id: 'hiddenDesire',
+        label: 'Desejo profundo (não o resultado superficial)',
+        type: 'text',
+        placeholder: 'ex: Voltar a dançar com o marido nas festas',
+      },
     ],
   },
   {
     title: 'PRODUTO',
     questions: [
-      { id: 'productName', label: 'Nome do produto/serviço', type: 'text', placeholder: 'ex: Curso de Marketing Digital' },
-      { id: 'productProblem', label: 'Qual problema resolve?', type: 'text', placeholder: 'ex: Pessoas que não sabem vender online' },
-      { id: 'productResult', label: 'Resultado concreto que entrega', type: 'text', placeholder: 'ex: Primeira venda em 30 dias' },
-      { id: 'uniqueMechanism', label: 'Mecanismo único (o que torna diferente)', type: 'text', placeholder: 'ex: Sistema exclusivo em 3 etapas' },
-      { id: 'socialProof', label: 'Prova social (depoimento, número, resultado)', type: 'text', placeholder: 'ex: Mais de 500 alunos com primeira venda' },
+      {
+        id: 'productName',
+        label: 'Nome do produto/serviço',
+        type: 'text',
+        placeholder: 'ex: Curso de Marketing Digital',
+      },
+      {
+        id: 'productProblem',
+        label: 'Qual problema resolve?',
+        type: 'text',
+        placeholder: 'ex: Pessoas que não sabem vender online',
+      },
+      {
+        id: 'productResult',
+        label: 'Resultado concreto que entrega',
+        type: 'text',
+        placeholder: 'ex: Primeira venda em 30 dias',
+      },
+      {
+        id: 'uniqueMechanism',
+        label: 'Mecanismo único (o que torna diferente)',
+        type: 'text',
+        placeholder: 'ex: Sistema exclusivo em 3 etapas',
+      },
+      {
+        id: 'socialProof',
+        label: 'Prova social (depoimento, número, resultado)',
+        type: 'text',
+        placeholder: 'ex: Mais de 500 alunos com primeira venda',
+      },
     ],
   },
   {
@@ -476,7 +544,8 @@ export const COPY_SECTIONS: CopySection[] = [
         id: 'nextClassDate',
         label: 'Data da próxima turma',
         type: 'date',
-        condition: (ans) => ans.businessModel === 'Curso com turmas específicas (com data de início)',
+        condition: (ans) =>
+          ans.businessModel === 'Curso com turmas específicas (com data de início)',
       },
       {
         id: 'slotsAvailable',

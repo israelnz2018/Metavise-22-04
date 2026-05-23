@@ -24,20 +24,24 @@ export type Step =
 
 export type ProjectType = 'complete' | 'copy' | 'video' | 'editing';
 
-export interface ProjectVariant {
+// Generic over the config shape so App.tsx can use
+// `Project<AdConfig>` for full type-safety while page/component code
+// that only needs the loose shape can keep using `Project` (defaults
+// to `any` to preserve the previous duck-typed contract).
+export interface ProjectVariant<TConfig = any> {
   id: string;
   name: string;
-  config: any;
+  config: TConfig;
   createdAt: any;
 }
 
-export interface Project {
+export interface Project<TConfig = any> {
   id: string;
   userId: string;
   name: string;
   type: ProjectType;
-  config: any;
-  variants?: ProjectVariant[];
+  config: TConfig;
+  variants?: ProjectVariant<TConfig>[];
   createdAt: any;
 }
 

@@ -1,15 +1,6 @@
 import { motion, AnimatePresence } from 'motion/react';
-import {
-  X,
-  Monitor,
-  Smartphone,
-  Square,
-  Scan,
-  Info,
-  CheckCircle2,
-  Trash2,
-} from 'lucide-react';
-import { cn } from '../lib/utils';
+import { X, Monitor, Smartphone, Square, Scan, Info, CheckCircle2, Trash2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 // Full-screen avatar inspect dialog. Hosts:
 //   - large preview image (16:9 / 9:16 / cropped 1:1)
@@ -252,7 +243,10 @@ function Controls({
                   )}
                 >
                   <div className="flex items-center gap-2 mb-1">
-                    <opt.icon size={14} className="opacity-60 group-hover/opt:opacity-100 transition-opacity" />
+                    <opt.icon
+                      size={14}
+                      className="opacity-60 group-hover/opt:opacity-100 transition-opacity"
+                    />
                     <p className="font-black text-xs leading-none">{opt.label}</p>
                   </div>
                   <p className="text-[8px] font-bold opacity-60 uppercase tracking-widest">

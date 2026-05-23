@@ -57,10 +57,9 @@ async function transcribeYoutubeWithAssemblyAI(videoId: string): Promise<string>
   // in 30-90s; longer videos take proportionally longer.
   for (let attempt = 0; attempt < 60; attempt++) {
     await new Promise((r) => setTimeout(r, 5000));
-    const statusResp = await fetch(
-      `https://api.assemblyai.com/v2/transcript/${transcriptId}`,
-      { headers: { authorization: apiKey } }
-    );
+    const statusResp = await fetch(`https://api.assemblyai.com/v2/transcript/${transcriptId}`, {
+      headers: { authorization: apiKey },
+    });
     if (!statusResp.ok) continue;
     const data: any = await statusResp.json();
     if (data.status === 'completed') {
@@ -239,7 +238,8 @@ claudeRouter.post('/complete', async (req, res) => {
       if (response.ok) break;
 
       lastText = await response.text();
-      const retryable = response.status === 529 || response.status === 429 || response.status >= 500;
+      const retryable =
+        response.status === 529 || response.status === 429 || response.status >= 500;
       if (!retryable || attempt === MAX_ATTEMPTS) {
         log.error(
           `[Claude] Anthropic API error (attempt ${attempt}/${MAX_ATTEMPTS}):`,
@@ -292,6 +292,124 @@ claudeRouter.post('/complete', async (req, res) => {
   }
 });
 
+// POST /api/claude/complete-stream
+// Same prompt shape as /complete but pipes Anthropic's SSE stream
+// straight through to the client. Used by long copy generations where
+// "..." for 15s feels broken — with streaming the user sees the first
+// tokens within ~1s. Client unwraps the stream via fetch + ReadableStream.
+//
+// We forward raw Anthropic SSE events (event/data lines). On the
+// client, parse only `content_block_delta` events with text deltas.
+claudeRouter.post('/complete-stream', async (req, res) => {
+  const apiKey = getClaudeKey();
+  if (!apiKey) {
+    return res.status(500).json({ success: false, error: 'CLAUDE_API_KEY não configurada.' });
+  }
+
+  const {
+    system,
+    user,
+    max_tokens: requestedMaxTokens = DEFAULT_MAX_TOKENS,
+    model = DEFAULT_MODEL,
+    thinking = true,
+  } = req.body || {};
+  if (!user) {
+    return res.status(400).json({ success: false, error: 'O campo "user" é obrigatório.' });
+  }
+
+  const max_tokens = Math.max(requestedMaxTokens, DEFAULT_MAX_TOKENS);
+
+  log.info(
+    `[Claude] /complete-stream model=${model} thinking=${
+      thinking ? THINKING_EFFORT : 'off'
+    } max_tokens=${max_tokens} user_len=${user.length}`
+  );
+
+  const body = JSON.stringify({
+    model,
+    max_tokens,
+    stream: true,
+    ...(thinking
+      ? {
+          thinking: { type: 'adaptive' },
+          output_config: { effort: THINKING_EFFORT },
+        }
+      : {}),
+    ...(system
+      ? {
+          system: [
+            {
+              type: 'text',
+              text: system,
+              cache_control: { type: 'ephemeral' },
+            },
+          ],
+        }
+      : {}),
+    messages: [{ role: 'user', content: user }],
+  });
+
+  try {
+    const upstream = await fetch(ANTHROPIC_API, {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body,
+    });
+
+    if (!upstream.ok || !upstream.body) {
+      const errText = upstream.body ? await upstream.text() : 'No response body';
+      log.error(`[Claude stream] upstream error ${upstream.status}: ${errText.substring(0, 300)}`);
+      return res.status(upstream.status || 500).json({
+        success: false,
+        error: `Claude API error: ${upstream.status} ${errText.substring(0, 300)}`,
+      });
+    }
+
+    // Set up SSE response headers. Disable nginx buffering with the
+    // x-accel header so chunks reach the client immediately.
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders?.();
+
+    // Anthropic streams `event: <name>\ndata: <json>\n\n` — we forward
+    // those raw so the client can parse the same protocol.
+    const reader = upstream.body.getReader();
+    const decoder = new TextDecoder();
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        if (value) res.write(decoder.decode(value, { stream: true }));
+      }
+      res.end();
+    } catch (streamErr: any) {
+      log.error('[Claude stream] pipe error:', streamErr);
+      try {
+        res.end();
+      } catch {
+        /* ignore */
+      }
+    }
+  } catch (err: any) {
+    log.error('[Claude stream] exception:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, error: err.message });
+    } else {
+      try {
+        res.end();
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+});
+
 // POST /api/claude/extract-product-info
 // Takes raw product source material (pasted VSL transcript, landing page
 // text, or any free-form description of the product/offer) and returns
@@ -328,7 +446,11 @@ claudeRouter.post('/extract-product-info', async (req, res) => {
     let transcript = '';
     try {
       const segments = await YoutubeTranscript.fetchTranscript(videoId);
-      transcript = segments.map((s: any) => s.text).join(' ').replace(/\s+/g, ' ').trim();
+      transcript = segments
+        .map((s: any) => s.text)
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
     } catch (err: any) {
       log.info(`[YouTube] captions fetch failed: ${err.message}, trying AssemblyAI fallback...`);
     }
@@ -733,7 +855,9 @@ Gere o plano completo. Retorne APENAS o JSON.`;
         });
       }
       const delay =
-        resp.status === 529 || resp.status === 429 ? 10000 + 5000 * attempt : 1000 * Math.pow(2, attempt - 1);
+        resp.status === 529 || resp.status === 429
+          ? 10000 + 5000 * attempt
+          : 1000 * Math.pow(2, attempt - 1);
       log.warn(
         `[Claude marketing-plan] ${resp.status} attempt ${attempt}/${MAX_ATTEMPTS}, retrying in ${delay}ms…`
       );

@@ -13,6 +13,91 @@
  */
 
 const CLAUDE_URL = '/api/claude/complete';
+const CLAUDE_STREAM_URL = '/api/claude/complete-stream';
+
+/**
+ * Stream Claude completions token-by-token via SSE.
+ *
+ * Server proxies Anthropic's native event stream as-is (see
+ * server/routes/claude.routes.ts `/complete-stream`). We parse
+ * `content_block_delta` events client-side and forward text chunks
+ * to `onToken`. Resolves with the accumulated full text once the
+ * stream finishes.
+ *
+ * If the stream fails mid-flight the function rejects with whatever
+ * partial text was already emitted attached to the error — useful for
+ * UI that wants to keep the partial output even on a network blip.
+ */
+export async function streamClaude(
+  systemPrompt: string,
+  userPrompt: string,
+  onToken: (delta: string) => void,
+  opts: { maxTokens?: number } = {}
+): Promise<string> {
+  const response = await fetch(CLAUDE_STREAM_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      system: systemPrompt,
+      user: userPrompt,
+      max_tokens: opts.maxTokens ?? 2000,
+    }),
+  });
+
+  if (!response.ok || !response.body) {
+    const text = response.body ? await response.text() : '';
+    throw new Error(`Claude stream error: ${response.status} ${text.substring(0, 300)}`);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let full = '';
+
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      // SSE events are separated by a blank line. Split greedily and
+      // keep any trailing partial event in the buffer.
+      const parts = buffer.split('\n\n');
+      buffer = parts.pop() ?? '';
+
+      for (const raw of parts) {
+        // Each event block has `event: <name>\ndata: <json>` lines.
+        // We only care about content deltas — skip the rest.
+        const lines = raw.split('\n');
+        const dataLine = lines.find((l) => l.startsWith('data: '));
+        if (!dataLine) continue;
+        const json = dataLine.slice('data: '.length).trim();
+        if (!json || json === '[DONE]') continue;
+        try {
+          const evt = JSON.parse(json);
+          if (
+            evt.type === 'content_block_delta' &&
+            evt.delta?.type === 'text_delta' &&
+            typeof evt.delta.text === 'string'
+          ) {
+            const chunk = evt.delta.text as string;
+            full += chunk;
+            onToken(chunk);
+          }
+        } catch {
+          // Anthropic sometimes emits non-JSON keepalive comments —
+          // safe to ignore.
+        }
+      }
+    }
+  } catch (err: any) {
+    const e: any = new Error(err?.message || 'Claude stream interrupted');
+    e.partial = full;
+    throw e;
+  }
+
+  return full;
+}
 
 // Helper genérico que chama Claude via nosso proxy local.
 async function callClaude(
