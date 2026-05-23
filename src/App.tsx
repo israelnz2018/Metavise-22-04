@@ -59,6 +59,7 @@ import { PersonaEditModal } from './components/PersonaEditModal';
 import { PersonaPathModal } from './components/PersonaPathModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { LazyTab } from './components/LazyTab';
+import { ToastLimiter } from './components/ToastLimiter';
 import { AutoSaveIndicator } from './components/AutoSaveIndicator';
 import { DarkModeToggle } from './components/DarkModeToggle';
 import { RecentProjectsButton } from './components/RecentProjectsButton';
@@ -5659,7 +5660,10 @@ export default function App() {
       {/* Toast notifications. Custom theme to match the app's
           frosted/glass aesthetic and respect dark mode. Default
           styling is a flat white pill with a basic shadow — we use
-          a tinted ring + bg/text that flips for dark. */}
+          a tinted ring + bg/text that flips for dark.
+          ToastLimiter caps visible toasts at 3 so a burst of errors
+          doesn't pile up off-screen. */}
+      <ToastLimiter max={3} />
       <Toaster
         position="bottom-right"
         toastOptions={{
