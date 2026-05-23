@@ -60,7 +60,7 @@ export function PersonaEditModal({ open, persona, onChange, onClose, onSave }: P
 
   return (
     <div
-      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/70 p-4"
       onClick={onClose}
     >
       <div
@@ -74,10 +74,7 @@ export function PersonaEditModal({ open, persona, onChange, onClose, onSave }: P
             </div>
             <h3 className="text-xl font-black text-gray-900">Editar Persona</h3>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
-          >
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
             <X size={20} className="text-gray-600" />
           </button>
         </div>

@@ -14,7 +14,7 @@ export function PersonaPathModal({ project, onClose, onProceed }: Props) {
   if (!project) return null;
   return (
     <div
-      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/70 p-4"
       onClick={onClose}
     >
       <div

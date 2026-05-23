@@ -374,7 +374,7 @@ export function ProjectsTab({
           empty state below dominates. Shown otherwise even with a small
           list because muscle memory is more important than minimalism. */}
       {projects.length > 0 && (
-        <div className="bg-white/80 dark:bg-gray-900/60 backdrop-blur-sm p-3.5 rounded-2xl ring-1 ring-gray-200/60 dark:ring-gray-800/60 shadow-sm flex flex-wrap items-center gap-3">
+        <div className="bg-white/80 dark:bg-gray-900/60 p-3.5 rounded-2xl ring-1 ring-gray-200/60 dark:ring-gray-800/60 shadow-sm flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-[200px]">
             <Search
               size={16}
@@ -434,7 +434,7 @@ export function ProjectsTab({
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {projects.length === 0 ? (
-          <div className="col-span-full p-14 bg-white/60 dark:bg-gray-900/40 backdrop-blur-sm rounded-3xl ring-1 ring-dashed ring-gray-300/60 dark:ring-gray-700/60 flex flex-col items-center justify-center text-center space-y-5">
+          <div className="col-span-full p-14 bg-white/60 dark:bg-gray-900/40 rounded-3xl ring-1 ring-dashed ring-gray-300/60 dark:ring-gray-700/60 flex flex-col items-center justify-center text-center space-y-5">
             <div className="w-16 h-16 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/40 dark:to-blue-900/30 text-blue-500 dark:text-blue-400 rounded-2xl flex items-center justify-center ring-1 ring-blue-100/60 dark:ring-blue-900/40">
               <Layout size={28} />
             </div>
@@ -454,7 +454,7 @@ export function ProjectsTab({
             </button>
           </div>
         ) : filteredProjects.length === 0 ? (
-          <div className="col-span-full p-10 bg-white/60 dark:bg-gray-900/40 backdrop-blur-sm rounded-3xl ring-1 ring-dashed ring-gray-300/60 dark:ring-gray-700/60 text-center space-y-3">
+          <div className="col-span-full p-10 bg-white/60 dark:bg-gray-900/40 rounded-3xl ring-1 ring-dashed ring-gray-300/60 dark:ring-gray-700/60 text-center space-y-3">
             <p className="text-lg font-bold text-gray-900 dark:text-gray-50">
               Nenhum projeto bate com sua busca
             </p>
@@ -477,7 +477,7 @@ export function ProjectsTab({
             return (
               <div
                 key={project.id}
-                className={`group relative p-5 rounded-2xl ring-1 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-gray-200/60 dark:hover:shadow-black/40 cursor-pointer bg-white dark:bg-gray-900/80 backdrop-blur-sm ${
+                className={`group relative p-5 rounded-2xl ring-1 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-gray-200/60 dark:hover:shadow-black/40 cursor-pointer bg-white dark:bg-gray-900/80 ${
                   isActive
                     ? 'ring-blue-500/60 dark:ring-blue-400/60 shadow-lg shadow-blue-500/10 dark:shadow-blue-900/30'
                     : 'ring-gray-200/60 dark:ring-gray-800/60 hover:ring-blue-200 dark:hover:ring-blue-800/60'

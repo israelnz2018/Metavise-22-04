@@ -1621,7 +1621,7 @@ const VozPremium: React.FC<Props> = ({
 
       {showRemoveActiveModal && (
         <div
-          className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          className="fixed inset-0 flex items-center justify-center bg-black/60"
           style={{ zIndex: 99999 }}
           onClick={() => setShowRemoveActiveModal(false)}
         >

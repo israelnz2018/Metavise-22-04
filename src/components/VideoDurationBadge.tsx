@@ -19,7 +19,7 @@ export function VideoDurationBadge({ src }: { src: string }) {
         playsInline
       />
       {duration !== null && (
-        <div className="absolute bottom-3 right-3 bg-black/75 text-white text-[10px] font-black px-2 py-1 rounded backdrop-blur-sm pointer-events-none">
+        <div className="absolute bottom-3 right-3 bg-black/75 text-white text-[10px] font-black px-2 py-1 rounded pointer-events-none">
           {formatVideoDuration(duration)}
         </div>
       )}

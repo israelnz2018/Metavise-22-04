@@ -4741,14 +4741,14 @@ export default function App() {
       {/* Main Content */}
       <main className="max-w-[1600px] mx-auto px-4 py-12">
         {!isOnline && (
-          <div className="mb-6 p-4 bg-red-50/80 dark:bg-red-950/30 backdrop-blur-sm ring-1 ring-red-200/60 dark:ring-red-900/40 rounded-2xl flex items-center gap-3 text-red-700 dark:text-red-300 font-bold text-sm">
+          <div className="mb-6 p-4 bg-red-50/80 dark:bg-red-950/30 ring-1 ring-red-200/60 dark:ring-red-900/40 rounded-2xl flex items-center gap-3 text-red-700 dark:text-red-300 font-bold text-sm">
             <div className="w-2 h-2 bg-red-500 dark:bg-red-400 rounded-full animate-pulse shadow shadow-red-500/50" />
             Você está offline. Verifique sua conexão.
           </div>
         )}
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50/80 dark:bg-red-950/30 backdrop-blur-sm ring-1 ring-red-200/60 dark:ring-red-900/40 rounded-2xl flex items-center justify-between gap-3 text-red-700 dark:text-red-300 text-sm">
+          <div className="mb-6 p-4 bg-red-50/80 dark:bg-red-950/30 ring-1 ring-red-200/60 dark:ring-red-900/40 rounded-2xl flex items-center justify-between gap-3 text-red-700 dark:text-red-300 text-sm">
             <span className="font-medium">{error}</span>
             <button
               onClick={() => setError(null)}
@@ -4761,7 +4761,7 @@ export default function App() {
         )}
 
         {providerError && (
-          <div className="mb-6 p-4 bg-amber-50/80 dark:bg-amber-950/30 backdrop-blur-sm ring-1 ring-amber-200/60 dark:ring-amber-900/40 rounded-2xl flex items-center justify-between gap-3 text-amber-800 dark:text-amber-300 text-sm shadow-sm">
+          <div className="mb-6 p-4 bg-amber-50/80 dark:bg-amber-950/30 ring-1 ring-amber-200/60 dark:ring-amber-900/40 rounded-2xl flex items-center justify-between gap-3 text-amber-800 dark:text-amber-300 text-sm shadow-sm">
             <div className="flex items-center gap-3">
               <div className="px-2 py-0.5 bg-amber-200 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 rounded-md text-[10px] font-black uppercase tracking-widest">
                 {providerError.provider} Error

@@ -51,7 +51,7 @@ export function SourceTab({ existingInfo, onExtracted, onContinueManual, onConti
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <button
             onClick={onContinueManual}
-            className="group bg-white dark:bg-gray-900/80 backdrop-blur-sm ring-1 ring-gray-200/60 dark:ring-gray-800/60 hover:ring-purple-400 dark:hover:ring-purple-700 hover:shadow-xl hover:shadow-gray-200/40 dark:hover:shadow-black/40 hover:-translate-y-0.5 rounded-2xl p-7 text-left transition-all duration-200 space-y-4"
+            className="group bg-white dark:bg-gray-900/80 ring-1 ring-gray-200/60 dark:ring-gray-800/60 hover:ring-purple-400 dark:hover:ring-purple-700 hover:shadow-xl hover:shadow-gray-200/40 dark:hover:shadow-black/40 hover:-translate-y-0.5 rounded-2xl p-7 text-left transition-all duration-200 space-y-4"
           >
             <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 group-hover:bg-purple-100 dark:group-hover:bg-purple-950/40 text-gray-600 dark:text-gray-400 group-hover:text-purple-700 dark:group-hover:text-purple-400 rounded-xl flex items-center justify-center ring-1 ring-gray-200/60 dark:ring-gray-700/60 group-hover:ring-purple-300 dark:group-hover:ring-purple-800 transition-all">
               <Hand size={24} />
@@ -73,7 +73,7 @@ export function SourceTab({ existingInfo, onExtracted, onContinueManual, onConti
 
           <button
             onClick={() => setMode('auto')}
-            className="group relative bg-gradient-to-br from-white to-purple-50/30 dark:from-gray-900/80 dark:to-purple-950/20 backdrop-blur-sm ring-1 ring-purple-300/60 dark:ring-purple-800/60 hover:ring-purple-500 dark:hover:ring-purple-500 hover:shadow-xl hover:shadow-purple-200/40 dark:hover:shadow-purple-900/40 hover:-translate-y-0.5 rounded-2xl p-7 text-left transition-all duration-200 space-y-4"
+            className="group relative bg-gradient-to-br from-white to-purple-50/30 dark:from-gray-900/80 dark:to-purple-950/20 ring-1 ring-purple-300/60 dark:ring-purple-800/60 hover:ring-purple-500 dark:hover:ring-purple-500 hover:shadow-xl hover:shadow-purple-200/40 dark:hover:shadow-purple-900/40 hover:-translate-y-0.5 rounded-2xl p-7 text-left transition-all duration-200 space-y-4"
           >
             <span className="absolute top-4 right-4 text-[10px] font-black uppercase tracking-widest bg-gradient-to-br from-purple-500 to-purple-700 text-white px-2.5 py-1 rounded-full shadow-md shadow-purple-500/30 ring-1 ring-inset ring-white/20">
               Recomendado
@@ -146,7 +146,7 @@ export function SourceTab({ existingInfo, onExtracted, onContinueManual, onConti
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {/* YouTube VSL */}
-        <div className="bg-white/80 dark:bg-gray-900/60 backdrop-blur-sm ring-1 ring-red-200/60 dark:ring-red-900/40 rounded-2xl p-5 space-y-3">
+        <div className="bg-white/80 dark:bg-gray-900/60 ring-1 ring-red-200/60 dark:ring-red-900/40 rounded-2xl p-5 space-y-3">
           <div className="flex items-center gap-2">
             <Youtube size={20} className="text-red-600 dark:text-red-400" />
             <h3 className="font-black text-gray-900 dark:text-gray-50 uppercase text-sm tracking-widest">
@@ -171,7 +171,7 @@ export function SourceTab({ existingInfo, onExtracted, onContinueManual, onConti
         </div>
 
         {/* URL landing page */}
-        <div className="bg-white/80 dark:bg-gray-900/60 backdrop-blur-sm ring-1 ring-gray-200/60 dark:ring-gray-800/60 rounded-2xl p-5 space-y-3">
+        <div className="bg-white/80 dark:bg-gray-900/60 ring-1 ring-gray-200/60 dark:ring-gray-800/60 rounded-2xl p-5 space-y-3">
           <div className="flex items-center gap-2">
             <LinkIcon size={18} className="text-purple-600 dark:text-purple-400" />
             <h3 className="font-black text-gray-900 dark:text-gray-50 uppercase text-sm tracking-widest">
@@ -196,7 +196,7 @@ export function SourceTab({ existingInfo, onExtracted, onContinueManual, onConti
         </div>
 
         {/* Paste text */}
-        <div className="bg-white/80 dark:bg-gray-900/60 backdrop-blur-sm ring-1 ring-gray-200/60 dark:ring-gray-800/60 rounded-2xl p-5 space-y-3">
+        <div className="bg-white/80 dark:bg-gray-900/60 ring-1 ring-gray-200/60 dark:ring-gray-800/60 rounded-2xl p-5 space-y-3">
           <div className="flex items-center gap-2">
             <FileText size={18} className="text-purple-600 dark:text-purple-400" />
             <h3 className="font-black text-gray-900 dark:text-gray-50 uppercase text-sm tracking-widest">
@@ -293,7 +293,7 @@ export function SourceTab({ existingInfo, onExtracted, onContinueManual, onConti
 function InfoCard({ label, value, span }: { label: string; value: string; span?: boolean }) {
   return (
     <div
-      className={`bg-white/80 dark:bg-gray-900/60 backdrop-blur-sm ring-1 ring-gray-200/60 dark:ring-gray-800/60 rounded-xl p-4 ${span ? 'md:col-span-2' : ''}`}
+      className={`bg-white/80 dark:bg-gray-900/60 ring-1 ring-gray-200/60 dark:ring-gray-800/60 rounded-xl p-4 ${span ? 'md:col-span-2' : ''}`}
     >
       <p className="text-[10px] font-black uppercase tracking-widest text-purple-600 dark:text-purple-400 mb-1">
         {label}
@@ -305,7 +305,7 @@ function InfoCard({ label, value, span }: { label: string; value: string; span?:
 
 function ListCard({ label, items }: { label: string; items: string[] }) {
   return (
-    <div className="bg-white/80 dark:bg-gray-900/60 backdrop-blur-sm ring-1 ring-gray-200/60 dark:ring-gray-800/60 rounded-xl p-4">
+    <div className="bg-white/80 dark:bg-gray-900/60 ring-1 ring-gray-200/60 dark:ring-gray-800/60 rounded-xl p-4">
       <p className="text-[10px] font-black uppercase tracking-widest text-purple-600 dark:text-purple-400 mb-2">
         {label}
       </p>
