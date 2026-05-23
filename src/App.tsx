@@ -2541,16 +2541,35 @@ export default function App() {
         ? `${selectedStyle.label} — ${selectedStyle.desc}`
         : config.copy.answers.estiloAnuncio;
 
+      // Stream tokens into the script field as they arrive — the user
+      // sees text appearing live instead of waiting 15s for a blob.
+      // The model wraps the real script in JSON, so the stream shows
+      // raw JSON-ish text first; on completion we parse + replace
+      // with the clean script.
+      let streamed = '';
       const result = await generateAdCopyWithClaude(
         { ...config.copy.answers, estiloAnuncio: styleWithDesc },
         config.copy.mode,
         config.angle,
         config.copy.scriptLength,
         config.copy.targetWordCount,
-        config.copy.hookSelecionado || ''
+        config.copy.hookSelecionado || '',
+        (chunk) => {
+          streamed += chunk;
+          setConfig((prev) => ({
+            ...prev,
+            copy: {
+              ...prev.copy,
+              // Show the live token stream. Strip code-fence markers so
+              // the user sees natural text instead of ```json prefix.
+              generatedScript: streamed.replace(/```json\n?/g, '').replace(/```\n?/g, ''),
+            },
+          }));
+        }
       );
       if (!result) throw new Error('A IA retornou uma resposta vazia.');
 
+      // Final, clean replacement (parses the JSON envelope properly).
       setConfig((prev) => ({
         ...prev,
         copy: {

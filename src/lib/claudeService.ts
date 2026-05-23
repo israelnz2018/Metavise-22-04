@@ -134,7 +134,11 @@ export const generateAdCopyWithClaude = async (
   angle: string,
   _scriptLength?: 'short' | 'medium' | 'long',
   targetWordCount?: number,
-  _hookSelecionado?: string
+  _hookSelecionado?: string,
+  /** Optional streaming callback. When provided, the function uses the
+   *  SSE endpoint and pushes each text delta to onToken as it arrives.
+   *  When omitted, falls back to the blocking /complete endpoint. */
+  onToken?: (textDelta: string) => void
 ): Promise<{ hooks: any[]; script: string }> => {
   if (mode === 'as-is') {
     return {
@@ -354,7 +358,10 @@ Use this phrasing or a natural variation in the output language. Do not referenc
 --- REPETITION LIMITS ---
 Product name: max 2 mentions. Core pain term: max 3 mentions (use synonyms after).`;
 
-  const raw = await callClaude(systemPrompt, userPrompt, Math.max(1500, wordCount * 8));
+  const maxTokens = Math.max(1500, wordCount * 8);
+  const raw = onToken
+    ? await streamClaude(systemPrompt, userPrompt, onToken, { maxTokens })
+    : await callClaude(systemPrompt, userPrompt, maxTokens);
 
   let result: any;
   try {
