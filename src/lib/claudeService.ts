@@ -763,6 +763,10 @@ export async function generateMarketingPlan(input: {
   persona?: any;
   copyAnswers?: any;
 }): Promise<MarketingPlan> {
+  // Legacy helper — used by callers that only care about the macro plan,
+  // not the briefs. Internally calls the same endpoint as the new
+  // blueprint helper but discards `briefs`. Kept for back-compat with
+  // PlanTab v1 until v2 ships.
   const response = await fetch('/api/claude/marketing-plan', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -775,6 +779,46 @@ export async function generateMarketingPlan(input: {
   const data = await response.json();
   if (!data.success) throw new Error(data.error || 'Erro ao gerar plano de marketing.');
   return data.plan;
+}
+
+/**
+ * Blueprint = macro plan + N creative briefs in one call. The endpoint
+ * runs the expanded prompt that distributes briefs proportionally to
+ * the weights of the SELECTED personas.
+ *
+ * Typical use from the v2 PlanTab:
+ *   const { plan, briefs } = await generateMarketingBlueprint({
+ *     productInfo,
+ *     personas: weightedPersonas,
+ *     selectedPersonaIds: ['p1', 'p2'],   // optional — defaults to all
+ *     copyAnswers,
+ *     targetCount: 15,                      // default 15 per Andromeda
+ *   });
+ */
+export async function generateMarketingBlueprint(input: {
+  productInfo?: any;
+  personas: any[]; // WeightedPersona[]
+  selectedPersonaIds?: string[];
+  copyAnswers?: any;
+  targetCount?: number; // defaults server-side to 15
+}): Promise<{ plan: any; briefs: any[] }> {
+  const response = await fetch('/api/claude/marketing-plan', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Blueprint error: ${err}`);
+  }
+  const data = await response.json();
+  if (!data.success) {
+    throw new Error(data.error || 'Erro ao gerar blueprint de marketing.');
+  }
+  return {
+    plan: data.plan,
+    briefs: Array.isArray(data.briefs) ? data.briefs : [],
+  };
 }
 
 export async function recommendAvatarAndVoice(input: {

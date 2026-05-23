@@ -740,93 +740,181 @@ claudeRouter.post('/marketing-plan', async (req, res) => {
     return res.status(500).json({ success: false, error: 'CLAUDE_API_KEY não configurada.' });
   }
 
-  const { productInfo = {}, persona = {}, copyAnswers = {} } = req.body || {};
+  // Accept both shapes:
+  //   Legacy: { productInfo, persona, copyAnswers }
+  //   New v2: { productInfo, personas: WeightedPersona[], selectedPersonaIds?: string[],
+  //             copyAnswers, targetCount?: number }
+  const {
+    productInfo = {},
+    persona = null, // legacy single persona (kept for back-compat)
+    personas = null, // new: array of WeightedPersona
+    selectedPersonaIds = null, // new: user's subset of personas (defaults to all non-stretch)
+    copyAnswers = {},
+    targetCount = 15, // default to 15 briefs per Andromeda guidance
+  } = req.body || {};
 
-  const SYSTEM = `Você é um estrategista de Meta Ads com domínio dos updates recentes (Andromeda 2025+). Recebe info do produto + persona e gera um PLANO COMPLETO de lançamento.
+  // Build the personas array the prompt will consume:
+  //   - If `personas` provided, use it (filtered by selectedPersonaIds if any)
+  //   - Otherwise wrap legacy `persona` as a single persona with weight=1
+  let personasForPrompt: any[] = [];
+  if (Array.isArray(personas) && personas.length > 0) {
+    personasForPrompt =
+      selectedPersonaIds && Array.isArray(selectedPersonaIds) && selectedPersonaIds.length > 0
+        ? personas.filter((p: any) => selectedPersonaIds.includes(p.id))
+        : personas;
+    // Re-normalize weights so the SELECTED subset sums to 1.0
+    const total = personasForPrompt.reduce((acc, p) => acc + (Number(p.suggestedWeight) || 0), 0);
+    if (total > 0) {
+      personasForPrompt = personasForPrompt.map((p: any) => ({
+        ...p,
+        suggestedWeight: (Number(p.suggestedWeight) || 0) / total,
+      }));
+    }
+  } else if (persona && typeof persona === 'object') {
+    personasForPrompt = [{ id: 'legacy-persona', ...persona, suggestedWeight: 1.0 }];
+  }
 
-Princípios Andromeda que DEVE guiar o plano:
+  if (personasForPrompt.length === 0) {
+    return res.status(400).json({
+      success: false,
+      error: 'Forneça `personas` (array com weights) ou `persona` (objeto único).',
+    });
+  }
+
+  // Compute the exact distribution: how many briefs per persona, given weights.
+  // Floor each to integer, distribute the remainder to the highest-weight personas.
+  const computeDistribution = (
+    personasList: any[],
+    total: number
+  ): Array<{ personaId: string; personaName: string; count: number }> => {
+    const raw = personasList.map((p) => ({
+      personaId: p.id,
+      personaName: p.name,
+      raw: (Number(p.suggestedWeight) || 0) * total,
+    }));
+    const floored = raw.map((r) => ({ ...r, count: Math.floor(r.raw) }));
+    let allocated = floored.reduce((acc, r) => acc + r.count, 0);
+    // Distribute remainder to entries with the largest fractional part.
+    const remainders = raw
+      .map((r, i) => ({ index: i, frac: r.raw - Math.floor(r.raw) }))
+      .sort((a, b) => b.frac - a.frac);
+    for (const { index } of remainders) {
+      if (allocated >= total) break;
+      floored[index]!.count += 1;
+      allocated += 1;
+    }
+    return floored.map(({ personaId, personaName, count }) => ({
+      personaId,
+      personaName,
+      count,
+    }));
+  };
+
+  const distribution = computeDistribution(personasForPrompt, targetCount);
+
+  const SYSTEM = `Você é um estrategista de Meta Ads com domínio dos updates recentes (Andromeda 2025+). Recebe info do produto + 1-3 personas com pesos + uma distribuição já calculada de quantos criativos cada persona recebe, e gera DOIS outputs em um JSON único: (1) o PLANO MACRO de lançamento, e (2) os N CRIATIVOS específicos (briefs) que serão produzidos.
+
+Princípios Andromeda que DEVE guiar tudo:
 - Volume e diversidade vencem perfeição individual. Meta escolhe melhor que humanos quando tem N criativos pra testar.
-- Múltiplos hooks > um hook "perfeito". Mínimo 3-5 ângulos diferentes por ad set.
-- Cobrir TODOS os níveis de consciência relevantes (cold, problem-aware, solution-aware, product-aware).
+- Múltiplos hooks > um hook "perfeito". Cobrir 5-7 ângulos diferentes.
+- Cobrir TODOS os níveis de consciência relevantes DENTRO de cada persona (não pular awareness só porque é um nicho mais "frio").
 - Mix de durações: 15-30s (scroll-stoppers) + 30-60s (storytelling) + 60-180s (VSL profunda) quando faz sentido pro produto.
+- Diversidade conceitual REAL — não 15 versões da mesma ideia, mas 15 ângulos psicologicamente distintos.
 - Vídeo > estático na maioria dos casos. Avatar IA é viável e escala.
-- Iterar rápido: rodar 5-7 dias, matar perdedores, dobrar nos vencedores.
 
 Responda APENAS um JSON com esta estrutura (sem prosa, sem markdown):
 {
-  "summary": "1-2 parágrafos em PT-BR resumindo a estratégia macro",
-  "creativeVolume": {
-    "totalCreatives": 12,
-    "rationale": "explicação curta do número escolhido",
-    "perAudience": 4
+  "plan": {
+    "summary": "1-2 parágrafos em PT-BR resumindo a estratégia macro",
+    "creativeVolume": {
+      "totalCreatives": ${targetCount},
+      "rationale": "por que esse número faz sentido pra esse produto/personas",
+      "perAudience": número inteiro
+    },
+    "hookMix": [
+      { "angle": "Curiosidade", "count": 3, "example": "exemplo de hook", "awarenessLevel": "unaware", "rationale": "..." }
+    ],
+    "awarenessCoverage": [
+      { "level": "unaware|problem_aware|solution_aware|product_aware|most_aware", "creativeCount": 3, "approach": "..." }
+    ],
+    "durations": [
+      { "length": "15-30s", "purpose": "scroll stopper / disrupt", "count": 5 }
+    ],
+    "adStructure": {
+      "campaigns": 1,
+      "adSets": 1,
+      "creativesPerAdSet": ${targetCount},
+      "rationale": "Andromeda 2025+: 1 ad set Advantage+ broad com TODOS os criativos rodando juntos. Personas vivem nos criativos, não nos ad sets."
+    },
+    "budget": {
+      "dailyMin": 50,
+      "dailyRecommended": 150,
+      "rationale": "PT-BR — Andromeda precisa de ~50 conversões/semana por ad set pra otimizar bem"
+    },
+    "iterationPlan": {
+      "testDays": 5,
+      "killThreshold": "métrica + valor (ex: CPA > R$X depois de Y impressões)",
+      "scaleThreshold": "métrica + valor pra dobrar budget",
+      "iterationFrequency": "a cada quantos dias revisar"
+    },
+    "andromedaTips": ["tip específico 1", "tip 2", "tip 3"],
+    "nextSteps": ["ação 1 dentro do MetaVise", "ação 2"]
   },
-  "hookMix": [
+  "briefs": [
     {
-      "angle": "Curiosidade",
-      "count": 3,
-      "example": "exemplo concreto de hook desse ângulo pra esse produto",
-      "awarenessLevel": "unaware",
-      "rationale": "por que esse ângulo serve essa awareness"
+      "id": "brief_1",
+      "index": 1,
+      "targetPersonaId": "<id de uma das personas do input>",
+      "targetPersonaName": "<nome da mesma persona>",
+      "awareness": "unaware|problem_aware|solution_aware|product_aware|most_aware",
+      "angle": "Curiosidade|Urgência|Prova Social|Transformação|Mecanismo Revelado|Autoridade|Contra-Intuitivo|Medo de Perda|Desejo Aspiracional",
+      "hook": "TEXTO COMPLETO DA PRIMEIRA FRASE DO ANÚNCIO — não conceito, mas o que o avatar vai falar literalmente. 1-2 sentenças.",
+      "durationTarget": 15|30|45|60|90|120,
+      "emotion": "Curiosidade|Medo|Desejo|Validação|Raiva|Esperança|Urgência|Pertencimento",
+      "style": "Depoimento|Mecanismo Revelado|Antes e Depois|Demo|História Pessoal|Comparação|Lista de Benefícios|Autoridade Explica",
+      "ctaStyle": "soft|hard|curiosity_gap",
+      "promiseFocus": "qual benefício específico do produto esse criativo destaca (1 frase)",
+      "rationale": "1 linha — por que essa combinação faz sentido pra essa persona e esse momento do funil"
     }
-  ],
-  "awarenessCoverage": [
-    {
-      "level": "unaware|problem-aware|solution-aware|product-aware|most-aware",
-      "creativeCount": 3,
-      "approach": "como abordar esse público especificamente"
-    }
-  ],
-  "durations": [
-    {
-      "length": "15-30s",
-      "purpose": "scroll stopper / disrupt",
-      "count": 5
-    }
-  ],
-  "adStructure": {
-    "campaigns": 1,
-    "adSets": 3,
-    "creativesPerAdSet": 4,
-    "rationale": "explicação da estrutura escolhida"
-  },
-  "budget": {
-    "dailyMin": 50,
-    "dailyRecommended": 150,
-    "rationale": "PT-BR — explicação considerando que Andromeda precisa de volume mínimo pra otimizar"
-  },
-  "iterationPlan": {
-    "testDays": 5,
-    "killThreshold": "métrica + valor (ex: CPL > R$X depois de Yk impressões)",
-    "scaleThreshold": "métrica + valor pra dobrar budget",
-    "iterationFrequency": "a cada quantos dias revisar"
-  },
-  "andromedaTips": [
-    "tip específico aplicável a esse produto"
-  ],
-  "nextSteps": [
-    "ação concreta 1 que o usuário toma agora dentro do MetaVise",
-    "ação 2"
+    // ... repetir até totalizar exatamente ${targetCount} briefs
   ]
 }
 
-Os valores numéricos devem ser realistas pro produto. Não invente totalCreatives=100 se o orçamento sugere produto pequeno. Para affiliates / produtos info novos, 8-15 criativos é típico. Para escala maior (ecom estabelecido), 20-40+.`;
+🚨 REGRAS CRÍTICAS PARA OS BRIEFS:
+1. Total EXATO de ${targetCount} briefs. Nem mais, nem menos.
+2. Distribuição POR PERSONA DEVE SER:
+${distribution.map((d) => `   - ${d.personaName} (id: ${d.personaId}): ${d.count} briefs`).join('\n')}
+3. Cada brief usa EXATAMENTE o targetPersonaId/Name de uma das personas listadas acima.
+4. Dentro de cada bucket de persona, cubra MÚLTIPLOS awareness levels (não 5 briefs todos em "solution_aware" — varie).
+5. Dentro de cada bucket de persona, varie os ângulos psicológicos (não repita "Curiosidade" 4 vezes pro mesmo persona).
+6. Hook deve ser TEXTO PRONTO, não placeholder genérico. Use vocabulário específico das dores/desejos da persona.
+7. durationTarget realista pra duração necessária do hook (15s não dá pra "História Pessoal" elaborada).
+8. ids únicos no formato "brief_1", "brief_2", ..., "brief_${targetCount}".
+
+Os valores numéricos do PLAN devem refletir a realidade do produto (não invente budget de R$5000/d se for infoproduto novo).`;
 
   const USER = `INFO DO PRODUTO:
 ${JSON.stringify(productInfo, null, 2)}
 
-PERSONA:
-${JSON.stringify(persona, null, 2)}
+PERSONAS (${personasForPrompt.length}, com pesos já normalizados):
+${JSON.stringify(personasForPrompt, null, 2)}
 
-COPY ANSWERS:
+DISTRIBUIÇÃO PRÉ-CALCULADA (use EXATAMENTE essa contagem por persona):
+${JSON.stringify(distribution, null, 2)}
+
+COPY ANSWERS (contexto adicional, pode usar pra refinar mas não é fonte primária):
 ${JSON.stringify(copyAnswers, null, 2)}
 
-Gere o plano completo. Retorne APENAS o JSON.`;
+TARGET COUNT: ${targetCount} briefs no total.
+
+Gere o JSON completo com "plan" + "briefs" (exatamente ${targetCount} entradas).`;
 
   // Use Opus 4.7 — strategy is creative judgment + product domain knowledge.
   // Retry on overload (same pattern as /complete).
+  // max_tokens bumped from 4000 → 12000 to fit plan + 15 briefs.
   const requestBody = JSON.stringify({
     model: DEFAULT_MODEL,
-    max_tokens: 4000,
+    max_tokens: 12000,
     system: SYSTEM,
     messages: [{ role: 'user', content: USER }],
   });
@@ -878,9 +966,9 @@ Gere o plano completo. Retorne APENAS o JSON.`;
     const responseText = textBlock?.text || '';
     const clean = responseText.replace(/^```(?:json)?\s*|\s*```$/g, '').trim();
 
-    let plan;
+    let parsed: any;
     try {
-      plan = JSON.parse(clean);
+      parsed = JSON.parse(clean);
     } catch {
       return res.status(500).json({
         success: false,
@@ -889,7 +977,22 @@ Gere o plano completo. Retorne APENAS o JSON.`;
       });
     }
 
-    res.json({ success: true, plan });
+    // Backwards-compat: if Claude returns the old flat shape (just plan
+    // fields, no `plan`/`briefs` wrapper), wrap it.
+    const responsePayload =
+      parsed && typeof parsed === 'object' && ('plan' in parsed || 'briefs' in parsed)
+        ? { plan: parsed.plan ?? null, briefs: Array.isArray(parsed.briefs) ? parsed.briefs : [] }
+        : { plan: parsed, briefs: [] };
+
+    // Sanity-check: brief count matches request (log warning, don't fail —
+    // user can re-roll). The frontend can show a "X of 15 generated" hint.
+    if (responsePayload.briefs.length !== targetCount && responsePayload.briefs.length > 0) {
+      log.warn(
+        `[Claude marketing-plan] expected ${targetCount} briefs, got ${responsePayload.briefs.length}`
+      );
+    }
+
+    res.json({ success: true, ...responsePayload });
   } catch (err: any) {
     log.error('[Claude marketing-plan] Exception:', err);
     res.status(500).json({ success: false, error: err.message });
