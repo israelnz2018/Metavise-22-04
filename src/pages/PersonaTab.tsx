@@ -4,9 +4,10 @@
 // `config`, `generatedPersona`, etc. Extracting this trimmed App.tsx
 // by ~560 lines without changing any behavior.
 
+import { useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import type { AdConfig } from '@/App';
-import { Users, Sparkles, Loader2, CheckCircle2 } from 'lucide-react';
+import { Users, Sparkles, Loader2, CheckCircle2, AlertTriangle, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   PERSONA_CATEGORY_OPTIONS,
@@ -40,6 +41,12 @@ interface Props {
   onGeneratePersona: (answers: Record<string, any>) => Promise<void> | void;
   onSavePersonas: () => Promise<void> | void;
   onSelectPersona: (persona: any) => void;
+  /** Blueprint Path 2 — when set, shows the "Ir pro Plano de Marketing"
+   *  CTA below the 3-persona grid. Receives the personas the user
+   *  checked (could be 1-3) so the parent can wire them into the
+   *  marketing-plan endpoint. Optional so callers that haven't migrated
+   *  to the blueprint flow keep working. */
+  onGoToPlan?: (selectedPersonas: any[]) => void;
 }
 
 export function PersonaTab({
@@ -52,7 +59,42 @@ export function PersonaTab({
   onGeneratePersona,
   onSavePersonas,
   onSelectPersona,
+  onGoToPlan,
 }: Props) {
+  // Selected persona indices for the Blueprint Path 2 CTA. We key by
+  // index (not id) because the existing persona objects don't have
+  // stable IDs yet — they're generated from the LLM each call. When
+  // the personas array changes (regeneration), we reset selection
+  // using the "include if confident enough and not a stretch" rule.
+  const [selectedIdxSet, setSelectedIdxSet] = useState<Set<number>>(new Set());
+
+  // Pre-select personas with confidence >= 0.5 and not stretched.
+  // Falls back to "include all" when the LLM didn't return the new
+  // fields (back-compat with old saved personas).
+  useEffect(() => {
+    const list = (generatedPersona?.personas || []) as any[];
+    if (list.length === 0) {
+      setSelectedIdxSet(new Set());
+      return;
+    }
+    const next = new Set<number>();
+    let anyHasNewFields = false;
+    list.forEach((p, idx) => {
+      if (typeof p?.confidence === 'number' || typeof p?.isStretch === 'boolean') {
+        anyHasNewFields = true;
+        if ((p.confidence ?? 0.5) >= 0.5 && p.isStretch !== true) next.add(idx);
+      }
+    });
+    // Old data: include all by default (preserves existing UX).
+    if (!anyHasNewFields) list.forEach((_, idx) => next.add(idx));
+    // Always make sure at least 1 is selected (the principal, idx 0).
+    if (next.size === 0) next.add(0);
+    setSelectedIdxSet(next);
+  }, [generatedPersona?.personas]);
+
+  // Pretty-format confidence as percentage. Missing → "—".
+  const fmtPct = (v: unknown): string =>
+    typeof v === 'number' && Number.isFinite(v) ? `${Math.round(v * 100)}%` : '—';
   const a = config.copy.answers;
   const differentials: string[] = a.differentials || [];
   const personaTriedBefore: string[] = a.personaTriedBefore || [];
@@ -472,22 +514,92 @@ export function PersonaTab({
                     rankColor === 'gray' && 'border-gray-200 dark:border-gray-700'
                   )}
                 >
-                  <div className="flex items-center justify-between">
-                    <span
-                      className={cn(
-                        'px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest',
-                        rankColor === 'blue' && 'bg-blue-600 text-white',
-                        rankColor === 'purple' && 'bg-purple-400 text-white',
-                        rankColor === 'gray' &&
-                          'bg-gray-200 text-gray-700 dark:text-gray-300 dark:text-gray-600'
-                      )}
-                    >
-                      {p.rank}
-                    </span>
-                    <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">
-                      Nível {p.awarenessLevel}
-                    </span>
+                  {/* Top row: checkbox (Path 2 selection), rank badge, awareness pill */}
+                  <div className="flex items-center justify-between gap-2">
+                    {/* Checkbox: only meaningful when Path 2 (onGoToPlan) is wired */}
+                    {onGoToPlan && (
+                      <label
+                        className="flex items-center gap-1.5 cursor-pointer select-none"
+                        title="Incluir esta persona no plano de marketing"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedIdxSet.has(idx)}
+                          onChange={(e) => {
+                            setSelectedIdxSet((prev) => {
+                              const next = new Set(prev);
+                              if (e.target.checked) next.add(idx);
+                              else next.delete(idx);
+                              // Don't allow zero selection — always keep ≥1
+                              if (next.size === 0) next.add(idx);
+                              return next;
+                            });
+                          }}
+                          className="w-4 h-4 accent-blue-600"
+                        />
+                        <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">
+                          Incluir
+                        </span>
+                      </label>
+                    )}
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className={cn(
+                          'px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest',
+                          rankColor === 'blue' && 'bg-blue-600 text-white',
+                          rankColor === 'purple' && 'bg-purple-400 text-white',
+                          rankColor === 'gray' &&
+                            'bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                        )}
+                      >
+                        {p.rank}
+                      </span>
+                      <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">
+                        Nível {p.awarenessLevel}
+                      </span>
+                    </div>
                   </div>
+
+                  {/* Confidence + weight + stretch warning. Hidden when the
+                      LLM output doesn't have these fields (old data). */}
+                  {(typeof p?.confidence === 'number' ||
+                    typeof p?.suggestedWeight === 'number' ||
+                    p?.isStretch === true) && (
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {typeof p?.confidence === 'number' && (
+                        <span
+                          className={cn(
+                            'text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ring-1',
+                            p.confidence >= 0.7
+                              ? 'bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300 ring-green-200/60 dark:ring-green-900/40'
+                              : p.confidence >= 0.5
+                                ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 ring-amber-200/60 dark:ring-amber-900/40'
+                                : 'bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 ring-red-200/60 dark:ring-red-900/40'
+                          )}
+                          title="Confiança da extração: o quanto a fonte sustenta essa persona"
+                        >
+                          {fmtPct(p.confidence)} conf.
+                        </span>
+                      )}
+                      {typeof p?.suggestedWeight === 'number' && (
+                        <span
+                          className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 ring-1 ring-blue-200/60 dark:ring-blue-900/40"
+                          title="Fatia sugerida dos criativos para essa persona"
+                        >
+                          {fmtPct(p.suggestedWeight)} dos criativos
+                        </span>
+                      )}
+                      {p?.isStretch === true && (
+                        <span
+                          className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 ring-1 ring-orange-200/60 dark:ring-orange-900/40"
+                          title="Persona inferida da fonte, não citada diretamente — use com cuidado"
+                        >
+                          <AlertTriangle size={9} />
+                          inferência fraca
+                        </span>
+                      )}
+                    </div>
+                  )}
                   <div>
                     <h5 className="text-lg font-black text-gray-900 dark:text-gray-50">{p.name}</h5>
                     <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 leading-snug mt-1">
@@ -631,11 +743,44 @@ export function PersonaTab({
               )}
             </button>
             {personasSaved && (
-              <p className="text-center text-[10px] text-gray-500 dark:text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest mt-2">
-                Agora escolha um persona acima para enviar pra Copy
+              <p className="text-center text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-widest mt-2">
+                Escolha um persona acima para enviar pra Copy (rápido) — ou gere o plano completo
+                abaixo
               </p>
             )}
           </div>
+
+          {/* PATH 2 — Blueprint completo. Visível apenas quando o
+              callback foi wirado pelo App.tsx e as personas foram salvas.
+              Os 3 caminhos coexistem sem conflito:
+                Path 1 (existente): clica "Escolher esta" em um card
+                Path 2 (novo):     gera plano com personas checadas
+              Marketing the multi-persona option as the recommended
+              path — it covers the Andromeda diversity advantage. */}
+          {onGoToPlan && personasSaved && (
+            <div className="pt-2">
+              <button
+                onClick={() => {
+                  const list = (generatedPersona?.personas || []) as any[];
+                  const selected = list.filter((_, idx) => selectedIdxSet.has(idx));
+                  if (selected.length === 0) {
+                    toast.error('Selecione pelo menos 1 persona pra gerar o plano.');
+                    return;
+                  }
+                  onGoToPlan(selected);
+                }}
+                className="w-full py-5 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 active:scale-[0.99] text-white rounded-[28px] font-black uppercase tracking-widest text-sm transition-all shadow-xl shadow-blue-200/60 dark:shadow-blue-900/30 ring-1 ring-inset ring-white/20 flex items-center justify-center gap-3"
+              >
+                <Sparkles size={18} />
+                Ir pro Plano de Marketing ({selectedIdxSet.size}{' '}
+                {selectedIdxSet.size === 1 ? 'persona' : 'personas'})
+                <ArrowRight size={18} />
+              </button>
+              <p className="text-center text-[10px] text-gray-500 dark:text-gray-500 font-bold uppercase tracking-widest mt-2">
+                ⭐ recomendado — gera 15 criativos distribuídos entre as personas selecionadas
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>
