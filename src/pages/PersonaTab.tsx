@@ -100,6 +100,95 @@ export function PersonaTab({
   const personaTriedBefore: string[] = a.personaTriedBefore || [];
   const hiddenDesires: string[] = a.hiddenDesires || [];
 
+  // Auto-fill from the ProductInfo extracted in SourceTab — runs ONCE
+  // per project on the first visit after Source ran. Idempotent via
+  // the `personaAutoFilled` flag persisted in config. After this
+  // effect runs the user sees a 100%-filled form ready to "Gerar".
+  //
+  // Skip when:
+  //   - There's no ProductInfo (Source step skipped — manual path)
+  //   - The form is clearly already filled (user came back to edit)
+  //   - We've already auto-filled in a previous mount
+  useEffect(() => {
+    const flag = (config.copy as any)?.personaAutoFilled === true;
+    const product = (config.copy as any)?.productInfo;
+    if (flag || !product) return;
+    // "Mostly empty" heuristic: if the required fields are all empty,
+    // it's safe to auto-fill. If user already typed something, leave
+    // it alone.
+    const looksEmpty =
+      !a.product?.trim() &&
+      !a.category?.trim() &&
+      !a.whatItDoes?.trim() &&
+      personaTriedBefore.length === 0 &&
+      differentials.length === 0 &&
+      hiddenDesires.length === 0;
+    if (!looksEmpty) {
+      // Mark as filled anyway so we don't keep retrying when the user
+      // is just iterating manually.
+      setConfig((prev: any) => ({
+        ...prev,
+        copy: { ...prev.copy, personaAutoFilled: true },
+      }));
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const allQuestions = COPY_SECTIONS.flatMap((s) => s.questions);
+        const optionsFor = (id: string): string[] => {
+          const q = allQuestions.find((q) => q.id === id);
+          return (q as any)?.options || [];
+        };
+        const filled = await personaFromProduct({
+          productInfo: product,
+          options: {
+            categories: PERSONA_CATEGORY_OPTIONS,
+            urgencies: PERSONA_URGENCY_OPTIONS.map((o) => o.value),
+            differentials: PERSONA_DIFFERENTIAL_OPTIONS,
+            triedBefores: PERSONA_TRIED_BEFORE_OPTIONS,
+            payingCapacities: PERSONA_PAYING_CAPACITY_OPTIONS,
+            hiddenDesires: PERSONA_HIDDEN_DESIRE_OPTIONS.map((o) => o.label),
+            languages: optionsFor('language'),
+            ageBuckets: optionsFor('age'),
+            businessModels: optionsFor('businessModel'),
+            emotions: optionsFor('emotion'),
+            angles: optionsFor('angleIdea'),
+          },
+        });
+        if (cancelled) return;
+        setConfig((prev: any) => ({
+          ...prev,
+          copy: {
+            ...prev.copy,
+            answers: { ...prev.copy.answers, ...filled },
+            personaAutoFilled: true,
+          },
+        }));
+        toast.success('Persona preenchida automaticamente pelo material do produto.', {
+          icon: '✨',
+        });
+      } catch (err: any) {
+        // Silent failure — don't pop a scary error toast for an
+        // optional convenience. Mark the flag anyway so we don't
+        // retry on every render.
+        console.warn('[Persona auto-fill] failed:', err?.message);
+        if (!cancelled) {
+          setConfig((prev: any) => ({
+            ...prev,
+            copy: { ...prev.copy, personaAutoFilled: true },
+          }));
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Intentionally only react to productInfo identity — re-runs only
+    // when the user re-extracts the source.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [(config.copy as any)?.productInfo]);
+
   const toggleArrayValue = (field: string, value: string, max?: number) => {
     const current: string[] = a[field] || [];
     let next: string[];
