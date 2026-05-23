@@ -4759,13 +4759,28 @@ export default function App() {
           </div>
         )}
 
-        <div className="mb-12 text-center">
-          <h2 className="text-3xl font-black text-gray-900 tracking-tight">
+        {/* Step header: title + slim progress bar. Replaces the
+            previous "Passo X de Y" plain text — same info, more
+            visual hierarchy. Counter sits to the right of the bar. */}
+        <div className="mb-12 max-w-2xl mx-auto">
+          <h2 className="text-3xl font-black text-gray-900 dark:text-gray-50 tracking-tight text-center mb-5">
             {STEPS.find((s) => s.id === currentStep)?.label}
           </h2>
-          <p className="text-gray-500 mt-2">
-            Passo {STEPS.findIndex((s) => s.id === currentStep) + 1} de {STEPS.length}
-          </p>
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-1.5 bg-gray-200/70 dark:bg-gray-800/80 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-[width] duration-500 ease-out"
+                style={{
+                  width: `${
+                    ((STEPS.findIndex((s) => s.id === currentStep) + 1) / STEPS.length) * 100
+                  }%`,
+                }}
+              />
+            </div>
+            <span className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest tabular-nums shrink-0">
+              {STEPS.findIndex((s) => s.id === currentStep) + 1} / {STEPS.length}
+            </span>
+          </div>
         </div>
 
         <AnimatePresence mode="wait">
