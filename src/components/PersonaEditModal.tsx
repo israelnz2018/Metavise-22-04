@@ -76,7 +76,7 @@ export function PersonaEditModal({ open, persona, onChange, onClose, onSave }: P
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 dark:bg-gray-800 rounded-xl transition-colors"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors"
           >
             <X size={20} className="text-gray-600 dark:text-gray-400 dark:text-gray-500" />
           </button>

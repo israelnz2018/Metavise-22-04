@@ -83,8 +83,8 @@ export const VariantItem: React.FC<VariantItemProps> = ({
     <div
       className={`rounded-[32px] border-2 transition-all overflow-hidden ${
         isViewing
-          ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40/30 shadow-lg shadow-blue-100/50'
-          : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/80 hover:border-blue-100 dark:border-blue-900'
+          ? 'border-blue-600 bg-blue-50/30 dark:bg-blue-950/40 shadow-lg shadow-blue-100/50'
+          : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/80 hover:border-blue-100 dark:hover:border-blue-900'
       }`}
     >
       <div
@@ -159,7 +159,7 @@ export const VariantItem: React.FC<VariantItemProps> = ({
                       setRenameValue(variant.name);
                       setIsRenaming(true);
                     }}
-                    className="p-1 rounded-lg text-gray-300 dark:text-gray-600 hover:text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:bg-blue-950/40 transition-all"
+                    className="p-1 rounded-lg text-gray-300 dark:text-gray-600 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-all"
                     title="Renomear subprojeto"
                   >
                     <Edit3 size={14} />
@@ -189,7 +189,7 @@ export const VariantItem: React.FC<VariantItemProps> = ({
               e.stopPropagation();
               onDelete(project.id, variant.id);
             }}
-            className="p-2.5 rounded-xl text-gray-300 dark:text-gray-600 hover:text-red-500 hover:bg-red-50 dark:bg-red-950/40 transition-all"
+            className="p-2.5 rounded-xl text-gray-300 dark:text-gray-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-all"
             title="Excluir Subprojeto"
           >
             <Trash2 size={20} />
@@ -215,7 +215,7 @@ export const VariantItem: React.FC<VariantItemProps> = ({
                 className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all cursor-pointer ${
                   expandedItem === 'copy'
                     ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 shadow-sm'
-                    : 'bg-gray-50 dark:bg-gray-800/60/50 border-gray-200 dark:border-gray-800 hover:border-amber-200'
+                    : 'bg-gray-50/50 dark:bg-gray-800/60 border-gray-200 dark:border-gray-800 hover:border-amber-200'
                 }`}
               >
                 <div className="flex items-center gap-3">
@@ -297,7 +297,7 @@ export const VariantItem: React.FC<VariantItemProps> = ({
                 className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all cursor-pointer ${
                   expandedItem === `audio-${idx}`
                     ? 'bg-green-50 dark:bg-green-950/40 border-green-200 shadow-sm'
-                    : 'bg-gray-50 dark:bg-gray-800/60/50 border-gray-200 dark:border-gray-800 hover:border-green-200'
+                    : 'bg-gray-50/50 dark:bg-gray-800/60 border-gray-200 dark:border-gray-800 hover:border-green-200'
                 }`}
               >
                 <div className="flex items-center gap-3">
@@ -383,7 +383,7 @@ export const VariantItem: React.FC<VariantItemProps> = ({
                 className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all cursor-pointer ${
                   expandedItem === `video-${idx}`
                     ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 shadow-sm'
-                    : 'bg-gray-50 dark:bg-gray-800/60/50 border-gray-200 dark:border-gray-800 hover:border-blue-200'
+                    : 'bg-gray-50/50 dark:bg-gray-800/60 border-gray-200 dark:border-gray-800 hover:border-blue-200'
                 }`}
               >
                 <div className="flex items-center gap-3">

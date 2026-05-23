@@ -194,7 +194,7 @@ export function PlanTab({
           {plan && (
             <button
               onClick={handleDownloadPDF}
-              className="text-xs font-bold uppercase tracking-widest text-gray-700 dark:text-gray-300 dark:text-gray-600 hover:text-gray-900 dark:text-gray-50 flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-gray-400"
+              className="text-xs font-bold uppercase tracking-widest text-gray-700 dark:text-gray-300 dark:text-gray-600 hover:text-gray-900 dark:hover:text-gray-50 flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-gray-400"
             >
               <Download size={12} />
               Baixar PDF
@@ -219,7 +219,7 @@ export function PlanTab({
         </p>
         <button
           onClick={onContinue}
-          className="text-xs font-black uppercase tracking-widest text-gray-700 dark:text-gray-300 dark:text-gray-600 hover:text-gray-900 dark:text-gray-50 flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white dark:bg-gray-900/80 border border-gray-200 dark:border-gray-700 hover:border-gray-400"
+          className="text-xs font-black uppercase tracking-widest text-gray-700 dark:text-gray-300 dark:text-gray-600 hover:text-gray-900 dark:hover:text-gray-50 flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white dark:bg-gray-900/80 border border-gray-200 dark:border-gray-700 hover:border-gray-400"
         >
           Pular para Copy
           <ArrowRight size={12} />

@@ -150,7 +150,7 @@ export function Edit2Tab({
             'relative border-4 border-dashed rounded-[32px] p-12 transition-all cursor-pointer flex flex-col items-center gap-6',
             isDragging
               ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40 scale-[0.98]'
-              : 'border-gray-200 dark:border-gray-800 hover:border-blue-200 hover:bg-gray-50 dark:bg-gray-800/60',
+              : 'border-gray-200 dark:border-gray-800 hover:border-blue-200 hover:bg-gray-50 dark:hover:bg-gray-800/60',
             autoEditState.status === 'uploading' && 'pointer-events-none opacity-50'
           )}
         >
@@ -294,7 +294,7 @@ export function Edit2Tab({
                 originalVideoUrl: undefined,
               }))
             }
-            className="px-4 py-2 bg-white dark:bg-gray-900/80 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:text-red-400 border border-gray-200 dark:border-gray-700 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+            className="px-4 py-2 bg-white dark:bg-gray-900/80 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 border border-gray-200 dark:border-gray-700 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
           >
             Trocar Vídeo
           </button>
@@ -505,7 +505,7 @@ export function Edit2Tab({
                       versions: [],
                     })
                   }
-                  className="w-full py-4 text-gray-400 dark:text-gray-500 font-black uppercase text-[10px] tracking-widest hover:text-gray-600 dark:text-gray-400 dark:text-gray-500"
+                  className="w-full py-4 text-gray-400 dark:text-gray-500 font-black uppercase text-[10px] tracking-widest hover:text-gray-600 dark:hover:text-gray-400 dark:text-gray-500"
                 >
                   Reiniciar Edição
                 </button>
@@ -600,7 +600,7 @@ export function Edit2Tab({
                           'px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all',
                           autoEditState.editMode === 'auto'
                             ? 'bg-white dark:bg-gray-900/80 text-blue-600 dark:text-blue-400 shadow-lg'
-                            : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:text-gray-400 dark:text-gray-500'
+                            : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 dark:text-gray-500'
                         )}
                       >
                         Modo Automático
@@ -616,7 +616,7 @@ export function Edit2Tab({
                           'px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all',
                           autoEditState.editMode === 'manual'
                             ? 'bg-white dark:bg-gray-900/80 text-blue-600 dark:text-blue-400 shadow-lg'
-                            : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:text-gray-400 dark:text-gray-500'
+                            : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 dark:text-gray-500'
                         )}
                       >
                         Modo Manual
@@ -625,7 +625,7 @@ export function Edit2Tab({
                   </div>
 
                   {autoEditState.editMode === 'auto' ? (
-                    <div className="p-8 bg-blue-50 dark:bg-blue-950/40/50 border-2 border-dashed border-blue-100 dark:border-blue-900 rounded-[32px] flex flex-col items-center justify-center gap-3 text-center">
+                    <div className="p-8 bg-blue-50/50 dark:bg-blue-950/40 border-2 border-dashed border-blue-100 dark:border-blue-900 rounded-[32px] flex flex-col items-center justify-center gap-3 text-center">
                       <Sparkles className="text-blue-600 dark:text-blue-400" size={32} />
                       <div>
                         <p className="text-sm font-black text-blue-900 uppercase">
@@ -649,7 +649,7 @@ export function Edit2Tab({
                               'flex flex-col p-4 rounded-2xl border-2 transition-all text-left relative group',
                               isSelected
                                 ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-600 shadow-sm'
-                                : 'bg-white dark:bg-gray-900/80 border-gray-200 dark:border-gray-800 hover:border-gray-200 dark:border-gray-700'
+                                : 'bg-white dark:bg-gray-900/80 border-gray-200 dark:border-gray-800 hover:border-gray-200 dark:hover:border-gray-700'
                             )}
                           >
                             <div className="flex justify-between items-start mb-2">
@@ -707,7 +707,7 @@ export function Edit2Tab({
                           'relative aspect-video rounded-2xl border-4 transition-all overflow-hidden group',
                           zapCapRenderConfig.templateId === template.id
                             ? 'border-blue-600 scale-95 shadow-inner'
-                            : 'border-gray-50 hover:border-blue-100 dark:border-blue-900'
+                            : 'border-gray-50 hover:border-blue-100 dark:hover:border-blue-900'
                         )}
                       >
                         <video

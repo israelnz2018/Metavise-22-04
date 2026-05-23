@@ -236,7 +236,7 @@ export function HeadlineModal(props: Props) {
                   <button
                     onClick={() => cycle('tc')}
                     title={`Letra: ${ws.tc === 0 ? 'padrão' : `cor ${ws.tc}`}`}
-                    className="flex items-center gap-1 px-2 py-0.5 rounded bg-white/90 hover:bg-white dark:bg-gray-900/80 text-[9px] font-black text-gray-700 dark:text-gray-300 dark:text-gray-600"
+                    className="flex items-center gap-1 px-2 py-0.5 rounded bg-white/90 hover:bg-white dark:hover:bg-gray-900/80 text-[9px] font-black text-gray-700 dark:text-gray-300 dark:text-gray-600"
                   >
                     L
                     <span
@@ -248,7 +248,7 @@ export function HeadlineModal(props: Props) {
                   <button
                     onClick={() => cycle('bg')}
                     title={`Fundo: ${ws.bg === 0 ? 'nenhum' : `cor ${ws.bg}`}`}
-                    className="flex items-center gap-1 px-2 py-0.5 rounded bg-white/90 hover:bg-white dark:bg-gray-900/80 text-[9px] font-black text-gray-700 dark:text-gray-300 dark:text-gray-600"
+                    className="flex items-center gap-1 px-2 py-0.5 rounded bg-white/90 hover:bg-white dark:hover:bg-gray-900/80 text-[9px] font-black text-gray-700 dark:text-gray-300 dark:text-gray-600"
                   >
                     F
                     <span
@@ -265,7 +265,7 @@ export function HeadlineModal(props: Props) {
         <button
           onClick={() => setter([])}
           disabled={rendering}
-          className="text-[10px] font-black text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:text-gray-600 underline"
+          className="text-[10px] font-black text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 dark:text-gray-600 underline"
         >
           {clearLabel}
         </button>

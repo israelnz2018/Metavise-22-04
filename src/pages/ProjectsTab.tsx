@@ -125,7 +125,7 @@ export function ProjectsTab({
                 setViewingProjectId(null);
                 setViewingVariant(null);
               }}
-              className="p-3 bg-white dark:bg-gray-900/80 border-2 border-gray-200 dark:border-gray-800 rounded-2xl text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:text-blue-400 hover:border-blue-100 dark:border-blue-900 transition-all"
+              className="p-3 bg-white dark:bg-gray-900/80 border-2 border-gray-200 dark:border-gray-800 rounded-2xl text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-100 dark:hover:border-blue-900 transition-all"
             >
               <ArrowLeft size={20} />
             </button>
@@ -157,7 +157,7 @@ export function ProjectsTab({
         </div>
 
         <div className="bg-white dark:bg-gray-900/80 rounded-[40px] border-2 border-gray-200 dark:border-gray-800 shadow-xl overflow-hidden">
-          <div className="p-8 border-b border-gray-50 bg-gray-50 dark:bg-gray-800/60/30">
+          <div className="p-8 border-b border-gray-50 bg-gray-50/30 dark:bg-gray-800/60">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest flex items-center gap-2">
                 <Tag size={14} /> Subprojetos / Versões ({project.variants?.length || 0})
@@ -303,7 +303,7 @@ export function ProjectsTab({
                             return (
                               <div
                                 key={`variant-hook-${i}-${hookText}`}
-                                className="p-4 bg-amber-50 dark:bg-amber-950/40/50 rounded-2xl border border-amber-100"
+                                className="p-4 bg-amber-50/50 dark:bg-amber-950/40 rounded-2xl border border-amber-100"
                               >
                                 <p className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest mb-2">
                                   Hook {i + 1}
@@ -397,7 +397,7 @@ export function ProjectsTab({
             {search && (
               <button
                 onClick={() => setSearch('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 dark:text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:text-gray-400 dark:text-gray-500 dark:hover:text-gray-300 dark:text-gray-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 dark:text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400 dark:text-gray-500 dark:hover:text-gray-300 dark:hover:text-gray-600"
                 title="Limpar"
               >
                 <X size={14} />
@@ -413,7 +413,7 @@ export function ProjectsTab({
                 className={`px-3 py-2 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all ${
                   typeFilter === f.value
                     ? 'bg-white dark:bg-gray-900/80 text-blue-600 dark:text-blue-400 shadow-sm dark:bg-gray-900 dark:text-blue-300'
-                    : 'text-gray-400 dark:text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:text-gray-400 dark:text-gray-500 dark:hover:text-gray-300 dark:text-gray-600'
+                    : 'text-gray-400 dark:text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 dark:text-gray-500 dark:hover:text-gray-300 dark:hover:text-gray-600'
                 }`}
               >
                 {f.label}
@@ -473,7 +473,7 @@ export function ProjectsTab({
                 setSearch('');
                 setTypeFilter('all');
               }}
-              className="mt-2 px-5 py-2 bg-gray-900 dark:bg-gray-100 dark:bg-gray-800 text-white dark:text-gray-900 dark:text-gray-50 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-black dark:hover:bg-white dark:bg-gray-900/80 transition-colors"
+              className="mt-2 px-5 py-2 bg-gray-900 dark:bg-gray-100 dark:bg-gray-800 text-white dark:text-gray-900 dark:text-gray-50 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-black dark:hover:bg-white dark:hover:bg-gray-900/80 transition-colors"
             >
               Limpar filtros
             </button>
@@ -514,7 +514,7 @@ export function ProjectsTab({
                         e.stopPropagation();
                         onDuplicateProject(project);
                       }}
-                      className="p-1.5 text-gray-300 dark:text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-400 hover:bg-blue-50 dark:bg-blue-950/40 dark:hover:bg-blue-950/40 rounded-lg transition-colors"
+                      className="p-1.5 text-gray-300 dark:text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 dark:hover:bg-blue-950/40 rounded-lg transition-colors"
                       title="Duplicar Projeto"
                     >
                       <Copy size={16} />
@@ -524,7 +524,7 @@ export function ProjectsTab({
                         e.stopPropagation();
                         onDeleteProject(project.id);
                       }}
-                      className="p-1.5 text-gray-300 dark:text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:text-red-500 hover:bg-red-50 dark:bg-red-950/40 dark:hover:bg-red-950/40 rounded-lg transition-colors"
+                      className="p-1.5 text-gray-300 dark:text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 dark:hover:bg-red-950/40 rounded-lg transition-colors"
                       title="Excluir Projeto"
                     >
                       <Trash2 size={16} />

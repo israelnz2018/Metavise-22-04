@@ -391,8 +391,8 @@ const HookChooser: React.FC<Props> = ({
                           isSelected
                             ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40 shadow-lg ring-2 ring-blue-100'
                             : isDisabled
-                              ? 'border-gray-50 bg-gray-50 dark:bg-gray-800/60/50 cursor-not-allowed opacity-60'
-                              : 'border-gray-50 bg-gray-50 dark:bg-gray-800/60 hover:border-blue-200 hover:bg-white dark:bg-gray-900/80'
+                              ? 'border-gray-50 bg-gray-50/50 dark:bg-gray-800/60 cursor-not-allowed opacity-60'
+                              : 'border-gray-50 bg-gray-50 dark:bg-gray-800/60 hover:border-blue-200 hover:bg-white dark:hover:bg-gray-900/80'
                         }`}
                       >
                         <div className="flex items-start gap-4">
@@ -644,7 +644,7 @@ const HookChooser: React.FC<Props> = ({
             <button
               onClick={handleSave}
               disabled={isSaved}
-              className={`px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest flex items-center gap-2 transition ${isSaved ? 'bg-green-600 text-white' : 'bg-white dark:bg-gray-900/80 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:bg-blue-950/40'}`}
+              className={`px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest flex items-center gap-2 transition ${isSaved ? 'bg-green-600 text-white' : 'bg-white dark:bg-gray-900/80 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40'}`}
             >
               {isSaved ? <CheckCircle2 size={16} /> : <Check size={16} />}
               {isSaved ? 'Hook salvo' : 'Salvar Hook'}

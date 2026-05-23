@@ -230,7 +230,7 @@ export function EditZapTab({
             className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
               !isHookEdit
                 ? 'bg-yellow-500 text-white shadow-md'
-                : 'text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:bg-yellow-50 dark:bg-yellow-950/40'
+                : 'text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:bg-yellow-50 dark:hover:bg-yellow-950/40'
             }`}
           >
             Editar Corpo
@@ -246,7 +246,7 @@ export function EditZapTab({
             className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
               isHookEdit
                 ? 'bg-amber-500 text-white shadow-md'
-                : 'text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:bg-amber-50 dark:bg-amber-950/40'
+                : 'text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:bg-amber-50 dark:hover:bg-amber-950/40'
             }`}
           >
             Editar Gancho

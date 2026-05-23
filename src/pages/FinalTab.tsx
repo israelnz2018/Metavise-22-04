@@ -325,7 +325,7 @@ export function FinalTab({
         {videoUrl && onDuplicateAsVariant && (
           <button
             onClick={onDuplicateAsVariant}
-            className="w-full py-3 bg-white dark:bg-gray-900/80 border-2 border-blue-200 text-blue-700 dark:text-blue-300 rounded-2xl font-black flex items-center justify-center gap-3 hover:bg-blue-50 dark:bg-blue-950/40 transition-all dark:bg-gray-900 dark:border-blue-900 dark:text-blue-300 dark:hover:bg-blue-950/30"
+            className="w-full py-3 bg-white dark:bg-gray-900/80 border-2 border-blue-200 text-blue-700 dark:text-blue-300 rounded-2xl font-black flex items-center justify-center gap-3 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-all dark:bg-gray-900 dark:border-blue-900 dark:text-blue-300 dark:hover:bg-blue-950/30"
             title="Duplica este projeto como variante A/B para você testar outro avatar"
           >
             <Copy size={18} />

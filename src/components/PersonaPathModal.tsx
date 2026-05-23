@@ -75,7 +75,7 @@ export function PersonaPathModal({ project, onClose, onProceed }: Props) {
 
         <button
           onClick={onClose}
-          className="w-full mt-4 py-2 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest hover:text-gray-600 dark:text-gray-400 dark:text-gray-500 transition-colors"
+          className="w-full mt-4 py-2 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest hover:text-gray-600 dark:hover:text-gray-400 dark:text-gray-500 transition-colors"
         >
           Cancelar
         </button>

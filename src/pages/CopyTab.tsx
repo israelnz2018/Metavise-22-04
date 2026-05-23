@@ -431,7 +431,7 @@ export function CopyTab({
                         {idx > 0 && (
                           <button
                             onClick={() => setDiscoveryStep(idx - 1)}
-                            className="px-8 py-4 rounded-2xl border-2 border-gray-200 dark:border-gray-800 text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest hover:border-gray-200 dark:border-gray-700 hover:text-gray-600 dark:text-gray-400 dark:text-gray-500 transition-all"
+                            className="px-8 py-4 rounded-2xl border-2 border-gray-200 dark:border-gray-800 text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest hover:border-gray-200 dark:hover:border-gray-700 hover:text-gray-600 dark:hover:text-gray-400 dark:text-gray-500 transition-all"
                           >
                             Voltar
                           </button>
@@ -490,7 +490,7 @@ export function CopyTab({
                 className={`flex-1 min-w-[150px] p-6 rounded-3xl border-2 transition-all flex flex-col items-center gap-3 ${
                   config.copy.mode === m.id
                     ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40 shadow-lg shadow-blue-50'
-                    : 'border-gray-200 dark:border-gray-800 hover:border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/80'
+                    : 'border-gray-200 dark:border-gray-800 hover:border-gray-200 dark:hover:border-gray-700 bg-white dark:bg-gray-900/80'
                 }`}
               >
                 <div
@@ -623,7 +623,7 @@ export function CopyTab({
                                   className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border-2 ${
                                     isSelected
                                       ? 'bg-blue-600 border-blue-600 text-white shadow-md'
-                                      : 'bg-white dark:bg-gray-900/80 border-gray-200 dark:border-gray-800 text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:border-gray-200 dark:border-gray-700'
+                                      : 'bg-white dark:bg-gray-900/80 border-gray-200 dark:border-gray-800 text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:border-gray-200 dark:hover:border-gray-700'
                                   }`}
                                 >
                                   {opt}
@@ -722,7 +722,7 @@ export function CopyTab({
                           applyAwarenessLevelChange(nivel.id);
                         }
                       }}
-                      className={`w-full p-4 rounded-2xl border-2 text-left transition-all flex items-center gap-4 ${config.copy.answers.awarenessLevel === nivel.id ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40 shadow-sm' : 'border-gray-50 hover:border-blue-100 dark:border-blue-900 bg-gray-50 dark:bg-gray-800/60/30'}`}
+                      className={`w-full p-4 rounded-2xl border-2 text-left transition-all flex items-center gap-4 ${config.copy.answers.awarenessLevel === nivel.id ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40 shadow-sm' : 'border-gray-50 hover:border-blue-100 dark:hover:border-blue-900 bg-gray-50/30 dark:bg-gray-800/60'}`}
                     >
                       <span className="text-2xl">{nivel.emoji}</span>
                       <div className="flex-1">
@@ -1240,7 +1240,7 @@ export function CopyTab({
                         Recomendado para o seu público
                       </span>
                     </div>
-                    <div className="p-6 bg-blue-50 dark:bg-blue-950/40/50 rounded-3xl border-2 border-blue-100 dark:border-blue-900 shadow-sm hover:shadow-md transition-all">
+                    <div className="p-6 bg-blue-50/50 dark:bg-blue-950/40 rounded-3xl border-2 border-blue-100 dark:border-blue-900 shadow-sm hover:shadow-md transition-all">
                       <h5 className="text-2xl font-black text-blue-900 mb-2">
                         {getRecomendacaoTempo(config.copy.answers.awarenessLevel)?.faixaSegundos}
                       </h5>
@@ -1273,7 +1273,7 @@ export function CopyTab({
                         className={`py-3 px-1 rounded-xl border-2 transition-all text-xs font-black uppercase tracking-tighter ${
                           config.copy.targetWordCount === opt.words
                             ? 'border-blue-600 bg-blue-600 text-white shadow-lg shadow-blue-100 scale-105'
-                            : 'border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/60 text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:border-blue-200 hover:bg-white dark:bg-gray-900/80'
+                            : 'border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/60 text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:border-blue-200 hover:bg-white dark:hover:bg-gray-900/80'
                         }`}
                       >
                         {opt.label}
@@ -1461,7 +1461,7 @@ export function CopyTab({
                       onClick={() => {
                         setCurrentStep('hook-visual');
                       }}
-                      className="flex items-center gap-3 px-12 py-6 bg-white dark:bg-gray-900/80 text-gray-900 dark:text-gray-50 border-2 border-gray-900 rounded-[32px] font-black uppercase tracking-widest hover:bg-gray-100 dark:bg-gray-800 transition-all shadow-2xl shadow-gray-200 group"
+                      className="flex items-center gap-3 px-12 py-6 bg-white dark:bg-gray-900/80 text-gray-900 dark:text-gray-50 border-2 border-gray-900 rounded-[32px] font-black uppercase tracking-widest hover:bg-gray-100 dark:hover:bg-gray-800 transition-all shadow-2xl shadow-gray-200 group"
                     >
                       Gerar Hook Visual
                       <ChevronRight

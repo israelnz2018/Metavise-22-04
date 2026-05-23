@@ -4717,7 +4717,7 @@ export default function App() {
               className={`p-2 transition-colors ${
                 currentStep === 'integrations'
                   ? 'text-blue-600 dark:text-blue-400'
-                  : 'text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300'
+                  : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-500 dark:hover:text-gray-300'
               }`}
               title="Configurações"
               aria-label="Configurações"
@@ -4726,7 +4726,7 @@ export default function App() {
             </button>
             <button
               onClick={handleLogout}
-              className="p-2 text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 transition-colors"
+              className="p-2 text-gray-400 hover:text-red-500 dark:hover:text-gray-500 dark:hover:text-red-400 transition-colors"
               title="Sair"
             >
               <LogOut size={20} />

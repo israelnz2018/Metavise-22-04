@@ -327,7 +327,7 @@ export function AvatarTab({
             className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
               !isHookMode
                 ? 'bg-gray-900 text-white shadow-md'
-                : 'text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:bg-gray-800/60'
+                : 'text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800/60'
             }`}
           >
             Avatar do Corpo
@@ -340,7 +340,7 @@ export function AvatarTab({
             className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
               isHookMode
                 ? 'bg-amber-500 text-white shadow-md'
-                : 'text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:bg-amber-50 dark:bg-amber-950/40'
+                : 'text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:bg-amber-50 dark:hover:bg-amber-950/40'
             }`}
           >
             Avatar do Gancho
@@ -381,7 +381,7 @@ export function AvatarTab({
                 });
                 setShowDeleteModal(true);
               }}
-              className="p-2 text-gray-400 dark:text-gray-500 hover:text-red-500 transition-colors rounded-xl hover:bg-red-50 dark:bg-red-950/40 flex-shrink-0"
+              className="p-2 text-gray-400 dark:text-gray-500 hover:text-red-500 transition-colors rounded-xl hover:bg-red-50 dark:hover:bg-red-950/40 flex-shrink-0"
               title="Deletar áudio"
             >
               <Trash2 size={18} />
@@ -398,8 +398,8 @@ export function AvatarTab({
         <div
           className={`p-6 rounded-[40px] border-2 border-dashed ${
             isHookMode
-              ? 'border-amber-200 bg-amber-50 dark:bg-amber-950/40/40'
-              : 'border-blue-200 bg-blue-50 dark:bg-blue-950/40/40'
+              ? 'border-amber-200 bg-amber-50/40 dark:bg-amber-950/40'
+              : 'border-blue-200 bg-blue-50/40 dark:bg-blue-950/40'
           }`}
         >
           <p className="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500">
@@ -559,14 +559,14 @@ export function AvatarTab({
             <div className="absolute top-6 right-6 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
                 onClick={() => handleGenerateVideo(true)}
-                className="p-3 bg-white/90 backdrop-blur-md text-gray-900 dark:text-gray-50 rounded-2xl shadow-xl hover:bg-white dark:bg-gray-900/80 transition-all"
+                className="p-3 bg-white/90 backdrop-blur-md text-gray-900 dark:text-gray-50 rounded-2xl shadow-xl hover:bg-white dark:hover:bg-gray-900/80 transition-all"
                 title="Regerar"
               >
                 <RefreshCw size={20} />
               </button>
               <button
                 onClick={() => setShowDeleteVideoModal(true)}
-                className="p-3 bg-white/90 backdrop-blur-md text-red-600 dark:text-red-400 rounded-2xl shadow-xl hover:bg-red-50 dark:bg-red-950/40 transition-all"
+                className="p-3 bg-white/90 backdrop-blur-md text-red-600 dark:text-red-400 rounded-2xl shadow-xl hover:bg-red-50 dark:hover:bg-red-950/40 transition-all"
                 title="Deletar Vídeo"
               >
                 <Trash2 size={20} />
@@ -607,7 +607,7 @@ export function AvatarTab({
             </button>
             <button
               onClick={() => handleGenerateVideo(true)}
-              className="flex-1 px-8 py-5 bg-white dark:bg-gray-900/80 border-2 border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-50 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-50 dark:bg-gray-800/60 transition-all flex items-center justify-center gap-3"
+              className="flex-1 px-8 py-5 bg-white dark:bg-gray-900/80 border-2 border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-50 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-all flex items-center justify-center gap-3"
             >
               <RefreshCw size={20} />
               Regerar Atual
@@ -856,7 +856,7 @@ export function AvatarTab({
                 className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest transition-all border-2 ${
                   showOnlyFavorites
                     ? 'bg-amber-400 text-amber-950 border-amber-400 shadow-md'
-                    : 'bg-white dark:bg-gray-900/80 text-gray-500 dark:text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700 hover:border-amber-300 hover:text-amber-700 dark:text-amber-400'
+                    : 'bg-white dark:bg-gray-900/80 text-gray-500 dark:text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700 hover:border-amber-300 hover:text-amber-700 dark:hover:text-amber-400'
                 }`}
                 title="Mostrar somente seus avatares favoritos"
               >
@@ -945,7 +945,7 @@ export function AvatarTab({
                       className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border-2 ${
                         avatarFilters.styles.includes(style)
                           ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-200'
-                          : 'bg-white dark:bg-gray-900/80 border-gray-200 dark:border-gray-800 text-gray-400 dark:text-gray-500 hover:border-gray-200 dark:border-gray-700'
+                          : 'bg-white dark:bg-gray-900/80 border-gray-200 dark:border-gray-800 text-gray-400 dark:text-gray-500 hover:border-gray-200 dark:hover:border-gray-700'
                       }`}
                     >
                       {style}
@@ -975,7 +975,7 @@ export function AvatarTab({
                         className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border-2 ${
                           avatarFilters.ethnicities.includes(eth)
                             ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-200'
-                            : 'bg-white dark:bg-gray-900/80 border-gray-200 dark:border-gray-800 text-gray-400 dark:text-gray-500 hover:border-gray-200 dark:border-gray-700'
+                            : 'bg-white dark:bg-gray-900/80 border-gray-200 dark:border-gray-800 text-gray-400 dark:text-gray-500 hover:border-gray-200 dark:hover:border-gray-700'
                         }`}
                       >
                         {eth}
@@ -1005,7 +1005,7 @@ export function AvatarTab({
                       className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all border-2 ${
                         avatarFilters.ages.includes(age)
                           ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-200'
-                          : 'bg-white dark:bg-gray-900/80 border-gray-200 dark:border-gray-800 text-gray-400 dark:text-gray-500 hover:border-gray-200 dark:border-gray-700'
+                          : 'bg-white dark:bg-gray-900/80 border-gray-200 dark:border-gray-800 text-gray-400 dark:text-gray-500 hover:border-gray-200 dark:hover:border-gray-700'
                       }`}
                     >
                       {age}
@@ -1093,7 +1093,7 @@ export function AvatarTab({
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all border-2 ${
                   isTestMode
                     ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 text-amber-700 dark:text-amber-400 shadow-sm'
-                    : 'bg-white dark:bg-gray-900/80 border-gray-200 dark:border-gray-800 text-gray-400 dark:text-gray-500 hover:border-gray-200 dark:border-gray-700'
+                    : 'bg-white dark:bg-gray-900/80 border-gray-200 dark:border-gray-800 text-gray-400 dark:text-gray-500 hover:border-gray-200 dark:hover:border-gray-700'
                 }`}
               >
                 <Tag size={12} />
@@ -1404,7 +1404,7 @@ export function AvatarTab({
                   className={`group relative aspect-[3/4] rounded-[32px] overflow-hidden border-4 transition-all ${
                     config.avatar.faceId === a.avatar_id
                       ? 'border-blue-600 scale-[1.02] shadow-2xl shadow-blue-100'
-                      : 'border-transparent hover:border-gray-200 dark:border-gray-700 shadow-sm'
+                      : 'border-transparent hover:border-gray-200 dark:hover:border-gray-700 shadow-sm'
                   }`}
                 >
                   {/* Native lazy-load (loading="lazy") + async decode

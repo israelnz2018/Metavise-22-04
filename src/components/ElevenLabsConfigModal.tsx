@@ -45,7 +45,7 @@ export function ElevenLabsConfigModal({
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:text-gray-400 dark:text-gray-500 transition-colors"
+            className="p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 dark:text-gray-500 transition-colors"
           >
             <X size={20} />
           </button>
@@ -74,7 +74,7 @@ export function ElevenLabsConfigModal({
           <button
             onClick={onTest}
             disabled={isTesting || !apiKey}
-            className="px-4 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:bg-amber-950/30 transition-all border border-amber-200 disabled:opacity-50 flex items-center justify-center gap-2"
+            className="px-4 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-950/30 transition-all border border-amber-200 disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {isTesting ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
             Testar

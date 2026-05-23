@@ -830,7 +830,7 @@ const VozPremium: React.FC<Props> = ({
                   setDone(false);
                   setLocalAudioUrl('');
                 }}
-                className={`relative text-left rounded-2xl p-6 border-2 transition-all ${active ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/40/40 shadow-sm' : 'border-gray-200 dark:border-gray-800 hover:border-gray-300 bg-white dark:bg-gray-900/80'}`}
+                className={`relative text-left rounded-2xl p-6 border-2 transition-all ${active ? 'border-purple-500 bg-purple-50/40 dark:bg-purple-950/40 shadow-sm' : 'border-gray-200 dark:border-gray-800 hover:border-gray-300 bg-white dark:bg-gray-900/80'}`}
               >
                 {active && (
                   <CheckCircle2 size={20} className="absolute top-4 right-4 text-purple-500" />
@@ -1063,7 +1063,7 @@ const VozPremium: React.FC<Props> = ({
                             onClick={() => setSelectedVoice(v)}
                             onMouseEnter={() => playHoverPreview(v.preview_url)}
                             onMouseLeave={stopHoverPreview}
-                            className={`text-left rounded-xl p-4 border-2 transition cursor-pointer relative ${selectedVoice?.voice_id === v.voice_id ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/40/30' : 'border-gray-200 dark:border-gray-800 hover:border-gray-300'}`}
+                            className={`text-left rounded-xl p-4 border-2 transition cursor-pointer relative ${selectedVoice?.voice_id === v.voice_id ? 'border-purple-500 bg-purple-50/30 dark:bg-purple-950/40' : 'border-gray-200 dark:border-gray-800 hover:border-gray-300'}`}
                           >
                             {isRecommended && (
                               <span className="absolute -top-2 -right-2 bg-purple-600 text-white text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full shadow-md border-2 border-white">
@@ -1080,7 +1080,7 @@ const VozPremium: React.FC<Props> = ({
                                     e.stopPropagation();
                                     new Audio(v.preview_url).play();
                                   }}
-                                  className="p-1 rounded-full hover:bg-gray-100 dark:bg-gray-800"
+                                  className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
                                 >
                                   <Play
                                     size={14}
@@ -1141,7 +1141,7 @@ const VozPremium: React.FC<Props> = ({
                       <button
                         onClick={handleLoadMoreVoices}
                         disabled={loadingMoreVoices}
-                        className="text-xs px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:border-purple-400 hover:text-purple-700 dark:text-purple-300 disabled:opacity-50"
+                        className="text-xs px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:border-purple-400 hover:text-purple-700 dark:hover:text-purple-300 disabled:opacity-50"
                       >
                         {loadingMoreVoices ? 'Carregando...' : 'Carregar mais vozes'}
                       </button>
@@ -1295,7 +1295,7 @@ const VozPremium: React.FC<Props> = ({
                               setRecordedBlob(null);
                               setRecordingSeconds(0);
                             }}
-                            className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:text-gray-400 dark:text-gray-500 underline"
+                            className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 dark:text-gray-500 underline"
                           >
                             Gravar novamente
                           </button>
@@ -1539,7 +1539,7 @@ const VozPremium: React.FC<Props> = ({
                         setLangWarning(false);
                         setPendingLanguage('');
                       }}
-                      className="flex-1 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-300 dark:text-gray-600 hover:bg-gray-50 dark:bg-gray-800/60 transition"
+                      className="flex-1 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-300 dark:text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition"
                     >
                       Cancelar
                     </button>
@@ -1576,7 +1576,7 @@ const VozPremium: React.FC<Props> = ({
                   <audio controls src={localAudioUrl} className="flex-1" />
                   <button
                     onClick={() => setShowRemoveActiveModal(true)}
-                    className="p-2 text-gray-400 dark:text-gray-500 hover:text-red-500 transition-colors rounded-xl hover:bg-red-50 dark:bg-red-950/40 flex-shrink-0"
+                    className="p-2 text-gray-400 dark:text-gray-500 hover:text-red-500 transition-colors rounded-xl hover:bg-red-50 dark:hover:bg-red-950/40 flex-shrink-0"
                     title="Remover áudio ativo"
                   >
                     <Trash2 size={18} />
@@ -1619,7 +1619,7 @@ const VozPremium: React.FC<Props> = ({
                       )}
                       <button
                         onClick={() => onDeleteAudioFromHistory?.(a.url, a.storagePath)}
-                        className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50 dark:bg-red-950/40 flex-shrink-0"
+                        className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 flex-shrink-0"
                         title="Deletar do histórico"
                       >
                         <Trash2 size={14} />

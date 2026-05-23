@@ -742,7 +742,7 @@ Gere the prompt onde o vídeo reforça visualmente a emoção do hook do início
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
                   <button
                     onClick={() => (sessionHook ? onGoToVoz?.() : null)}
-                    className={`group rounded-2xl p-5 text-left transition-all border-2 ${sessionHook ? 'bg-white dark:bg-gray-900/80 hover:bg-blue-50 dark:bg-blue-950/40 border-transparent hover:border-blue-300 hover:shadow-lg cursor-pointer' : 'bg-gray-800 border-gray-700 cursor-not-allowed opacity-50'}`}
+                    className={`group rounded-2xl p-5 text-left transition-all border-2 ${sessionHook ? 'bg-white dark:bg-gray-900/80 hover:bg-blue-50 dark:hover:bg-blue-950/40 border-transparent hover:border-blue-300 hover:shadow-lg cursor-pointer' : 'bg-gray-800 border-gray-700 cursor-not-allowed opacity-50'}`}
                   >
                     <div className="flex items-center gap-3 mb-3">
                       <div
@@ -775,7 +775,7 @@ Gere the prompt onde o vídeo reforça visualmente a emoção do hook do início
 
                   <button
                     onClick={() => (sessionHook ? onGoToAvatar?.() : null)}
-                    className={`group rounded-2xl p-5 text-left transition-all border-2 ${sessionHook ? 'bg-white dark:bg-gray-900/80 hover:bg-purple-50 dark:bg-purple-950/40 border-transparent hover:border-purple-300 hover:shadow-lg cursor-pointer' : 'bg-gray-800 border-gray-700 cursor-not-allowed opacity-50'}`}
+                    className={`group rounded-2xl p-5 text-left transition-all border-2 ${sessionHook ? 'bg-white dark:bg-gray-900/80 hover:bg-purple-50 dark:hover:bg-purple-950/40 border-transparent hover:border-purple-300 hover:shadow-lg cursor-pointer' : 'bg-gray-800 border-gray-700 cursor-not-allowed opacity-50'}`}
                   >
                     <div className="flex items-center gap-3 mb-3">
                       <div
@@ -835,7 +835,7 @@ Gere the prompt onde o vídeo reforça visualmente a emoção do hook do início
                 {onProceedToVoice && (
                   <button
                     onClick={onProceedToVoice}
-                    className="px-10 py-5 bg-white dark:bg-gray-900/80 border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 dark:text-gray-600 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-50 dark:bg-gray-800/60 hover:border-gray-300 transition-all shadow-lg flex items-center gap-3"
+                    className="px-10 py-5 bg-white dark:bg-gray-900/80 border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 dark:text-gray-600 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:border-gray-300 transition-all shadow-lg flex items-center gap-3"
                   >
                     Ir para Voz Premium
                     <ChevronRight />
@@ -890,8 +890,8 @@ Gere the prompt onde o vídeo reforça visualmente a emoção do hook do início
                           onClick={() => setSelectedImageModel(m.id)}
                           className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all ${
                             selectedImageModel === m.id
-                              ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40/50'
-                              : 'border-gray-200 dark:border-gray-800 hover:border-gray-200 dark:border-gray-700'
+                              ? 'border-blue-600 bg-blue-50/50 dark:bg-blue-950/40'
+                              : 'border-gray-200 dark:border-gray-800 hover:border-gray-200 dark:hover:border-gray-700'
                           }`}
                         >
                           <div className="text-left">
@@ -923,8 +923,8 @@ Gere the prompt onde o vídeo reforça visualmente a emoção do hook do início
                           onClick={() => setSelectedImageQuality(q.id)}
                           className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all ${
                             selectedImageQuality === q.id
-                              ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40/50'
-                              : 'border-gray-200 dark:border-gray-800 hover:border-gray-200 dark:border-gray-700'
+                              ? 'border-blue-600 bg-blue-50/50 dark:bg-blue-950/40'
+                              : 'border-gray-200 dark:border-gray-800 hover:border-gray-200 dark:hover:border-gray-700'
                           }`}
                         >
                           <div className="text-left">
@@ -1082,7 +1082,7 @@ Gere the prompt onde o vídeo reforça visualmente a emoção do hook do início
                               className={`py-2 rounded-xl border-2 text-[10px] font-black transition-all ${
                                 selectedAspectRatio === a.id
                                   ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400'
-                                  : 'border-gray-200 dark:border-gray-800 text-gray-400 dark:text-gray-500 hover:border-gray-200 dark:border-gray-700'
+                                  : 'border-gray-200 dark:border-gray-800 text-gray-400 dark:text-gray-500 hover:border-gray-200 dark:hover:border-gray-700'
                               }`}
                             >
                               {a.id}
@@ -1117,8 +1117,8 @@ Gere the prompt onde o vídeo reforça visualmente a emoção do hook do início
                             onClick={() => setSelectedVideoQuality(q.id)}
                             className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all ${
                               selectedVideoQuality === q.id
-                                ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40/50'
-                                : 'border-gray-200 dark:border-gray-800 hover:border-gray-200 dark:border-gray-700'
+                                ? 'border-blue-600 bg-blue-50/50 dark:bg-blue-950/40'
+                                : 'border-gray-200 dark:border-gray-800 hover:border-gray-200 dark:hover:border-gray-700'
                             }`}
                           >
                             <div className="text-left">
@@ -1171,7 +1171,7 @@ Gere the prompt onde o vídeo reforça visualmente a emoção do hook do início
                         <button
                           onClick={handleGenerateVideoPrompt}
                           disabled={isGeneratingVideoPrompt}
-                          className="py-6 bg-white dark:bg-gray-900/80 border-2 border-blue-600 text-blue-600 dark:text-blue-400 rounded-[32px] font-black text-sm flex items-center justify-center gap-2 shadow-xl transition-all hover:bg-blue-50 dark:bg-blue-950/40 active:scale-95 disabled:opacity-50"
+                          className="py-6 bg-white dark:bg-gray-900/80 border-2 border-blue-600 text-blue-600 dark:text-blue-400 rounded-[32px] font-black text-sm flex items-center justify-center gap-2 shadow-xl transition-all hover:bg-blue-50 dark:hover:bg-blue-950/40 active:scale-95 disabled:opacity-50"
                         >
                           {isGeneratingVideoPrompt ? (
                             <Loader2 className="animate-spin" size={16} />

@@ -239,7 +239,7 @@ function Controls({
                     'p-3 rounded-[20px] border-2 text-left transition-all group/opt relative overflow-hidden',
                     active
                       ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 shadow-sm'
-                      : 'border-gray-200 dark:border-gray-800 text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:bg-gray-800/60'
+                      : 'border-gray-200 dark:border-gray-800 text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:border-gray-200 dark:hover:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/60'
                   )}
                 >
                   <div className="flex items-center gap-2 mb-1">
@@ -275,7 +275,7 @@ function Controls({
                   </label>
                   <button
                     onClick={() => onCropOffsetChange(0)}
-                    className="text-[9px] font-black text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-950/30/50 px-2 py-1 rounded hover:bg-amber-100 dark:bg-amber-950/30 transition-colors uppercase"
+                    className="text-[9px] font-black text-amber-600 dark:text-amber-400 bg-amber-100/50 dark:bg-amber-950/30 px-2 py-1 rounded hover:bg-amber-100 dark:hover:bg-amber-950/30 transition-colors uppercase"
                   >
                     Resetar para o Centro
                   </button>
@@ -330,7 +330,7 @@ function Controls({
         </button>
         <button
           onClick={onClose}
-          className="w-full py-4 text-gray-400 dark:text-gray-500 font-black uppercase tracking-widest text-[10px] hover:text-gray-900 dark:text-gray-50 transition-all"
+          className="w-full py-4 text-gray-400 dark:text-gray-500 font-black uppercase tracking-widest text-[10px] hover:text-gray-900 dark:hover:text-gray-50 transition-all"
         >
           Voltar para Galeria
         </button>
