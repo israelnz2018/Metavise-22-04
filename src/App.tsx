@@ -68,6 +68,8 @@ import { useDarkMode } from './hooks/useDarkMode';
 import { ensureNotificationPermission, notifyIfHidden } from './lib/notifications';
 import { COSTS } from './lib/costs';
 import { CostConfirmModal } from './components/CostConfirmModal';
+import { BriefEditModal } from './components/BriefEditModal';
+import type { CreativeBrief, WeightedPersona } from './types/project';
 // Step tabs are lazy-loaded so the initial JS payload stays small.
 // Each tab is a ~600-1500 line module pulling its own helpers; loading
 // them on demand drops the main chunk significantly. AvatarTab is the
@@ -1891,6 +1893,192 @@ export default function App() {
       copy: { ...config.copy, personasWithWeights: normalised as any },
     } as any);
     setCurrentStep('plan');
+  };
+
+  // ─── Blueprint brief handlers ────────────────────────────────────
+  // State + callbacks for the Phase 3.3 edit modal and Phase 3.4
+  // subproject-creation popup. All brief data is persisted into
+  // config.copy.creativeBriefs[] (added to AdConfig in Phase 1.1).
+
+  /** Brief being edited (null = modal closed). */
+  const [editingBrief, setEditingBrief] = useState<CreativeBrief | null>(null);
+  /** Brief being "executed" (turned into a subprojeto). null = popup closed. */
+  const [pendingBriefExec, setPendingBriefExec] = useState<CreativeBrief | null>(null);
+
+  /** Persist the briefs array to config (deep-merge into copy.creativeBriefs). */
+  const persistBriefs = (updated: CreativeBrief[]) => {
+    setConfig((prev) => ({
+      ...prev,
+      copy: { ...prev.copy, creativeBriefs: updated } as any,
+    }));
+    handleSaveProject({
+      copy: { ...config.copy, creativeBriefs: updated } as any,
+    } as any);
+  };
+
+  /** Save an edited brief back into the list, keyed by id. */
+  const handleSaveEditedBrief = (updated: CreativeBrief) => {
+    const current = ((config.copy as any)?.creativeBriefs as CreativeBrief[] | undefined) || [];
+    const next = current.map((b) => (b.id === updated.id ? updated : b));
+    persistBriefs(next);
+    setEditingBrief(null);
+    toast.success(`Criativo ${updated.index} atualizado.`);
+  };
+
+  /** Build the suggested subproject name from a brief — the popup shows
+   *  this without an input. User just confirms. */
+  const briefToSubprojectName = (b: CreativeBrief): string => {
+    const awarenessNum =
+      b.awareness === 'unaware'
+        ? '1'
+        : b.awareness === 'problem_aware'
+          ? '2'
+          : b.awareness === 'solution_aware'
+            ? '3'
+            : b.awareness === 'product_aware'
+              ? '4'
+              : '5';
+    return `Criativo ${b.index} - Consc.${awarenessNum} - ${b.angle}`;
+  };
+
+  /** Click on a brief card — either open the existing variant or open the
+   *  confirmation popup. Wired to PlanTab.onBriefClick. */
+  const handleBriefClick = (brief: CreativeBrief) => {
+    // If the brief already spawned a variant, just open it.
+    const existing = projects
+      .find((p) => p.id === currentProjectId)
+      ?.variants?.find((v: any) => v.brief?.id === brief.id || v.id === brief.executedVariantId);
+    if (existing) {
+      setCurrentVariantId(existing.id);
+      // Use the existing handler to load the variant config into the UI.
+      const v = existing as any;
+      const targetStep: Step = v.config?.copy?.generatedScript ? 'copy' : 'copy';
+      handleLoadVariant(v, targetStep);
+      return;
+    }
+    // Otherwise show the "create subprojeto" popup.
+    setPendingBriefExec(brief);
+  };
+
+  /** Confirmed in the popup → create variant from brief snapshot + load
+   *  into CopyTab. Pre-populates config.copy.* with brief fields so the
+   *  existing copy generation pipeline sees the same answers it always
+   *  saw (no change to generation logic). */
+  const handleConfirmBriefExec = async () => {
+    const brief = pendingBriefExec;
+    if (!brief || !currentProjectId) return;
+    setPendingBriefExec(null);
+
+    // Find the persona this brief targets so we can copy its data into answers.
+    const personas =
+      ((config.copy as any)?.personasWithWeights as WeightedPersona[] | undefined) || [];
+    const persona = personas.find((p) => p.id === brief.targetPersonaId);
+    const personaRaw = (persona as any)?.raw || {};
+
+    // Build the variant config — take the current config as base and
+    // overlay the brief's specifics + persona-derived answers. This is
+    // the same shape every other variant uses; downstream tabs don't
+    // know it was created from a brief.
+    const overlayAnswers = {
+      ...config.copy.answers,
+      // Persona-derived answers (so CopyTab + AvatarTab can read them).
+      audience: personaRaw.description || config.copy.answers.audience || '',
+      age: personaRaw.age || config.copy.answers.age || '',
+      gender: personaRaw.gender || config.copy.answers.gender || '',
+      situation: personaRaw.currentSituation || config.copy.answers.situation || '',
+      painPoints: personaRaw.mainPain || config.copy.answers.painPoints || '',
+      // Awareness as a numeric string (existing field convention).
+      awarenessLevel:
+        brief.awareness === 'unaware'
+          ? '1'
+          : brief.awareness === 'problem_aware'
+            ? '2'
+            : brief.awareness === 'solution_aware'
+              ? '3'
+              : brief.awareness === 'product_aware'
+                ? '4'
+                : '5',
+      // Angle for the Schwartz beats system.
+      angleIdea: brief.angle,
+      // Style + emotion notes for the writer prompt.
+      estiloAnuncio: typeof brief.style === 'string' ? brief.style : '',
+      primaryEmotion: typeof brief.emotion === 'string' ? brief.emotion : '',
+    };
+    // Derive a target word count from the duration (≈ 2.5 words/sec).
+    const targetWordCount = Math.round(brief.durationTarget * 2.5);
+
+    const variantConfig: AdConfig = {
+      ...config,
+      copy: {
+        ...config.copy,
+        answers: overlayAnswers,
+        // Hook from the brief is the starting point — user can regenerate.
+        hookSelecionado: brief.hook,
+        // Reset generated outputs so the variant starts fresh.
+        generatedScript: '',
+        generatedHooks: [],
+        optimizedScript: '',
+        finalScript: '',
+        targetWordCount,
+        // Track which brief spawned this variant for the "abrir" path.
+        activeBriefId: brief.id,
+      } as any,
+      // Reset render outputs (same as MM — A/B variant pattern).
+      videoUrl: null,
+      videoStoragePath: null,
+      videos: [],
+      lastVideoMetadata: null,
+      generationStage: 'idle',
+      edit: {
+        ...config.edit,
+        zapVersions: [],
+        zapHookVersions: [],
+        zapJoinedVersions: [],
+      },
+    };
+
+    // Use the brief's id as the variant id (deterministic mapping).
+    const newVariant = {
+      id: brief.id,
+      name: briefToSubprojectName(brief),
+      config: variantConfig,
+      brief, // snapshot for later inspection
+      status: 'brief_only' as const,
+      createdAt: new Date().toISOString(),
+    };
+
+    try {
+      const projectRef = doc(db, 'projects', currentProjectId);
+      const projectSnap = await getDoc(projectRef);
+      if (!projectSnap.exists()) {
+        toast.error('Projeto não encontrado.');
+        return;
+      }
+      const data = projectSnap.data();
+      const existingVariants = (data.variants || []) as any[];
+      // Replace if exists (idempotent), else append.
+      const updated = existingVariants.some((v: any) => v.id === brief.id)
+        ? existingVariants.map((v: any) => (v.id === brief.id ? newVariant : v))
+        : [...existingVariants, newVariant];
+      await setDoc(projectRef, { variants: updated }, { merge: true });
+
+      // Also persist the executedVariantId back onto the brief so the
+      // PlanTab "✓ executado" badge appears on next render.
+      const currentBriefs = ((config.copy as any)?.creativeBriefs as CreativeBrief[]) || [];
+      const updatedBriefs = currentBriefs.map((b) =>
+        b.id === brief.id ? { ...b, executedVariantId: brief.id } : b
+      );
+      persistBriefs(updatedBriefs);
+
+      // Activate the variant + navigate to Copy.
+      setCurrentVariantId(brief.id);
+      setConfig(variantConfig);
+      setCurrentStep('copy');
+      toast.success(`Subprojeto "${newVariant.name}" criado. Agora gere a copy.`);
+    } catch (err) {
+      console.error('Error executing brief:', err);
+      toast.error('Falha ao criar subprojeto.');
+    }
   };
 
   /** Maps the persona's awarenessLevel field (which can come back as
@@ -5114,6 +5302,29 @@ export default function App() {
                     persona={config.copy?.answers || {}}
                     copyAnswers={config.copy?.answers || {}}
                     cached={((config.copy as any)?.marketingPlan as MarketingPlan | null) || null}
+                    // Blueprint v2 wiring
+                    personasWithWeights={
+                      ((config.copy as any)?.personasWithWeights as WeightedPersona[] | null) ||
+                      null
+                    }
+                    cachedBriefs={
+                      ((config.copy as any)?.creativeBriefs as CreativeBrief[] | null) || null
+                    }
+                    onBriefsChange={(briefs) => persistBriefs(briefs)}
+                    onBriefEdit={(b) => setEditingBrief(b)}
+                    onBriefClick={(b) => handleBriefClick(b)}
+                    briefToVariantMap={(() => {
+                      // Build the brief→variant map from the project's variants:
+                      // any variant whose id matches a brief id (or whose `brief.id`
+                      // field matches) is considered "executed".
+                      const project = projects.find((p) => p.id === currentProjectId);
+                      const map: Record<string, string> = {};
+                      for (const v of (project?.variants as any[]) || []) {
+                        if (v.brief?.id) map[v.brief.id] = v.id;
+                        else if (v.id) map[v.id] = v.id;
+                      }
+                      return map;
+                    })()}
                     onChange={(plan) => {
                       setConfig((prev) => ({
                         ...prev,
@@ -5680,6 +5891,33 @@ export default function App() {
           setPendingVideoGen(null);
           if (pending) executeGenerateVideo(pending.forceRegenerate);
         }}
+      />
+
+      {/* Brief edit modal — Phase 3.3 */}
+      <BriefEditModal
+        isOpen={!!editingBrief}
+        brief={editingBrief}
+        personas={
+          ((config.copy as any)?.personasWithWeights as WeightedPersona[] | undefined) || []
+        }
+        onClose={() => setEditingBrief(null)}
+        onSave={handleSaveEditedBrief}
+      />
+
+      {/* Create-subprojeto popup — Phase 3.4. Just confirmation, no edit. */}
+      <ConfirmModal
+        open={!!pendingBriefExec}
+        title="Criar este subprojeto?"
+        message={
+          pendingBriefExec
+            ? `Nome: ${briefToSubprojectName(pendingBriefExec)}\n\nHook: "${pendingBriefExec.hook.substring(0, 80)}${pendingBriefExec.hook.length > 80 ? '…' : ''}"`
+            : ''
+        }
+        confirmLabel="Criar e ir pra Copy"
+        cancelLabel="Cancelar"
+        tone="warning"
+        onCancel={() => setPendingBriefExec(null)}
+        onConfirm={handleConfirmBriefExec}
       />
 
       {/* Delete Audio Modal — renderizado no topo para evitar z-index/overflow issues */}
