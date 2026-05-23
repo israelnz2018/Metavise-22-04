@@ -4607,12 +4607,14 @@ export default function App() {
 
   return (
     <div className="min-h-screen app-shell text-gray-900 dark:text-gray-100 font-sans selection:bg-blue-100 dark:selection:bg-blue-900">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 sticky top-0 z-50">
+      {/* Header. Frosted-glass: semi-transparent + backdrop blur so
+          the app-shell gradient bleeds through subtly. Industry-standard
+          modern SaaS pattern (Stripe, Linear, Vercel, Raycast). */}
+      <header className="bg-white/75 dark:bg-gray-900/60 backdrop-blur-xl border-b border-gray-200/60 dark:border-gray-800/60 sticky top-0 z-50">
         <div className="max-w-[1600px] mx-auto px-4 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200">
-              <Sparkles className="text-white" size={24} />
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30 dark:shadow-blue-900/40 ring-1 ring-inset ring-white/20">
+              <Sparkles className="text-white drop-shadow-sm" size={22} />
             </div>
             <div>
               <h1 className="text-lg font-black tracking-tight text-gray-900 dark:text-white">
