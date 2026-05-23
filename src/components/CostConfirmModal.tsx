@@ -32,8 +32,14 @@ export function CostConfirmModal({
   const remaining = currentCredits - cost;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 px-4">
-      <div className="bg-white dark:bg-gray-900 rounded-2xl max-w-md w-full p-6 shadow-2xl">
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-md px-4 animate-in fade-in duration-150"
+      onClick={onCancel}
+    >
+      <div
+        className="bg-white dark:bg-gray-900 rounded-2xl max-w-md w-full p-6 shadow-2xl shadow-black/20 ring-1 ring-gray-200/60 dark:ring-gray-800 animate-in fade-in zoom-in-95 duration-150"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/40">
             <Sparkles className="text-blue-600 dark:text-blue-400" size={24} />
