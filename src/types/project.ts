@@ -223,3 +223,138 @@ export interface ZapCapRenderConfig {
   top: number; // 0-100
   brollPercent: number; // 0-50
 }
+
+// ─── AdCreative Blueprint — Persona + Brief types ──────────────────
+//
+// New shape introduced for the multi-creative blueprint feature.
+// Replaces the implicit "1 persona = 1 copy" pattern with a weighted
+// model where the source material (VSL/product) yields 1-3 personas
+// with confidence scores, and the plan generates N briefs distributed
+// proportionally to those weights.
+//
+// Backwards compatibility:
+// - The existing `config.copy.answers.discoveredPersona` and
+//   `config.copy.answers.savedPersonas` are still respected.
+// - These new types live alongside them; the Plan tab v2 reads the
+//   new shape, the existing PersonaTab flow keeps populating the old
+//   shape until migrated.
+
+export type AwarenessLevel =
+  | 'unaware'
+  | 'problem_aware'
+  | 'solution_aware'
+  | 'product_aware'
+  | 'most_aware';
+
+export type CreativeAngle =
+  | 'curiosidade'
+  | 'urgencia'
+  | 'prova_social'
+  | 'transformacao'
+  | 'mecanismo_revelado'
+  | 'autoridade'
+  | 'contra_intuitivo'
+  | 'medo_perda'
+  | 'desejo_aspiracional';
+
+export type CreativeStyle =
+  | 'depoimento'
+  | 'mecanismo_revelado'
+  | 'antes_e_depois'
+  | 'demo'
+  | 'historia_pessoal'
+  | 'comparacao'
+  | 'lista_beneficios'
+  | 'autoridade_explica';
+
+export type CtaStyle = 'soft' | 'hard' | 'curiosity_gap';
+
+export type PrimaryEmotion =
+  | 'curiosidade'
+  | 'medo'
+  | 'desejo'
+  | 'validacao'
+  | 'raiva'
+  | 'esperanca'
+  | 'urgencia'
+  | 'pertencimento';
+
+/** Result of the persona-discovery step. Multiple personas with weights,
+ *  rather than one "winner". User can select which ones to include in
+ *  the creative plan via checkboxes. */
+export interface WeightedPersona {
+  /** Stable ID — used as foreign key in CreativeBrief.targetPersonaId. */
+  id: string;
+  /** Short descriptor like "Sofredor Crônico 60-75" or "Cuidador". */
+  name: string;
+  /** 1-2 sentence summary of who this persona is. */
+  description: string;
+  /** Primary awareness level this persona sits in. */
+  awareness: AwarenessLevel;
+  /** Pain points / desires that drive this persona. Free-form bullets. */
+  painPoints: string[];
+  /** 0-1, how strongly the source material sustains this persona.
+   *  ≥ 0.7 = extracted directly. 0.4-0.7 = solid inference.
+   *  < 0.4 = stretch, low confidence. */
+  confidence: number;
+  /** 0-1, suggested fraction of creatives that should target this
+   *  persona. Sum of all suggestedWeight = 1. The user can override
+   *  via the PersonaTab checkboxes. */
+  suggestedWeight: number;
+  /** Quotes or short paraphrases from the source material that justify
+   *  this persona. Surfaces in UI as "why we suggested this". */
+  evidence: string[];
+  /** True when this persona is an inferred extension rather than
+   *  directly addressed by the source. UI shows a warning chip. */
+  isStretch: boolean;
+}
+
+/** One creative brief — the template that, when "executed", spawns a
+ *  ProjectVariant (subprojeto). The brief is editable in the Plan tab
+ *  until the variant is created; after creation, the variant gets a
+ *  snapshot copy and the brief and variant evolve independently. */
+export interface CreativeBrief {
+  /** Stable ID — also used as the variant ID when this brief is
+   *  executed (so we can map brief ↔ variant deterministically). */
+  id: string;
+  /** 1-based position in the plan. Used for display ("Criativo 7"). */
+  index: number;
+  /** FK into WeightedPersona.id — which persona this brief targets. */
+  targetPersonaId: string;
+  /** Snapshot of the persona name at brief-creation time (so the brief
+   *  stays human-readable even if the persona is renamed/deleted). */
+  targetPersonaName: string;
+  awareness: AwarenessLevel;
+  angle: CreativeAngle | string; // string fallback when Claude proposes something off-list
+  /** The actual first sentence the ad opens with — written, not just a concept. */
+  hook: string;
+  /** Target duration in seconds. */
+  durationTarget: 15 | 30 | 45 | 60 | 90 | 120;
+  emotion: PrimaryEmotion | string;
+  style: CreativeStyle | string;
+  ctaStyle: CtaStyle;
+  /** Which benefit/promise this creative emphasises (drawn from
+   *  ProductInfo.benefits or ProductInfo.promise). */
+  promiseFocus: string;
+  /** 1-line "why this combination makes sense" for the user to read
+   *  before deciding to execute the brief. */
+  rationale: string;
+  // --- lifecycle bookkeeping ---
+  /** When set, points to the variant that was spawned from this brief. */
+  executedVariantId?: string;
+  /** When this brief was derived from another (e.g. "big variation" of
+   *  Criativo 5 became Criativo 16), keep the parent's brief id for
+   *  traceability. */
+  derivedFromBriefId?: string;
+}
+
+/** Bundle returned by /api/claude/marketing-plan — the macro strategy
+ *  and the N briefs together. Stored on config.copy as
+ *  `marketingPlan` (existing) + `creativeBriefs` (new). */
+export interface MarketingBlueprint {
+  /** The existing MarketingPlan shape (kept loose here — the real
+   *  definition lives in src/lib/claudeService.ts to avoid a circular
+   *  dep with App.tsx). */
+  plan: unknown;
+  briefs: CreativeBrief[];
+}

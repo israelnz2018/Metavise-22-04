@@ -160,6 +160,11 @@ export interface AdConfig {
     productInfo?: ProductInfo | null;
     // PlanTab output.
     marketingPlan?: MarketingPlan | null;
+    // PlanTab v2 — weighted personas (replaces the single-persona model)
+    // and the 15 creative briefs derived from them. Both optional so
+    // pre-blueprint projects keep working.
+    personasWithWeights?: import('@/types/project').WeightedPersona[] | null;
+    creativeBriefs?: import('@/types/project').CreativeBrief[] | null;
     // AIRecommendationPanel cache (auto-invalidates when copy/persona
     // hashes change).
     aiRecommendation?: CachedRecommendation | null;
