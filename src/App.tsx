@@ -5631,7 +5631,41 @@ export default function App() {
         onConfirm={() => confirmDeleteProject()}
       />
 
-      <Toaster position="bottom-right" />
+      {/* Toast notifications. Custom theme to match the app's
+          frosted/glass aesthetic and respect dark mode. Default
+          styling is a flat white pill with a basic shadow — we use
+          a tinted ring + bg/text that flips for dark. */}
+      <Toaster
+        position="bottom-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: isDark ? 'rgb(17 24 39 / 0.95)' : 'rgb(255 255 255 / 0.95)',
+            color: isDark ? 'rgb(243 244 246)' : 'rgb(17 24 39)',
+            backdropFilter: 'blur(12px)',
+            border: isDark ? '1px solid rgb(55 65 81 / 0.6)' : '1px solid rgb(229 231 235 / 0.8)',
+            borderRadius: '12px',
+            boxShadow: isDark
+              ? '0 10px 40px -10px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(255 255 255 / 0.04)'
+              : '0 10px 40px -10px rgb(0 0 0 / 0.2), 0 0 0 1px rgb(0 0 0 / 0.02)',
+            fontSize: '14px',
+            fontWeight: 600,
+            padding: '12px 16px',
+          },
+          success: {
+            iconTheme: {
+              primary: 'rgb(34 197 94)',
+              secondary: isDark ? 'rgb(17 24 39)' : 'rgb(255 255 255)',
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: 'rgb(239 68 68)',
+              secondary: isDark ? 'rgb(17 24 39)' : 'rgb(255 255 255)',
+            },
+          },
+        }}
+      />
     </div>
   );
 }
