@@ -4642,7 +4642,11 @@ export default function App() {
             </div>
           )}
 
-          <div className="hidden md:flex items-center gap-1 bg-gray-50 dark:bg-gray-800 p-1 rounded-2xl border border-gray-100 dark:border-gray-700">
+          {/* Wizard nav. Refined styling — same behavior as before.
+              Active step uses a subtle white-to-blue gradient with a
+              ring for stronger pop. Skipped state is line-through.
+              Container has softer borders and an inner shadow. */}
+          <div className="hidden md:flex items-center gap-0.5 bg-gray-100/70 dark:bg-gray-800/60 p-1 rounded-2xl border border-gray-200/60 dark:border-gray-700/60 shadow-inner shadow-gray-200/30 dark:shadow-black/20">
             {STEPS.map((step, idx) => {
               const Icon = step.icon;
               const isActive = currentStep === step.id;
@@ -4662,27 +4666,30 @@ export default function App() {
                       if (step.id === 'source') void import('./pages/SourceTab');
                       else if (step.id === 'plan') void import('./pages/PlanTab');
                     }}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all ${
+                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl transition-all duration-150 ${
                       isActive
-                        ? 'bg-white text-blue-600 shadow-sm'
+                        ? 'bg-white text-blue-600 shadow-sm ring-1 ring-blue-100/80 dark:bg-gray-900 dark:text-blue-300 dark:ring-blue-900/60'
                         : isSkipped
-                          ? 'text-gray-300 italic hover:text-gray-500'
-                          : 'text-gray-400 hover:text-gray-600'
+                          ? 'text-gray-400/70 dark:text-gray-600 line-through hover:text-gray-500 dark:hover:text-gray-400'
+                          : 'text-gray-500 hover:text-gray-800 hover:bg-white/60 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700/40'
                     }`}
                     title={isSkipped ? 'Gancho pulado — clique pra reativar' : undefined}
                   >
                     <Icon size={16} />
-                    <span className="text-sm font-bold">
+                    <span className="text-sm font-bold whitespace-nowrap">
                       {step.label}
                       {isSkipped && (
-                        <span className="ml-1 text-[9px] font-black uppercase tracking-widest opacity-70">
+                        <span className="ml-1 text-[9px] font-black uppercase tracking-widest opacity-70 no-underline">
                           · pulado
                         </span>
                       )}
                     </span>
                   </button>
                   {idx < STEPS.length - 1 && (
-                    <ChevronRight size={14} className="text-gray-300 mx-1" />
+                    <ChevronRight
+                      size={12}
+                      className="text-gray-300/70 dark:text-gray-600 mx-0.5"
+                    />
                   )}
                 </div>
               );
