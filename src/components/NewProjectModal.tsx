@@ -68,6 +68,7 @@ export function NewProjectModal({
               value={name}
               onChange={(e) => onNameChange(e.target.value)}
               placeholder="Ex: Campanha de Verão"
+              data-autofocus
               className="w-full p-3.5 bg-gray-50 dark:bg-gray-800/60 border border-gray-200/60 dark:border-gray-700/60 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-gray-800 transition-all outline-none text-sm font-bold dark:text-gray-100 dark:placeholder:text-gray-500"
             />
           </div>

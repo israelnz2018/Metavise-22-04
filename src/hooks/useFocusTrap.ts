@@ -30,10 +30,19 @@ export function useFocusTrap<T extends HTMLElement = HTMLElement>(active: boolea
     const container = ref.current;
     const previousFocus = document.activeElement as HTMLElement | null;
 
-    // Focus first focusable element on open.
+    // Focus priority on open:
+    //   1. Element with [data-autofocus] (caller can mark a specific
+    //      element as the preferred initial focus).
+    //   2. The first text input (modals usually want focus IN the
+    //      input, not on Cancel).
+    //   3. Fallback: first focusable element.
+    const preferred = container.querySelector<HTMLElement>('[data-autofocus]');
+    const firstInput =
+      container.querySelector<HTMLInputElement>('input:not([type="hidden"]):not([disabled])') ||
+      container.querySelector<HTMLTextAreaElement>('textarea:not([disabled])');
     const focusables = container.querySelectorAll<HTMLElement>(FOCUSABLE);
-    const first = focusables[0];
-    if (first) first.focus();
+    const target = preferred || firstInput || focusables[0];
+    if (target) target.focus();
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Tab') return;
