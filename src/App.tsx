@@ -61,6 +61,8 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { LazyTab } from './components/LazyTab';
 import { AutoSaveIndicator } from './components/AutoSaveIndicator';
 import { DarkModeToggle } from './components/DarkModeToggle';
+import { RecentProjectsButton } from './components/RecentProjectsButton';
+import { pushRecentProject } from './lib/recentProjects';
 import { useDarkMode } from './hooks/useDarkMode';
 import { ensureNotificationPermission, notifyIfHidden } from './lib/notifications';
 import { COSTS } from './lib/costs';
@@ -2347,6 +2349,9 @@ export default function App() {
   const handleLoadProject = async (project: Project, step?: Step) => {
     if (process.env.NODE_ENV !== 'production') console.log('[Debug] Loading Project:', project.id);
     setIsProjectLoading(true);
+
+    // Track for the "recent projects" quick-back chip in the header.
+    pushRecentProject({ id: project.id, name: project.name, type: project.type });
 
     try {
       setCurrentProjectId(project.id);
@@ -4711,6 +4716,11 @@ export default function App() {
                 Créditos
               </span>
             </div>
+            <RecentProjectsButton
+              projects={projects}
+              currentProjectId={currentProjectId}
+              onPick={(p) => handleLoadProject(p)}
+            />
             <DarkModeToggle isDark={isDark} onToggle={toggleDarkMode} />
             <button
               onClick={() => setCurrentStep('integrations')}
