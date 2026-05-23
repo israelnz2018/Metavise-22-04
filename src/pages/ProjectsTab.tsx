@@ -354,14 +354,18 @@ export function ProjectsTab({
     <div className="max-w-[1600px] mx-auto space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-2xl font-black text-gray-900 tracking-tight">Meus Projetos</h3>
-          <p className="text-gray-500 text-sm">Gerencie seus projetos e criações.</p>
+          <h3 className="text-2xl font-black text-gray-900 dark:text-gray-50 tracking-tight">
+            Meus Projetos
+          </h3>
+          <p className="text-gray-500 dark:text-gray-400 text-sm">
+            Gerencie seus projetos e criações.
+          </p>
         </div>
         <button
           onClick={() => setShowNewProjectModal(true)}
-          className="px-6 py-3 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 flex items-center gap-2"
+          className="px-5 py-2.5 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl font-bold hover:from-blue-600 hover:to-blue-700 active:scale-[0.98] transition-all shadow-lg shadow-blue-500/30 dark:shadow-blue-900/40 ring-1 ring-inset ring-white/20 flex items-center gap-2"
         >
-          <Sparkles size={18} />
+          <Sparkles size={16} />
           Criar Novo Projeto
         </button>
       </div>
@@ -370,20 +374,23 @@ export function ProjectsTab({
           empty state below dominates. Shown otherwise even with a small
           list because muscle memory is more important than minimalism. */}
       {projects.length > 0 && (
-        <div className="bg-white p-4 rounded-3xl border-2 border-gray-50 shadow-sm flex flex-wrap items-center gap-3">
+        <div className="bg-white/80 dark:bg-gray-900/60 backdrop-blur-sm p-3.5 rounded-2xl ring-1 ring-gray-200/60 dark:ring-gray-800/60 shadow-sm flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-[200px]">
-            <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" />
+            <Search
+              size={16}
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 dark:text-gray-600"
+            />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar pelo nome…"
-              className="w-full pl-11 pr-10 py-3 bg-gray-50 border border-transparent rounded-xl text-sm focus:bg-white focus:border-blue-400 outline-none transition-all"
+              className="w-full pl-11 pr-10 py-3 bg-gray-50 dark:bg-gray-800/60 border border-transparent rounded-xl text-sm focus:bg-white dark:focus:bg-gray-800 focus:border-blue-400 dark:focus:border-blue-700 outline-none transition-all dark:text-gray-100 dark:placeholder:text-gray-500"
             />
             {search && (
               <button
                 onClick={() => setSearch('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-300"
                 title="Limpar"
               >
                 <X size={14} />
@@ -391,15 +398,15 @@ export function ProjectsTab({
             )}
           </div>
 
-          <div className="flex items-center gap-1 p-1 bg-gray-50 rounded-xl">
+          <div className="flex items-center gap-1 p-1 bg-gray-100/70 dark:bg-gray-800/60 rounded-xl">
             {TYPE_FILTERS.map((f) => (
               <button
                 key={f.value}
                 onClick={() => setTypeFilter(f.value)}
                 className={`px-3 py-2 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all ${
                   typeFilter === f.value
-                    ? 'bg-white text-blue-600 shadow-sm'
-                    : 'text-gray-400 hover:text-gray-600'
+                    ? 'bg-white text-blue-600 shadow-sm dark:bg-gray-900 dark:text-blue-300'
+                    : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
                 }`}
               >
                 {f.label}
@@ -410,7 +417,7 @@ export function ProjectsTab({
           <select
             value={sortMode}
             onChange={(e) => setSortMode(e.target.value as SortMode)}
-            className="px-4 py-3 bg-gray-50 border border-transparent rounded-xl text-xs font-bold uppercase tracking-wider text-gray-600 focus:bg-white focus:border-blue-400 outline-none cursor-pointer"
+            className="px-4 py-3 bg-gray-50 dark:bg-gray-800/60 border border-transparent rounded-xl text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-300 focus:bg-white dark:focus:bg-gray-800 focus:border-blue-400 dark:focus:border-blue-700 outline-none cursor-pointer"
           >
             <option value="recent">Mais recente</option>
             <option value="oldest">Mais antigo</option>
@@ -418,116 +425,136 @@ export function ProjectsTab({
           </select>
 
           {(search || typeFilter !== 'all') && (
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-auto">
+            <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-auto">
               {filteredProjects.length} de {projects.length}
             </span>
           )}
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {projects.length === 0 ? (
-          <div className="col-span-full p-12 bg-white rounded-[40px] border-4 border-dashed border-gray-100 flex flex-col items-center justify-center text-center space-y-4">
-            <div className="w-16 h-16 bg-gray-50 text-gray-300 rounded-3xl flex items-center justify-center">
-              <Layout size={32} />
+          <div className="col-span-full p-14 bg-white/60 dark:bg-gray-900/40 backdrop-blur-sm rounded-3xl ring-1 ring-dashed ring-gray-300/60 dark:ring-gray-700/60 flex flex-col items-center justify-center text-center space-y-5">
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/40 dark:to-blue-900/30 text-blue-500 dark:text-blue-400 rounded-2xl flex items-center justify-center ring-1 ring-blue-100/60 dark:ring-blue-900/40">
+              <Layout size={28} />
             </div>
             <div>
-              <p className="text-lg font-bold text-gray-900">Nenhum projeto encontrado</p>
-              <p className="text-sm text-gray-400">
+              <p className="text-lg font-bold text-gray-900 dark:text-gray-50">
+                Nenhum projeto encontrado
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                 Comece criando seu primeiro projeto agora mesmo.
               </p>
             </div>
             <button
               onClick={() => setShowNewProjectModal(true)}
-              className="px-8 py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-black transition-all"
+              className="px-6 py-2.5 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl font-bold hover:from-blue-600 hover:to-blue-700 active:scale-[0.98] transition-all shadow-lg shadow-blue-500/30"
             >
               Criar Primeiro Projeto
             </button>
           </div>
         ) : filteredProjects.length === 0 ? (
-          <div className="col-span-full p-10 bg-white rounded-[32px] border-2 border-dashed border-gray-100 text-center space-y-3">
-            <p className="text-lg font-bold text-gray-900">Nenhum projeto bate com sua busca</p>
-            <p className="text-sm text-gray-400">Tente outro termo ou limpe os filtros.</p>
+          <div className="col-span-full p-10 bg-white/60 dark:bg-gray-900/40 backdrop-blur-sm rounded-3xl ring-1 ring-dashed ring-gray-300/60 dark:ring-gray-700/60 text-center space-y-3">
+            <p className="text-lg font-bold text-gray-900 dark:text-gray-50">
+              Nenhum projeto bate com sua busca
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Tente outro termo ou limpe os filtros.
+            </p>
             <button
               onClick={() => {
                 setSearch('');
                 setTypeFilter('all');
               }}
-              className="mt-2 px-5 py-2 bg-gray-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-black"
+              className="mt-2 px-5 py-2 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-black dark:hover:bg-white transition-colors"
             >
               Limpar filtros
             </button>
           </div>
         ) : (
-          filteredProjects.map((project) => (
-            <div
-              key={project.id}
-              className={`group p-6 bg-white rounded-[32px] border-4 transition-all hover:shadow-xl hover:scale-[1.02] cursor-pointer ${
-                currentProjectId === project.id
-                  ? 'border-blue-600 shadow-blue-50'
-                  : 'border-gray-50 hover:border-blue-100'
-              }`}
-              onClick={() => setViewingProjectId(project.id)}
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                  {project.type === 'complete' ? (
-                    <Video size={24} />
-                  ) : project.type === 'copy' ? (
-                    <Edit3 size={24} />
-                  ) : project.type === 'video' ? (
-                    <Play size={24} />
-                  ) : (
-                    <Maximize size={24} />
-                  )}
+          filteredProjects.map((project) => {
+            const isActive = currentProjectId === project.id;
+            return (
+              <div
+                key={project.id}
+                className={`group relative p-5 rounded-2xl ring-1 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-gray-200/60 dark:hover:shadow-black/40 cursor-pointer bg-white dark:bg-gray-900/80 backdrop-blur-sm ${
+                  isActive
+                    ? 'ring-blue-500/60 dark:ring-blue-400/60 shadow-lg shadow-blue-500/10 dark:shadow-blue-900/30'
+                    : 'ring-gray-200/60 dark:ring-gray-800/60 hover:ring-blue-200 dark:hover:ring-blue-800/60'
+                }`}
+                onClick={() => setViewingProjectId(project.id)}
+              >
+                {isActive && (
+                  <span className="absolute top-3 right-3 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest bg-blue-500 text-white rounded-full shadow shadow-blue-500/40">
+                    Ativo
+                  </span>
+                )}
+                <div className="flex items-start justify-between mb-4">
+                  <div className="w-11 h-11 bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600 dark:from-blue-950/40 dark:to-blue-900/30 dark:text-blue-400 rounded-xl flex items-center justify-center ring-1 ring-blue-100/60 dark:ring-blue-900/40 group-hover:from-blue-500 group-hover:to-blue-600 group-hover:text-white group-hover:ring-blue-400 transition-all">
+                    {project.type === 'complete' ? (
+                      <Video size={22} />
+                    ) : project.type === 'copy' ? (
+                      <Edit3 size={22} />
+                    ) : project.type === 'video' ? (
+                      <Play size={22} />
+                    ) : (
+                      <Maximize size={22} />
+                    )}
+                  </div>
+                  <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDuplicateProject(project);
+                      }}
+                      className="p-1.5 text-gray-300 dark:text-gray-600 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-lg transition-colors"
+                      title="Duplicar Projeto"
+                    >
+                      <Copy size={16} />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteProject(project.id);
+                      }}
+                      className="p-1.5 text-gray-300 dark:text-gray-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors"
+                      title="Excluir Projeto"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDuplicateProject(project);
-                    }}
-                    className="p-2 text-gray-300 hover:text-blue-600 transition-colors"
-                    title="Duplicar Projeto"
-                  >
-                    <Copy size={18} />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDeleteProject(project.id);
-                    }}
-                    className="p-2 text-gray-300 hover:text-red-500 transition-colors"
-                    title="Excluir Projeto"
-                  >
-                    <Trash2 size={18} />
-                  </button>
+
+                <h4 className="text-base font-black text-gray-900 dark:text-gray-50 mb-1 truncate">
+                  {project.name}
+                </h4>
+                <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-4">
+                  {project.type === 'complete'
+                    ? 'Projeto Completo'
+                    : project.type === 'copy'
+                      ? 'Apenas Copy'
+                      : project.type === 'video'
+                        ? 'Apenas Vídeo'
+                        : 'Edição de Vídeo'}
+                </p>
+
+                <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-800">
+                  <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+                    {project.createdAt?.toDate
+                      ? project.createdAt.toDate().toLocaleDateString()
+                      : 'Recentemente'}
+                  </span>
+                  <div className="flex items-center gap-1 text-blue-600 dark:text-blue-400 font-bold text-xs">
+                    Subprojetos ({project.variants?.length || 0})
+                    <ChevronRight
+                      size={14}
+                      className="group-hover:translate-x-0.5 transition-transform"
+                    />
+                  </div>
                 </div>
               </div>
-
-              <h4 className="text-lg font-black text-gray-900 mb-1 truncate">{project.name}</h4>
-              <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-4">
-                {project.type === 'complete'
-                  ? 'Projeto Completo'
-                  : project.type === 'copy'
-                    ? 'Apenas Copy'
-                    : project.type === 'video'
-                      ? 'Apenas Vídeo'
-                      : 'Edição de Vídeo'}
-              </p>
-
-              <div className="flex items-center justify-between pt-4 border-t border-gray-50">
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                  {project.createdAt?.toDate
-                    ? project.createdAt.toDate().toLocaleDateString()
-                    : 'Recentemente'}
-                </span>
-                <div className="flex items-center gap-1 text-blue-600 font-bold text-xs">
-                  Ver Subprojetos ({project.variants?.length || 0}) <ChevronRight size={14} />
-                </div>
-              </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>
