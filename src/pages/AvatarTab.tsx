@@ -17,6 +17,7 @@ import React, { useEffect, useState } from 'react';
 import type { AdConfig } from '@/App';
 import { toast } from 'react-hot-toast';
 import { motion } from 'motion/react';
+import { Skeleton } from '@/components/Skeleton';
 import {
   User,
   Sparkles,
@@ -1293,12 +1294,9 @@ export function AvatarTab({
         </div>
 
         {loadingAvatars ? (
-          <div className="flex flex-col items-center justify-center py-24 space-y-4">
-            <Loader2 className="w-12 h-12 text-blue-600 dark:text-blue-400 animate-spin" />
-            <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest">
-              Carregando Avatares...
-            </p>
-          </div>
+          // Skeleton grid: feels much faster than a spinner because the
+          // user immediately sees the layout that will appear.
+          <Skeleton.GalleryGrid count={12} />
         ) : avatarError ? (
           <div className="p-12 bg-red-50 dark:bg-red-950/40 border-2 border-red-100 rounded-[40px] text-center space-y-6">
             <div className="w-16 h-16 bg-red-100 text-red-600 dark:text-red-400 rounded-2xl flex items-center justify-center mx-auto">

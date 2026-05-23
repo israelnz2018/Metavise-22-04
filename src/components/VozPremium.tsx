@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Skeleton } from '@/components/Skeleton';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'react-hot-toast';
 import {
@@ -1040,8 +1041,22 @@ const VozPremium: React.FC<Props> = ({
                         : `${voices.length} vozes encontradas`}
                   </h4>
                   {loadingVoices ? (
-                    <div className="flex items-center justify-center py-12 text-gray-400 dark:text-gray-500">
-                      <Loader2 size={20} className="animate-spin mr-2" /> Carregando vozes...
+                    // Voice gallery skeleton — 2-col grid matching the
+                    // actual layout so the transition is seamless.
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {Array.from({ length: 8 }).map((_, i) => (
+                        <div
+                          key={i}
+                          className="rounded-xl p-4 ring-1 ring-gray-200/60 dark:ring-gray-800/60 bg-white dark:bg-gray-900/60 space-y-3"
+                        >
+                          <Skeleton.Line className="w-2/3" />
+                          <div className="flex gap-1.5">
+                            <Skeleton.Line className="w-12 h-2 rounded-full" />
+                            <Skeleton.Line className="w-14 h-2 rounded-full" />
+                            <Skeleton.Line className="w-10 h-2 rounded-full" />
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[32rem] overflow-y-auto">

@@ -78,4 +78,19 @@
     outline-offset: 2px;
     border-radius: 4px;
   }
+
+  /* Shimmer used by <Skeleton> placeholders. Gradient sweep via
+     translateX. ~1.4s feels natural — fast enough to read as "active",
+     slow enough to not be twitchy. */
+  @keyframes shimmer {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(200%);
+    }
+  }
+  .animate-shimmer {
+    animation: shimmer 1.4s ease-in-out infinite;
+  }
 }
