@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Sparkles,
   Loader2,
@@ -13,16 +13,38 @@ import {
   Rocket,
   CheckSquare,
   Download,
+  Users,
+  AlertTriangle,
 } from 'lucide-react';
 import jsPDF from 'jspdf';
-import { generateMarketingPlan, type MarketingPlan } from '@/lib/claudeService';
+import {
+  generateMarketingPlan,
+  generateMarketingBlueprint,
+  type MarketingPlan,
+} from '@/lib/claudeService';
+import type { WeightedPersona, CreativeBrief } from '@/types/project';
 
 interface Props {
   productInfo?: any;
   persona?: any;
   copyAnswers?: any;
   cached?: MarketingPlan | null;
+  /** Blueprint v2 — weighted personas selected on PersonaTab Path 2.
+   *  When present, the tab renders the new "Personas + briefs" UI and
+   *  generation is manual (button click) instead of auto-fetch. */
+  personasWithWeights?: WeightedPersona[] | null;
+  /** Cached briefs from a previous "Gerar Plano" run. Survives reloads. */
+  cachedBriefs?: CreativeBrief[] | null;
   onChange: (plan: MarketingPlan) => void;
+  /** Callback when briefs are (re)generated. App.tsx persists to config. */
+  onBriefsChange?: (briefs: CreativeBrief[]) => void;
+  /** Click on an individual brief — opens the "Criar Subprojeto" popup.
+   *  Wired in Phase 3.4. */
+  onBriefClick?: (brief: CreativeBrief) => void;
+  /** Open the brief edit modal. Wired in Phase 3.3. */
+  onBriefEdit?: (brief: CreativeBrief) => void;
+  /** Map of brief id → variant id, for showing "✓ executed" status. */
+  briefToVariantMap?: Record<string, string>;
   onContinue: () => void;
 }
 
@@ -39,13 +61,45 @@ export function PlanTab({
   persona,
   copyAnswers,
   cached,
+  personasWithWeights,
+  cachedBriefs,
   onChange,
+  onBriefsChange,
+  onBriefClick,
+  onBriefEdit,
+  briefToVariantMap,
   onContinue,
 }: Props) {
   const [plan, setPlan] = useState<MarketingPlan | null>(cached ?? null);
+  const [briefs, setBriefs] = useState<CreativeBrief[]>(cachedBriefs ?? []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Blueprint v2 config — only meaningful when personasWithWeights is set.
+  // 15 is the default per Andromeda (10-20+ conceptually distinct creatives).
+  const [targetCount, setTargetCount] = useState<number>(15);
+  const [selectedPersonaIds, setSelectedPersonaIds] = useState<Set<string>>(
+    () => new Set((personasWithWeights || []).map((p) => p.id))
+  );
+  // Update selection when personas list changes (e.g. user navigates back
+  // to PersonaTab and re-selects).
+  useEffect(() => {
+    setSelectedPersonaIds(new Set((personasWithWeights || []).map((p) => p.id)));
+  }, [personasWithWeights]);
+
+  // v2 mode = we have weighted personas. In v2 we never auto-fetch — the
+  // user clicks "Gerar Plano" explicitly. Tab-to-tab transitions only
+  // carry data, never generate things implicitly.
+  const isV2 = Array.isArray(personasWithWeights) && personasWithWeights.length > 0;
+
+  // Reserved props consumed in Phase 3.2-3.4 below (briefs grid, edit
+  // modal, subproject creation). Reference them here so the strict
+  // tsconfig (noUnusedLocals) doesn't fail before those phases land.
+  void onBriefClick;
+  void onBriefEdit;
+  void briefToVariantMap;
+
+  /** Legacy fetch (no briefs). Used when isV2 === false. */
   const fetchPlan = async () => {
     setLoading(true);
     setError(null);
@@ -60,13 +114,48 @@ export function PlanTab({
     }
   };
 
-  // Auto-fetch on first mount when nothing cached.
+  /** Blueprint v2 fetch — returns { plan, briefs } in one call. */
+  const fetchBlueprint = async () => {
+    if (!isV2) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const { plan: p, briefs: b } = await generateMarketingBlueprint({
+        productInfo,
+        personas: personasWithWeights as any,
+        selectedPersonaIds: Array.from(selectedPersonaIds),
+        copyAnswers,
+        targetCount,
+      });
+      setPlan(p);
+      setBriefs(b);
+      onChange(p);
+      onBriefsChange?.(b);
+    } catch (err: any) {
+      setError(err?.message || 'Erro ao gerar blueprint.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Auto-fetch only in v1 (legacy) mode. v2 waits for explicit "Gerar Plano".
   useEffect(() => {
+    if (isV2) return;
     if (!cached && !plan && !loading && !error) {
       void fetchPlan();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Color palette per persona for consistent visual identity across the
+  // briefs grid. Stable mapping: 1st persona = blue, 2nd = purple, 3rd = amber.
+  const personaColor = useMemo(() => {
+    const map = new Map<string, string>();
+    (personasWithWeights || []).forEach((p, idx) => {
+      map.set(p.id, idx === 0 ? 'blue' : idx === 1 ? 'purple' : 'amber');
+    });
+    return map;
+  }, [personasWithWeights]);
 
   const handleDownloadPDF = () => {
     if (!plan) return;
@@ -210,6 +299,136 @@ export function PlanTab({
           </button>
         </div>
       </div>
+
+      {/* ─── V2 BLUEPRINT HEADER (Path 2 from PersonaTab) ─────────────
+          Renders only when the user came through the multi-persona path.
+          Shows the 3 personas with weights, lets them tweak which to
+          include + how many briefs to generate, and provides the "Gerar
+          Plano" CTA. v1 (legacy) mode hides this block entirely. */}
+      {isV2 && (
+        <div className="bg-white/80 dark:bg-gray-900/60 ring-1 ring-gray-200/60 dark:ring-gray-800/60 rounded-3xl p-6 space-y-5">
+          <div className="flex items-center gap-2">
+            <Users size={18} className="text-blue-600 dark:text-blue-400" />
+            <h3 className="font-black uppercase text-xs tracking-widest text-gray-700 dark:text-gray-300">
+              Personas selecionadas para o plano
+            </h3>
+          </div>
+
+          {/* 3 persona mini-cards in a row */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {(personasWithWeights || []).map((p) => {
+              const color = personaColor.get(p.id) || 'gray';
+              const checked = selectedPersonaIds.has(p.id);
+              return (
+                <label
+                  key={p.id}
+                  className={`relative cursor-pointer rounded-2xl ring-1 transition-all p-4 space-y-2 ${
+                    checked
+                      ? color === 'blue'
+                        ? 'ring-blue-500 bg-gradient-to-br from-blue-50 to-blue-100/40 dark:from-blue-950/40 dark:to-blue-900/20 dark:ring-blue-400'
+                        : color === 'purple'
+                          ? 'ring-purple-500 bg-gradient-to-br from-purple-50 to-purple-100/40 dark:from-purple-950/40 dark:to-purple-900/20 dark:ring-purple-400'
+                          : 'ring-amber-500 bg-gradient-to-br from-amber-50 to-amber-100/40 dark:from-amber-950/40 dark:to-amber-900/20 dark:ring-amber-400'
+                      : 'ring-gray-200/60 dark:ring-gray-700/60 bg-white dark:bg-gray-900/40 opacity-60'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(e) => {
+                        setSelectedPersonaIds((prev) => {
+                          const next = new Set(prev);
+                          if (e.target.checked) next.add(p.id);
+                          else next.delete(p.id);
+                          // Always keep at least 1 persona selected
+                          if (next.size === 0) next.add(p.id);
+                          return next;
+                        });
+                      }}
+                      className="w-4 h-4 accent-blue-600 mt-0.5"
+                    />
+                    {p.isStretch && (
+                      <span
+                        className="inline-flex items-center gap-1 text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300"
+                        title="Persona inferida fracamente do material"
+                      >
+                        <AlertTriangle size={8} />
+                        fraca
+                      </span>
+                    )}
+                  </div>
+                  <h4 className="text-sm font-black text-gray-900 dark:text-gray-50 leading-tight">
+                    {p.name}
+                  </h4>
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400 line-clamp-2">
+                    {p.description}
+                  </p>
+                  <div className="flex items-center justify-between pt-2 border-t border-gray-200/60 dark:border-gray-800">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-500">
+                      {Math.round((p.confidence || 0) * 100)}% conf.
+                    </span>
+                    <span className="text-[10px] font-black tabular-nums text-gray-900 dark:text-gray-100">
+                      {Math.round((p.suggestedWeight || 0) * 100)}%
+                    </span>
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+
+          {/* Slider for target count */}
+          <div className="flex items-center gap-4 flex-wrap">
+            <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">
+              Quantidade de criativos
+            </label>
+            <input
+              type="range"
+              min={10}
+              max={20}
+              step={1}
+              value={targetCount}
+              onChange={(e) => setTargetCount(Number(e.target.value))}
+              className="flex-1 min-w-[180px] accent-blue-600"
+            />
+            <span className="text-2xl font-black text-blue-600 dark:text-blue-400 tabular-nums">
+              {targetCount}
+            </span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-500">
+              ⭐ recomendado: 15
+            </span>
+          </div>
+
+          {/* Generate button */}
+          <button
+            onClick={fetchBlueprint}
+            disabled={loading || selectedPersonaIds.size === 0}
+            className="w-full py-5 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 active:scale-[0.99] text-white rounded-2xl font-black uppercase tracking-widest text-sm transition-all shadow-xl shadow-blue-200/60 dark:shadow-blue-900/30 ring-1 ring-inset ring-white/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="animate-spin" size={18} />
+                Gerando plano + {targetCount} criativos...
+              </>
+            ) : briefs.length > 0 ? (
+              <>
+                <RefreshCw size={18} />
+                Regerar plano ({targetCount} criativos)
+              </>
+            ) : (
+              <>
+                <Sparkles size={18} />
+                Gerar Plano de Marketing (Andromeda)
+              </>
+            )}
+          </button>
+          {selectedPersonaIds.size === 0 && (
+            <p className="text-center text-[10px] text-red-600 dark:text-red-400 font-bold uppercase tracking-widest">
+              Selecione pelo menos 1 persona acima
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Skip-to-copy shortcut: user can bypass the plan and jump straight
           to copywriting if they don't need the strategy guide right now. */}
