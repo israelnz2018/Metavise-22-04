@@ -93,4 +93,29 @@
   .animate-shimmer {
     animation: shimmer 1.4s ease-in-out infinite;
   }
+
+  /* Respect the OS-level "reduce motion" preference. Some users get
+     vertigo/migraines from heavy animations — most platforms surface
+     this as a system setting (System Settings → Accessibility on
+     macOS, Settings → Ease of Access on Windows).
+     We aggressively cut animation/transition durations to near-zero
+     so the UI still updates, just instantly. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+    .animate-shimmer {
+      animation: none !important;
+      /* keep the placeholder visible without the sweep */
+      background: rgb(0 0 0 / 0.05) !important;
+    }
+    html.dark .animate-shimmer {
+      background: rgb(255 255 255 / 0.05) !important;
+    }
+  }
 }
