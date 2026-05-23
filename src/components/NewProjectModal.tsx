@@ -33,24 +33,29 @@ export function NewProjectModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-md animate-in fade-in duration-150"
+      onClick={onClose}
+    >
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="bg-white w-full max-w-lg rounded-[40px] shadow-2xl border-4 border-blue-50 p-10 space-y-6"
+        transition={{ duration: 0.15 }}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white dark:bg-gray-900 w-full max-w-lg rounded-3xl shadow-2xl shadow-black/20 ring-1 ring-gray-200/60 dark:ring-gray-800 p-8 space-y-6"
       >
-        <div className="text-center space-y-2">
-          <h3 className="text-2xl font-black text-gray-900 tracking-tight uppercase">
+        <div className="text-center space-y-1">
+          <h3 className="text-2xl font-black text-gray-900 dark:text-gray-50 tracking-tight">
             Novo Projeto
           </h3>
-          <p className="text-xs text-gray-500 font-medium">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             Escolha o tipo de projeto que deseja iniciar.
           </p>
         </div>
 
         <div className="space-y-4">
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">
               Nome do Projeto
             </label>
             <input
@@ -58,26 +63,26 @@ export function NewProjectModal({
               value={name}
               onChange={(e) => onNameChange(e.target.value)}
               placeholder="Ex: Campanha de Verão"
-              className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none text-sm font-bold"
+              className="w-full p-3.5 bg-gray-50 dark:bg-gray-800/60 border border-gray-200/60 dark:border-gray-700/60 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-gray-800 transition-all outline-none text-sm font-bold dark:text-gray-100 dark:placeholder:text-gray-500"
             />
           </div>
 
           {/* Projeto Completo — destaque */}
           <button
             onClick={() => onTypeChange('complete')}
-            className={`w-full p-5 rounded-2xl border-2 text-left transition-all ${
+            className={`w-full p-4 rounded-xl ring-1 text-left transition-all ${
               type === 'complete'
-                ? 'border-blue-600 bg-blue-50'
-                : 'border-gray-100 hover:border-blue-200'
+                ? 'ring-blue-500 bg-gradient-to-br from-blue-50 to-blue-100/40 dark:from-blue-950/40 dark:to-blue-900/20 dark:ring-blue-400'
+                : 'ring-gray-200/60 dark:ring-gray-700/60 hover:ring-blue-300 dark:hover:ring-blue-700 hover:bg-gray-50/50 dark:hover:bg-gray-800/40'
             }`}
           >
             <div className="flex items-center gap-3">
               <span className="text-2xl">🚀</span>
               <div>
-                <p className="font-black text-gray-900 uppercase tracking-tight">
+                <p className="font-black text-gray-900 dark:text-gray-50 uppercase tracking-tight">
                   Projeto Completo
                 </p>
-                <p className="text-[10px] text-gray-500 font-medium">
+                <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">
                   Do roteiro ao vídeo editado — tudo em um só lugar
                 </p>
               </div>
@@ -85,22 +90,22 @@ export function NewProjectModal({
           </button>
 
           {/* 3 atalhos menores */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-2.5">
             {SHORTCUT_TYPES.map((t) => (
               <button
                 key={t.id}
                 onClick={() => onTypeChange(t.id)}
-                className={`p-3 rounded-2xl border-2 text-center transition-all ${
+                className={`p-3 rounded-xl ring-1 text-center transition-all ${
                   type === t.id
-                    ? 'border-blue-600 bg-blue-50'
-                    : 'border-gray-100 hover:border-blue-200'
+                    ? 'ring-blue-500 bg-gradient-to-br from-blue-50 to-blue-100/40 dark:from-blue-950/40 dark:to-blue-900/20 dark:ring-blue-400'
+                    : 'ring-gray-200/60 dark:ring-gray-700/60 hover:ring-blue-300 dark:hover:ring-blue-700 hover:bg-gray-50/50 dark:hover:bg-gray-800/40'
                 }`}
               >
                 <div className="text-xl mb-1">{t.icon}</div>
-                <p className="text-[10px] font-black text-gray-900 uppercase leading-tight">
+                <p className="text-[10px] font-black text-gray-900 dark:text-gray-100 uppercase leading-tight">
                   {t.label}
                 </p>
-                <p className="text-[8px] text-gray-400 mt-1 uppercase font-bold tracking-tighter leading-tight">
+                <p className="text-[8px] text-gray-400 dark:text-gray-500 mt-1 uppercase font-bold tracking-tighter leading-tight">
                   {t.desc}
                 </p>
               </button>
@@ -109,22 +114,24 @@ export function NewProjectModal({
 
           {/* Sub-opções de copy — aparecem apenas quando 'copy' está selecionado */}
           {type === 'copy' && (
-            <div className="bg-blue-50 rounded-2xl p-4 space-y-2 border border-blue-100 animate-in fade-in slide-in-from-top-2 duration-300">
-              <p className="text-[10px] font-black text-blue-700 uppercase tracking-widest mb-2">
+            <div className="bg-blue-50/60 dark:bg-blue-950/30 rounded-xl p-4 space-y-2 ring-1 ring-blue-100/80 dark:ring-blue-900/40 animate-in fade-in slide-in-from-top-2 duration-300">
+              <p className="text-[10px] font-black text-blue-700 dark:text-blue-300 uppercase tracking-widest mb-2">
                 Como deseja começar?
               </p>
               {COPY_SUBMODES.map((opt) => (
                 <button
                   key={opt.id}
                   onClick={() => onCopySubModeChange(opt.id)}
-                  className={`w-full p-3 rounded-xl border text-left transition-all ${
+                  className={`w-full p-3 rounded-lg text-left transition-all ${
                     copySubMode === opt.id
-                      ? 'border-blue-500 bg-white shadow-sm'
-                      : 'border-transparent hover:bg-white/50'
+                      ? 'bg-white dark:bg-gray-900 ring-1 ring-blue-500 shadow-sm'
+                      : 'hover:bg-white/50 dark:hover:bg-gray-800/40'
                   }`}
                 >
-                  <p className="text-xs font-bold text-gray-900">{opt.label}</p>
-                  <p className="text-[10px] text-gray-500 font-medium">{opt.desc}</p>
+                  <p className="text-xs font-bold text-gray-900 dark:text-gray-100">{opt.label}</p>
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">
+                    {opt.desc}
+                  </p>
                 </button>
               ))}
             </div>
@@ -134,14 +141,14 @@ export function NewProjectModal({
         <div className="flex gap-3">
           <button
             onClick={onClose}
-            className="flex-1 py-4 text-gray-400 font-black uppercase text-[10px] tracking-widest hover:bg-gray-50 rounded-2xl transition-all"
+            className="flex-1 py-3 text-gray-500 dark:text-gray-400 font-black uppercase text-[10px] tracking-widest hover:bg-gray-50 dark:hover:bg-gray-800/60 rounded-xl transition-all"
           >
             Cancelar
           </button>
           <button
             onClick={onCreate}
             disabled={isSaving || !name.trim()}
-            className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 disabled:opacity-50 flex items-center justify-center gap-2"
+            className="flex-1 py-3 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl font-black uppercase text-[10px] tracking-widest hover:from-blue-600 hover:to-blue-700 active:scale-[0.98] transition-all shadow-lg shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-blue-500 flex items-center justify-center gap-2 ring-1 ring-inset ring-white/20"
           >
             {isSaving ? <Loader2 className="animate-spin" size={16} /> : 'Criar Projeto'}
           </button>
