@@ -40,10 +40,10 @@ export function SourceTab({ existingInfo, onExtracted, onContinueManual, onConti
     return (
       <div className="max-w-3xl mx-auto space-y-8">
         <div className="space-y-2 text-center">
-          <h2 className="text-3xl font-black text-gray-900 tracking-tight">
+          <h2 className="text-3xl font-black text-gray-900 dark:text-gray-50 tracking-tight">
             Como quer descobrir a persona e criar a copy?
           </h2>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
             Escolha o caminho que faz mais sentido pro teu projeto.
           </p>
         </div>
@@ -51,44 +51,48 @@ export function SourceTab({ existingInfo, onExtracted, onContinueManual, onConti
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <button
             onClick={onContinueManual}
-            className="group bg-white border-2 border-gray-200 hover:border-purple-500 hover:shadow-lg rounded-3xl p-8 text-left transition space-y-4"
+            className="group bg-white dark:bg-gray-900/80 backdrop-blur-sm ring-1 ring-gray-200/60 dark:ring-gray-800/60 hover:ring-purple-400 dark:hover:ring-purple-700 hover:shadow-xl hover:shadow-gray-200/40 dark:hover:shadow-black/40 hover:-translate-y-0.5 rounded-2xl p-7 text-left transition-all duration-200 space-y-4"
           >
-            <div className="w-14 h-14 bg-gray-100 group-hover:bg-purple-100 text-gray-600 group-hover:text-purple-700 rounded-2xl flex items-center justify-center transition">
-              <Hand size={26} />
+            <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 group-hover:bg-purple-100 dark:group-hover:bg-purple-950/40 text-gray-600 dark:text-gray-400 group-hover:text-purple-700 dark:group-hover:text-purple-400 rounded-xl flex items-center justify-center ring-1 ring-gray-200/60 dark:ring-gray-700/60 group-hover:ring-purple-300 dark:group-hover:ring-purple-800 transition-all">
+              <Hand size={24} />
             </div>
-            <div className="space-y-2">
-              <h3 className="text-lg font-black text-gray-900">De forma manual</h3>
-              <p className="text-sm text-gray-600">
+            <div className="space-y-1.5">
+              <h3 className="text-lg font-black text-gray-900 dark:text-gray-50">
+                De forma manual
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
                 Você responde as perguntas sobre persona e produto direto na próxima aba. Mais
                 controle, ideal se você já conhece bem o avatar do cliente.
               </p>
             </div>
-            <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-gray-500 group-hover:text-purple-700 transition">
+            <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-gray-500 dark:text-gray-500 group-hover:text-purple-700 dark:group-hover:text-purple-400 transition-colors">
               Ir para Identificar Persona
-              <ArrowRight size={14} />
+              <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
             </div>
           </button>
 
           <button
             onClick={() => setMode('auto')}
-            className="group bg-white border-2 border-purple-300 hover:border-purple-600 hover:shadow-lg rounded-3xl p-8 text-left transition space-y-4 relative"
+            className="group relative bg-gradient-to-br from-white to-purple-50/30 dark:from-gray-900/80 dark:to-purple-950/20 backdrop-blur-sm ring-1 ring-purple-300/60 dark:ring-purple-800/60 hover:ring-purple-500 dark:hover:ring-purple-500 hover:shadow-xl hover:shadow-purple-200/40 dark:hover:shadow-purple-900/40 hover:-translate-y-0.5 rounded-2xl p-7 text-left transition-all duration-200 space-y-4"
           >
-            <span className="absolute top-4 right-4 text-[10px] font-black uppercase tracking-widest bg-purple-600 text-white px-2 py-1 rounded-full">
+            <span className="absolute top-4 right-4 text-[10px] font-black uppercase tracking-widest bg-gradient-to-br from-purple-500 to-purple-700 text-white px-2.5 py-1 rounded-full shadow-md shadow-purple-500/30 ring-1 ring-inset ring-white/20">
               Recomendado
             </span>
-            <div className="w-14 h-14 bg-purple-100 group-hover:bg-purple-200 text-purple-700 rounded-2xl flex items-center justify-center transition">
-              <Wand2 size={26} />
+            <div className="w-12 h-12 bg-gradient-to-br from-purple-100 to-purple-200/60 dark:from-purple-950/40 dark:to-purple-900/20 text-purple-700 dark:text-purple-400 rounded-xl flex items-center justify-center ring-1 ring-purple-200/60 dark:ring-purple-900/40 transition-all">
+              <Wand2 size={24} />
             </div>
-            <div className="space-y-2">
-              <h3 className="text-lg font-black text-gray-900">De forma automática</h3>
-              <p className="text-sm text-gray-600">
+            <div className="space-y-1.5">
+              <h3 className="text-lg font-black text-gray-900 dark:text-gray-50">
+                De forma automática
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
                 Cole a transcrição da sua VSL ou link da landing page. A IA extrai persona, dores,
                 oferta, ângulos — e popula as próximas etapas automaticamente.
               </p>
             </div>
-            <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-purple-600 transition">
+            <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-purple-600 dark:text-purple-400 transition">
               Usar IA pra extrair
-              <ArrowRight size={14} />
+              <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
             </div>
           </button>
         </div>
@@ -123,8 +127,10 @@ export function SourceTab({ existingInfo, onExtracted, onContinueManual, onConti
     <div className="max-w-5xl mx-auto space-y-8">
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-2">
-          <h2 className="text-3xl font-black text-gray-900 tracking-tight">Material do Produto</h2>
-          <p className="text-sm text-gray-600">
+          <h2 className="text-3xl font-black text-gray-900 dark:text-gray-50 tracking-tight">
+            Material do Produto
+          </h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 max-w-2xl">
             Cole a transcrição da sua VSL, copy da landing page, ou link da página de vendas. A IA
             extrai tudo: persona, dores, oferta, ângulos — e popula as próximas etapas
             automaticamente.
@@ -132,22 +138,22 @@ export function SourceTab({ existingInfo, onExtracted, onContinueManual, onConti
         </div>
         <button
           onClick={() => setMode('choose')}
-          className="shrink-0 text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-gray-700"
+          className="shrink-0 text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
         >
           ← Trocar modo
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {/* YouTube VSL */}
-        <div className="bg-white border-2 border-red-100 rounded-3xl p-6 space-y-3">
+        <div className="bg-white/80 dark:bg-gray-900/60 backdrop-blur-sm ring-1 ring-red-200/60 dark:ring-red-900/40 rounded-2xl p-5 space-y-3">
           <div className="flex items-center gap-2">
-            <Youtube size={20} className="text-red-600" />
-            <h3 className="font-black text-gray-900 uppercase text-sm tracking-widest">
+            <Youtube size={20} className="text-red-600 dark:text-red-400" />
+            <h3 className="font-black text-gray-900 dark:text-gray-50 uppercase text-sm tracking-widest">
               Link da VSL no YouTube
             </h3>
           </div>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             A IA pega a transcrição automática do YouTube — sem download, sem custo adicional.
             Funciona pra ~90% dos vídeos.
           </p>
@@ -156,23 +162,23 @@ export function SourceTab({ existingInfo, onExtracted, onContinueManual, onConti
             value={youtubeUrl}
             onChange={(e) => setYoutubeUrl(e.target.value)}
             placeholder="https://youtube.com/watch?v=..."
-            className="w-full p-4 border-2 border-gray-200 rounded-xl text-sm focus:border-red-500 focus:outline-none"
+            className="w-full p-3 bg-gray-50 dark:bg-gray-800/60 ring-1 ring-gray-200/60 dark:ring-gray-700/60 rounded-xl text-sm focus:ring-2 focus:ring-red-500 focus:bg-white dark:focus:bg-gray-800 focus:outline-none transition-all dark:text-gray-100 dark:placeholder:text-gray-500"
             disabled={loading}
           />
-          <p className="text-[10px] text-gray-400">
+          <p className="text-[10px] text-gray-400 dark:text-gray-500">
             Funciona com youtu.be e youtube.com/shorts também.
           </p>
         </div>
 
         {/* URL landing page */}
-        <div className="bg-white border-2 border-gray-100 rounded-3xl p-6 space-y-3">
+        <div className="bg-white/80 dark:bg-gray-900/60 backdrop-blur-sm ring-1 ring-gray-200/60 dark:ring-gray-800/60 rounded-2xl p-5 space-y-3">
           <div className="flex items-center gap-2">
-            <LinkIcon size={18} className="text-purple-600" />
-            <h3 className="font-black text-gray-900 uppercase text-sm tracking-widest">
+            <LinkIcon size={18} className="text-purple-600 dark:text-purple-400" />
+            <h3 className="font-black text-gray-900 dark:text-gray-50 uppercase text-sm tracking-widest">
               URL da landing page
             </h3>
           </div>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             A IA acessa a página, extrai o texto e processa. Funciona com a maioria das LPs
             públicas.
           </p>
@@ -181,21 +187,23 @@ export function SourceTab({ existingInfo, onExtracted, onContinueManual, onConti
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             placeholder="https://meuproduto.com.br/vendas"
-            className="w-full p-4 border-2 border-gray-200 rounded-xl text-sm focus:border-purple-500 focus:outline-none"
+            className="w-full p-3 bg-gray-50 dark:bg-gray-800/60 ring-1 ring-gray-200/60 dark:ring-gray-700/60 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:bg-white dark:focus:bg-gray-800 focus:outline-none transition-all dark:text-gray-100 dark:placeholder:text-gray-500"
             disabled={loading}
           />
-          <p className="text-[10px] text-gray-400">Funciona com a maioria das LPs públicas.</p>
+          <p className="text-[10px] text-gray-400 dark:text-gray-500">
+            Funciona com a maioria das LPs públicas.
+          </p>
         </div>
 
         {/* Paste text */}
-        <div className="bg-white border-2 border-gray-100 rounded-3xl p-6 space-y-3">
+        <div className="bg-white/80 dark:bg-gray-900/60 backdrop-blur-sm ring-1 ring-gray-200/60 dark:ring-gray-800/60 rounded-2xl p-5 space-y-3">
           <div className="flex items-center gap-2">
-            <FileText size={18} className="text-purple-600" />
-            <h3 className="font-black text-gray-900 uppercase text-sm tracking-widest">
+            <FileText size={18} className="text-purple-600 dark:text-purple-400" />
+            <h3 className="font-black text-gray-900 dark:text-gray-50 uppercase text-sm tracking-widest">
               Colar transcrição / copy
             </h3>
           </div>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             Texto da VSL, sales letter, bullets — qualquer coisa colada.
           </p>
           <textarea
@@ -203,22 +211,24 @@ export function SourceTab({ existingInfo, onExtracted, onContinueManual, onConti
             onChange={(e) => setText(e.target.value)}
             placeholder="Cole aqui o texto bruto..."
             rows={6}
-            className="w-full p-4 border-2 border-gray-200 rounded-xl text-sm focus:border-purple-500 focus:outline-none resize-none"
+            className="w-full p-3 bg-gray-50 dark:bg-gray-800/60 ring-1 ring-gray-200/60 dark:ring-gray-700/60 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:bg-white dark:focus:bg-gray-800 focus:outline-none transition-all resize-none dark:text-gray-100 dark:placeholder:text-gray-500"
             disabled={loading}
           />
-          <p className="text-[10px] text-gray-400">{text.length.toLocaleString()} caracteres</p>
+          <p className="text-[10px] text-gray-400 dark:text-gray-500">
+            {text.length.toLocaleString()} caracteres
+          </p>
         </div>
       </div>
 
-      <p className="text-[11px] text-gray-400 text-center">
+      <p className="text-[11px] text-gray-400 dark:text-gray-500 text-center">
         Pode usar qualquer um dos três — ou combinar. Se preencher múltiplos, a IA junta tudo na
         análise.
       </p>
 
       <button
         onClick={handleExtract}
-        disabled={loading || (!text.trim() && !url.trim())}
-        className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-black uppercase text-sm tracking-widest py-5 rounded-2xl shadow-lg flex items-center justify-center gap-3 transition"
+        disabled={loading || (!text.trim() && !url.trim() && !youtubeUrl.trim())}
+        className="w-full bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 disabled:from-gray-200 disabled:to-gray-300 dark:disabled:from-gray-800 dark:disabled:to-gray-700 disabled:text-gray-400 disabled:shadow-none text-white font-black uppercase text-sm tracking-widest py-4 rounded-xl shadow-lg shadow-purple-500/30 dark:shadow-purple-900/40 ring-1 ring-inset ring-white/20 flex items-center justify-center gap-3 transition-all active:scale-[0.99] disabled:active:scale-100 disabled:cursor-not-allowed"
       >
         {loading ? (
           <>
@@ -235,7 +245,7 @@ export function SourceTab({ existingInfo, onExtracted, onContinueManual, onConti
 
       {info && (
         <div className="space-y-4">
-          <div className="flex items-center gap-2 text-green-700">
+          <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
             <CheckCircle2 size={20} />
             <h3 className="font-black uppercase text-sm tracking-widest">Informações extraídas</h3>
           </div>
@@ -269,7 +279,7 @@ export function SourceTab({ existingInfo, onExtracted, onContinueManual, onConti
 
           <button
             onClick={onContinueAuto}
-            className="w-full bg-gray-900 hover:bg-black text-white font-black uppercase text-sm tracking-widest py-5 rounded-2xl shadow-lg flex items-center justify-center gap-3"
+            className="w-full bg-gray-900 dark:bg-gray-100 hover:bg-black dark:hover:bg-white text-white dark:text-gray-900 font-black uppercase text-sm tracking-widest py-4 rounded-xl shadow-lg flex items-center justify-center gap-3 transition-all active:scale-[0.99]"
           >
             Ir para Identificar Persona
             <ArrowRight size={18} />
@@ -283,26 +293,26 @@ export function SourceTab({ existingInfo, onExtracted, onContinueManual, onConti
 function InfoCard({ label, value, span }: { label: string; value: string; span?: boolean }) {
   return (
     <div
-      className={`bg-white border-2 border-gray-100 rounded-xl p-4 ${span ? 'md:col-span-2' : ''}`}
+      className={`bg-white/80 dark:bg-gray-900/60 backdrop-blur-sm ring-1 ring-gray-200/60 dark:ring-gray-800/60 rounded-xl p-4 ${span ? 'md:col-span-2' : ''}`}
     >
-      <p className="text-[10px] font-black uppercase tracking-widest text-purple-600 mb-1">
+      <p className="text-[10px] font-black uppercase tracking-widest text-purple-600 dark:text-purple-400 mb-1">
         {label}
       </p>
-      <p className="text-sm text-gray-900">{value || '—'}</p>
+      <p className="text-sm text-gray-900 dark:text-gray-100">{value || '—'}</p>
     </div>
   );
 }
 
 function ListCard({ label, items }: { label: string; items: string[] }) {
   return (
-    <div className="bg-white border-2 border-gray-100 rounded-xl p-4">
-      <p className="text-[10px] font-black uppercase tracking-widest text-purple-600 mb-2">
+    <div className="bg-white/80 dark:bg-gray-900/60 backdrop-blur-sm ring-1 ring-gray-200/60 dark:ring-gray-800/60 rounded-xl p-4">
+      <p className="text-[10px] font-black uppercase tracking-widest text-purple-600 dark:text-purple-400 mb-2">
         {label}
       </p>
-      <ul className="text-sm text-gray-900 space-y-1.5">
+      <ul className="text-sm text-gray-900 dark:text-gray-100 space-y-1.5">
         {items.map((item, i) => (
           <li key={i} className="flex gap-2">
-            <span className="text-purple-400">•</span>
+            <span className="text-purple-400 dark:text-purple-500">•</span>
             <span>{item}</span>
           </li>
         ))}
