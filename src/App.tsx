@@ -5474,29 +5474,29 @@ export default function App() {
         </AnimatePresence>
 
         {/* Footer Navigation */}
-        <div className="mt-16 flex items-center justify-between pt-8 border-t border-gray-100">
+        <div className="mt-16 flex items-center justify-between pt-8 border-t border-gray-200/60 dark:border-gray-800/60">
           <button
             onClick={prevStep}
             disabled={currentStep === STEPS[0]?.id}
-            className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-gray-500 hover:bg-gray-100 disabled:opacity-0 transition-all"
+            className="group flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/60 disabled:opacity-0 transition-all"
           >
-            <ChevronLeft size={20} />
+            <ChevronLeft size={18} className="group-hover:-translate-x-0.5 transition-transform" />
             Voltar
           </button>
 
           {currentStep !== 'copy' && (
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <button
                 onClick={() => handleSaveProject()}
                 disabled={isSaving}
-                className="flex items-center gap-2 px-6 py-3 bg-white border-2 border-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-50 transition-all disabled:opacity-50"
+                className="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-gray-900/80 ring-1 ring-gray-200/60 dark:ring-gray-800/60 text-gray-700 dark:text-gray-200 rounded-xl font-bold hover:bg-gray-50 dark:hover:bg-gray-800 hover:ring-gray-300 dark:hover:ring-gray-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSaving ? (
-                  <Loader2 className="animate-spin" size={18} />
+                  <Loader2 className="animate-spin" size={16} />
                 ) : currentProjectId ? (
-                  <CheckCircle2 size={18} className="text-green-500" />
+                  <CheckCircle2 size={16} className="text-green-500" />
                 ) : (
-                  <Download size={18} className="text-blue-500" />
+                  <Download size={16} className="text-blue-500" />
                 )}
                 {currentProjectId ? 'Salvar' : 'Salvar Projeto'}
               </button>
@@ -5504,10 +5504,13 @@ export default function App() {
               <button
                 onClick={nextStep}
                 disabled={currentStep === 'final'}
-                className="flex items-center gap-2 px-8 py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-black transition-all shadow-lg disabled:opacity-50"
+                className="group flex items-center gap-2 px-7 py-2.5 bg-gradient-to-br from-gray-900 to-gray-800 dark:from-blue-500 dark:to-blue-600 text-white rounded-xl font-bold hover:from-black hover:to-gray-900 dark:hover:from-blue-600 dark:hover:to-blue-700 active:scale-[0.98] transition-all shadow-lg shadow-gray-900/20 dark:shadow-blue-900/40 ring-1 ring-inset ring-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Continuar
-                <ChevronRight size={20} />
+                <ChevronRight
+                  size={18}
+                  className="group-hover:translate-x-0.5 transition-transform"
+                />
               </button>
             </div>
           )}
