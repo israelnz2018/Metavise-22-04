@@ -30,11 +30,7 @@ function formatRelative(lastSavedAt: number): string {
   return `Salvo há ${diffH}h`;
 }
 
-export function AutoSaveIndicator({
-  isSaving,
-  hasUnsavedChanges,
-  lastSavedAt,
-}: Props) {
+export function AutoSaveIndicator({ isSaving, hasUnsavedChanges, lastSavedAt }: Props) {
   // Force re-render every 30s so the "há Xmin" text updates without
   // requiring an external trigger. Cheap — one setState every 30s.
   const [, forceTick] = useState(0);
@@ -47,10 +43,10 @@ export function AutoSaveIndicator({
   if (isSaving) {
     return (
       <span
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-full text-[10px] font-black uppercase tracking-widest"
+        className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400 rounded-full text-[10px] font-black uppercase tracking-widest ring-1 ring-blue-200/60 dark:ring-blue-900/40"
         title="Salvando alterações…"
       >
-        <Loader2 size={12} className="animate-spin" />
+        <Loader2 size={11} className="animate-spin" />
         Salvando…
       </span>
     );
@@ -59,10 +55,10 @@ export function AutoSaveIndicator({
   if (hasUnsavedChanges) {
     return (
       <span
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-full text-[10px] font-black uppercase tracking-widest"
+        className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 rounded-full text-[10px] font-black uppercase tracking-widest ring-1 ring-amber-200/60 dark:ring-amber-900/40"
         title="Você tem alterações não salvas neste projeto"
       >
-        <AlertCircle size={12} />
+        <AlertCircle size={11} />
         Não salvo
       </span>
     );
@@ -72,10 +68,10 @@ export function AutoSaveIndicator({
 
   return (
     <span
-      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 rounded-full text-[10px] font-black uppercase tracking-widest"
+      className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-400 rounded-full text-[10px] font-black uppercase tracking-widest ring-1 ring-green-200/60 dark:ring-green-900/40"
       title={`Última gravação: ${new Date(lastSavedAt).toLocaleTimeString()}`}
     >
-      <CheckCircle2 size={12} />
+      <CheckCircle2 size={11} />
       {formatRelative(lastSavedAt)}
     </span>
   );
