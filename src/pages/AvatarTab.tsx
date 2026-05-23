@@ -321,11 +321,13 @@ export function AvatarTab({
       {/* Toggle: which side of the video are we producing? Hidden when
           the project doesn't use a separate hook. */}
       {useHookFlow && (
-        <div className="bg-white p-2 rounded-2xl border-2 border-gray-100 shadow-sm flex gap-1">
+        <div className="bg-white dark:bg-gray-900/80 p-2 rounded-2xl border-2 border-gray-200 dark:border-gray-800 shadow-sm flex gap-1">
           <button
             onClick={() => setAvatarMode('body')}
             className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-              !isHookMode ? 'bg-gray-900 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'
+              !isHookMode
+                ? 'bg-gray-900 text-white shadow-md'
+                : 'text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:bg-gray-800/60'
             }`}
           >
             Avatar do Corpo
@@ -336,7 +338,9 @@ export function AvatarTab({
           <button
             onClick={() => setAvatarMode('hook')}
             className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-              isHookMode ? 'bg-amber-500 text-white shadow-md' : 'text-gray-500 hover:bg-amber-50'
+              isHookMode
+                ? 'bg-amber-500 text-white shadow-md'
+                : 'text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:bg-amber-50 dark:bg-amber-950/40'
             }`}
           >
             Avatar do Gancho
@@ -350,7 +354,7 @@ export function AvatarTab({
       {/* Áudio aprovado da Voz Premium */}
       {displayedAudioUrl && (
         <div
-          className={`p-6 bg-white rounded-[40px] border-2 shadow-lg ${
+          className={`p-6 bg-white dark:bg-gray-900/80 rounded-[40px] border-2 shadow-lg ${
             isHookMode ? 'border-amber-200' : 'border-blue-200'
           }`}
         >
@@ -362,10 +366,10 @@ export function AvatarTab({
             >
               <Volume2 size={16} />
             </div>
-            <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest">
+            <h3 className="text-sm font-black text-gray-900 dark:text-gray-50 uppercase tracking-widest">
               Áudio Aprovado {isHookMode ? '(Gancho)' : '(Corpo)'}
             </h3>
-            <span className="ml-auto text-xs text-gray-400">vindo da Voz</span>
+            <span className="ml-auto text-xs text-gray-400 dark:text-gray-500">vindo da Voz</span>
           </div>
           <div className="flex items-center gap-2">
             <audio controls src={displayedAudioUrl} className="w-full flex-1" />
@@ -377,13 +381,13 @@ export function AvatarTab({
                 });
                 setShowDeleteModal(true);
               }}
-              className="p-2 text-gray-400 hover:text-red-500 transition-colors rounded-xl hover:bg-red-50 flex-shrink-0"
+              className="p-2 text-gray-400 dark:text-gray-500 hover:text-red-500 transition-colors rounded-xl hover:bg-red-50 dark:bg-red-950/40 flex-shrink-0"
               title="Deletar áudio"
             >
               <Trash2 size={18} />
             </button>
           </div>
-          <p className="text-[10px] text-gray-400 mt-2 italic">
+          <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-2 italic">
             {isHookMode
               ? 'Áudio do gancho. Para trocar, volte à aba Voz e ative "Voz do Gancho".'
               : 'Áudio do corpo. Para trocar, volte à aba Voz.'}
@@ -393,10 +397,12 @@ export function AvatarTab({
       {!displayedAudioUrl && (
         <div
           className={`p-6 rounded-[40px] border-2 border-dashed ${
-            isHookMode ? 'border-amber-200 bg-amber-50/40' : 'border-blue-200 bg-blue-50/40'
+            isHookMode
+              ? 'border-amber-200 bg-amber-50 dark:bg-amber-950/40/40'
+              : 'border-blue-200 bg-blue-50 dark:bg-blue-950/40/40'
           }`}
         >
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500">
             {isHookMode
               ? '⚠ Você ainda não gerou o áudio do gancho. Vá em "Voz" → toggle "Voz do Gancho" → gerar.'
               : '⚠ Você ainda não gerou o áudio do corpo. Vá em "Voz" → gerar.'}
@@ -496,14 +502,14 @@ export function AvatarTab({
 
       {/* Fallback Option */}
       {!displayedVideoUrl && !loading && !videoOp && (
-        <div className="bg-amber-50 p-6 rounded-[32px] border-2 border-amber-100 flex items-center justify-between gap-6">
+        <div className="bg-amber-50 dark:bg-amber-950/40 p-6 rounded-[32px] border-2 border-amber-100 flex items-center justify-between gap-6">
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-amber-100 rounded-2xl text-amber-600">
+            <div className="p-3 bg-amber-100 dark:bg-amber-950/30 rounded-2xl text-amber-600 dark:text-amber-400">
               <RefreshCw size={24} />
             </div>
             <div className="space-y-1">
               <h4 className="text-lg font-black text-amber-900">Modo de Fallback (Diagnóstico)</h4>
-              <p className="text-amber-700 text-sm font-medium">
+              <p className="text-amber-700 dark:text-amber-400 text-sm font-medium">
                 Se a geração com áudio externo falhar, use esta opção para testar com uma voz nativa
                 do HeyGen.
               </p>
@@ -516,7 +522,7 @@ export function AvatarTab({
               checked={useNativeFallback}
               onChange={(e) => setUseNativeFallback(e.target.checked)}
             />
-            <div className="w-14 h-8 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-amber-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-amber-600"></div>
+            <div className="w-14 h-8 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-amber-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white dark:bg-gray-900/80 after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-amber-600"></div>
           </label>
         </div>
       )}
@@ -553,14 +559,14 @@ export function AvatarTab({
             <div className="absolute top-6 right-6 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
                 onClick={() => handleGenerateVideo(true)}
-                className="p-3 bg-white/90 backdrop-blur-md text-gray-900 rounded-2xl shadow-xl hover:bg-white transition-all"
+                className="p-3 bg-white/90 backdrop-blur-md text-gray-900 dark:text-gray-50 rounded-2xl shadow-xl hover:bg-white dark:bg-gray-900/80 transition-all"
                 title="Regerar"
               >
                 <RefreshCw size={20} />
               </button>
               <button
                 onClick={() => setShowDeleteVideoModal(true)}
-                className="p-3 bg-white/90 backdrop-blur-md text-red-600 rounded-2xl shadow-xl hover:bg-red-50 transition-all"
+                className="p-3 bg-white/90 backdrop-blur-md text-red-600 dark:text-red-400 rounded-2xl shadow-xl hover:bg-red-50 dark:bg-red-950/40 transition-all"
                 title="Deletar Vídeo"
               >
                 <Trash2 size={20} />
@@ -601,7 +607,7 @@ export function AvatarTab({
             </button>
             <button
               onClick={() => handleGenerateVideo(true)}
-              className="flex-1 px-8 py-5 bg-white border-2 border-gray-100 text-gray-900 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-50 transition-all flex items-center justify-center gap-3"
+              className="flex-1 px-8 py-5 bg-white dark:bg-gray-900/80 border-2 border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-50 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-50 dark:bg-gray-800/60 transition-all flex items-center justify-center gap-3"
             >
               <RefreshCw size={20} />
               Regerar Atual
@@ -626,18 +632,21 @@ export function AvatarTab({
 
       {/* Video History List */}
       {(isHookMode ? hookVideos : videos || []).length > 0 && (
-        <div className="bg-white p-8 rounded-[40px] border-2 border-gray-100 shadow-xl space-y-6">
+        <div className="bg-white dark:bg-gray-900/80 p-8 rounded-[40px] border-2 border-gray-200 dark:border-gray-800 shadow-xl space-y-6">
           <div className="flex items-center justify-between border-b border-gray-50 pb-6">
             <div className="space-y-1">
-              <h3 className="text-xl font-black text-gray-900 uppercase tracking-tight flex items-center gap-2">
-                <Video size={20} className={isHookMode ? 'text-amber-500' : 'text-blue-600'} />
+              <h3 className="text-xl font-black text-gray-900 dark:text-gray-50 uppercase tracking-tight flex items-center gap-2">
+                <Video
+                  size={20}
+                  className={isHookMode ? 'text-amber-500' : 'text-blue-600 dark:text-blue-400'}
+                />
                 Histórico de Vídeos {isHookMode ? '(Gancho)' : '(Corpo)'}
               </h3>
-              <p className="text-xs text-gray-400 font-medium">
+              <p className="text-xs text-gray-400 dark:text-gray-500 font-medium">
                 Selecione o vídeo que deseja usar no projeto.
               </p>
             </div>
-            <span className="px-3 py-1 bg-gray-100 text-gray-500 rounded-full text-[10px] font-black uppercase tracking-widest">
+            <span className="px-3 py-1 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 dark:text-gray-500 rounded-full text-[10px] font-black uppercase tracking-widest">
               {(isHookMode ? hookVideos : videos || []).length}{' '}
               {(isHookMode ? hookVideos : videos || []).length === 1 ? 'Vídeo' : 'Vídeos'}
             </span>
@@ -691,8 +700,8 @@ export function AvatarTab({
                 className={cn(
                   'group relative rounded-[32px] border-2 transition-all cursor-pointer overflow-hidden flex flex-col',
                   (isHookMode ? hookVideoUrl : videoUrl) === video.url
-                    ? 'border-blue-600 bg-blue-50 shadow-lg'
-                    : 'border-gray-100 bg-white hover:border-blue-200'
+                    ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40 shadow-lg'
+                    : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/80 hover:border-blue-200'
                 )}
               >
                 <div
@@ -750,10 +759,10 @@ export function AvatarTab({
                 </div>
                 <div className="p-4 flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <p className="text-[10px] font-black text-gray-900 uppercase tracking-tight">
+                    <p className="text-[10px] font-black text-gray-900 dark:text-gray-50 uppercase tracking-tight">
                       Vídeo {idx + 1}
                     </p>
-                    <p className="text-[8px] text-gray-400 font-bold uppercase tracking-widest">
+                    <p className="text-[8px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest">
                       {new Date(video.createdAt).toLocaleDateString()} •{' '}
                       {new Date(video.createdAt).toLocaleTimeString([], {
                         hour: '2-digit',
@@ -767,7 +776,7 @@ export function AvatarTab({
                       setVideoToDelete(video);
                       setShowDeleteHistoryVideoModal(true);
                     }}
-                    className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                    className="p-2 text-gray-400 dark:text-gray-500 hover:text-red-500 transition-colors"
                   >
                     <Trash2 size={16} />
                   </button>
@@ -825,14 +834,18 @@ export function AvatarTab({
         />
 
         <div className="flex items-center justify-between">
-          <h3 className="text-2xl font-black text-gray-900 tracking-tight">Escolher Avatar</h3>
-          <div className="flex items-center gap-2 px-4 py-2 bg-purple-50 rounded-xl border border-purple-100">
-            <User size={16} className="text-purple-600" />
-            <span className="text-xs font-bold text-purple-700">HeyGen Ativo</span>
+          <h3 className="text-2xl font-black text-gray-900 dark:text-gray-50 tracking-tight">
+            Escolher Avatar
+          </h3>
+          <div className="flex items-center gap-2 px-4 py-2 bg-purple-50 dark:bg-purple-950/40 rounded-xl border border-purple-100">
+            <User size={16} className="text-purple-600 dark:text-purple-400" />
+            <span className="text-xs font-bold text-purple-700 dark:text-purple-300">
+              HeyGen Ativo
+            </span>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-[40px] border-2 border-gray-100 shadow-xl space-y-6">
+        <div className="bg-white dark:bg-gray-900/80 p-6 rounded-[40px] border-2 border-gray-200 dark:border-gray-800 shadow-xl space-y-6">
           {/* Favorites chip — own row so it's always visible without
               eating the grid columns. Hidden when the user has zero
               favorites yet (avoids tempting an empty list). */}
@@ -843,7 +856,7 @@ export function AvatarTab({
                 className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest transition-all border-2 ${
                   showOnlyFavorites
                     ? 'bg-amber-400 text-amber-950 border-amber-400 shadow-md'
-                    : 'bg-white text-gray-500 border-gray-200 hover:border-amber-300 hover:text-amber-700'
+                    : 'bg-white dark:bg-gray-900/80 text-gray-500 dark:text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700 hover:border-amber-300 hover:text-amber-700 dark:text-amber-400'
                 }`}
                 title="Mostrar somente seus avatares favoritos"
               >
@@ -855,7 +868,7 @@ export function AvatarTab({
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="md:col-span-2 relative">
               <Search
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500"
                 size={18}
               />
               <input
@@ -863,13 +876,13 @@ export function AvatarTab({
                 placeholder="Buscar avatar por nome..."
                 value={avatarSearch || ''}
                 onChange={(e) => setAvatarSearch(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-transparent focus:border-blue-600 focus:bg-white rounded-2xl outline-none transition-all text-sm font-bold"
+                className="w-full pl-12 pr-4 py-4 bg-gray-50 dark:bg-gray-800/60 border-2 border-transparent focus:border-blue-600 focus:bg-white dark:bg-gray-900/80 rounded-2xl outline-none transition-all text-sm font-bold"
               />
             </div>
 
             <div className="relative">
               <Filter
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500"
                 size={16}
               />
               <select
@@ -880,7 +893,7 @@ export function AvatarTab({
                     gender: e.target.value,
                   }))
                 }
-                className="w-full pl-10 pr-4 py-4 bg-gray-50 border-2 border-transparent focus:border-blue-600 focus:bg-white rounded-2xl outline-none transition-all text-sm font-bold text-gray-600 appearance-none"
+                className="w-full pl-10 pr-4 py-4 bg-gray-50 dark:bg-gray-800/60 border-2 border-transparent focus:border-blue-600 focus:bg-white dark:bg-gray-900/80 rounded-2xl outline-none transition-all text-sm font-bold text-gray-600 dark:text-gray-400 dark:text-gray-500 appearance-none"
               >
                 <option value="">Todos Gêneros</option>
                 <option value="male">Masculino</option>
@@ -890,7 +903,7 @@ export function AvatarTab({
 
             <div className="relative">
               <SortAsc
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500"
                 size={16}
               />
               <select
@@ -901,7 +914,7 @@ export function AvatarTab({
                     sort: e.target.value,
                   }))
                 }
-                className="w-full pl-10 pr-4 py-4 bg-gray-50 border-2 border-transparent focus:border-blue-600 focus:bg-white rounded-2xl outline-none transition-all text-sm font-bold text-gray-600 appearance-none"
+                className="w-full pl-10 pr-4 py-4 bg-gray-50 dark:bg-gray-800/60 border-2 border-transparent focus:border-blue-600 focus:bg-white dark:bg-gray-900/80 rounded-2xl outline-none transition-all text-sm font-bold text-gray-600 dark:text-gray-400 dark:text-gray-500 appearance-none"
               >
                 <option value="name">A a Z</option>
                 <option value="ads">Melhores para Anúncios</option>
@@ -914,7 +927,7 @@ export function AvatarTab({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Style Filter */}
               <div className="space-y-3">
-                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                <h4 className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
                   Estilo (Style)
                 </h4>
                 <div className="flex flex-wrap gap-2">
@@ -932,7 +945,7 @@ export function AvatarTab({
                       className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border-2 ${
                         avatarFilters.styles.includes(style)
                           ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-200'
-                          : 'bg-white border-gray-100 text-gray-400 hover:border-gray-200'
+                          : 'bg-white dark:bg-gray-900/80 border-gray-200 dark:border-gray-800 text-gray-400 dark:text-gray-500 hover:border-gray-200 dark:border-gray-700'
                       }`}
                     >
                       {style}
@@ -943,7 +956,7 @@ export function AvatarTab({
 
               {/* Ethnicity Filter */}
               <div className="space-y-3">
-                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                <h4 className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
                   Etnia (Ethnicity)
                 </h4>
                 <div className="flex flex-wrap gap-2">
@@ -962,7 +975,7 @@ export function AvatarTab({
                         className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border-2 ${
                           avatarFilters.ethnicities.includes(eth)
                             ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-200'
-                            : 'bg-white border-gray-100 text-gray-400 hover:border-gray-200'
+                            : 'bg-white dark:bg-gray-900/80 border-gray-200 dark:border-gray-800 text-gray-400 dark:text-gray-500 hover:border-gray-200 dark:border-gray-700'
                         }`}
                       >
                         {eth}
@@ -974,7 +987,7 @@ export function AvatarTab({
 
               {/* Age Filter */}
               <div className="space-y-3">
-                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                <h4 className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
                   Idade (Age)
                 </h4>
                 <div className="flex flex-wrap gap-2">
@@ -992,7 +1005,7 @@ export function AvatarTab({
                       className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all border-2 ${
                         avatarFilters.ages.includes(age)
                           ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-200'
-                          : 'bg-white border-gray-100 text-gray-400 hover:border-gray-200'
+                          : 'bg-white dark:bg-gray-900/80 border-gray-200 dark:border-gray-800 text-gray-400 dark:text-gray-500 hover:border-gray-200 dark:border-gray-700'
                       }`}
                     >
                       {age}
@@ -1018,7 +1031,7 @@ export function AvatarTab({
                     sort: 'name',
                   });
                 }}
-                className="ml-auto text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"
+                className="ml-auto text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
               >
                 <RefreshCw size={12} />
                 Limpar Filtros
@@ -1030,24 +1043,24 @@ export function AvatarTab({
         <div className="flex flex-col md:flex-row items-center justify-between gap-6 pt-8 border-t border-gray-50">
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
-              <h4 className="font-black text-gray-900 uppercase tracking-tight">
+              <h4 className="font-black text-gray-900 dark:text-gray-50 uppercase tracking-tight">
                 Geração do Vídeo
               </h4>
-              <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-md text-[10px] font-black uppercase tracking-widest">
+              <span className="px-2 py-0.5 bg-purple-100 text-purple-700 dark:text-purple-300 rounded-md text-[10px] font-black uppercase tracking-widest">
                 HeyGen
               </span>
             </div>
-            <p className="text-xs text-gray-500 font-medium italic">
+            <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 font-medium italic">
               Selecione o avatar acima para iniciar a geração.
             </p>
 
             <div className="flex items-center gap-4 mt-2">
               <div className="flex-1 space-y-2">
                 <div className="flex justify-between items-center">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                  <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
                     Escala do Avatar (Zoom)
                   </label>
-                  <span className="text-xs font-bold text-blue-600">
+                  <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
                     {(config.avatar.scale || 1.0).toFixed(1)}x
                   </span>
                 </div>
@@ -1066,9 +1079,9 @@ export function AvatarTab({
                       },
                     }))
                   }
-                  className="w-full h-2 bg-gray-100 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                  className="w-full h-2 bg-gray-100 dark:bg-gray-800 rounded-lg appearance-none cursor-pointer accent-blue-600"
                 />
-                <div className="flex justify-between text-[8px] text-gray-400 font-bold uppercase">
+                <div className="flex justify-between text-[8px] text-gray-400 dark:text-gray-500 font-bold uppercase">
                   <span>Afastado</span>
                   <span>Padrão (1.0)</span>
                   <span>Zoom</span>
@@ -1079,15 +1092,15 @@ export function AvatarTab({
                 onClick={() => setIsTestMode(!isTestMode)}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all border-2 ${
                   isTestMode
-                    ? 'bg-amber-50 border-amber-200 text-amber-700 shadow-sm'
-                    : 'bg-white border-gray-100 text-gray-400 hover:border-gray-200'
+                    ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 text-amber-700 dark:text-amber-400 shadow-sm'
+                    : 'bg-white dark:bg-gray-900/80 border-gray-200 dark:border-gray-800 text-gray-400 dark:text-gray-500 hover:border-gray-200 dark:border-gray-700'
                 }`}
               >
                 <Tag size={12} />
                 Modo Teste (Clip Curto)
               </button>
               {isTestMode && (
-                <span className="text-[9px] font-bold text-amber-600 animate-pulse">
+                <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400 animate-pulse">
                   Gera apenas 3 segundos para validação rápida
                 </span>
               )}
@@ -1095,7 +1108,7 @@ export function AvatarTab({
           </div>
           <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
             {isVideoUpToDate() && (
-              <div className="flex items-center gap-2 text-green-600 bg-green-50 px-4 py-2 rounded-xl border border-green-100 shadow-sm">
+              <div className="flex items-center gap-2 text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/40 px-4 py-2 rounded-xl border border-green-100 shadow-sm">
                 <CheckCircle2 size={16} />
                 <div className="flex flex-col">
                   <span className="text-[10px] font-black uppercase tracking-widest">
@@ -1114,7 +1127,7 @@ export function AvatarTab({
                 videoOp.status !== 'cancelled')) && (
               <button
                 onClick={handleCancelGeneration}
-                className="w-full md:w-auto px-8 py-5 bg-red-50 text-red-600 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-red-100 transition-all border-2 border-red-100"
+                className="w-full md:w-auto px-8 py-5 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-red-100 transition-all border-2 border-red-100"
               >
                 <XCircle size={20} />
                 Cancelar Geração
@@ -1172,7 +1185,7 @@ export function AvatarTab({
             <div className="flex flex-col md:flex-row gap-8">
               <div className="flex-1 space-y-4">
                 <div className="flex items-center justify-between">
-                  <h5 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">
+                  <h5 className="text-[10px] font-black text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em]">
                     Status HeyGen
                   </h5>
                   <div className="flex items-center gap-2">
@@ -1195,13 +1208,13 @@ export function AvatarTab({
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
-                    <p className="text-[8px] font-black text-gray-500 uppercase tracking-widest mb-1">
+                    <p className="text-[8px] font-black text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">
                       ID do Vídeo
                     </p>
                     <p className="text-[10px] font-mono text-blue-400 truncate">{videoOp.id}</p>
                   </div>
                   <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
-                    <p className="text-[8px] font-black text-gray-500 uppercase tracking-widest mb-1">
+                    <p className="text-[8px] font-black text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">
                       Progresso
                     </p>
                     <p className="text-lg font-black text-white">{videoOp.progress}%</p>
@@ -1222,37 +1235,39 @@ export function AvatarTab({
               </div>
 
               <div className="flex-1 space-y-4">
-                <h5 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">
+                <h5 className="text-[10px] font-black text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em]">
                   Métricas de Tempo
                 </h5>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">
+                    <p className="text-[8px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
                       Fila (Queue)
                     </p>
                     <p className="text-xl font-black text-white">{videoOp.queuedTime || 0}s</p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">
+                    <p className="text-[8px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
                       Renderização
                     </p>
                     <p className="text-xl font-black text-white">{videoOp.renderTime || 0}s</p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">
+                    <p className="text-[8px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
                       Total Decorrido
                     </p>
                     <p className="text-xl font-black text-blue-400">{videoOp.totalTime || 0}s</p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">
+                    <p className="text-[8px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
                       Polls (Consultas)
                     </p>
-                    <p className="text-xl font-black text-gray-500">{videoOp.pollCount || 0}</p>
+                    <p className="text-xl font-black text-gray-500 dark:text-gray-400 dark:text-gray-500">
+                      {videoOp.pollCount || 0}
+                    </p>
                   </div>
                 </div>
                 <div className="pt-2 border-t border-white/5">
-                  <p className="text-[8px] font-black text-gray-600 uppercase tracking-widest">
+                  <p className="text-[8px] font-black text-gray-600 dark:text-gray-400 dark:text-gray-500 uppercase tracking-widest">
                     Iniciado às: {videoOp.requestSentTime}
                   </p>
                 </div>
@@ -1263,12 +1278,13 @@ export function AvatarTab({
 
         <div className="flex items-center justify-between px-2">
           <div className="flex flex-col gap-1">
-            <p className="text-sm font-bold text-gray-500">
-              Exibindo <span className="text-blue-600">{filteredAvatars.length}</span> avatares
-              encontrados
+            <p className="text-sm font-bold text-gray-500 dark:text-gray-400 dark:text-gray-500">
+              Exibindo{' '}
+              <span className="text-blue-600 dark:text-blue-400">{filteredAvatars.length}</span>{' '}
+              avatares encontrados
             </p>
             {isFallbackActive && (
-              <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest animate-pulse flex items-center gap-1">
+              <p className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest animate-pulse flex items-center gap-1">
                 <AlertCircle size={10} />
                 Nenhum resultado exato. Exibindo todos para facilitar sua busca.
               </p>
@@ -1278,19 +1294,19 @@ export function AvatarTab({
 
         {loadingAvatars ? (
           <div className="flex flex-col items-center justify-center py-24 space-y-4">
-            <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
-            <p className="text-sm text-gray-500 font-bold uppercase tracking-widest">
+            <Loader2 className="w-12 h-12 text-blue-600 dark:text-blue-400 animate-spin" />
+            <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest">
               Carregando Avatares...
             </p>
           </div>
         ) : avatarError ? (
-          <div className="p-12 bg-red-50 border-2 border-red-100 rounded-[40px] text-center space-y-6">
-            <div className="w-16 h-16 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mx-auto">
+          <div className="p-12 bg-red-50 dark:bg-red-950/40 border-2 border-red-100 rounded-[40px] text-center space-y-6">
+            <div className="w-16 h-16 bg-red-100 text-red-600 dark:text-red-400 rounded-2xl flex items-center justify-center mx-auto">
               <AlertCircle size={32} />
             </div>
             <div className="space-y-2">
               <p className="text-red-900 font-black text-xl">Erro ao carregar avatares</p>
-              <p className="text-red-600 font-medium">{avatarError}</p>
+              <p className="text-red-600 dark:text-red-400 font-medium">{avatarError}</p>
             </div>
             <button
               onClick={() => {
@@ -1388,7 +1404,7 @@ export function AvatarTab({
                   className={`group relative aspect-[3/4] rounded-[32px] overflow-hidden border-4 transition-all ${
                     config.avatar.faceId === a.avatar_id
                       ? 'border-blue-600 scale-[1.02] shadow-2xl shadow-blue-100'
-                      : 'border-transparent hover:border-gray-200 shadow-sm'
+                      : 'border-transparent hover:border-gray-200 dark:border-gray-700 shadow-sm'
                   }`}
                 >
                   {/* Native lazy-load (loading="lazy") + async decode

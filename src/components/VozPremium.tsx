@@ -483,7 +483,7 @@ const VozPremium: React.FC<Props> = ({
         }
         setter(val);
       }}
-      className={`text-xs px-3 py-1.5 rounded-lg border transition ${cur === val ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}
+      className={`text-xs px-3 py-1.5 rounded-lg border transition ${cur === val ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:border-gray-300'}`}
     >
       {label}
     </button>
@@ -664,24 +664,28 @@ const VozPremium: React.FC<Props> = ({
       <div className="mb-8">
         <div className="flex items-center gap-2 mb-2">
           <Sparkles size={20} className="text-purple-500" />
-          <span className="text-xs uppercase tracking-wider text-purple-600 font-semibold">
+          <span className="text-xs uppercase tracking-wider text-purple-600 dark:text-purple-400 font-semibold">
             Premium
           </span>
         </div>
-        <h2 className="text-3xl font-light text-gray-900">Voz Premium</h2>
-        <p className="text-gray-500 mt-2">Otimize o roteiro e gere o áudio do seu anúncio.</p>
+        <h2 className="text-3xl font-light text-gray-900 dark:text-gray-50">Voz Premium</h2>
+        <p className="text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-2">
+          Otimize o roteiro e gere o áudio do seu anúncio.
+        </p>
       </div>
 
       {/* ── STEP 1: APPROVED COPY (editable + save + optimize) ── */}
-      <div className="mb-6 bg-white rounded-2xl border-2 border-gray-100 p-6 shadow-sm">
+      <div className="mb-6 bg-white dark:bg-gray-900/80 rounded-2xl border-2 border-gray-200 dark:border-gray-800 p-6 shadow-sm">
         <div className="flex items-center gap-2 mb-3">
           <div className="bg-blue-600 p-1.5 rounded-lg text-white">
             <FileText size={16} />
           </div>
-          <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest">
+          <h3 className="text-sm font-black text-gray-900 dark:text-gray-50 uppercase tracking-widest">
             1. Copy Aprovada
           </h3>
-          <span className="text-xs text-gray-400 ml-auto">vinda do Copywriting / Hook</span>
+          <span className="text-xs text-gray-400 dark:text-gray-500 ml-auto">
+            vinda do Copywriting / Hook
+          </span>
           {isApprovedDirty && (
             <span className="text-xs text-orange-500 font-bold">• Não salvo</span>
           )}
@@ -691,25 +695,25 @@ const VozPremium: React.FC<Props> = ({
             value={editedApproved}
             onChange={(e) => setEditedApproved(e.target.value)}
             rows={8}
-            className="w-full bg-gray-50 text-gray-800 text-base rounded-xl p-5 border-2 border-dashed border-gray-200 focus:border-blue-400 outline-none leading-relaxed resize-y"
+            className="w-full bg-gray-50 dark:bg-gray-800/60 text-gray-800 text-base rounded-xl p-5 border-2 border-dashed border-gray-200 dark:border-gray-700 focus:border-blue-400 outline-none leading-relaxed resize-y"
           />
         ) : (
-          <div className="bg-gray-50 rounded-xl p-5 border-2 border-dashed border-gray-200">
-            <p className="text-sm text-gray-400 italic">
+          <div className="bg-gray-50 dark:bg-gray-800/60 rounded-xl p-5 border-2 border-dashed border-gray-200 dark:border-gray-700">
+            <p className="text-sm text-gray-400 dark:text-gray-500 italic">
               Nenhuma copy aprovada. Volte à etapa de Copywriting e aprove um hook + script.
             </p>
           </div>
         )}
         {approvedScript && (
           <div className="flex items-center justify-between mt-4">
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-gray-400 dark:text-gray-500">
               {editedApproved.trim().split(/\s+/).filter(Boolean).length} palavras
             </p>
             <div className="flex items-center gap-3">
               <button
                 onClick={handleSaveApproved}
                 disabled={!isApprovedDirty}
-                className="px-6 py-3 bg-green-600 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-green-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition-all shadow-lg shadow-green-100 flex items-center gap-2"
+                className="px-6 py-3 bg-green-600 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-green-700 disabled:bg-gray-200 disabled:text-gray-400 dark:text-gray-500 disabled:cursor-not-allowed transition-all shadow-lg shadow-green-100 flex items-center gap-2"
               >
                 <CheckCircle2 size={16} />
                 Salvar
@@ -719,7 +723,7 @@ const VozPremium: React.FC<Props> = ({
                   onClick={handleOptimize}
                   disabled={isOptimizing || isApprovedDirty || !savedApproved}
                   title={isApprovedDirty ? 'Salve a copy antes de otimizar' : ''}
-                  className="px-8 py-3 bg-amber-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-amber-600 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition-all shadow-lg shadow-amber-100 flex items-center gap-2"
+                  className="px-8 py-3 bg-amber-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-amber-600 disabled:bg-gray-200 disabled:text-gray-400 dark:text-gray-500 disabled:cursor-not-allowed transition-all shadow-lg shadow-amber-100 flex items-center gap-2"
                 >
                   {isOptimizing ? (
                     <Loader2 className="animate-spin" size={16} />
@@ -743,7 +747,7 @@ const VozPremium: React.FC<Props> = ({
         >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <div className="bg-amber-400 p-1.5 rounded-lg text-gray-900">
+              <div className="bg-amber-400 p-1.5 rounded-lg text-gray-900 dark:text-gray-50">
                 <Wand2 size={16} />
               </div>
               <h3 className="text-sm font-black text-white uppercase tracking-widest">
@@ -775,7 +779,7 @@ const VozPremium: React.FC<Props> = ({
             <button
               onClick={handleSaveOptimized}
               disabled={!isOptimizedDirty}
-              className="px-6 py-2.5 bg-green-600 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-green-700 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed transition-all shadow-lg flex items-center gap-2"
+              className="px-6 py-2.5 bg-green-600 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-green-700 disabled:bg-gray-700 disabled:text-gray-500 dark:text-gray-400 dark:text-gray-500 disabled:cursor-not-allowed transition-all shadow-lg flex items-center gap-2"
             >
               <CheckCircle2 size={14} />
               Salvar
@@ -786,15 +790,15 @@ const VozPremium: React.FC<Props> = ({
 
       {/* STEP 3: gating messages */}
       {!optimizedScript && approvedScript && (
-        <div className="mb-8 p-6 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 text-center">
-          <p className="text-sm text-gray-400">
+        <div className="mb-8 p-6 bg-gray-50 dark:bg-gray-800/60 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 text-center">
+          <p className="text-sm text-gray-400 dark:text-gray-500">
             ⬆ Otimize a copy primeiro para liberar a escolha de voz
           </p>
         </div>
       )}
       {optimizedScript && isOptimizedDirty && (
-        <div className="mb-8 p-6 bg-orange-50 rounded-2xl border-2 border-dashed border-orange-200 text-center">
-          <p className="text-sm text-orange-600 font-bold">
+        <div className="mb-8 p-6 bg-orange-50 dark:bg-orange-950/40 rounded-2xl border-2 border-dashed border-orange-200 text-center">
+          <p className="text-sm text-orange-600 dark:text-orange-400 font-bold">
             ⬆ Salve a copy otimizada para liberar a escolha de voz
           </p>
         </div>
@@ -806,7 +810,7 @@ const VozPremium: React.FC<Props> = ({
             <div className="bg-purple-600 p-1.5 rounded-lg text-white">
               <Music size={16} />
             </div>
-            <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest">
+            <h3 className="text-sm font-black text-gray-900 dark:text-gray-50 uppercase tracking-widest">
               3. Escolha como gerar a voz
             </h3>
           </div>
@@ -826,16 +830,26 @@ const VozPremium: React.FC<Props> = ({
                   setDone(false);
                   setLocalAudioUrl('');
                 }}
-                className={`relative text-left rounded-2xl p-6 border-2 transition-all ${active ? 'border-purple-500 bg-purple-50/40 shadow-sm' : 'border-gray-100 hover:border-gray-300 bg-white'}`}
+                className={`relative text-left rounded-2xl p-6 border-2 transition-all ${active ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/40/40 shadow-sm' : 'border-gray-200 dark:border-gray-800 hover:border-gray-300 bg-white dark:bg-gray-900/80'}`}
               >
                 {active && (
                   <CheckCircle2 size={20} className="absolute top-4 right-4 text-purple-500" />
                 )}
                 <div className="flex items-center gap-3 mb-2">
-                  <span className={active ? 'text-purple-600' : 'text-gray-500'}>{m.icon}</span>
-                  <span className="font-medium text-gray-900">{m.label}</span>
+                  <span
+                    className={
+                      active
+                        ? 'text-purple-600 dark:text-purple-400'
+                        : 'text-gray-500 dark:text-gray-400 dark:text-gray-500'
+                    }
+                  >
+                    {m.icon}
+                  </span>
+                  <span className="font-medium text-gray-900 dark:text-gray-50">{m.label}</span>
                 </div>
-                <p className="text-sm text-gray-500">{m.desc}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500">
+                  {m.desc}
+                </p>
               </button>
             );
           })}
@@ -881,13 +895,15 @@ const VozPremium: React.FC<Props> = ({
                 />
 
                 {/* Filters */}
-                <div className="bg-white rounded-2xl border border-gray-100 p-5">
+                <div className="bg-white dark:bg-gray-900/80 rounded-2xl border border-gray-200 dark:border-gray-800 p-5">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
-                      <Filter size={16} className="text-gray-400" />
-                      <span className="text-sm font-medium text-gray-700">Filtros</span>
+                      <Filter size={16} className="text-gray-400 dark:text-gray-500" />
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-600">
+                        Filtros
+                      </span>
                     </div>
-                    <label className="flex items-center gap-2 text-xs text-gray-500 cursor-pointer">
+                    <label className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={showLowQuality}
@@ -899,7 +915,9 @@ const VozPremium: React.FC<Props> = ({
                   </div>
                   <div className="space-y-3">
                     <div className="flex flex-wrap gap-2">
-                      <span className="text-xs text-gray-400 w-16 pt-1.5">Gender</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500 w-16 pt-1.5">
+                        Gender
+                      </span>
                       {GENDERS.map((g) =>
                         filterBtn(
                           g.v,
@@ -910,7 +928,9 @@ const VozPremium: React.FC<Props> = ({
                       )}
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <span className="text-xs text-gray-400 w-16 pt-1.5">Age</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500 w-16 pt-1.5">
+                        Age
+                      </span>
                       {AGES.map((a) =>
                         filterBtn(
                           a.v,
@@ -921,7 +941,9 @@ const VozPremium: React.FC<Props> = ({
                       )}
                     </div>
                     <div className="flex flex-wrap gap-2 items-center">
-                      <span className="text-xs text-gray-400 w-16 pt-1.5">Language</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500 w-16 pt-1.5">
+                        Language
+                      </span>
                       {LANGUAGES.map((l) =>
                         filterBtn(
                           l.v,
@@ -932,13 +954,15 @@ const VozPremium: React.FC<Props> = ({
                         )
                       )}
                       {detectedLanguage && (
-                        <span className="text-xs text-purple-500 bg-purple-50 px-2 py-0.5 rounded-full">
+                        <span className="text-xs text-purple-500 bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 rounded-full">
                           detected from script
                         </span>
                       )}
                     </div>
                     <div className="flex flex-wrap gap-2 items-center">
-                      <span className="text-xs text-gray-400 w-16 pt-1.5">Accent</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500 w-16 pt-1.5">
+                        Accent
+                      </span>
                       {ACCENTS.map((a) =>
                         filterBtn(
                           a.v,
@@ -949,7 +973,9 @@ const VozPremium: React.FC<Props> = ({
                       )}
                     </div>
                     <div className="flex flex-wrap gap-2 items-center">
-                      <span className="text-xs text-gray-400 w-16 pt-1.5">Use case</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500 w-16 pt-1.5">
+                        Use case
+                      </span>
                       {USE_CASES.map((u) =>
                         filterBtn(
                           u.v,
@@ -960,7 +986,9 @@ const VozPremium: React.FC<Props> = ({
                       )}
                     </div>
                     <div className="flex flex-wrap gap-2 items-center">
-                      <span className="text-xs text-gray-400 w-16 pt-1.5">Descriptive</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500 w-16 pt-1.5">
+                        Descriptive
+                      </span>
                       {DESCRIPTIVES.map((d) =>
                         filterBtn(
                           d.v,
@@ -971,12 +999,12 @@ const VozPremium: React.FC<Props> = ({
                       )}
                     </div>
                     <div className="flex items-center gap-2 mt-2">
-                      <Search size={14} className="text-gray-400" />
+                      <Search size={14} className="text-gray-400 dark:text-gray-500" />
                       <input
                         value={searchText}
                         onChange={(e) => setSearchText(e.target.value)}
                         placeholder="Buscar por nome ou característica..."
-                        className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-purple-400"
+                        className="flex-1 text-sm border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-purple-400"
                       />
                     </div>
                   </div>
@@ -984,7 +1012,7 @@ const VozPremium: React.FC<Props> = ({
 
                 {/* Relaxation banner */}
                 {voicesRelaxed.length > 0 && !loadingVoices && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-sm text-amber-900">
+                  <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 rounded-2xl p-4 text-sm text-amber-900">
                     <span className="font-bold">Combinação muito específica.</span> Removi
                     temporariamente:{' '}
                     {voicesRelaxed
@@ -1003,8 +1031,8 @@ const VozPremium: React.FC<Props> = ({
                 )}
 
                 {/* Voice list */}
-                <div className="bg-white rounded-2xl border border-gray-100 p-5">
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">
+                <div className="bg-white dark:bg-gray-900/80 rounded-2xl border border-gray-200 dark:border-gray-800 p-5">
+                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-600 mb-3">
                     {loadingVoices
                       ? 'Carregando...'
                       : voicesTotal > voices.length
@@ -1012,7 +1040,7 @@ const VozPremium: React.FC<Props> = ({
                         : `${voices.length} vozes encontradas`}
                   </h4>
                   {loadingVoices ? (
-                    <div className="flex items-center justify-center py-12 text-gray-400">
+                    <div className="flex items-center justify-center py-12 text-gray-400 dark:text-gray-500">
                       <Loader2 size={20} className="animate-spin mr-2" /> Carregando vozes...
                     </div>
                   ) : (
@@ -1035,7 +1063,7 @@ const VozPremium: React.FC<Props> = ({
                             onClick={() => setSelectedVoice(v)}
                             onMouseEnter={() => playHoverPreview(v.preview_url)}
                             onMouseLeave={stopHoverPreview}
-                            className={`text-left rounded-xl p-4 border-2 transition cursor-pointer relative ${selectedVoice?.voice_id === v.voice_id ? 'border-purple-500 bg-purple-50/30' : 'border-gray-100 hover:border-gray-300'}`}
+                            className={`text-left rounded-xl p-4 border-2 transition cursor-pointer relative ${selectedVoice?.voice_id === v.voice_id ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/40/30' : 'border-gray-200 dark:border-gray-800 hover:border-gray-300'}`}
                           >
                             {isRecommended && (
                               <span className="absolute -top-2 -right-2 bg-purple-600 text-white text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full shadow-md border-2 border-white">
@@ -1043,7 +1071,7 @@ const VozPremium: React.FC<Props> = ({
                               </span>
                             )}
                             <div className="flex items-center justify-between mb-1">
-                              <span className="font-medium text-sm text-gray-900 truncate">
+                              <span className="font-medium text-sm text-gray-900 dark:text-gray-50 truncate">
                                 {v.name}
                               </span>
                               {v.preview_url && (
@@ -1052,46 +1080,49 @@ const VozPremium: React.FC<Props> = ({
                                     e.stopPropagation();
                                     new Audio(v.preview_url).play();
                                   }}
-                                  className="p-1 rounded-full hover:bg-gray-100"
+                                  className="p-1 rounded-full hover:bg-gray-100 dark:bg-gray-800"
                                 >
-                                  <Play size={14} className="text-gray-500" />
+                                  <Play
+                                    size={14}
+                                    className="text-gray-500 dark:text-gray-400 dark:text-gray-500"
+                                  />
                                 </button>
                               )}
                             </div>
                             <div className="flex flex-wrap gap-1 mt-1">
                               {v.labels?.gender && (
-                                <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                                <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 dark:text-gray-500 px-2 py-0.5 rounded-full">
                                   {v.labels.gender}
                                 </span>
                               )}
                               {v.labels?.age && (
-                                <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                                <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 dark:text-gray-500 px-2 py-0.5 rounded-full">
                                   {v.labels.age}
                                 </span>
                               )}
                               {v.labels?.language && (
-                                <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                                <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 dark:text-gray-500 px-2 py-0.5 rounded-full">
                                   {v.labels.language}
                                 </span>
                               )}
                               {v.labels?.use_case && (
-                                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
+                                <span className="text-xs bg-purple-100 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded-full">
                                   {v.labels.use_case}
                                 </span>
                               )}
                               {v.labels?.accent && (
-                                <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">
+                                <span className="text-xs bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full">
                                   {v.labels.accent}
                                 </span>
                               )}
                               {v.labels?.descriptive && (
-                                <span className="text-xs bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full">
+                                <span className="text-xs bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full">
                                   {v.labels.descriptive}
                                 </span>
                               )}
                               {typeof v.cloned_by_count === 'number' && (
                                 <span
-                                  className="text-[10px] text-gray-400 px-1.5 py-0.5"
+                                  className="text-[10px] text-gray-400 dark:text-gray-500 px-1.5 py-0.5"
                                   title="Quantos usuários clonaram esta voz — sinal de popularidade e qualidade"
                                 >
                                   {v.cloned_by_count >= 1000
@@ -1110,7 +1141,7 @@ const VozPremium: React.FC<Props> = ({
                       <button
                         onClick={handleLoadMoreVoices}
                         disabled={loadingMoreVoices}
-                        className="text-xs px-4 py-2 rounded-lg border border-gray-200 text-gray-600 hover:border-purple-400 hover:text-purple-700 disabled:opacity-50"
+                        className="text-xs px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:border-purple-400 hover:text-purple-700 dark:text-purple-300 disabled:opacity-50"
                       >
                         {loadingMoreVoices ? 'Carregando...' : 'Carregar mais vozes'}
                       </button>
@@ -1122,7 +1153,7 @@ const VozPremium: React.FC<Props> = ({
                   <button
                     onClick={handleGenerateCatalog}
                     disabled={!selectedVoice || generating}
-                    className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition ${!selectedVoice || generating ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-gray-900 text-white hover:bg-black'}`}
+                    className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition ${!selectedVoice || generating ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed' : 'bg-gray-900 text-white hover:bg-black'}`}
                   >
                     {generating ? (
                       <>
@@ -1144,7 +1175,7 @@ const VozPremium: React.FC<Props> = ({
             {mode === 'clone' && (
               <div className="space-y-6">
                 {/* Orientações */}
-                <div className="bg-blue-50 rounded-2xl border border-blue-100 p-5">
+                <div className="bg-blue-50 dark:bg-blue-950/40 rounded-2xl border border-blue-100 dark:border-blue-900 p-5">
                   <h4 className="text-sm font-semibold text-blue-900 mb-3">Antes de começar</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <p className="text-sm text-blue-800">🎙 Fale como quer soar nos anúncios</p>
@@ -1155,7 +1186,7 @@ const VozPremium: React.FC<Props> = ({
                 </div>
 
                 {/* Toggle gravar / upload */}
-                <div className="bg-white rounded-2xl border border-gray-100 p-6">
+                <div className="bg-white dark:bg-gray-900/80 rounded-2xl border border-gray-200 dark:border-gray-800 p-6">
                   <div className="flex gap-3 mb-6">
                     <button
                       onClick={() => {
@@ -1164,7 +1195,7 @@ const VozPremium: React.FC<Props> = ({
                         setRecordedBlob(null);
                         setRecordingSeconds(0);
                       }}
-                      className={`flex-1 py-3 rounded-xl text-sm font-medium border-2 transition ${cloneMode === 'record' ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-gray-100 text-gray-600 hover:border-gray-300'}`}
+                      className={`flex-1 py-3 rounded-xl text-sm font-medium border-2 transition ${cloneMode === 'record' ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300' : 'border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:border-gray-300'}`}
                     >
                       🎙 Gravar agora
                     </button>
@@ -1175,7 +1206,7 @@ const VozPremium: React.FC<Props> = ({
                         setRecordingSeconds(0);
                         if (isRecording) stopRecording();
                       }}
-                      className={`flex-1 py-3 rounded-xl text-sm font-medium border-2 transition ${cloneMode === 'upload' ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-gray-100 text-gray-600 hover:border-gray-300'}`}
+                      className={`flex-1 py-3 rounded-xl text-sm font-medium border-2 transition ${cloneMode === 'upload' ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300' : 'border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:border-gray-300'}`}
                     >
                       📁 Fazer upload
                     </button>
@@ -1187,10 +1218,10 @@ const VozPremium: React.FC<Props> = ({
                       {/* Estado inicial */}
                       {!isRecording && !recordedBlob && (
                         <div>
-                          <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-purple-50 border-2 border-purple-200 flex items-center justify-center">
+                          <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-purple-50 dark:bg-purple-950/40 border-2 border-purple-200 flex items-center justify-center">
                             <Mic size={36} className="text-purple-400" />
                           </div>
-                          <p className="text-sm text-gray-500 mb-6">
+                          <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mb-6">
                             Clique para começar. A gravação para automaticamente aos 2 minutos.
                           </p>
                           <button
@@ -1205,14 +1236,14 @@ const VozPremium: React.FC<Props> = ({
                       {/* Gravando */}
                       {isRecording && (
                         <div>
-                          <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-red-50 border-2 border-red-300 flex items-center justify-center animate-pulse">
+                          <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-red-50 dark:bg-red-950/40 border-2 border-red-300 flex items-center justify-center animate-pulse">
                             <Mic size={36} className="text-red-500" />
                           </div>
                           <div className="text-3xl font-mono font-bold text-gray-800 mb-3">
                             {String(Math.floor(recordingSeconds / 60)).padStart(2, '0')}:
                             {String(recordingSeconds % 60).padStart(2, '0')}
                           </div>
-                          <div className="w-full max-w-xs mx-auto bg-gray-100 rounded-full h-2 mb-2">
+                          <div className="w-full max-w-xs mx-auto bg-gray-100 dark:bg-gray-800 rounded-full h-2 mb-2">
                             <div
                               className="h-2 rounded-full transition-all duration-1000"
                               style={{
@@ -1226,7 +1257,7 @@ const VozPremium: React.FC<Props> = ({
                               }}
                             />
                           </div>
-                          <p className="text-xs text-gray-400 mb-6">
+                          <p className="text-xs text-gray-400 dark:text-gray-500 mb-6">
                             {recordingSeconds < 60
                               ? `Continue falando... mínimo recomendado: 1 minuto`
                               : recordingSeconds < 100
@@ -1245,13 +1276,13 @@ const VozPremium: React.FC<Props> = ({
                       {/* Gravação concluída */}
                       {recordedBlob && !isRecording && (
                         <div>
-                          <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-green-50 border-2 border-green-300 flex items-center justify-center">
+                          <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-green-50 dark:bg-green-950/40 border-2 border-green-300 flex items-center justify-center">
                             <CheckCircle2 size={36} className="text-green-500" />
                           </div>
                           <p className="text-sm font-medium text-gray-800 mb-1">
                             Gravação concluída
                           </p>
-                          <p className="text-xs text-gray-400 mb-4">
+                          <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
                             {Math.floor(recordingSeconds / 60)}min {recordingSeconds % 60}s gravados
                           </p>
                           <audio
@@ -1264,7 +1295,7 @@ const VozPremium: React.FC<Props> = ({
                               setRecordedBlob(null);
                               setRecordingSeconds(0);
                             }}
-                            className="text-xs text-gray-400 hover:text-gray-600 underline"
+                            className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:text-gray-400 dark:text-gray-500 underline"
                           >
                             Gravar novamente
                           </button>
@@ -1301,28 +1332,33 @@ const VozPremium: React.FC<Props> = ({
                               };
                             }}
                           />
-                          <div className="border-2 border-dashed border-gray-200 rounded-xl p-12 text-center hover:border-purple-300 transition">
-                            <Upload size={28} className="mx-auto text-gray-400 mb-2" />
-                            <p className="text-sm text-gray-600">Clique para enviar o áudio</p>
-                            <p className="text-xs text-gray-400 mt-1">
+                          <div className="border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl p-12 text-center hover:border-purple-300 transition">
+                            <Upload
+                              size={28}
+                              className="mx-auto text-gray-400 dark:text-gray-500 mb-2"
+                            />
+                            <p className="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500">
+                              Clique para enviar o áudio
+                            </p>
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                               MP3 ou WAV · entre 1 e 2 minutos
                             </p>
                           </div>
                         </label>
                       ) : (
                         <div>
-                          <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl p-4 mb-3">
+                          <div className="flex items-center gap-3 bg-green-50 dark:bg-green-950/40 border border-green-200 rounded-xl p-4 mb-3">
                             <CheckCircle2 size={20} className="text-green-500" />
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium text-gray-800 truncate">
                                 {cloneFile.name}
                               </p>
-                              <p className="text-xs text-gray-500">
+                              <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500">
                                 {(cloneFile.size / 1024 / 1024).toFixed(1)} MB
                               </p>
                             </div>
                             <button onClick={() => setCloneFile(null)}>
-                              <X size={16} className="text-gray-400" />
+                              <X size={16} className="text-gray-400 dark:text-gray-500" />
                             </button>
                           </div>
                           <audio controls src={URL.createObjectURL(cloneFile)} className="w-full" />
@@ -1333,17 +1369,17 @@ const VozPremium: React.FC<Props> = ({
                 </div>
 
                 {/* Nome da voz */}
-                <div className="bg-white rounded-2xl border border-gray-100 p-5">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                <div className="bg-white dark:bg-gray-900/80 rounded-2xl border border-gray-200 dark:border-gray-800 p-5">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-600 mb-2">
                     Nome da voz clonada
                   </label>
                   <input
                     value={cloneName}
                     onChange={(e) => setCloneName(e.target.value)}
                     placeholder={`Minha voz — ${new Date().toLocaleDateString('pt-BR')}`}
-                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-purple-400"
+                    className="w-full text-sm border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-purple-400"
                   />
-                  <p className="text-xs text-gray-400 mt-1">
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                     Este nome aparece no seu histórico de vozes clonadas.
                   </p>
                 </div>
@@ -1352,7 +1388,7 @@ const VozPremium: React.FC<Props> = ({
                   <button
                     onClick={handleCloneAndGenerate}
                     disabled={(!recordedBlob && !cloneFile) || !cloneName || cloning}
-                    className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition ${(!recordedBlob && !cloneFile) || !cloneName || cloning ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-gray-900 text-white hover:bg-black'}`}
+                    className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition ${(!recordedBlob && !cloneFile) || !cloneName || cloning ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed' : 'bg-gray-900 text-white hover:bg-black'}`}
                   >
                     {cloning ? (
                       <>
@@ -1373,9 +1409,11 @@ const VozPremium: React.FC<Props> = ({
             {/* ── READY AUDIO ── */}
             {mode === 'ready' && (
               <div className="space-y-6">
-                <div className="bg-white rounded-2xl border border-gray-100 p-6">
-                  <h4 className="text-sm font-medium text-gray-700 mb-1">Envie o áudio pronto</h4>
-                  <p className="text-xs text-gray-500 mb-4">
+                <div className="bg-white dark:bg-gray-900/80 rounded-2xl border border-gray-200 dark:border-gray-800 p-6">
+                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-600 mb-1">
+                    Envie o áudio pronto
+                  </h4>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mb-4">
                     O áudio já deve conter o roteiro completo do anúncio gravado.
                   </p>
                   {!readyFile ? (
@@ -1386,29 +1424,39 @@ const VozPremium: React.FC<Props> = ({
                         className="hidden"
                         onChange={(e) => e.target.files?.[0] && setReadyFile(e.target.files[0])}
                       />
-                      <div className="border-2 border-dashed border-gray-200 rounded-xl p-10 text-center hover:border-gray-400 transition">
-                        <Upload size={28} className="mx-auto text-gray-400 mb-2" />
-                        <p className="text-sm text-gray-600">Clique para enviar o áudio pronto</p>
-                        <p className="text-xs text-gray-400 mt-1">MP3, WAV, M4A</p>
+                      <div className="border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl p-10 text-center hover:border-gray-400 transition">
+                        <Upload
+                          size={28}
+                          className="mx-auto text-gray-400 dark:text-gray-500 mb-2"
+                        />
+                        <p className="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500">
+                          Clique para enviar o áudio pronto
+                        </p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                          MP3, WAV, M4A
+                        </p>
                       </div>
                     </label>
                   ) : (
-                    <div className="flex items-center gap-3 bg-gray-50 rounded-lg p-3">
-                      <Upload size={18} className="text-gray-500" />
+                    <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-800/60 rounded-lg p-3">
+                      <Upload
+                        size={18}
+                        className="text-gray-500 dark:text-gray-400 dark:text-gray-500"
+                      />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-gray-800 truncate">{readyFile.name}</p>
-                        <p className="text-xs text-gray-400">
+                        <p className="text-xs text-gray-400 dark:text-gray-500">
                           {(readyFile.size / 1024 / 1024).toFixed(1)} MB
                         </p>
                       </div>
                       <button onClick={() => setReadyFile(null)}>
-                        <X size={16} className="text-gray-400" />
+                        <X size={16} className="text-gray-400 dark:text-gray-500" />
                       </button>
                     </div>
                   )}
                 </div>
 
-                <div className="bg-white rounded-2xl border border-gray-100 p-5">
+                <div className="bg-white dark:bg-gray-900/80 rounded-2xl border border-gray-200 dark:border-gray-800 p-5">
                   <div className="flex items-center gap-3">
                     <input
                       type="checkbox"
@@ -1420,11 +1468,11 @@ const VozPremium: React.FC<Props> = ({
                     <div>
                       <label
                         htmlFor="cleanNoise"
-                        className="text-sm font-medium text-gray-700 cursor-pointer"
+                        className="text-sm font-medium text-gray-700 dark:text-gray-300 dark:text-gray-600 cursor-pointer"
                       >
                         Limpar ruído automaticamente
                       </label>
-                      <p className="text-xs text-gray-400 mt-0.5">
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                         Remove ruído de fundo, reverb e interferências — $0.12/min
                       </p>
                     </div>
@@ -1435,7 +1483,7 @@ const VozPremium: React.FC<Props> = ({
                   <button
                     onClick={handleReadyAudio}
                     disabled={!readyFile || cleaning || uploading}
-                    className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition ${!readyFile || cleaning || uploading ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-gray-900 text-white hover:bg-black'}`}
+                    className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition ${!readyFile || cleaning || uploading ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed' : 'bg-gray-900 text-white hover:bg-black'}`}
                   >
                     {cleaning ? (
                       <>
@@ -1468,12 +1516,12 @@ const VozPremium: React.FC<Props> = ({
                 <motion.div
                   initial={{ scale: 0.95, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
-                  className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl"
+                  className="bg-white dark:bg-gray-900/80 rounded-2xl p-6 max-w-sm w-full shadow-xl"
                 >
-                  <h3 className="font-semibold text-gray-900 mb-2">
+                  <h3 className="font-semibold text-gray-900 dark:text-gray-50 mb-2">
                     ⚠️ Idioma diferente do roteiro
                   </h3>
-                  <p className="text-sm text-gray-600 mb-4">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500 mb-4">
                     Seu roteiro foi detectado em{' '}
                     <strong>
                       {detectedLanguage === 'pt'
@@ -1491,7 +1539,7 @@ const VozPremium: React.FC<Props> = ({
                         setLangWarning(false);
                         setPendingLanguage('');
                       }}
-                      className="flex-1 px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-700 hover:bg-gray-50 transition"
+                      className="flex-1 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-300 dark:text-gray-600 hover:bg-gray-50 dark:bg-gray-800/60 transition"
                     >
                       Cancelar
                     </button>
@@ -1518,17 +1566,17 @@ const VozPremium: React.FC<Props> = ({
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mt-6 bg-green-50 rounded-2xl border border-green-200 p-5"
+                className="mt-6 bg-green-50 dark:bg-green-950/40 rounded-2xl border border-green-200 p-5"
               >
                 <div className="flex items-center gap-2 mb-3">
-                  <CheckCircle2 size={18} className="text-green-600" />
+                  <CheckCircle2 size={18} className="text-green-600 dark:text-green-400" />
                   <span className="text-sm font-medium text-green-800">Áudio ativo</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <audio controls src={localAudioUrl} className="flex-1" />
                   <button
                     onClick={() => setShowRemoveActiveModal(true)}
-                    className="p-2 text-gray-400 hover:text-red-500 transition-colors rounded-xl hover:bg-red-50 flex-shrink-0"
+                    className="p-2 text-gray-400 dark:text-gray-500 hover:text-red-500 transition-colors rounded-xl hover:bg-red-50 dark:bg-red-950/40 flex-shrink-0"
                     title="Remover áudio ativo"
                   >
                     <Trash2 size={18} />
@@ -1542,19 +1590,19 @@ const VozPremium: React.FC<Props> = ({
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mt-4 bg-white rounded-2xl border border-gray-100 p-5"
+                className="mt-4 bg-white dark:bg-gray-900/80 rounded-2xl border border-gray-200 dark:border-gray-800 p-5"
               >
-                <p className="text-xs font-medium text-gray-600 mb-3">
+                <p className="text-xs font-medium text-gray-600 dark:text-gray-400 dark:text-gray-500 mb-3">
                   Histórico de áudios ({savedAudios.length})
                 </p>
                 <div className="space-y-2 max-h-48 overflow-y-auto">
                   {savedAudios.map((a, i) => (
                     <div
                       key={`${a.url}-${i}`}
-                      className={`flex items-center gap-3 p-2 rounded-lg border ${a.url === localAudioUrl ? 'border-green-300 bg-green-50' : 'border-gray-100 bg-white'}`}
+                      className={`flex items-center gap-3 p-2 rounded-lg border ${a.url === localAudioUrl ? 'border-green-300 bg-green-50 dark:bg-green-950/40' : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/80'}`}
                     >
                       <audio controls src={a.url} className="flex-1 h-8" />
-                      <span className="text-xs text-gray-400 whitespace-nowrap">
+                      <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">
                         {new Date(a.createdAt).toLocaleDateString('pt-BR')}
                       </span>
                       {a.url !== localAudioUrl && (
@@ -1571,7 +1619,7 @@ const VozPremium: React.FC<Props> = ({
                       )}
                       <button
                         onClick={() => onDeleteAudioFromHistory?.(a.url, a.storagePath)}
-                        className="p-1.5 text-gray-400 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50 flex-shrink-0"
+                        className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50 dark:bg-red-950/40 flex-shrink-0"
                         title="Deletar do histórico"
                       >
                         <Trash2 size={14} />
@@ -1588,7 +1636,7 @@ const VozPremium: React.FC<Props> = ({
       {/* ─── BOTÃO GERAR VÍDEO ─── */}
       <div className="mt-8 bg-gray-900 rounded-3xl p-6 shadow-xl">
         <div className="flex items-center gap-2 mb-4">
-          <div className="bg-amber-400 p-1.5 rounded-lg text-gray-900">
+          <div className="bg-amber-400 p-1.5 rounded-lg text-gray-900 dark:text-gray-50">
             <Sparkles size={16} />
           </div>
           <h3 className="text-sm font-black text-white uppercase tracking-widest">Próximo Passo</h3>
@@ -1611,7 +1659,7 @@ const VozPremium: React.FC<Props> = ({
           className={`w-full py-5 rounded-2xl font-black text-base uppercase tracking-widest transition-all flex items-center justify-center gap-3 ${
             localAudioUrl
               ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-xl shadow-blue-900/30 cursor-pointer'
-              : 'bg-gray-800 text-gray-600 cursor-not-allowed'
+              : 'bg-gray-800 text-gray-600 dark:text-gray-400 dark:text-gray-500 cursor-not-allowed'
           }`}
         >
           <Film size={20} />
@@ -1626,22 +1674,26 @@ const VozPremium: React.FC<Props> = ({
           onClick={() => setShowRemoveActiveModal(false)}
         >
           <div
-            className="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl space-y-4"
+            className="bg-white dark:bg-gray-900/80 rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
-                <Trash2 size={18} className="text-red-600" />
+                <Trash2 size={18} className="text-red-600 dark:text-red-400" />
               </div>
               <div>
-                <h3 className="text-lg font-black text-gray-900">Remover áudio ativo?</h3>
-                <p className="text-sm text-gray-500 mt-0.5">Não vai apagar do histórico.</p>
+                <h3 className="text-lg font-black text-gray-900 dark:text-gray-50">
+                  Remover áudio ativo?
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-0.5">
+                  Não vai apagar do histórico.
+                </p>
               </div>
             </div>
             <div className="flex gap-3 pt-2">
               <button
                 onClick={() => setShowRemoveActiveModal(false)}
-                className="flex-1 px-4 py-2 rounded-xl font-bold text-sm bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                className="flex-1 px-4 py-2 rounded-xl font-bold text-sm bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-200 transition-colors"
               >
                 Cancelar
               </button>

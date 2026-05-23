@@ -91,16 +91,16 @@ export function Edit2Tab({
   return (
     <div className="max-w-[1200px] mx-auto p-6 space-y-10">
       {/* Header Section */}
-      <div className="bg-white p-10 rounded-[48px] border-4 border-gray-50 shadow-2xl space-y-4">
+      <div className="bg-white dark:bg-gray-900/80 p-10 rounded-[48px] border-4 border-gray-50 shadow-2xl space-y-4">
         <div className="flex items-center gap-6">
           <div className="w-20 h-20 bg-blue-600 rounded-[28px] flex items-center justify-center text-white shadow-xl shadow-blue-100">
             <Zap size={40} className="fill-current" />
           </div>
           <div>
-            <h2 className="text-4xl font-black text-gray-900 tracking-tighter uppercase italic">
-              Edição Inteligente <span className="text-blue-600">V2</span>
+            <h2 className="text-4xl font-black text-gray-900 dark:text-gray-50 tracking-tighter uppercase italic">
+              Edição Inteligente <span className="text-blue-600 dark:text-blue-400">V2</span>
             </h2>
-            <p className="text-gray-400 font-bold uppercase text-[10px] tracking-[0.3em]">
+            <p className="text-gray-400 dark:text-gray-500 font-bold uppercase text-[10px] tracking-[0.3em]">
               Análise Neural + Legendas Animadas + B-Roll + Zooms
             </p>
           </div>
@@ -108,16 +108,16 @@ export function Edit2Tab({
       </div>
 
       {/* PARTE 1 — Interface de Upload */}
-      <div className="bg-white p-10 rounded-[48px] border-4 border-gray-50 shadow-2xl space-y-8 animate-in fade-in zoom-in duration-500">
+      <div className="bg-white dark:bg-gray-900/80 p-10 rounded-[48px] border-4 border-gray-50 shadow-2xl space-y-8 animate-in fade-in zoom-in duration-500">
         <div className="flex flex-col items-center text-center gap-4">
-          <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center">
+          <div className="w-16 h-16 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center">
             <Upload size={32} />
           </div>
           <div>
-            <h3 className="text-2xl font-black text-gray-900 uppercase italic tracking-tighter">
+            <h3 className="text-2xl font-black text-gray-900 dark:text-gray-50 uppercase italic tracking-tighter">
               Primeiro, vamos carregar seu vídeo
             </h3>
-            <p className="text-gray-400 font-bold uppercase text-[10px] tracking-widest">
+            <p className="text-gray-400 dark:text-gray-500 font-bold uppercase text-[10px] tracking-widest">
               Siga as instruções abaixo para iniciar a edição inteligente.
             </p>
           </div>
@@ -149,12 +149,12 @@ export function Edit2Tab({
           className={cn(
             'relative border-4 border-dashed rounded-[32px] p-12 transition-all cursor-pointer flex flex-col items-center gap-6',
             isDragging
-              ? 'border-blue-600 bg-blue-50 scale-[0.98]'
-              : 'border-gray-100 hover:border-blue-200 hover:bg-gray-50',
+              ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40 scale-[0.98]'
+              : 'border-gray-200 dark:border-gray-800 hover:border-blue-200 hover:bg-gray-50 dark:bg-gray-800/60',
             autoEditState.status === 'uploading' && 'pointer-events-none opacity-50'
           )}
         >
-          <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-lg text-blue-600">
+          <div className="w-20 h-20 bg-white dark:bg-gray-900/80 rounded-full flex items-center justify-center shadow-lg text-blue-600 dark:text-blue-400">
             {autoEditState.status === 'uploading' ? (
               <Loader2 className="animate-spin" size={40} />
             ) : (
@@ -163,18 +163,18 @@ export function Edit2Tab({
           </div>
 
           <div className="text-center space-y-2">
-            <p className="text-lg font-black text-gray-900 uppercase italic">
+            <p className="text-lg font-black text-gray-900 dark:text-gray-50 uppercase italic">
               {autoEditState.status === 'uploading'
                 ? `Carregando... ${Math.round(uploadProgress)}%`
                 : 'Arraste seu vídeo aqui ou clique para selecionar'}
             </p>
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">
+            <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em]">
               MP4, MOV, AVI, WEBM • Máximo 3 minutos
             </p>
           </div>
 
           {autoEditState.status === 'uploading' && (
-            <div className="w-full max-w-md h-3 bg-gray-100 rounded-full overflow-hidden">
+            <div className="w-full max-w-md h-3 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${uploadProgress}%` }}
@@ -184,21 +184,21 @@ export function Edit2Tab({
           )}
           {autoEditState.compressing && (
             <div className="flex flex-col items-center gap-2">
-              <span className="text-[10px] font-black text-blue-600 uppercase animate-pulse">
+              <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase animate-pulse">
                 Otimizando vídeo... ⚡
               </span>
             </div>
           )}
         </div>
 
-        <div className="flex items-center gap-4 text-gray-300">
-          <div className="flex-1 h-px bg-gray-100" />
+        <div className="flex items-center gap-4 text-gray-300 dark:text-gray-600">
+          <div className="flex-1 h-px bg-gray-100 dark:bg-gray-800" />
           <span className="text-[10px] font-black uppercase tracking-[0.5em]">OU</span>
-          <div className="flex-1 h-px bg-gray-100" />
+          <div className="flex-1 h-px bg-gray-100 dark:bg-gray-800" />
         </div>
 
         <div className="space-y-4">
-          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block text-center">
+          <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest block text-center">
             Escolha um vídeo já carregado
           </label>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -222,7 +222,7 @@ export function Edit2Tab({
                       'relative rounded-2xl overflow-hidden border-2 transition-all text-left group flex flex-col',
                       isSelected
                         ? 'border-blue-600 shadow-lg shadow-blue-100 ring-2 ring-blue-400 ring-offset-2'
-                        : 'border-gray-100 hover:border-blue-300 hover:shadow-md'
+                        : 'border-gray-200 dark:border-gray-800 hover:border-blue-300 hover:shadow-md'
                     )}
                   >
                     {/* Thumbnail */}
@@ -252,8 +252,8 @@ export function Edit2Tab({
                       )}
                     </div>
                     {/* Info */}
-                    <div className="p-2 bg-white">
-                      <p className="font-black text-gray-900 truncate text-[10px] uppercase italic">
+                    <div className="p-2 bg-white dark:bg-gray-900/80">
+                      <p className="font-black text-gray-900 dark:text-gray-50 truncate text-[10px] uppercase italic">
                         {video.name}
                       </p>
                     </div>
@@ -261,7 +261,7 @@ export function Edit2Tab({
                 );
               })
             ) : (
-              <p className="col-span-full text-center py-8 text-gray-400 text-xs font-bold uppercase tracking-widest italic border-2 border-dashed border-gray-100 rounded-2xl">
+              <p className="col-span-full text-center py-8 text-gray-400 dark:text-gray-500 text-xs font-bold uppercase tracking-widest italic border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-2xl">
                 Nenhum vídeo encontrado na biblioteca
               </p>
             )}
@@ -270,14 +270,14 @@ export function Edit2Tab({
       </div>
 
       {autoEditState.originalVideoUrl && (
-        <div className="bg-green-50 p-6 rounded-[32px] border-2 border-green-100 flex items-center justify-between gap-6 animate-in fade-in slide-in-from-top-4 duration-500">
+        <div className="bg-green-50 dark:bg-green-950/40 p-6 rounded-[32px] border-2 border-green-100 flex items-center justify-between gap-6 animate-in fade-in slide-in-from-top-4 duration-500">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-green-600 text-white rounded-2xl">
               <CheckCircle2 size={24} />
             </div>
             <div>
               <h4 className="font-black text-green-900 text-sm">✅ Vídeo carregado com sucesso</h4>
-              <p className="text-[10px] font-bold text-green-600 uppercase tracking-widest">
+              <p className="text-[10px] font-bold text-green-600 dark:text-green-400 uppercase tracking-widest">
                 Formato detectado:{' '}
                 {autoEditState.videoFormat === '9:16'
                   ? 'Vertical 9:16'
@@ -294,7 +294,7 @@ export function Edit2Tab({
                 originalVideoUrl: undefined,
               }))
             }
-            className="px-4 py-2 bg-white text-gray-400 hover:text-red-600 border border-gray-200 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+            className="px-4 py-2 bg-white dark:bg-gray-900/80 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:text-red-400 border border-gray-200 dark:border-gray-700 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
           >
             Trocar Vídeo
           </button>
@@ -306,10 +306,10 @@ export function Edit2Tab({
           {/* Gallery of Versions */}
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <h3 className="text-xl font-black text-gray-900 uppercase italic">
+              <h3 className="text-xl font-black text-gray-900 dark:text-gray-50 uppercase italic">
                 Galeria de Versões
               </h3>
-              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+              <span className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
                 Role para o lado
               </span>
             </div>
@@ -325,7 +325,7 @@ export function Edit2Tab({
               >
                 <div
                   className={cn(
-                    'relative bg-black rounded-[32px] overflow-hidden shadow-2xl border-4 border-gray-100',
+                    'relative bg-black rounded-[32px] overflow-hidden shadow-2xl border-4 border-gray-200 dark:border-gray-800',
                     autoEditState.videoFormat === '16:9'
                       ? 'aspect-video'
                       : autoEditState.videoFormat === '1:1'
@@ -351,7 +351,7 @@ export function Edit2Tab({
                 <div className="flex flex-col gap-2">
                   <button
                     onClick={() => handleApproveAndDownload(autoEditState.originalVideoUrl || '')}
-                    className="w-full py-3 bg-gray-100 text-gray-900 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-200 flex items-center justify-center gap-2"
+                    className="w-full py-3 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-50 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-200 flex items-center justify-center gap-2"
                   >
                     <Download size={12} />
                     Baixar
@@ -372,7 +372,7 @@ export function Edit2Tab({
                 >
                   <div
                     className={cn(
-                      'relative bg-black rounded-[32px] overflow-hidden shadow-2xl border-4 border-blue-100 ring-8 ring-blue-50/50',
+                      'relative bg-black rounded-[32px] overflow-hidden shadow-2xl border-4 border-blue-100 dark:border-blue-900 ring-8 ring-blue-50/50',
                       autoEditState.videoFormat === '16:9'
                         ? 'aspect-video'
                         : autoEditState.videoFormat === '1:1'
@@ -412,13 +412,13 @@ export function Edit2Tab({
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white p-10 rounded-[48px] border-4 border-gray-50 shadow-2xl flex flex-col items-center text-center gap-6"
+            className="bg-white dark:bg-gray-900/80 p-10 rounded-[48px] border-4 border-gray-50 shadow-2xl flex flex-col items-center text-center gap-6"
           >
             <div className="space-y-2">
-              <h3 className="text-2xl font-black text-gray-900 uppercase italic tracking-tighter">
+              <h3 className="text-2xl font-black text-gray-900 dark:text-gray-50 uppercase italic tracking-tighter">
                 Deseja criar outra versão?
               </h3>
-              <p className="text-gray-400 font-bold uppercase text-[10px] tracking-widest">
+              <p className="text-gray-400 dark:text-gray-500 font-bold uppercase text-[10px] tracking-widest">
                 Altere o template ou densidade de b-roll e gere uma nova variação.
               </p>
             </div>
@@ -455,7 +455,7 @@ export function Edit2Tab({
                 />
               </div>
               <div className="mt-4 flex items-center justify-between px-4">
-                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                <p className="text-[10px] font-black text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-widest">
                   Preview
                 </p>
                 <div className="flex gap-2">
@@ -480,7 +480,7 @@ export function Edit2Tab({
               </button>
             ) : (
               <div className="space-y-4">
-                <div className="p-6 bg-green-50 border-2 border-green-100 rounded-[32px] flex items-center gap-4">
+                <div className="p-6 bg-green-50 dark:bg-green-950/40 border-2 border-green-100 rounded-[32px] flex items-center gap-4">
                   <div className="p-3 bg-green-600 text-white rounded-2xl">
                     <CheckCircle2 size={24} />
                   </div>
@@ -488,7 +488,7 @@ export function Edit2Tab({
                     <h4 className="font-black text-green-900 border-none p-0 text-sm">
                       Análise Pronta
                     </h4>
-                    <p className="text-[10px] font-bold text-green-600 uppercase">
+                    <p className="text-[10px] font-bold text-green-600 dark:text-green-400 uppercase">
                       100% Processado
                     </p>
                   </div>
@@ -505,7 +505,7 @@ export function Edit2Tab({
                       versions: [],
                     })
                   }
-                  className="w-full py-4 text-gray-400 font-black uppercase text-[10px] tracking-widest hover:text-gray-600"
+                  className="w-full py-4 text-gray-400 dark:text-gray-500 font-black uppercase text-[10px] tracking-widest hover:text-gray-600 dark:text-gray-400 dark:text-gray-500"
                 >
                   Reiniciar Edição
                 </button>
@@ -516,29 +516,29 @@ export function Edit2Tab({
           {/* Right Column: Configuration and Results */}
           <div className="lg:col-span-8 space-y-8">
             {autoEditState.status === 'analyzing' || autoEditState.status === 'rendering' ? (
-              <div className="bg-white p-16 rounded-[48px] border-4 border-gray-50 shadow-2xl flex flex-col items-center justify-center text-center gap-8">
+              <div className="bg-white dark:bg-gray-900/80 p-16 rounded-[48px] border-4 border-gray-50 shadow-2xl flex flex-col items-center justify-center text-center gap-8">
                 <div className="relative">
                   <div className="w-32 h-32 rounded-full border-8 border-blue-50 border-t-blue-600 animate-spin" />
-                  <div className="absolute inset-0 flex items-center justify-center text-blue-600">
+                  <div className="absolute inset-0 flex items-center justify-center text-blue-600 dark:text-blue-400">
                     <Zap size={40} className="animate-pulse" />
                   </div>
                 </div>
                 <div className="space-y-4">
-                  <h3 className="text-3xl font-black text-gray-900 uppercase italic tracking-tighter">
+                  <h3 className="text-3xl font-black text-gray-900 dark:text-gray-50 uppercase italic tracking-tighter">
                     {autoEditState.status === 'analyzing'
                       ? 'IA Analisando...'
                       : 'IA Renderizando...'}
                   </h3>
                   <div className="flex flex-col items-center gap-2">
-                    <p className="text-gray-400 font-bold uppercase tracking-widest text-xs max-w-md">
+                    <p className="text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest text-xs max-w-md">
                       {autoEditState.step}
                     </p>
-                    <span className="text-blue-600 font-black text-2xl">
+                    <span className="text-blue-600 dark:text-blue-400 font-black text-2xl">
                       {Math.round(autoEditState.progress)}%
                     </span>
                   </div>
                 </div>
-                <div className="w-full max-w-sm h-4 bg-gray-100 rounded-full overflow-hidden border-2 border-gray-50">
+                <div className="w-full max-w-sm h-4 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden border-2 border-gray-50">
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${autoEditState.progress}%` }}
@@ -547,12 +547,12 @@ export function Edit2Tab({
                 </div>
               </div>
             ) : autoEditState.status === 'error' ? (
-              <div className="bg-white p-16 rounded-[48px] border-4 border-red-50 shadow-2xl flex flex-col items-center justify-center text-center gap-8">
-                <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center text-red-600">
+              <div className="bg-white dark:bg-gray-900/80 p-16 rounded-[48px] border-4 border-red-50 shadow-2xl flex flex-col items-center justify-center text-center gap-8">
+                <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center text-red-600 dark:text-red-400">
                   <AlertCircle size={48} />
                 </div>
                 <div className="space-y-4">
-                  <h3 className="text-3xl font-black text-gray-900 uppercase italic tracking-tighter">
+                  <h3 className="text-3xl font-black text-gray-900 dark:text-gray-50 uppercase italic tracking-tighter">
                     Ops! Algo deu errado
                   </h3>
                   <p className="text-red-500 font-bold uppercase tracking-widest text-xs px-10">
@@ -574,7 +574,7 @@ export function Edit2Tab({
                 </button>
               </div>
             ) : autoEditState.status === 'analyzed' ? (
-              <div className="bg-white p-8 rounded-[48px] border-4 border-gray-50 shadow-2xl space-y-12">
+              <div className="bg-white dark:bg-gray-900/80 p-8 rounded-[48px] border-4 border-gray-50 shadow-2xl space-y-12">
                 {/* ETAPA 1: B-Roll Mode */}
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
@@ -583,12 +583,12 @@ export function Edit2Tab({
                         <span className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-[10px] font-black">
                           1
                         </span>
-                        <h3 className="text-xl font-black text-gray-900 uppercase italic">
+                        <h3 className="text-xl font-black text-gray-900 dark:text-gray-50 uppercase italic">
                           Ilustrações B-Roll
                         </h3>
                       </div>
                     </div>
-                    <div className="flex bg-gray-100 p-1.5 rounded-2xl">
+                    <div className="flex bg-gray-100 dark:bg-gray-800 p-1.5 rounded-2xl">
                       <button
                         onClick={() =>
                           setAutoEditState((prev) => ({
@@ -599,8 +599,8 @@ export function Edit2Tab({
                         className={cn(
                           'px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all',
                           autoEditState.editMode === 'auto'
-                            ? 'bg-white text-blue-600 shadow-lg'
-                            : 'text-gray-400 hover:text-gray-600'
+                            ? 'bg-white dark:bg-gray-900/80 text-blue-600 dark:text-blue-400 shadow-lg'
+                            : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:text-gray-400 dark:text-gray-500'
                         )}
                       >
                         Modo Automático
@@ -615,8 +615,8 @@ export function Edit2Tab({
                         className={cn(
                           'px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all',
                           autoEditState.editMode === 'manual'
-                            ? 'bg-white text-blue-600 shadow-lg'
-                            : 'text-gray-400 hover:text-gray-600'
+                            ? 'bg-white dark:bg-gray-900/80 text-blue-600 dark:text-blue-400 shadow-lg'
+                            : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:text-gray-400 dark:text-gray-500'
                         )}
                       >
                         Modo Manual
@@ -625,8 +625,8 @@ export function Edit2Tab({
                   </div>
 
                   {autoEditState.editMode === 'auto' ? (
-                    <div className="p-8 bg-blue-50/50 border-2 border-dashed border-blue-100 rounded-[32px] flex flex-col items-center justify-center gap-3 text-center">
-                      <Sparkles className="text-blue-600" size={32} />
+                    <div className="p-8 bg-blue-50 dark:bg-blue-950/40/50 border-2 border-dashed border-blue-100 dark:border-blue-900 rounded-[32px] flex flex-col items-center justify-center gap-3 text-center">
+                      <Sparkles className="text-blue-600 dark:text-blue-400" size={32} />
                       <div>
                         <p className="text-sm font-black text-blue-900 uppercase">
                           ⭐ IA selecionou os melhores momentos
@@ -648,20 +648,20 @@ export function Edit2Tab({
                             className={cn(
                               'flex flex-col p-4 rounded-2xl border-2 transition-all text-left relative group',
                               isSelected
-                                ? 'bg-blue-50 border-blue-600 shadow-sm'
-                                : 'bg-white border-gray-100 hover:border-gray-200'
+                                ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-600 shadow-sm'
+                                : 'bg-white dark:bg-gray-900/80 border-gray-200 dark:border-gray-800 hover:border-gray-200 dark:border-gray-700'
                             )}
                           >
                             <div className="flex justify-between items-start mb-2">
-                              <span className="text-[10px] font-black text-gray-400">
+                              <span className="text-[10px] font-black text-gray-400 dark:text-gray-500">
                                 Tempo: {(candidate.start / 1000).toFixed(1)}s
                               </span>
                               <span
                                 className={cn(
                                   'text-[8px] font-black px-1.5 py-0.5 rounded uppercase',
                                   candidate.rank >= 0.7
-                                    ? 'bg-green-100 text-green-700'
-                                    : 'bg-gray-100 text-gray-500'
+                                    ? 'bg-green-100 text-green-700 dark:text-green-400'
+                                    : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 dark:text-gray-500'
                                 )}
                               >
                                 {Math.round(candidate.rank * 100)}%
@@ -683,12 +683,12 @@ export function Edit2Tab({
                 </div>
 
                 {/* ETAPA 2: Template Selection */}
-                <div className="space-y-6 pt-6 border-t border-gray-100">
+                <div className="space-y-6 pt-6 border-t border-gray-200 dark:border-gray-800">
                   <div className="flex items-center gap-2">
                     <span className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-[10px] font-black">
                       2
                     </span>
-                    <h3 className="text-xl font-black text-gray-900 uppercase italic">
+                    <h3 className="text-xl font-black text-gray-900 dark:text-gray-50 uppercase italic">
                       Estilo da Legenda
                     </h3>
                   </div>
@@ -707,7 +707,7 @@ export function Edit2Tab({
                           'relative aspect-video rounded-2xl border-4 transition-all overflow-hidden group',
                           zapCapRenderConfig.templateId === template.id
                             ? 'border-blue-600 scale-95 shadow-inner'
-                            : 'border-gray-50 hover:border-blue-100'
+                            : 'border-gray-50 hover:border-blue-100 dark:border-blue-900'
                         )}
                       >
                         <video
@@ -725,7 +725,7 @@ export function Edit2Tab({
                         </div>
                         {zapCapRenderConfig.templateId === template.id && (
                           <div className="absolute inset-0 bg-blue-600/20 flex items-center justify-center">
-                            <div className="bg-white text-blue-600 p-2 rounded-full shadow-2xl">
+                            <div className="bg-white dark:bg-gray-900/80 text-blue-600 dark:text-blue-400 p-2 rounded-full shadow-2xl">
                               <Check size={24} />
                             </div>
                           </div>
@@ -736,12 +736,12 @@ export function Edit2Tab({
                 </div>
 
                 {/* ETAPA 3: Visual Adjustments */}
-                <div className="space-y-6 pt-6 border-t border-gray-100">
+                <div className="space-y-6 pt-6 border-t border-gray-200 dark:border-gray-800">
                   <div className="flex items-center gap-2">
                     <span className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-[10px] font-black">
                       3
                     </span>
-                    <h3 className="text-xl font-black text-gray-900 uppercase italic">
+                    <h3 className="text-xl font-black text-gray-900 dark:text-gray-50 uppercase italic">
                       Ajustes Visuais
                     </h3>
                   </div>
@@ -757,7 +757,7 @@ export function Edit2Tab({
                         'flex-1 py-5 rounded-[24px] border-2 transition-all flex flex-col items-center gap-2 group',
                         zapCapRenderConfig.animation
                           ? 'bg-gray-900 border-gray-900 text-white'
-                          : 'bg-white border-gray-100 text-gray-400'
+                          : 'bg-white dark:bg-gray-900/80 border-gray-200 dark:border-gray-800 text-gray-400 dark:text-gray-500'
                       )}
                     >
                       <Zap
@@ -765,7 +765,7 @@ export function Edit2Tab({
                         className={
                           zapCapRenderConfig.animation
                             ? 'text-yellow-400 fill-yellow-400'
-                            : 'text-gray-300'
+                            : 'text-gray-300 dark:text-gray-600'
                         }
                       />
                       <span className="text-[10px] font-black uppercase tracking-widest">
@@ -783,12 +783,16 @@ export function Edit2Tab({
                         'flex-1 py-5 rounded-[24px] border-2 transition-all flex flex-col items-center gap-2 group',
                         zapCapRenderConfig.emoji
                           ? 'bg-gray-900 border-gray-900 text-white'
-                          : 'bg-white border-gray-100 text-gray-400'
+                          : 'bg-white dark:bg-gray-900/80 border-gray-200 dark:border-gray-800 text-gray-400 dark:text-gray-500'
                       )}
                     >
                       <Smile
                         size={24}
-                        className={zapCapRenderConfig.emoji ? 'text-blue-400' : 'text-gray-300'}
+                        className={
+                          zapCapRenderConfig.emoji
+                            ? 'text-blue-400'
+                            : 'text-gray-300 dark:text-gray-600'
+                        }
                       />
                       <span className="text-[10px] font-black uppercase tracking-widest">
                         Emojis
@@ -798,23 +802,25 @@ export function Edit2Tab({
                 </div>
 
                 {/* ETAPA 4: Density Slider */}
-                <div className="space-y-6 pt-6 border-t border-gray-100">
+                <div className="space-y-6 pt-6 border-t border-gray-200 dark:border-gray-800">
                   <div className="flex items-center gap-2">
                     <span className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-[10px] font-black">
                       4
                     </span>
-                    <h3 className="text-xl font-black text-gray-900 uppercase italic">
+                    <h3 className="text-xl font-black text-gray-900 dark:text-gray-50 uppercase italic">
                       Frequência de B-Roll
                     </h3>
                   </div>
 
-                  <div className="p-8 bg-gray-50 rounded-[32px] border border-gray-100 space-y-6">
+                  <div className="p-8 bg-gray-50 dark:bg-gray-800/60 rounded-[32px] border border-gray-200 dark:border-gray-800 space-y-6">
                     <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                      <span className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
                         Densidade
                       </span>
                       <div className="flex items-center gap-2">
-                        <span className="text-2xl font-black text-blue-600">{brollPercent}%</span>
+                        <span className="text-2xl font-black text-blue-600 dark:text-blue-400">
+                          {brollPercent}%
+                        </span>
                         {brollPercent === recommendedBrollPercent && (
                           <span className="text-[8px] bg-blue-600 text-white px-2 py-0.5 rounded-full font-black uppercase">
                             Fiel ao áudio
@@ -832,21 +838,25 @@ export function Edit2Tab({
                         className="w-full h-3 bg-gray-200 rounded-full appearance-none cursor-pointer accent-blue-600"
                       />
                       <div className="flex justify-between mt-3 px-1">
-                        <span className="text-[10px] font-black text-gray-400 uppercase">20%</span>
+                        <span className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase">
+                          20%
+                        </span>
                         <div className="flex flex-col items-center">
                           <div className="w-1 h-1 bg-blue-600 rounded-full mb-1" />
-                          <span className="text-[10px] font-black text-blue-600 uppercase">
+                          <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase">
                             ⭐ {recommendedBrollPercent}% recomendado
                           </span>
                         </div>
-                        <span className="text-[10px] font-black text-gray-400 uppercase">70%</span>
+                        <span className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase">
+                          70%
+                        </span>
                       </div>
                     </div>
                   </div>
                 </div>
 
                 {/* ETAPA 5: Render Button */}
-                <div className="pt-6 border-t border-gray-100">
+                <div className="pt-6 border-t border-gray-200 dark:border-gray-800">
                   <button
                     onClick={handleRenderZapCap}
                     // Intentional ref read during render — guards against the
@@ -860,7 +870,7 @@ export function Edit2Tab({
                     {loading ? <Loader2 className="animate-spin" size={24} /> : <Film size={24} />}
                     Renderizar Nova Versão
                   </button>
-                  <p className="text-center mt-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                  <p className="text-center mt-4 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
                     O processo leva de 1 a 3 minutos
                   </p>
                 </div>
@@ -869,10 +879,10 @@ export function Edit2Tab({
               <div className="h-full min-h-[400px] flex flex-col items-center justify-center text-center opacity-30 gap-6">
                 <Scan size={80} className="text-gray-200" />
                 <div>
-                  <h3 className="text-2xl font-black text-gray-300 uppercase">
+                  <h3 className="text-2xl font-black text-gray-300 dark:text-gray-600 uppercase">
                     Aguardando Análise
                   </h3>
-                  <p className="text-sm font-bold text-gray-300 uppercase">
+                  <p className="text-sm font-bold text-gray-300 dark:text-gray-600 uppercase">
                     Inicie o processamento com AssemblyAI no painel lateral
                   </p>
                 </div>

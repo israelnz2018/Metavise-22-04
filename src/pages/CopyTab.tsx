@@ -188,7 +188,7 @@ export function CopyTab({
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-white/80 backdrop-blur-md animate-in fade-in duration-300">
           <div className="flex flex-col items-center space-y-4">
             <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm font-black text-gray-900 uppercase tracking-widest italic">
+            <p className="text-sm font-black text-gray-900 dark:text-gray-50 uppercase tracking-widest italic">
               Carregando Projeto...
             </p>
           </div>
@@ -198,10 +198,10 @@ export function CopyTab({
       {copyDiscoveryMode === 'unknown' && !isProjectLoading && (
         <div className="flex flex-col items-center justify-center min-h-[400px] space-y-8 max-w-lg mx-auto text-center animate-in fade-in zoom-in duration-500">
           <div className="space-y-2">
-            <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tight">
+            <h2 className="text-2xl font-black text-gray-900 dark:text-gray-50 uppercase tracking-tight">
               Antes de criar sua copy...
             </h2>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500">
               Precisamos saber quem vai assistir este vídeo. Isso garante uma copy muito mais
               eficaz.
             </p>
@@ -216,15 +216,15 @@ export function CopyTab({
                   copy: { ...prev.copy, discoveryMode: 'known' },
                 }));
               }}
-              className="w-full p-5 rounded-2xl border-2 border-gray-100 hover:border-blue-300 text-left transition-all bg-white group shadow-sm hover:shadow-md"
+              className="w-full p-5 rounded-2xl border-2 border-gray-200 dark:border-gray-800 hover:border-blue-300 text-left transition-all bg-white dark:bg-gray-900/80 group shadow-sm hover:shadow-md"
             >
               <div className="flex items-center gap-3">
                 <span className="text-2xl group-hover:scale-110 transition-transform">✅</span>
                 <div>
-                  <p className="font-black text-gray-900 uppercase italic">
+                  <p className="font-black text-gray-900 dark:text-gray-50 uppercase italic">
                     Já sei quem é meu cliente
                   </p>
-                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest">
                     Vou preencher as informações diretamente
                   </p>
                 </div>
@@ -235,13 +235,15 @@ export function CopyTab({
               onClick={() => {
                 setCurrentStep('persona');
               }}
-              className="w-full p-5 rounded-2xl border-2 border-gray-100 hover:border-blue-300 text-left transition-all bg-white group shadow-sm hover:shadow-md"
+              className="w-full p-5 rounded-2xl border-2 border-gray-200 dark:border-gray-800 hover:border-blue-300 text-left transition-all bg-white dark:bg-gray-900/80 group shadow-sm hover:shadow-md"
             >
               <div className="flex items-center gap-3">
                 <span className="text-2xl group-hover:scale-110 transition-transform">🔍</span>
                 <div>
-                  <p className="font-black text-gray-900 uppercase italic">Me ajuda a descobrir</p>
-                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                  <p className="font-black text-gray-900 dark:text-gray-50 uppercase italic">
+                    Me ajuda a descobrir
+                  </p>
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest">
                     A IA gera 3 personas com nível de consciência
                   </p>
                 </div>
@@ -269,10 +271,12 @@ export function CopyTab({
                     <Users size={24} />
                   </div>
                   <div>
-                    <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">
+                    <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">
                       Persona Ativo
                     </p>
-                    <h4 className="text-xl font-black text-gray-900">{activePersona.name}</h4>
+                    <h4 className="text-xl font-black text-gray-900 dark:text-gray-50">
+                      {activePersona.name}
+                    </h4>
                   </div>
                 </div>
                 <span className="px-3 py-1 bg-blue-600 text-white rounded-full text-[10px] font-black uppercase tracking-widest">
@@ -281,26 +285,26 @@ export function CopyTab({
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                <div className="bg-white p-3 rounded-2xl border border-blue-100">
-                  <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">
+                <div className="bg-white dark:bg-gray-900/80 p-3 rounded-2xl border border-blue-100 dark:border-blue-900">
+                  <p className="text-[9px] font-black text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">
                     Dor principal
                   </p>
                   <p className="text-gray-800 leading-snug">{activePersona.mainPain}</p>
                 </div>
-                <div className="bg-white p-3 rounded-2xl border border-blue-100">
-                  <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">
+                <div className="bg-white dark:bg-gray-900/80 p-3 rounded-2xl border border-blue-100 dark:border-blue-900">
+                  <p className="text-[9px] font-black text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">
                     Desejo profundo
                   </p>
                   <p className="text-gray-800 leading-snug">{activePersona.hiddenDesire}</p>
                 </div>
-                <div className="bg-white p-3 rounded-2xl border border-blue-100">
-                  <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">
+                <div className="bg-white dark:bg-gray-900/80 p-3 rounded-2xl border border-blue-100 dark:border-blue-900">
+                  <p className="text-[9px] font-black text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">
                     Objeção principal
                   </p>
                   <p className="text-gray-800 leading-snug">{activePersona.mainObjection}</p>
                 </div>
-                <div className="bg-white p-3 rounded-2xl border border-blue-100">
-                  <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">
+                <div className="bg-white dark:bg-gray-900/80 p-3 rounded-2xl border border-blue-100 dark:border-blue-900">
+                  <p className="text-[9px] font-black text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">
                     Idade · Gênero
                   </p>
                   <p className="text-gray-800 leading-snug">
@@ -312,7 +316,7 @@ export function CopyTab({
               <div className="flex flex-col md:flex-row gap-3 pt-2">
                 <button
                   onClick={() => setShowEditPersonaModal(true)}
-                  className="flex-1 py-3 px-6 bg-white border-2 border-gray-200 text-gray-900 rounded-2xl font-black uppercase tracking-widest text-xs hover:border-blue-300 transition-all flex items-center justify-center gap-2"
+                  className="flex-1 py-3 px-6 bg-white dark:bg-gray-900/80 border-2 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-50 rounded-2xl font-black uppercase tracking-widest text-xs hover:border-blue-300 transition-all flex items-center justify-center gap-2"
                 >
                   <Edit3 size={16} />
                   Editar Persona
@@ -327,7 +331,7 @@ export function CopyTab({
               </div>
 
               {!copyFieldsApplied && (
-                <p className="text-center text-[10px] text-blue-700 font-bold uppercase tracking-widest">
+                <p className="text-center text-[10px] text-blue-700 dark:text-blue-300 font-bold uppercase tracking-widest">
                   Clique em "Atualizar Campos da Copy" para preencher os campos abaixo
                   automaticamente
                 </p>
@@ -346,7 +350,9 @@ export function CopyTab({
                   <div
                     key={i}
                     className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${
-                      i <= discoveryStep ? 'bg-blue-600 shadow-sm shadow-blue-200' : 'bg-gray-100'
+                      i <= discoveryStep
+                        ? 'bg-blue-600 shadow-sm shadow-blue-200'
+                        : 'bg-gray-100 dark:bg-gray-800'
                     }`}
                   />
                 ))}
@@ -392,24 +398,24 @@ export function CopyTab({
                   discoveryStep === idx && (
                     <div
                       key={q.id}
-                      className="bg-white p-10 rounded-[48px] border-4 border-gray-50 shadow-2xl space-y-6 animate-in fade-in zoom-in duration-500"
+                      className="bg-white dark:bg-gray-900/80 p-10 rounded-[48px] border-4 border-gray-50 shadow-2xl space-y-6 animate-in fade-in zoom-in duration-500"
                     >
                       <div className="space-y-2">
-                        <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest text-center">
+                        <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest text-center">
                           Pergunta {idx + 1} de 5
                         </p>
-                        <p className="text-xl font-black text-gray-900 text-center uppercase italic tracking-tight">
+                        <p className="text-xl font-black text-gray-900 dark:text-gray-50 text-center uppercase italic tracking-tight">
                           {q.label}
                         </p>
                         {q.hint && (
-                          <p className="text-[10px] text-gray-400 font-bold uppercase text-center tracking-tighter">
+                          <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase text-center tracking-tighter">
                             {q.hint}
                           </p>
                         )}
                       </div>
 
                       <AutoResizeTextarea
-                        className="w-full p-6 bg-gray-50 rounded-[32px] border-2 border-transparent focus:border-blue-400 focus:bg-white outline-none text-sm transition-all font-medium"
+                        className="w-full p-6 bg-gray-50 dark:bg-gray-800/60 rounded-[32px] border-2 border-transparent focus:border-blue-400 focus:bg-white dark:bg-gray-900/80 outline-none text-sm transition-all font-medium"
                         placeholder={q.placeholder}
                         value={discoveryAnswers[q.id] || ''}
                         onChange={(e: any) =>
@@ -425,7 +431,7 @@ export function CopyTab({
                         {idx > 0 && (
                           <button
                             onClick={() => setDiscoveryStep(idx - 1)}
-                            className="px-8 py-4 rounded-2xl border-2 border-gray-100 text-[10px] font-black text-gray-400 uppercase tracking-widest hover:border-gray-200 hover:text-gray-600 transition-all"
+                            className="px-8 py-4 rounded-2xl border-2 border-gray-200 dark:border-gray-800 text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest hover:border-gray-200 dark:border-gray-700 hover:text-gray-600 dark:text-gray-400 dark:text-gray-500 transition-all"
                           >
                             Voltar
                           </button>
@@ -483,21 +489,21 @@ export function CopyTab({
                 }}
                 className={`flex-1 min-w-[150px] p-6 rounded-3xl border-2 transition-all flex flex-col items-center gap-3 ${
                   config.copy.mode === m.id
-                    ? 'border-blue-600 bg-blue-50 shadow-lg shadow-blue-50'
-                    : 'border-gray-100 hover:border-gray-200 bg-white'
+                    ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40 shadow-lg shadow-blue-50'
+                    : 'border-gray-200 dark:border-gray-800 hover:border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/80'
                 }`}
               >
                 <div
                   className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
                     config.copy.mode === m.id
                       ? 'bg-blue-600 text-white'
-                      : 'bg-gray-50 text-gray-400'
+                      : 'bg-gray-50 dark:bg-gray-800/60 text-gray-400 dark:text-gray-500'
                   }`}
                 >
                   <m.icon size={24} />
                 </div>
                 <span
-                  className={`text-sm font-black uppercase tracking-tight ${config.copy.mode === m.id ? 'text-blue-900' : 'text-gray-500'}`}
+                  className={`text-sm font-black uppercase tracking-tight ${config.copy.mode === m.id ? 'text-blue-900' : 'text-gray-500 dark:text-gray-400 dark:text-gray-500'}`}
                 >
                   {m.label}
                 </span>
@@ -508,13 +514,13 @@ export function CopyTab({
           {config.copy.mode === 'as-is' ? (
             !config.copy.generatedScript ? (
               <div className="space-y-6 animate-in fade-in duration-500">
-                <div className="p-10 bg-white rounded-[48px] border-4 border-blue-50 shadow-2xl space-y-6">
+                <div className="p-10 bg-white dark:bg-gray-900/80 rounded-[48px] border-4 border-blue-50 shadow-2xl space-y-6">
                   <div className="space-y-2">
-                    <label className="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">
+                    <label className="block text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">
                       Cole sua copy total aqui...
                     </label>
                     <AutoResizeTextarea
-                      className="w-full p-8 rounded-[32px] border-2 border-gray-100 focus:border-blue-600 focus:ring-0 outline-none transition-all text-sm leading-relaxed bg-gray-50 font-medium"
+                      className="w-full p-8 rounded-[32px] border-2 border-gray-200 dark:border-gray-800 focus:border-blue-600 focus:ring-0 outline-none transition-all text-sm leading-relaxed bg-gray-50 dark:bg-gray-800/60 font-medium"
                       placeholder="Cole sua copy aqui..."
                       value={config.copy.answers['pastedCopy'] || ''}
                       onChange={(e: any) => {
@@ -552,13 +558,13 @@ export function CopyTab({
               </div>
             ) : null
           ) : config.copy.mode === 'improve' ? (
-            <div className="p-8 bg-white rounded-[40px] border-4 border-blue-50 shadow-xl space-y-6">
+            <div className="p-8 bg-white dark:bg-gray-900/80 rounded-[40px] border-4 border-blue-50 shadow-xl space-y-6">
               <div className="space-y-2">
-                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
+                <label className="block text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">
                   Cole sua copy existente
                 </label>
                 <AutoResizeTextarea
-                  className="w-full p-6 rounded-3xl border-2 border-gray-100 focus:border-blue-600 focus:ring-0 outline-none transition-all text-sm leading-relaxed bg-gray-50 font-medium"
+                  className="w-full p-6 rounded-3xl border-2 border-gray-200 dark:border-gray-800 focus:border-blue-600 focus:ring-0 outline-none transition-all text-sm leading-relaxed bg-gray-50 dark:bg-gray-800/60 font-medium"
                   placeholder="Cole sua copy aqui..."
                   value={config.copy.answers['existingCopy'] || ''}
                   onChange={(e: any) => {
@@ -581,12 +587,12 @@ export function CopyTab({
           ) : (
             <div className="space-y-10">
               {/* SEÇÃO 1 — Sua Audiência */}
-              <div className="space-y-6 bg-white p-8 rounded-[40px] border-2 border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+              <div className="space-y-6 bg-white dark:bg-gray-900/80 p-8 rounded-[40px] border-2 border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-8 h-8 bg-blue-600 text-white rounded-xl flex items-center justify-center text-xs font-black">
                     1
                   </div>
-                  <h4 className="font-black text-gray-900 text-lg tracking-tight uppercase">
+                  <h4 className="font-black text-gray-900 dark:text-gray-50 text-lg tracking-tight uppercase">
                     1. Sua Audiência
                   </h4>
                 </div>
@@ -597,7 +603,7 @@ export function CopyTab({
                     if (q.id === 'triedBefore' && awarenessLevel === '1') return null;
                     return (
                       <div key={q.id} className="space-y-2">
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
+                        <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">
                           {q.label}
                         </label>
                         {q.type === 'multi-select' ? (
@@ -617,7 +623,7 @@ export function CopyTab({
                                   className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border-2 ${
                                     isSelected
                                       ? 'bg-blue-600 border-blue-600 text-white shadow-md'
-                                      : 'bg-white border-gray-100 text-gray-500 hover:border-gray-200'
+                                      : 'bg-white dark:bg-gray-900/80 border-gray-200 dark:border-gray-800 text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:border-gray-200 dark:border-gray-700'
                                   }`}
                                 >
                                   {opt}
@@ -628,7 +634,7 @@ export function CopyTab({
                         ) : q.type === 'select' ? (
                           <div className="relative">
                             <select
-                              className="w-full p-4 rounded-2xl border-2 border-gray-100 outline-none transition-all text-sm font-bold appearance-none bg-gray-50 focus:border-blue-600 focus:bg-white"
+                              className="w-full p-4 rounded-2xl border-2 border-gray-200 dark:border-gray-800 outline-none transition-all text-sm font-bold appearance-none bg-gray-50 dark:bg-gray-800/60 focus:border-blue-600 focus:bg-white dark:bg-gray-900/80"
                               value={(config.copy.answers[q.id] as string) || ''}
                               onChange={(e) =>
                                 updateConfig('copy', 'answers', q.id, e.target.value)
@@ -642,13 +648,13 @@ export function CopyTab({
                               ))}
                             </select>
                             <ChevronDown
-                              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none"
                               size={16}
                             />
                           </div>
                         ) : (
                           <AutoResizeTextarea
-                            className="w-full p-4 rounded-2xl border-2 border-gray-100 focus:border-blue-600 focus:bg-white outline-none transition-all text-sm font-bold bg-gray-50"
+                            className="w-full p-4 rounded-2xl border-2 border-gray-200 dark:border-gray-800 focus:border-blue-600 focus:bg-white dark:bg-gray-900/80 outline-none transition-all text-sm font-bold bg-gray-50 dark:bg-gray-800/60"
                             placeholder={q.placeholder}
                             value={config.copy.answers[q.id] || ''}
                             onChange={(e: any) =>
@@ -663,12 +669,12 @@ export function CopyTab({
               </div>
 
               {/* SEÇÃO 2 — Nível de consciência */}
-              <div className="space-y-6 bg-white p-8 rounded-[40px] border-2 border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+              <div className="space-y-6 bg-white dark:bg-gray-900/80 p-8 rounded-[40px] border-2 border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-8 h-8 bg-blue-600 text-white rounded-xl flex items-center justify-center text-xs font-black">
                     2
                   </div>
-                  <h4 className="font-black text-gray-900 text-lg tracking-tight uppercase">
+                  <h4 className="font-black text-gray-900 dark:text-gray-50 text-lg tracking-tight uppercase">
                     2. Nível de Consciência
                   </h4>
                 </div>
@@ -716,12 +722,12 @@ export function CopyTab({
                           applyAwarenessLevelChange(nivel.id);
                         }
                       }}
-                      className={`w-full p-4 rounded-2xl border-2 text-left transition-all flex items-center gap-4 ${config.copy.answers.awarenessLevel === nivel.id ? 'border-blue-600 bg-blue-50 shadow-sm' : 'border-gray-50 hover:border-blue-100 bg-gray-50/30'}`}
+                      className={`w-full p-4 rounded-2xl border-2 text-left transition-all flex items-center gap-4 ${config.copy.answers.awarenessLevel === nivel.id ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40 shadow-sm' : 'border-gray-50 hover:border-blue-100 dark:border-blue-900 bg-gray-50 dark:bg-gray-800/60/30'}`}
                     >
                       <span className="text-2xl">{nivel.emoji}</span>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <p className="text-sm font-black text-gray-900 uppercase italic tracking-tight">
+                          <p className="text-sm font-black text-gray-900 dark:text-gray-50 uppercase italic tracking-tight">
                             {nivel.label}
                           </p>
                           {config.copy.answers.discoveredPersona &&
@@ -732,7 +738,7 @@ export function CopyTab({
                               </span>
                             )}
                         </div>
-                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">
+                        <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest mt-0.5">
                           {nivel.desc}
                         </p>
                       </div>
@@ -745,26 +751,26 @@ export function CopyTab({
               </div>
 
               {/* SEÇÃO 3 — Configurações do Anúncio */}
-              <div className="space-y-6 bg-white p-8 rounded-[40px] border-2 border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+              <div className="space-y-6 bg-white dark:bg-gray-900/80 p-8 rounded-[40px] border-2 border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-8 h-8 bg-blue-600 text-white rounded-xl flex items-center justify-center text-xs font-black">
                     3
                   </div>
-                  <h4 className="font-black text-gray-900 text-lg tracking-tight uppercase">
+                  <h4 className="font-black text-gray-900 dark:text-gray-50 text-lg tracking-tight uppercase">
                     3. Configurações do Anúncio
                   </h4>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="space-y-4 md:col-span-2">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1 flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1 flex items-center justify-between">
                       Estilo do Anúncio
-                      <span className="text-[9px] bg-green-100 text-green-600 px-2 py-0.5 rounded-full">
+                      <span className="text-[9px] bg-green-100 text-green-600 dark:text-green-400 px-2 py-0.5 rounded-full">
                         RECOMENDADO
                       </span>
                     </label>
                     <div className="relative">
                       <select
-                        className="w-full p-4 rounded-2xl border-2 border-gray-100 outline-none transition-all text-sm font-bold appearance-none bg-gray-50 focus:border-blue-600 focus:bg-white"
+                        className="w-full p-4 rounded-2xl border-2 border-gray-200 dark:border-gray-800 outline-none transition-all text-sm font-bold appearance-none bg-gray-50 dark:bg-gray-800/60 focus:border-blue-600 focus:bg-white dark:bg-gray-900/80"
                         value={config.copy.answers.estiloAnuncio || ''}
                         onChange={(e) =>
                           updateConfig('copy', 'answers', 'estiloAnuncio', e.target.value)
@@ -784,7 +790,7 @@ export function CopyTab({
                         })}
                       </select>
                       <ChevronDown
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none"
                         size={16}
                       />
                     </div>
@@ -861,13 +867,13 @@ export function CopyTab({
                 return (
                   <div
                     key={section.title}
-                    className="space-y-6 bg-white p-8 rounded-[40px] border-2 border-gray-100 shadow-sm hover:shadow-md transition-shadow"
+                    className="space-y-6 bg-white dark:bg-gray-900/80 p-8 rounded-[40px] border-2 border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow"
                   >
                     <div className="flex items-center gap-3 mb-2">
                       <div className="w-8 h-8 bg-blue-600 text-white rounded-xl flex items-center justify-center text-xs font-black">
                         {sIdx + 4}
                       </div>
-                      <h4 className="font-black text-gray-900 text-lg tracking-tight uppercase">
+                      <h4 className="font-black text-gray-900 dark:text-gray-50 text-lg tracking-tight uppercase">
                         {sIdx + 4}. {section.title}
                       </h4>
                     </div>
@@ -877,12 +883,12 @@ export function CopyTab({
 
                         return (
                           <div key={q.id} className="space-y-2">
-                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center justify-between">
+                            <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1 flex items-center justify-between">
                               {q.label}
                               {q.type === 'select' &&
                                 config.copy.answers[q.id] &&
                                 isRecommended(q.id, config.copy.answers[q.id]) && (
-                                  <span className="text-[9px] bg-green-100 text-green-600 px-2 py-0.5 rounded-full">
+                                  <span className="text-[9px] bg-green-100 text-green-600 dark:text-green-400 px-2 py-0.5 rounded-full">
                                     Recomendado
                                   </span>
                                 )}
@@ -890,7 +896,7 @@ export function CopyTab({
                             {q.type === 'select' ? (
                               <div className="relative">
                                 <select
-                                  className="w-full p-4 rounded-2xl border-2 border-gray-100 outline-none transition-all text-sm font-bold appearance-none bg-gray-50 focus:border-blue-600 focus:bg-white"
+                                  className="w-full p-4 rounded-2xl border-2 border-gray-200 dark:border-gray-800 outline-none transition-all text-sm font-bold appearance-none bg-gray-50 dark:bg-gray-800/60 focus:border-blue-600 focus:bg-white dark:bg-gray-900/80"
                                   value={
                                     (config.copy.answers[
                                       q.id as keyof typeof config.copy.answers
@@ -908,14 +914,14 @@ export function CopyTab({
                                   ))}
                                 </select>
                                 <ChevronDown
-                                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none"
                                   size={16}
                                 />
                               </div>
                             ) : q.type === 'date' ? (
                               <input
                                 type="date"
-                                className="w-full p-4 rounded-2xl border-2 border-gray-100 focus:border-blue-600 focus:bg-white outline-none transition-all text-sm font-bold bg-gray-50 uppercase"
+                                className="w-full p-4 rounded-2xl border-2 border-gray-200 dark:border-gray-800 focus:border-blue-600 focus:bg-white dark:bg-gray-900/80 outline-none transition-all text-sm font-bold bg-gray-50 dark:bg-gray-800/60 uppercase"
                                 value={
                                   (config.copy.answers[
                                     q.id as keyof typeof config.copy.answers
@@ -928,7 +934,7 @@ export function CopyTab({
                             ) : q.type === 'number' ? (
                               <input
                                 type="number"
-                                className="w-full p-4 rounded-2xl border-2 border-gray-100 focus:border-blue-600 focus:bg-white outline-none transition-all text-sm font-bold bg-gray-50"
+                                className="w-full p-4 rounded-2xl border-2 border-gray-200 dark:border-gray-800 focus:border-blue-600 focus:bg-white dark:bg-gray-900/80 outline-none transition-all text-sm font-bold bg-gray-50 dark:bg-gray-800/60"
                                 placeholder={q.placeholder}
                                 value={
                                   (config.copy.answers[
@@ -941,7 +947,7 @@ export function CopyTab({
                               />
                             ) : (
                               <AutoResizeTextarea
-                                className="w-full p-4 rounded-2xl border-2 border-gray-100 focus:border-blue-600 focus:bg-white outline-none transition-all text-sm font-bold bg-gray-50"
+                                className="w-full p-4 rounded-2xl border-2 border-gray-200 dark:border-gray-800 focus:border-blue-600 focus:bg-white dark:bg-gray-900/80 outline-none transition-all text-sm font-bold bg-gray-50 dark:bg-gray-800/60"
                                 placeholder={q.placeholder}
                                 value={
                                   (config.copy.answers[
@@ -962,17 +968,17 @@ export function CopyTab({
               })}
 
               {/* SEÇÃO FINAL — Destino do Clique */}
-              <div className="space-y-6 bg-white p-8 rounded-[40px] border-2 border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+              <div className="space-y-6 bg-white dark:bg-gray-900/80 p-8 rounded-[40px] border-2 border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-8 h-8 bg-blue-600 text-white rounded-xl flex items-center justify-center text-xs font-black">
                     {sections.length + 3}
                   </div>
-                  <h4 className="font-black text-gray-900 text-lg tracking-tight uppercase">
+                  <h4 className="font-black text-gray-900 dark:text-gray-50 text-lg tracking-tight uppercase">
                     {sections.length + 3}. Destino do Clique
                   </h4>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">
+                  <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">
                     Para onde vai ao clicar?
                   </label>
                   <div className="space-y-2">
@@ -1023,21 +1029,25 @@ export function CopyTab({
                           }
                           className={`w-full p-3 rounded-2xl border-2 text-left transition-all flex items-center gap-3 ${
                             config.copy.answers.clickDestination === destino.id
-                              ? 'border-blue-600 bg-blue-50'
-                              : 'border-gray-100 hover:border-blue-200'
+                              ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40'
+                              : 'border-gray-200 dark:border-gray-800 hover:border-blue-200'
                           }`}
                         >
                           <span className="text-xl">{destino.emoji}</span>
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
-                              <p className="text-sm font-bold text-gray-900">{destino.label}</p>
+                              <p className="text-sm font-bold text-gray-900 dark:text-gray-50">
+                                {destino.label}
+                              </p>
                               {isRecommended && (
-                                <span className="text-[10px] bg-blue-100 text-blue-700 font-bold px-2 py-0.5 rounded-full">
+                                <span className="text-[10px] bg-blue-100 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 font-bold px-2 py-0.5 rounded-full">
                                   ⭐
                                 </span>
                               )}
                             </div>
-                            <p className="text-[10px] text-gray-400">{destino.desc}</p>
+                            <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                              {destino.desc}
+                            </p>
                           </div>
                         </button>
                       );
@@ -1045,7 +1055,7 @@ export function CopyTab({
                   </div>
 
                   <div className="mt-3">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                    <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
                       Outro destino (opcional)
                     </label>
                     <AutoResizeTextarea
@@ -1054,24 +1064,24 @@ export function CopyTab({
                       onChange={(e: any) =>
                         updateConfig('copy', 'answers', 'clickDestinationCustom', e.target.value)
                       }
-                      className="w-full mt-1 p-3 bg-gray-50 rounded-xl border border-gray-100 text-sm outline-none focus:border-blue-400"
+                      className="w-full mt-1 p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-800 text-sm outline-none focus:border-blue-400"
                     />
                   </div>
                 </div>
               </div>
 
               {/* SEÇÃO — Estratégia da Copy */}
-              <div className="space-y-6 bg-white p-8 rounded-[40px] border-2 border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+              <div className="space-y-6 bg-white dark:bg-gray-900/80 p-8 rounded-[40px] border-2 border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-8 h-8 bg-blue-600 text-white rounded-xl flex items-center justify-center text-xs font-black">
                     {sections.length + 4}
                   </div>
-                  <h4 className="font-black text-gray-900 text-lg tracking-tight uppercase">
+                  <h4 className="font-black text-gray-900 dark:text-gray-50 text-lg tracking-tight uppercase">
                     {sections.length + 4}. Estratégia da Copy
                   </h4>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">
+                  <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">
                     O ad vai vender ou só fazer o viewer clicar?
                   </label>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1104,24 +1114,24 @@ export function CopyTab({
                         onClick={() => updateConfig('copy', 'answers', 'copyStrategy', strat.id)}
                         className={`p-4 rounded-2xl border-2 text-left transition-all ${
                           config.copy.answers.copyStrategy === strat.id
-                            ? 'border-blue-600 bg-blue-50'
-                            : 'border-gray-100 hover:border-blue-200'
+                            ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40'
+                            : 'border-gray-200 dark:border-gray-800 hover:border-blue-200'
                         }`}
                       >
                         <div className="flex items-center gap-3 mb-2">
                           <span className="text-2xl">{strat.emoji}</span>
-                          <p className="font-black text-gray-900 uppercase tracking-tight text-sm">
+                          <p className="font-black text-gray-900 dark:text-gray-50 uppercase tracking-tight text-sm">
                             {strat.label}
                           </p>
                         </div>
-                        <p className="text-[11px] text-gray-500 font-medium mb-3 leading-relaxed">
+                        <p className="text-[11px] text-gray-500 dark:text-gray-400 dark:text-gray-500 font-medium mb-3 leading-relaxed">
                           {strat.desc}
                         </p>
                         <ul className="space-y-1">
                           {strat.bullets.map((b) => (
                             <li
                               key={b}
-                              className="text-[10px] text-gray-400 font-bold flex items-start gap-1.5"
+                              className="text-[10px] text-gray-400 dark:text-gray-500 font-bold flex items-start gap-1.5"
                             >
                               <span className="text-blue-500 mt-0.5">•</span>
                               <span>{b}</span>
@@ -1132,7 +1142,7 @@ export function CopyTab({
                     ))}
                   </div>
                   {!config.copy.answers.copyStrategy && (
-                    <p className="text-[10px] text-amber-600 font-bold uppercase tracking-widest mt-2 ml-1">
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold uppercase tracking-widest mt-2 ml-1">
                       ⚠️ Sem escolha, usaremos os beats baseados no nível de consciência.
                     </p>
                   )}
@@ -1140,17 +1150,17 @@ export function CopyTab({
               </div>
 
               {/* SEÇÃO 9 — Call to Action */}
-              <div className="space-y-6 bg-white p-8 rounded-[40px] border-2 border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+              <div className="space-y-6 bg-white dark:bg-gray-900/80 p-8 rounded-[40px] border-2 border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-8 h-8 bg-blue-600 text-white rounded-xl flex items-center justify-center text-xs font-black">
                     {sections.length + 4}
                   </div>
-                  <h4 className="font-black text-gray-900 text-lg tracking-tight uppercase">
+                  <h4 className="font-black text-gray-900 dark:text-gray-50 text-lg tracking-tight uppercase">
                     {sections.length + 4}. Call to Action (CTA)
                   </h4>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">
+                  <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">
                     Como o viewer deve agir ao final do anúncio?
                   </label>
                   <div className="space-y-3">
@@ -1158,12 +1168,14 @@ export function CopyTab({
                       onClick={() => updateConfig('copy', 'answers', 'ctaMode', 'auto')}
                       className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${
                         config.copy.answers.ctaMode === 'auto' || !config.copy.answers.ctaMode
-                          ? 'border-blue-600 bg-blue-50'
-                          : 'border-gray-100 hover:border-blue-200'
+                          ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40'
+                          : 'border-gray-200 dark:border-gray-800 hover:border-blue-200'
                       }`}
                     >
-                      <p className="text-sm font-bold text-gray-900">✨ Deixar a IA criar o CTA</p>
-                      <p className="text-[10px] text-gray-400 mt-0.5">
+                      <p className="text-sm font-bold text-gray-900 dark:text-gray-50">
+                        ✨ Deixar a IA criar o CTA
+                      </p>
+                      <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
                         A IA vai criar o melhor CTA baseado no nível de consciência e destino do
                         clique
                       </p>
@@ -1173,12 +1185,14 @@ export function CopyTab({
                       onClick={() => updateConfig('copy', 'answers', 'ctaMode', 'custom')}
                       className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${
                         config.copy.answers.ctaMode === 'custom'
-                          ? 'border-blue-600 bg-blue-50'
-                          : 'border-gray-100 hover:border-blue-200'
+                          ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40'
+                          : 'border-gray-200 dark:border-gray-800 hover:border-blue-200'
                       }`}
                     >
-                      <p className="text-sm font-bold text-gray-900">✏️ Escrever meu próprio CTA</p>
-                      <p className="text-[10px] text-gray-400 mt-0.5">
+                      <p className="text-sm font-bold text-gray-900 dark:text-gray-50">
+                        ✏️ Escrever meu próprio CTA
+                      </p>
+                      <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
                         Você controla exatamente o que será dito no final do anúncio
                       </p>
                     </button>
@@ -1190,7 +1204,7 @@ export function CopyTab({
                         onChange={(e: any) =>
                           updateConfig('copy', 'answers', 'ctaCustom', e.target.value)
                         }
-                        className="w-full mt-1 p-3 bg-gray-50 rounded-xl border border-gray-100 text-sm outline-none focus:border-blue-400"
+                        className="w-full mt-1 p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-800 text-sm outline-none focus:border-blue-400"
                       />
                     )}
                   </div>
@@ -1200,16 +1214,16 @@ export function CopyTab({
           )}
 
           {config.copy.mode !== 'as-is' && (
-            <div className="bg-white p-8 rounded-[40px] border-2 border-gray-100 shadow-xl space-y-8 mt-12">
+            <div className="bg-white dark:bg-gray-900/80 p-8 rounded-[40px] border-2 border-gray-200 dark:border-gray-800 shadow-xl space-y-8 mt-12">
               <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600">
+                <div className="w-10 h-10 bg-blue-50 dark:bg-blue-950/40 rounded-xl flex items-center justify-center text-blue-600 dark:text-blue-400">
                   <Maximize size={20} />
                 </div>
                 <div>
-                  <h4 className="font-black text-gray-900 uppercase tracking-widest text-xs">
+                  <h4 className="font-black text-gray-900 dark:text-gray-50 uppercase tracking-widest text-xs">
                     Tamanho do Roteiro
                   </h4>
-                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest">
                     Defina a extensão ideal para seu anúncio
                   </p>
                 </div>
@@ -1222,11 +1236,11 @@ export function CopyTab({
                       <div className="bg-green-600 text-white rounded-full p-1 shadow-md shadow-green-100">
                         <Star size={10} fill="currentColor" />
                       </div>
-                      <span className="text-[10px] font-black text-green-600 uppercase tracking-widest">
+                      <span className="text-[10px] font-black text-green-600 dark:text-green-400 uppercase tracking-widest">
                         Recomendado para o seu público
                       </span>
                     </div>
-                    <div className="p-6 bg-blue-50/50 rounded-3xl border-2 border-blue-100 shadow-sm hover:shadow-md transition-all">
+                    <div className="p-6 bg-blue-50 dark:bg-blue-950/40/50 rounded-3xl border-2 border-blue-100 dark:border-blue-900 shadow-sm hover:shadow-md transition-all">
                       <h5 className="text-2xl font-black text-blue-900 mb-2">
                         {getRecomendacaoTempo(config.copy.answers.awarenessLevel)?.faixaSegundos}
                       </h5>
@@ -1238,7 +1252,7 @@ export function CopyTab({
                 )}
 
                 <div className="space-y-4">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
+                  <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">
                     Selecione a Duração Alvo
                   </label>
 
@@ -1259,7 +1273,7 @@ export function CopyTab({
                         className={`py-3 px-1 rounded-xl border-2 transition-all text-xs font-black uppercase tracking-tighter ${
                           config.copy.targetWordCount === opt.words
                             ? 'border-blue-600 bg-blue-600 text-white shadow-lg shadow-blue-100 scale-105'
-                            : 'border-gray-100 bg-gray-50 text-gray-600 hover:border-blue-200 hover:bg-white'
+                            : 'border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/60 text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:border-blue-200 hover:bg-white dark:bg-gray-900/80'
                         }`}
                       >
                         {opt.label}
@@ -1267,9 +1281,9 @@ export function CopyTab({
                     ))}
                   </div>
 
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                  <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/60 rounded-2xl border border-gray-200 dark:border-gray-800">
                     <div className="flex items-center gap-3">
-                      <p className="text-sm font-bold text-gray-600">
+                      <p className="text-sm font-bold text-gray-600 dark:text-gray-400 dark:text-gray-500">
                         {config.copy.targetWordCount
                           ? `✍️ ${config.copy.targetWordCount} palavras`
                           : 'Dica: 150 palavras'}
@@ -1306,16 +1320,16 @@ export function CopyTab({
             >
               <div className="grid grid-cols-1 gap-6">
                 {config.copy.finalScript && (
-                  <div className="bg-green-50 p-6 rounded-[32px] border-2 border-green-100 flex items-center justify-between gap-6 animate-in fade-in slide-in-from-top-4 duration-500">
+                  <div className="bg-green-50 dark:bg-green-950/40 p-6 rounded-[32px] border-2 border-green-100 flex items-center justify-between gap-6 animate-in fade-in slide-in-from-top-4 duration-500">
                     <div className="flex items-center gap-4">
                       <div className="p-3 bg-green-600 text-white rounded-2xl">
                         <CheckCircle2 size={24} />
                       </div>
                       <div>
-                        <p className="text-[10px] font-black text-green-600 uppercase tracking-widest mb-1">
+                        <p className="text-[10px] font-black text-green-600 dark:text-green-400 uppercase tracking-widest mb-1">
                           Cópia Final Salva
                         </p>
-                        <p className="text-sm font-bold text-gray-900 line-clamp-1 opacity-70">
+                        <p className="text-sm font-bold text-gray-900 dark:text-gray-50 line-clamp-1 opacity-70">
                           A copy completa com hook e script foi salva.
                         </p>
                       </div>
@@ -1325,7 +1339,7 @@ export function CopyTab({
                         navigator.clipboard.writeText(config.copy.finalScript || '');
                         toast.success('Cópia copiada!');
                       }}
-                      className="px-6 py-2 bg-white text-green-600 rounded-xl text-[10px] font-black uppercase tracking-widest border border-green-100 hover:bg-green-100 transition-all whitespace-nowrap"
+                      className="px-6 py-2 bg-white dark:bg-gray-900/80 text-green-600 dark:text-green-400 rounded-xl text-[10px] font-black uppercase tracking-widest border border-green-100 hover:bg-green-100 transition-all whitespace-nowrap"
                     >
                       Copiar
                     </button>
@@ -1333,11 +1347,11 @@ export function CopyTab({
                 )}
 
                 {config.copy.generatedScript && (
-                  <div className="bg-white p-8 rounded-[40px] border-2 border-gray-100 shadow-xl space-y-6">
+                  <div className="bg-white dark:bg-gray-900/80 p-8 rounded-[40px] border-2 border-gray-200 dark:border-gray-800 shadow-xl space-y-6">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
-                        <Edit3 className="text-blue-600" size={20} />
-                        <h4 className="font-black text-gray-900 uppercase tracking-widest text-xs">
+                        <Edit3 className="text-blue-600 dark:text-blue-400" size={20} />
+                        <h4 className="font-black text-gray-900 dark:text-gray-50 uppercase tracking-widest text-xs">
                           Copy Original
                         </h4>
                       </div>
@@ -1354,7 +1368,7 @@ export function CopyTab({
                       </button>
                     </div>
                     <AutoResizeTextarea
-                      className="w-full p-8 bg-gray-50 rounded-[32px] border-2 border-transparent focus:border-blue-600 focus:bg-white outline-none text-gray-700 leading-relaxed font-mono text-sm transition-all"
+                      className="w-full p-8 bg-gray-50 dark:bg-gray-800/60 rounded-[32px] border-2 border-transparent focus:border-blue-600 focus:bg-white dark:bg-gray-900/80 outline-none text-gray-700 dark:text-gray-300 dark:text-gray-600 leading-relaxed font-mono text-sm transition-all"
                       value={config.copy.generatedScript || ''}
                       onChange={(e: any) => {
                         setConfig((prev: any) => ({
@@ -1370,7 +1384,7 @@ export function CopyTab({
                       minHeight="300px"
                     />
                     {config.copy.generatedScript && (
-                      <div className="text-xs text-gray-400 text-right mt-2">
+                      <div className="text-xs text-gray-400 dark:text-gray-500 text-right mt-2">
                         ✍️ {countWords(config.copy.generatedScript)} palavras
                       </div>
                     )}
@@ -1413,7 +1427,7 @@ export function CopyTab({
                           className={`flex-1 py-4 rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 transition-all shadow-lg ${
                             hasUnsavedCopyChanges
                               ? 'bg-green-600 text-white hover:bg-green-700 shadow-green-100'
-                              : 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none'
+                              : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed shadow-none'
                           }`}
                         >
                           {isSaving ? (
@@ -1447,7 +1461,7 @@ export function CopyTab({
                       onClick={() => {
                         setCurrentStep('hook-visual');
                       }}
-                      className="flex items-center gap-3 px-12 py-6 bg-white text-gray-900 border-2 border-gray-900 rounded-[32px] font-black uppercase tracking-widest hover:bg-gray-100 transition-all shadow-2xl shadow-gray-200 group"
+                      className="flex items-center gap-3 px-12 py-6 bg-white dark:bg-gray-900/80 text-gray-900 dark:text-gray-50 border-2 border-gray-900 rounded-[32px] font-black uppercase tracking-widest hover:bg-gray-100 dark:bg-gray-800 transition-all shadow-2xl shadow-gray-200 group"
                     >
                       Gerar Hook Visual
                       <ChevronRight
