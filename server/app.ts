@@ -1,5 +1,6 @@
 import express from 'express';
 import type { Express } from 'express';
+import compression from 'compression';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 
@@ -29,6 +30,12 @@ import { telemetryRouter } from './routes/telemetry.routes.js';
 export async function createApp(): Promise<Express> {
   const app = express();
 
+  // gzip/brotli for all responses by default. Express's default
+  // threshold (1KB) is sane — anything smaller skips compression
+  // because the gzip overhead would outweigh the savings. We don't
+  // try to compress already-compressed media: the middleware checks
+  // `content-encoding` and `content-type` and bails on video/*, image/*.
+  app.use(compression());
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ limit: '50mb', extended: true }));
   app.use(requestLogger);
