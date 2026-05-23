@@ -92,13 +92,6 @@ export function PlanTab({
   // carry data, never generate things implicitly.
   const isV2 = Array.isArray(personasWithWeights) && personasWithWeights.length > 0;
 
-  // Reserved props consumed in Phase 3.2-3.4 below (briefs grid, edit
-  // modal, subproject creation). Reference them here so the strict
-  // tsconfig (noUnusedLocals) doesn't fail before those phases land.
-  void onBriefClick;
-  void onBriefEdit;
-  void briefToVariantMap;
-
   /** Legacy fetch (no briefs). Used when isV2 === false. */
   const fetchPlan = async () => {
     setLoading(true);
@@ -736,6 +729,145 @@ export function PlanTab({
             Ir para Copy
             <ArrowRight size={18} />
           </button>
+        </div>
+      )}
+
+      {/* ─── V2 BRIEFS GRID ──────────────────────────────────────────
+          The 15 creative briefs generated alongside the macro plan.
+          Each card is a "shopping item" — the user clicks it to spawn
+          a subprojeto. Status indicator on top-right shows whether
+          this brief has already been executed (variant exists). */}
+      {isV2 && briefs.length > 0 && (
+        <div className="space-y-4 pt-2">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h3 className="text-2xl font-black text-gray-900 dark:text-gray-50 tracking-tight">
+                Plano de Criativos
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                {briefs.length} criativos pra produzir. Clique em um pra criar o subprojeto.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 text-xs">
+              {(() => {
+                const executed = briefs.filter((b) => briefToVariantMap?.[b.id]).length;
+                return (
+                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 tabular-nums">
+                    {executed} de {briefs.length} executados
+                  </span>
+                );
+              })()}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {briefs.map((brief) => {
+              const color = personaColor.get(brief.targetPersonaId) || 'gray';
+              const isExecuted = !!briefToVariantMap?.[brief.id];
+              const ringClass =
+                color === 'blue'
+                  ? 'ring-blue-200/60 dark:ring-blue-900/40'
+                  : color === 'purple'
+                    ? 'ring-purple-200/60 dark:ring-purple-900/40'
+                    : color === 'amber'
+                      ? 'ring-amber-200/60 dark:ring-amber-900/40'
+                      : 'ring-gray-200/60 dark:ring-gray-800';
+              const badgeClass =
+                color === 'blue'
+                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300'
+                  : color === 'purple'
+                    ? 'bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300'
+                    : color === 'amber'
+                      ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
+                      : 'bg-gray-100 text-gray-700';
+              return (
+                <div
+                  key={brief.id}
+                  className={`group relative bg-white dark:bg-gray-900/80 ring-1 ${ringClass} rounded-2xl p-4 space-y-3 transition-all hover:-translate-y-0.5 hover:shadow-lg ${
+                    isExecuted ? 'opacity-80' : ''
+                  }`}
+                >
+                  {/* Top row: index + status */}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-500 tabular-nums">
+                      Criativo {brief.index}
+                    </span>
+                    {isExecuted ? (
+                      <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400">
+                        ✓ executado
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 dark:bg-gray-800/60 dark:text-gray-400">
+                        ⚪ pendente
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Persona name */}
+                  <div
+                    className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-full inline-block ${badgeClass}`}
+                  >
+                    {brief.targetPersonaName}
+                  </div>
+
+                  {/* Hook preview (the actual first sentence) */}
+                  <p className="text-sm font-bold text-gray-900 dark:text-gray-50 leading-snug line-clamp-3">
+                    "{brief.hook}"
+                  </p>
+
+                  {/* Meta row: awareness + duration + angle */}
+                  <div className="flex items-center flex-wrap gap-1.5 text-[9px]">
+                    <span className="font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800/60 text-gray-600 dark:text-gray-400">
+                      Consc.{' '}
+                      {brief.awareness === 'unaware'
+                        ? '1'
+                        : brief.awareness === 'problem_aware'
+                          ? '2'
+                          : brief.awareness === 'solution_aware'
+                            ? '3'
+                            : brief.awareness === 'product_aware'
+                              ? '4'
+                              : '5'}
+                    </span>
+                    <span className="font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800/60 text-gray-600 dark:text-gray-400">
+                      {brief.durationTarget}s
+                    </span>
+                    <span className="font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800/60 text-gray-600 dark:text-gray-400 truncate max-w-[100px]">
+                      {brief.angle}
+                    </span>
+                  </div>
+
+                  {/* Rationale */}
+                  {brief.rationale && (
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400 italic leading-relaxed line-clamp-2">
+                      💡 {brief.rationale}
+                    </p>
+                  )}
+
+                  {/* Action row */}
+                  <div className="flex items-center gap-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+                    <button
+                      onClick={() => onBriefEdit?.(brief)}
+                      className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+                    >
+                      ✏️ Editar
+                    </button>
+                    <div className="flex-1" />
+                    <button
+                      onClick={() => onBriefClick?.(brief)}
+                      className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg transition-all ${
+                        isExecuted
+                          ? 'bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/40'
+                          : 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 hover:bg-black dark:hover:bg-white'
+                      }`}
+                    >
+                      {isExecuted ? 'Abrir Subprojeto' : '+ Criar Subprojeto'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
