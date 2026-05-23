@@ -18,14 +18,29 @@ const sharedVoicesCache = createTTLCache<unknown>({
   maxEntries: 200,
 });
 
+// Account-level voice list rarely changes (only when the user explicitly
+// clones/deletes a voice). 5 min TTL is generous enough to avoid most
+// repeat hits during a single editing session.
+const accountVoicesCache = createTTLCache<unknown>({
+  ttlMs: 5 * 60_000,
+  maxEntries: 2, // key by "has-api-key" / "no-api-key" — only 2 buckets
+});
+
 export const elevenLabsRouter = Router();
 
 // GET /api/elevenlabs/voices
 elevenLabsRouter.get('/voices', async (_req, res) => {
   const apiKey = getElevenLabsKey();
+  const cacheKey = apiKey ? 'auth' : 'public';
+
+  const cached = accountVoicesCache.get(cacheKey);
+  if (cached) {
+    log.info('[ElevenLabs Proxy] Voices served from cache');
+    return res.json(cached);
+  }
 
   try {
-    log.info('[ElevenLabs Proxy] Fetching voices...');
+    log.info('[ElevenLabs Proxy] Fetching voices (cache miss)...');
     const headers: Record<string, string> = {};
     if (apiKey) {
       headers['xi-api-key'] = apiKey;
@@ -54,6 +69,7 @@ elevenLabsRouter.get('/voices', async (_req, res) => {
     }
 
     const data = await response.json();
+    accountVoicesCache.set(cacheKey, data);
     res.json(data);
   } catch (err: any) {
     log.error('[ElevenLabs Proxy] Voices Exception:', err);
@@ -136,8 +152,7 @@ elevenLabsPremiumRouter.get('/voices', async (req, res) => {
   // Build the cache key from the full request query — same filter combo +
   // page = same response. include_low_quality flips a post-filter so
   // it's part of the key too.
-  const cacheKey = new URLSearchParams(req.query as Record<string, string>)
-    .toString();
+  const cacheKey = new URLSearchParams(req.query as Record<string, string>).toString();
   const cached = sharedVoicesCache.get(cacheKey);
   if (cached) {
     log.info(`[ElevenLabs Premium] voices served from cache (${cacheKey})`);
@@ -147,11 +162,7 @@ elevenLabsPremiumRouter.get('/voices', async (req, res) => {
   // Filters that may be safely relaxed when the combination yields 0
   // voices. Order matters only as a tiebreaker when multiple single-drop
   // candidates produce the same count — earlier = preferred to drop.
-  const OPTIONAL: ('descriptive' | 'use_case' | 'accent')[] = [
-    'descriptive',
-    'use_case',
-    'accent',
-  ];
+  const OPTIONAL: ('descriptive' | 'use_case' | 'accent')[] = ['descriptive', 'use_case', 'accent'];
 
   const buildParams = (drop: Set<string>) => {
     const params = new URLSearchParams();
@@ -232,9 +243,7 @@ elevenLabsPremiumRouter.get('/voices', async (req, res) => {
     const includeLowQuality = req.query.include_low_quality === '1';
     const filtered = includeLowQuality
       ? json.voices || []
-      : (json.voices || []).filter(
-          (v: any) => (v.cloned_by_count ?? 0) >= QUALITY_FLOOR
-        );
+      : (json.voices || []).filter((v: any) => (v.cloned_by_count ?? 0) >= QUALITY_FLOOR);
 
     const voices = filtered.map((v: any) => ({
       voice_id: v.voice_id,
@@ -315,10 +324,7 @@ elevenLabsPremiumRouter.post('/generate', async (req, res) => {
         storagePath = firebasePath;
       }
     } catch (uploadErr: any) {
-      log.error(
-        '[VozPremium] Firebase Storage upload falhou, usando local:',
-        uploadErr.message
-      );
+      log.error('[VozPremium] Firebase Storage upload falhou, usando local:', uploadErr.message);
     }
 
     res.json({ audioUrl, storagePath });

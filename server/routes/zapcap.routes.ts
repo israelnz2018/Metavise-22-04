@@ -6,7 +6,14 @@ import { logToFile } from '../utils/fileLogger.js';
 import { getZapCapKey, getAssemblyAIKey } from '../config/apiKeys.js';
 import { ZAPCAP_CONFIG_PATH } from '../config/paths.js';
 import { createLogger } from '../utils/logger.js';
+import { createTTLCache } from '../utils/cache.js';
 const log = createLogger('ZapCap');
+
+// ZapCap templates change rarely — once a week tops on their side.
+// 15 min TTL is plenty for an editing session; cache key constant
+// because the endpoint takes no params.
+const templatesCache = createTTLCache<unknown>({ ttlMs: 15 * 60_000, maxEntries: 1 });
+const TEMPLATES_CACHE_KEY = 'all';
 
 // Mirrors a finished ZapCap video into our Firebase Storage so the URL
 // the SPA persists is permanent. ZapCap's CDN URLs are signed and expire
@@ -136,9 +143,15 @@ zapCapRouter.get('/templates', async (_req, res) => {
     return res.status(500).json({ error: 'ZAPCAP_API_KEY não configurada.' });
   }
 
+  const cached = templatesCache.get(TEMPLATES_CACHE_KEY);
+  if (cached) {
+    log.info('[ZapCap] Templates served from cache');
+    return res.json(cached);
+  }
+
   try {
     const maskedKey = `${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}`;
-    logToFile(`[ZapCap] Carregando templates. Key: ${maskedKey}`);
+    logToFile(`[ZapCap] Carregando templates (cache miss). Key: ${maskedKey}`);
 
     const response = await fetch(`${ZAPCAP_BASE}/templates`, {
       method: 'GET',
@@ -161,6 +174,7 @@ zapCapRouter.get('/templates', async (_req, res) => {
       logToFile(`[ZapCap] Exemplo de template: ${JSON.stringify(sample)}`);
     }
     log.info(`[ZapCap Debug] Success: Found ${templatesFound} templates.`);
+    templatesCache.set(TEMPLATES_CACHE_KEY, data);
     res.json(data);
   } catch (err: any) {
     logToFile(`[ZapCap Catch] ERRO: ${err.message}`);
