@@ -83,8 +83,8 @@ export const VariantItem: React.FC<VariantItemProps> = ({
     <div
       className={`rounded-[32px] border-2 transition-all overflow-hidden ${
         isViewing
-          ? 'border-blue-600 bg-blue-50/30 shadow-lg shadow-blue-100/50'
-          : 'border-gray-100 bg-white hover:border-blue-100'
+          ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40/30 shadow-lg shadow-blue-100/50'
+          : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/80 hover:border-blue-100 dark:border-blue-900'
       }`}
     >
       <div
@@ -96,7 +96,7 @@ export const VariantItem: React.FC<VariantItemProps> = ({
             className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
               isViewing
                 ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/40'
-                : 'bg-blue-50 text-blue-600'
+                : 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400'
             }`}
           >
             <Layout size={24} />
@@ -123,7 +123,7 @@ export const VariantItem: React.FC<VariantItemProps> = ({
                       }
                     }}
                     autoFocus
-                    className="font-black text-base text-gray-900 tracking-tight border-2 border-blue-400 rounded-lg px-2 py-1 outline-none"
+                    className="font-black text-base text-gray-900 dark:text-gray-50 tracking-tight border-2 border-blue-400 rounded-lg px-2 py-1 outline-none"
                   />
                   <button
                     onClick={(e) => {
@@ -143,14 +143,14 @@ export const VariantItem: React.FC<VariantItemProps> = ({
                       setRenameValue(variant.name);
                       setIsRenaming(false);
                     }}
-                    className="px-2 py-1 bg-gray-100 text-gray-600 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-gray-200 transition-all"
+                    className="px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 dark:text-gray-500 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-gray-200 transition-all"
                   >
                     Cancelar
                   </button>
                 </>
               ) : (
                 <>
-                  <p className="font-black text-base text-gray-900 tracking-tight">
+                  <p className="font-black text-base text-gray-900 dark:text-gray-50 tracking-tight">
                     {variant.name}
                   </p>
                   <button
@@ -159,7 +159,7 @@ export const VariantItem: React.FC<VariantItemProps> = ({
                       setRenameValue(variant.name);
                       setIsRenaming(true);
                     }}
-                    className="p-1 rounded-lg text-gray-300 hover:text-blue-600 hover:bg-blue-50 transition-all"
+                    className="p-1 rounded-lg text-gray-300 dark:text-gray-600 hover:text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:bg-blue-950/40 transition-all"
                     title="Renomear subprojeto"
                   >
                     <Edit3 size={14} />
@@ -167,7 +167,7 @@ export const VariantItem: React.FC<VariantItemProps> = ({
                 </>
               )}
             </div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">
               {variant.createdAt?.toDate
                 ? variant.createdAt.toDate().toLocaleString()
                 : 'Data não disponível'}
@@ -180,7 +180,7 @@ export const VariantItem: React.FC<VariantItemProps> = ({
               e.stopPropagation();
               onLoad(variant);
             }}
-            className="px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+            className="px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 hover:bg-blue-600 hover:text-white transition-all shadow-sm"
           >
             Carregar Versão
           </button>
@@ -189,7 +189,7 @@ export const VariantItem: React.FC<VariantItemProps> = ({
               e.stopPropagation();
               onDelete(project.id, variant.id);
             }}
-            className="p-2.5 rounded-xl text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all"
+            className="p-2.5 rounded-xl text-gray-300 dark:text-gray-600 hover:text-red-500 hover:bg-red-50 dark:bg-red-950/40 transition-all"
             title="Excluir Subprojeto"
           >
             <Trash2 size={20} />
@@ -198,8 +198,8 @@ export const VariantItem: React.FC<VariantItemProps> = ({
       </div>
 
       <div className="px-5 pb-5 space-y-4">
-        <div className="pt-2 pb-1 border-b border-gray-100">
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+        <div className="pt-2 pb-1 border-b border-gray-200 dark:border-gray-800">
+          <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
             Recursos do Subprojeto
           </p>
         </div>
@@ -214,17 +214,17 @@ export const VariantItem: React.FC<VariantItemProps> = ({
                 }}
                 className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all cursor-pointer ${
                   expandedItem === 'copy'
-                    ? 'bg-amber-50 border-amber-200 shadow-sm'
-                    : 'bg-gray-50/50 border-gray-100 hover:border-amber-200'
+                    ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 shadow-sm'
+                    : 'bg-gray-50 dark:bg-gray-800/60/50 border-gray-200 dark:border-gray-800 hover:border-amber-200'
                 }`}
               >
                 <div className="flex items-center gap-3">
                   <div
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center ${expandedItem === 'copy' ? 'bg-amber-200 text-amber-700' : 'bg-amber-100 text-amber-600'}`}
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center ${expandedItem === 'copy' ? 'bg-amber-200 text-amber-700 dark:text-amber-400' : 'bg-amber-100 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400'}`}
                   >
                     <Type size={14} />
                   </div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-600">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-400 dark:text-gray-500">
                     Copywriting Gerada
                   </span>
                 </div>
@@ -234,7 +234,7 @@ export const VariantItem: React.FC<VariantItemProps> = ({
                       e.stopPropagation();
                       onLoad(variant, 'copy');
                     }}
-                    className="px-3 py-1.5 bg-amber-100 text-amber-700 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-amber-200 transition-all"
+                    className="px-3 py-1.5 bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-amber-200 transition-all"
                   >
                     Editar Copy
                   </button>
@@ -249,7 +249,7 @@ export const VariantItem: React.FC<VariantItemProps> = ({
                   </button>
                   <ChevronDown
                     size={16}
-                    className={`text-gray-400 transition-transform duration-300 ${expandedItem === 'copy' ? 'rotate-180' : ''}`}
+                    className={`text-gray-400 dark:text-gray-500 transition-transform duration-300 ${expandedItem === 'copy' ? 'rotate-180' : ''}`}
                   />
                 </div>
               </div>
@@ -261,21 +261,21 @@ export const VariantItem: React.FC<VariantItemProps> = ({
                     exit={{ height: 0, opacity: 0 }}
                     className="overflow-hidden"
                   >
-                    <div className="space-y-4 p-5 bg-white rounded-2xl border border-amber-100 shadow-inner">
+                    <div className="space-y-4 p-5 bg-white dark:bg-gray-900/80 rounded-2xl border border-amber-100 shadow-inner">
                       <div className="space-y-2">
-                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                        <p className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
                           Script Original
                         </p>
-                        <div className="text-xs text-gray-700 whitespace-pre-wrap font-medium leading-relaxed">
+                        <div className="text-xs text-gray-700 dark:text-gray-300 dark:text-gray-600 whitespace-pre-wrap font-medium leading-relaxed">
                           {variant.config.copy.generatedScript}
                         </div>
                       </div>
                       {hasOptimizedCopy && (
                         <div className="space-y-2 pt-4 border-t border-gray-50">
-                          <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest">
+                          <p className="text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest">
                             Script Otimizado (ElevenLabs)
                           </p>
-                          <div className="text-xs text-gray-700 whitespace-pre-wrap font-bold leading-relaxed">
+                          <div className="text-xs text-gray-700 dark:text-gray-300 dark:text-gray-600 whitespace-pre-wrap font-bold leading-relaxed">
                             {variant.config.copy.optimizedScript}
                           </div>
                         </div>
@@ -296,17 +296,17 @@ export const VariantItem: React.FC<VariantItemProps> = ({
                 }}
                 className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all cursor-pointer ${
                   expandedItem === `audio-${idx}`
-                    ? 'bg-green-50 border-green-200 shadow-sm'
-                    : 'bg-gray-50/50 border-gray-100 hover:border-green-200'
+                    ? 'bg-green-50 dark:bg-green-950/40 border-green-200 shadow-sm'
+                    : 'bg-gray-50 dark:bg-gray-800/60/50 border-gray-200 dark:border-gray-800 hover:border-green-200'
                 }`}
               >
                 <div className="flex items-center gap-3">
                   <div
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center ${expandedItem === `audio-${idx}` ? 'bg-green-200 text-green-700' : 'bg-green-100 text-green-600'}`}
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center ${expandedItem === `audio-${idx}` ? 'bg-green-200 text-green-700 dark:text-green-400' : 'bg-green-100 text-green-600 dark:text-green-400'}`}
                   >
                     <Volume2 size={14} />
                   </div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-600">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-400 dark:text-gray-500">
                     Narração {idx + 1}
                   </span>
                 </div>
@@ -322,7 +322,7 @@ export const VariantItem: React.FC<VariantItemProps> = ({
                   </button>
                   <ChevronDown
                     size={16}
-                    className={`text-gray-400 transition-transform duration-300 ${expandedItem === `audio-${idx}` ? 'rotate-180' : ''}`}
+                    className={`text-gray-400 dark:text-gray-500 transition-transform duration-300 ${expandedItem === `audio-${idx}` ? 'rotate-180' : ''}`}
                   />
                 </div>
               </div>
@@ -334,13 +334,13 @@ export const VariantItem: React.FC<VariantItemProps> = ({
                     exit={{ height: 0, opacity: 0 }}
                     className="overflow-hidden"
                   >
-                    <div className="p-4 bg-white rounded-2xl border border-green-100 flex items-center justify-between gap-4 shadow-inner">
+                    <div className="p-4 bg-white dark:bg-gray-900/80 rounded-2xl border border-green-100 flex items-center justify-between gap-4 shadow-inner">
                       <audio src={audio.url || undefined} controls className="h-8 flex-1" />
                       <div className="flex items-center gap-2">
                         <a
                           href={audio.url}
                           download={`audio-${idx + 1}.mp3`}
-                          className="p-2 text-gray-400 hover:text-blue-500 transition-colors"
+                          className="p-2 text-gray-400 dark:text-gray-500 hover:text-blue-500 transition-colors"
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(e) => e.stopPropagation()}
@@ -359,7 +359,7 @@ export const VariantItem: React.FC<VariantItemProps> = ({
                                 onDeleteAudio(audio);
                               }
                             }}
-                            className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                            className="p-2 text-gray-400 dark:text-gray-500 hover:text-red-500 transition-colors"
                             title="Deletar áudio"
                           >
                             <Trash2 size={16} />
@@ -382,17 +382,17 @@ export const VariantItem: React.FC<VariantItemProps> = ({
                 }}
                 className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all cursor-pointer ${
                   expandedItem === `video-${idx}`
-                    ? 'bg-blue-50 border-blue-200 shadow-sm'
-                    : 'bg-gray-50/50 border-gray-100 hover:border-blue-200'
+                    ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 shadow-sm'
+                    : 'bg-gray-50 dark:bg-gray-800/60/50 border-gray-200 dark:border-gray-800 hover:border-blue-200'
                 }`}
               >
                 <div className="flex items-center gap-3">
                   <div
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center ${expandedItem === `video-${idx}` ? 'bg-blue-200 text-blue-700' : 'bg-blue-100 text-blue-600'}`}
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center ${expandedItem === `video-${idx}` ? 'bg-blue-200 text-blue-700 dark:text-blue-300' : 'bg-blue-100 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400'}`}
                   >
                     <Video size={14} />
                   </div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-600">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-400 dark:text-gray-500">
                     Vídeo Avatar {idx + 1}
                   </span>
                 </div>
@@ -408,7 +408,7 @@ export const VariantItem: React.FC<VariantItemProps> = ({
                   </button>
                   <ChevronDown
                     size={16}
-                    className={`text-gray-400 transition-transform duration-300 ${expandedItem === `video-${idx}` ? 'rotate-180' : ''}`}
+                    className={`text-gray-400 dark:text-gray-500 transition-transform duration-300 ${expandedItem === `video-${idx}` ? 'rotate-180' : ''}`}
                   />
                 </div>
               </div>
@@ -420,10 +420,10 @@ export const VariantItem: React.FC<VariantItemProps> = ({
                     exit={{ height: 0, opacity: 0 }}
                     className="overflow-hidden"
                   >
-                    <div className="space-y-4 p-4 bg-white rounded-2xl border border-blue-100 shadow-inner">
+                    <div className="space-y-4 p-4 bg-white dark:bg-gray-900/80 rounded-2xl border border-blue-100 dark:border-blue-900 shadow-inner">
                       <div
                         className={cn(
-                          'bg-black rounded-xl overflow-hidden border-2 border-gray-100 shadow-sm',
+                          'bg-black rounded-xl overflow-hidden border-2 border-gray-200 dark:border-gray-800 shadow-sm',
                           getVideoAspectRatioClass(video)
                         )}
                       >
@@ -485,7 +485,7 @@ export const VariantItem: React.FC<VariantItemProps> = ({
                           <a
                             href={video.url}
                             download={`video-${idx + 1}.mp4`}
-                            className="p-2 text-gray-400 hover:text-blue-500 transition-colors"
+                            className="p-2 text-gray-400 dark:text-gray-500 hover:text-blue-500 transition-colors"
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
@@ -498,7 +498,7 @@ export const VariantItem: React.FC<VariantItemProps> = ({
                                 e.stopPropagation();
                                 onDeleteVideo(video);
                               }}
-                              className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                              className="p-2 text-gray-400 dark:text-gray-500 hover:text-red-500 transition-colors"
                             >
                               <Trash2 size={16} />
                             </button>

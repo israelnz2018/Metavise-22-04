@@ -253,7 +253,7 @@ const HookChooser: React.FC<Props> = ({
     <div className="space-y-8">
       {/* ─── TOPO: COPY APROVADA (read-only) ─── */}
       {approvedCopy ? (
-        <div className="bg-blue-50 rounded-3xl border-2 border-blue-200 p-6 shadow-sm">
+        <div className="bg-blue-50 dark:bg-blue-950/40 rounded-3xl border-2 border-blue-200 p-6 shadow-sm">
           <div className="flex items-center gap-2 mb-3">
             <div className="bg-blue-600 p-1.5 rounded-lg text-white">
               <Library size={16} />
@@ -261,14 +261,16 @@ const HookChooser: React.FC<Props> = ({
             <h3 className="text-sm font-black text-blue-900 uppercase tracking-widest">
               Copy Aprovada
             </h3>
-            <span className="text-xs text-blue-600 ml-auto">vinda da etapa anterior</span>
+            <span className="text-xs text-blue-600 dark:text-blue-400 ml-auto">
+              vinda da etapa anterior
+            </span>
           </div>
-          <div className="bg-white rounded-2xl p-5 max-h-72 overflow-y-auto border border-blue-100">
-            <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+          <div className="bg-white dark:bg-gray-900/80 rounded-2xl p-5 max-h-72 overflow-y-auto border border-blue-100 dark:border-blue-900">
+            <p className="text-sm text-gray-700 dark:text-gray-300 dark:text-gray-600 whitespace-pre-wrap leading-relaxed">
               {approvedCopy}
             </p>
           </div>
-          <p className="text-[10px] text-blue-600/70 mt-2 italic">
+          <p className="text-[10px] text-blue-600 dark:text-blue-400/70 mt-2 italic">
             Para editar a copy, volte para a etapa de Copywriting.
           </p>
         </div>
@@ -301,25 +303,25 @@ const HookChooser: React.FC<Props> = ({
       {/* ─── BLOCO 1: HOOKS GERADOS PELA IA + FILTROS ─── */}
       {aiGeneratedGroups.length > 0 && (
         <div
-          className={`bg-white rounded-3xl border-2 p-6 shadow-sm transition-all ${activeBlock === 'ai' ? 'border-blue-500 shadow-lg ring-2 ring-blue-100' : 'border-gray-100 opacity-90'}`}
+          className={`bg-white dark:bg-gray-900/80 rounded-3xl border-2 p-6 shadow-sm transition-all ${activeBlock === 'ai' ? 'border-blue-500 shadow-lg ring-2 ring-blue-100' : 'border-gray-200 dark:border-gray-800 opacity-90'}`}
         >
           <div className="flex items-center gap-2 mb-4">
             <div className="bg-purple-600 p-1.5 rounded-lg text-white">
               <Sparkles size={16} />
             </div>
-            <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest flex-1">
+            <h3 className="text-sm font-black text-gray-900 dark:text-gray-50 uppercase tracking-widest flex-1">
               Opção 1: Hooks Recomendados pela IA
             </h3>
             {renderBlockCheckbox('ai', 'Usar este bloco')}
           </div>
 
           {/* Filtros pré-selecionados (visualização do que foi usado) */}
-          <div className="mb-4 p-4 bg-purple-50 rounded-2xl border border-purple-100">
-            <p className="text-[10px] font-black text-purple-700 uppercase tracking-widest mb-3">
+          <div className="mb-4 p-4 bg-purple-50 dark:bg-purple-950/40 rounded-2xl border border-purple-100">
+            <p className="text-[10px] font-black text-purple-700 dark:text-purple-300 uppercase tracking-widest mb-3">
               Filtros usados para gerar os 9 hooks
             </p>
             <div className="mb-3">
-              <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">
+              <p className="text-[9px] font-black text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">
                 Nível de Consciência
               </p>
               <div className="flex gap-1.5">
@@ -329,7 +331,7 @@ const HookChooser: React.FC<Props> = ({
                   return (
                     <div
                       key={`ai-lvl-${lvl}`}
-                      className={`relative w-9 h-9 rounded-lg font-black text-xs flex items-center justify-center gap-0.5 ${active ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-400'}`}
+                      className={`relative w-9 h-9 rounded-lg font-black text-xs flex items-center justify-center gap-0.5 ${active ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500'}`}
                     >
                       {lvl}
                       {showStar && <span className="text-[8px]">⭐</span>}
@@ -340,10 +342,12 @@ const HookChooser: React.FC<Props> = ({
             </div>
             <div>
               <div className="flex items-center justify-between mb-1">
-                <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest">
+                <p className="text-[9px] font-black text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-widest">
                   Tipos de Hook
                 </p>
-                <p className="text-[9px] text-amber-600 font-bold">⭐ = recomendado pelo nível</p>
+                <p className="text-[9px] text-amber-600 dark:text-amber-400 font-bold">
+                  ⭐ = recomendado pelo nível
+                </p>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {ALL_HOOK_TYPES.map((t) => {
@@ -352,7 +356,7 @@ const HookChooser: React.FC<Props> = ({
                   return (
                     <div
                       key={`ai-type-${t}`}
-                      className={`relative px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-1 ${active ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-400'}`}
+                      className={`relative px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-1 ${active ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500'}`}
                     >
                       <span>{t}</span>
                       {showStar && <span className="text-[8px]">⭐</span>}
@@ -368,7 +372,7 @@ const HookChooser: React.FC<Props> = ({
               <div key={`ai-group-${g.type}-${gIdx}`} className="space-y-3">
                 <div className="flex items-center gap-2">
                   <div className="w-1.5 h-4 bg-purple-600 rounded-full"></div>
-                  <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                  <span className="text-[10px] font-black text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-widest">
                     Grupo {gIdx + 1}: {g.type}
                   </span>
                 </div>
@@ -385,10 +389,10 @@ const HookChooser: React.FC<Props> = ({
                         disabled={isDisabled}
                         className={`w-full text-left p-5 rounded-3xl border-2 transition-all relative ${
                           isSelected
-                            ? 'border-blue-600 bg-blue-50 shadow-lg ring-2 ring-blue-100'
+                            ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40 shadow-lg ring-2 ring-blue-100'
                             : isDisabled
-                              ? 'border-gray-50 bg-gray-50/50 cursor-not-allowed opacity-60'
-                              : 'border-gray-50 bg-gray-50 hover:border-blue-200 hover:bg-white'
+                              ? 'border-gray-50 bg-gray-50 dark:bg-gray-800/60/50 cursor-not-allowed opacity-60'
+                              : 'border-gray-50 bg-gray-50 dark:bg-gray-800/60 hover:border-blue-200 hover:bg-white dark:bg-gray-900/80'
                         }`}
                       >
                         <div className="flex items-start gap-4">
@@ -396,21 +400,23 @@ const HookChooser: React.FC<Props> = ({
                             className={`mt-1 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${
                               isSelected
                                 ? 'bg-blue-600 border-blue-600'
-                                : 'border-gray-200 bg-white'
+                                : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/80'
                             }`}
                           >
-                            {isSelected && <div className="w-2 h-2 bg-white rounded-full"></div>}
+                            {isSelected && (
+                              <div className="w-2 h-2 bg-white dark:bg-gray-900/80 rounded-full"></div>
+                            )}
                           </div>
                           <div className="flex-1 pr-16">
                             <p
-                              className={`text-sm font-bold leading-relaxed ${isSelected ? 'text-blue-900' : 'text-gray-700'}`}
+                              className={`text-sm font-bold leading-relaxed ${isSelected ? 'text-blue-900' : 'text-gray-700 dark:text-gray-300 dark:text-gray-600'}`}
                             >
                               {text}
                             </p>
                           </div>
                         </div>
                         {isHookRecommended && (
-                          <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-amber-100 text-amber-700 px-3 py-1.5 rounded-xl border border-amber-200 shadow-sm">
+                          <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 px-3 py-1.5 rounded-xl border border-amber-200 shadow-sm">
                             <Star size={12} fill="currentColor" />
                             <span className="text-[10px] font-black uppercase tracking-tighter">
                               Recomendado
@@ -429,31 +435,31 @@ const HookChooser: React.FC<Props> = ({
 
       {/* ─── BLOCO 2: BUSCAR PELA LISTA COMPLETA ─── */}
       <div
-        className={`bg-white rounded-3xl border-2 p-6 shadow-sm transition-all ${activeBlock === 'list' ? 'border-blue-500 shadow-lg ring-2 ring-blue-100' : 'border-gray-100 opacity-90'}`}
+        className={`bg-white dark:bg-gray-900/80 rounded-3xl border-2 p-6 shadow-sm transition-all ${activeBlock === 'list' ? 'border-blue-500 shadow-lg ring-2 ring-blue-100' : 'border-gray-200 dark:border-gray-800 opacity-90'}`}
       >
         <div className="flex items-center gap-2 mb-4">
           <div className="bg-purple-600 p-1.5 rounded-lg text-white">
             <Search size={16} />
           </div>
-          <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest flex-1">
+          <h3 className="text-sm font-black text-gray-900 dark:text-gray-50 uppercase tracking-widest flex-1">
             Opção 2: Buscar pela Lista Completa
           </h3>
           {renderBlockCheckbox('list', 'Usar este bloco')}
         </div>
 
         <div className="flex items-center gap-2 mb-4">
-          <Search size={14} className="text-gray-400" />
+          <Search size={14} className="text-gray-400 dark:text-gray-500" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar hook por palavra-chave..."
-            className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-400"
+            className="flex-1 text-sm border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-400"
           />
         </div>
 
         {/* Tom */}
         <div className="mb-4">
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">
+          <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">
             Tom do Hook
           </p>
           <div className="flex flex-wrap gap-2">
@@ -463,7 +469,7 @@ const HookChooser: React.FC<Props> = ({
                 <button
                   key={`opt3-tone-${t.id}`}
                   onClick={() => setTone(active ? 'Todos' : t.id)}
-                  className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition ${active ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                  className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition ${active ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-200'}`}
                 >
                   {t.label}
                 </button>
@@ -474,7 +480,7 @@ const HookChooser: React.FC<Props> = ({
 
         {/* DROPDOWN */}
         <div className="mb-2">
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">
+          <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">
             Selecione um Hook ({dropdownSet.length}{' '}
             {dropdownSet.length === 1 ? 'disponível' : 'disponíveis'})
           </p>
@@ -492,7 +498,7 @@ const HookChooser: React.FC<Props> = ({
                 }, 100);
               }
             }}
-            className="w-full text-sm border-2 border-gray-200 rounded-xl px-4 py-3 bg-white focus:outline-none focus:border-blue-400 cursor-pointer disabled:bg-gray-100 disabled:cursor-not-allowed"
+            className="w-full text-sm border-2 border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 bg-white dark:bg-gray-900/80 focus:outline-none focus:border-blue-400 cursor-pointer disabled:bg-gray-100 dark:bg-gray-800 disabled:cursor-not-allowed"
           >
             <option value="">— Escolha um hook da lista —</option>
             {dropdownSet.map((h: any, i: number) => (
@@ -502,7 +508,7 @@ const HookChooser: React.FC<Props> = ({
               </option>
             ))}
           </select>
-          <p className="text-[10px] text-gray-400 mt-2 italic">
+          <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-2 italic">
             Ao selecionar um hook, ele vai direto para o card "Hook Final" abaixo.
           </p>
         </div>
@@ -510,13 +516,13 @@ const HookChooser: React.FC<Props> = ({
 
       {/* ─── BLOCO 3: HOOK CUSTOMIZADO ─── */}
       <div
-        className={`bg-white rounded-3xl border-2 p-6 shadow-sm transition-all ${activeBlock === 'custom' ? 'border-blue-500 shadow-lg ring-2 ring-blue-100' : 'border-gray-100 opacity-90'}`}
+        className={`bg-white dark:bg-gray-900/80 rounded-3xl border-2 p-6 shadow-sm transition-all ${activeBlock === 'custom' ? 'border-blue-500 shadow-lg ring-2 ring-blue-100' : 'border-gray-200 dark:border-gray-800 opacity-90'}`}
       >
         <div className="flex items-center gap-2 mb-4">
           <div className="bg-purple-600 p-1.5 rounded-lg text-white">
             <Edit3 size={16} />
           </div>
-          <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest flex-1">
+          <h3 className="text-sm font-black text-gray-900 dark:text-gray-50 uppercase tracking-widest flex-1">
             Opção 3: Escreva seu próprio hook
           </h3>
           {renderBlockCheckbox('custom', 'Usar este bloco')}
@@ -527,7 +533,7 @@ const HookChooser: React.FC<Props> = ({
             onChange={(e) => setCustomHook(e.target.value)}
             disabled={activeBlock !== 'custom'}
             placeholder="Escreva seu hook aqui..."
-            className="flex-1 text-sm border-2 border-gray-100 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-400 disabled:bg-gray-100 disabled:cursor-not-allowed"
+            className="flex-1 text-sm border-2 border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-400 disabled:bg-gray-100 dark:bg-gray-800 disabled:cursor-not-allowed"
           />
           <button
             onClick={() => {
@@ -549,15 +555,15 @@ const HookChooser: React.FC<Props> = ({
 
       {/* ─── HISTÓRICO DE HOOKS SALVOS ─── */}
       {hooksHistorico && hooksHistorico.length > 0 && (
-        <div className="bg-white rounded-3xl border-2 border-gray-100 p-6 shadow-sm">
+        <div className="bg-white dark:bg-gray-900/80 rounded-3xl border-2 border-gray-200 dark:border-gray-800 p-6 shadow-sm">
           <div className="flex items-center gap-2 mb-4">
             <div className="bg-gray-700 p-1.5 rounded-lg text-white">
               <History size={16} />
             </div>
-            <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest">
+            <h3 className="text-sm font-black text-gray-900 dark:text-gray-50 uppercase tracking-widest">
               Hooks Salvos Anteriormente
             </h3>
-            <span className="text-xs text-gray-400 ml-auto">
+            <span className="text-xs text-gray-400 dark:text-gray-500 ml-auto">
               {hooksHistorico.length} no histórico
             </span>
           </div>
@@ -575,16 +581,18 @@ const HookChooser: React.FC<Props> = ({
               return (
                 <div
                   key={`hist-${idx}`}
-                  className={`group p-4 rounded-2xl border-2 transition-all ${isSelected ? 'border-blue-600 bg-blue-50' : 'border-gray-100 bg-gray-50 hover:border-blue-200'}`}
+                  className={`group p-4 rounded-2xl border-2 transition-all ${isSelected ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40' : 'border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/60 hover:border-blue-200'}`}
                 >
                   <div className="flex items-start gap-3">
                     <button onClick={() => handlePickHook(item.hook)} className="flex-1 text-left">
                       <p
-                        className={`text-sm font-bold leading-relaxed ${isSelected ? 'text-blue-900' : 'text-gray-700'}`}
+                        className={`text-sm font-bold leading-relaxed ${isSelected ? 'text-blue-900' : 'text-gray-700 dark:text-gray-300 dark:text-gray-600'}`}
                       >
                         {item.hook}
                       </p>
-                      <p className="text-[10px] text-gray-400 mt-1">Salvo em {dateStr}</p>
+                      <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
+                        Salvo em {dateStr}
+                      </p>
                     </button>
                     {onDeleteHookFromHistory && (
                       <button
@@ -594,7 +602,7 @@ const HookChooser: React.FC<Props> = ({
                             onDeleteHookFromHistory(item.hook);
                           }
                         }}
-                        className="opacity-0 group-hover:opacity-100 p-2 text-gray-400 hover:text-red-500 transition-all"
+                        className="opacity-0 group-hover:opacity-100 p-2 text-gray-400 dark:text-gray-500 hover:text-red-500 transition-all"
                         title="Remover do histórico"
                       >
                         <Trash2 size={14} />
@@ -636,7 +644,7 @@ const HookChooser: React.FC<Props> = ({
             <button
               onClick={handleSave}
               disabled={isSaved}
-              className={`px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest flex items-center gap-2 transition ${isSaved ? 'bg-green-600 text-white' : 'bg-white text-blue-600 hover:bg-blue-50'}`}
+              className={`px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest flex items-center gap-2 transition ${isSaved ? 'bg-green-600 text-white' : 'bg-white dark:bg-gray-900/80 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:bg-blue-950/40'}`}
             >
               {isSaved ? <CheckCircle2 size={16} /> : <Check size={16} />}
               {isSaved ? 'Hook salvo' : 'Salvar Hook'}
@@ -666,15 +674,15 @@ function BlockCheckbox({
       className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition border-2 ${
         isActive
           ? 'bg-blue-600 border-blue-600 text-white shadow-md'
-          : 'bg-white border-gray-200 text-gray-500 hover:border-blue-300'
+          : 'bg-white dark:bg-gray-900/80 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:border-blue-300'
       }`}
     >
       <div
         className={`w-4 h-4 rounded-md border-2 flex items-center justify-center transition ${
-          isActive ? 'bg-white border-white' : 'border-gray-300'
+          isActive ? 'bg-white dark:bg-gray-900/80 border-white' : 'border-gray-300'
         }`}
       >
-        {isActive && <Check size={12} className="text-blue-600" />}
+        {isActive && <Check size={12} className="text-blue-600 dark:text-blue-400" />}
       </div>
       {label}
     </button>

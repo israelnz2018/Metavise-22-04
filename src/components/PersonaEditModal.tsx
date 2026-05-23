@@ -64,18 +64,21 @@ export function PersonaEditModal({ open, persona, onChange, onClose, onSave }: P
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+        className="bg-white dark:bg-gray-900/80 rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="sticky top-0 bg-white border-b-2 border-gray-100 p-6 flex items-center justify-between z-10">
+        <div className="sticky top-0 bg-white dark:bg-gray-900/80 border-b-2 border-gray-200 dark:border-gray-800 p-6 flex items-center justify-between z-10">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-blue-100 flex items-center justify-center">
-              <Edit3 size={20} className="text-blue-600" />
+            <div className="w-10 h-10 rounded-2xl bg-blue-100 dark:bg-blue-950/30 flex items-center justify-center">
+              <Edit3 size={20} className="text-blue-600 dark:text-blue-400" />
             </div>
-            <h3 className="text-xl font-black text-gray-900">Editar Persona</h3>
+            <h3 className="text-xl font-black text-gray-900 dark:text-gray-50">Editar Persona</h3>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
-            <X size={20} className="text-gray-600" />
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 dark:bg-gray-800 rounded-xl transition-colors"
+          >
+            <X size={20} className="text-gray-600 dark:text-gray-400 dark:text-gray-500" />
           </button>
         </div>
 
@@ -87,7 +90,7 @@ export function PersonaEditModal({ open, persona, onChange, onClose, onSave }: P
                   type="text"
                   value={persona[f.key] || ''}
                   onChange={(e) => update(f.key, e.target.value)}
-                  className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none"
+                  className="mt-1 w-full px-4 py-2 border-2 border-gray-200 dark:border-gray-800 rounded-xl text-sm focus:border-blue-600 focus:outline-none"
                 />
               </Field>
             ))}
@@ -95,7 +98,7 @@ export function PersonaEditModal({ open, persona, onChange, onClose, onSave }: P
               <select
                 value={persona.awarenessLevel || '3'}
                 onChange={(e) => update('awarenessLevel', e.target.value)}
-                className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none"
+                className="mt-1 w-full px-4 py-2 border-2 border-gray-200 dark:border-gray-800 rounded-xl text-sm focus:border-blue-600 focus:outline-none"
               >
                 <option value="1">1 — Inconsciente</option>
                 <option value="2">2 — Consciente do problema</option>
@@ -112,7 +115,7 @@ export function PersonaEditModal({ open, persona, onChange, onClose, onSave }: P
                 value={persona[f.key] || ''}
                 onChange={(e) => update(f.key, e.target.value)}
                 rows={f.rows || 2}
-                className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none resize-none"
+                className="mt-1 w-full px-4 py-2 border-2 border-gray-200 dark:border-gray-800 rounded-xl text-sm focus:border-blue-600 focus:outline-none resize-none"
               />
             </Field>
           ))}
@@ -123,16 +126,16 @@ export function PersonaEditModal({ open, persona, onChange, onClose, onSave }: P
                 type="text"
                 value={persona[f.key] || ''}
                 onChange={(e) => update(f.key, e.target.value)}
-                className="mt-1 w-full px-4 py-2 border-2 border-gray-100 rounded-xl text-sm focus:border-blue-600 focus:outline-none"
+                className="mt-1 w-full px-4 py-2 border-2 border-gray-200 dark:border-gray-800 rounded-xl text-sm focus:border-blue-600 focus:outline-none"
               />
             </Field>
           ))}
         </div>
 
-        <div className="sticky bottom-0 bg-white border-t-2 border-gray-100 p-6 flex flex-col md:flex-row gap-3 justify-end">
+        <div className="sticky bottom-0 bg-white dark:bg-gray-900/80 border-t-2 border-gray-200 dark:border-gray-800 p-6 flex flex-col md:flex-row gap-3 justify-end">
           <button
             onClick={onClose}
-            className="px-6 py-3 bg-gray-100 text-gray-900 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-gray-200 transition-all"
+            className="px-6 py-3 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-50 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-gray-200 transition-all"
           >
             Cancelar
           </button>
@@ -151,7 +154,9 @@ export function PersonaEditModal({ open, persona, onChange, onClose, onSave }: P
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="text-xs font-black text-gray-700 uppercase tracking-widest">{label}</label>
+      <label className="text-xs font-black text-gray-700 dark:text-gray-300 dark:text-gray-600 uppercase tracking-widest">
+        {label}
+      </label>
       {children}
     </div>
   );

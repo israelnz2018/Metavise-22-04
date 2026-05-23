@@ -146,13 +146,15 @@ export function AIRecommendationPanel({
             <h4 className="text-sm font-black uppercase tracking-widest text-purple-900">
               IA recomenda — {variant === 'avatar' ? 'Avatar ideal' : 'Voz ideal'}
             </h4>
-            <p className="text-xs text-purple-600 mt-0.5">Baseado na persona + copy do projeto</p>
+            <p className="text-xs text-purple-600 dark:text-purple-400 mt-0.5">
+              Baseado na persona + copy do projeto
+            </p>
           </div>
         </div>
         <button
           onClick={fetchRec}
           disabled={loading}
-          className="text-xs font-bold uppercase tracking-widest text-purple-700 hover:text-purple-900 flex items-center gap-1.5 disabled:opacity-50"
+          className="text-xs font-bold uppercase tracking-widest text-purple-700 dark:text-purple-300 hover:text-purple-900 flex items-center gap-1.5 disabled:opacity-50"
           title="Recalcular com Claude"
         >
           <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
@@ -161,14 +163,14 @@ export function AIRecommendationPanel({
       </div>
 
       {loading && !rec && (
-        <div className="flex items-center gap-3 text-purple-700 py-4">
+        <div className="flex items-center gap-3 text-purple-700 dark:text-purple-300 py-4">
           <Loader2 className="animate-spin" size={18} />
           <span className="text-sm">Analisando persona + copy…</span>
         </div>
       )}
 
       {error && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-900 flex items-start justify-between gap-3">
+        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 rounded-xl p-4 text-sm text-amber-900 flex items-start justify-between gap-3">
           <div className="flex-1">
             <p className="font-bold mb-1">
               {error.includes('529') || error.toLowerCase().includes('overloaded')
@@ -195,17 +197,17 @@ export function AIRecommendationPanel({
             {Object.entries(section).map(([k, v]) => (
               <span
                 key={k}
-                className="bg-white border-2 border-purple-200 rounded-xl px-3 py-1.5 text-xs"
+                className="bg-white dark:bg-gray-900/80 border-2 border-purple-200 rounded-xl px-3 py-1.5 text-xs"
               >
                 <span className="text-purple-500 uppercase font-bold mr-1.5">{k}:</span>
-                <span className="font-black text-gray-900">{t(String(v))}</span>
+                <span className="font-black text-gray-900 dark:text-gray-50">{t(String(v))}</span>
               </span>
             ))}
           </div>
 
           {rec?.reasoning && (
-            <div className="bg-white/60 rounded-xl p-3 text-xs text-gray-700 leading-relaxed border border-purple-100">
-              <span className="font-bold text-purple-700">Por quê: </span>
+            <div className="bg-white/60 rounded-xl p-3 text-xs text-gray-700 dark:text-gray-300 dark:text-gray-600 leading-relaxed border border-purple-100">
+              <span className="font-bold text-purple-700 dark:text-purple-300">Por quê: </span>
               {rec.reasoning}
             </div>
           )}

@@ -58,11 +58,11 @@ export function AvatarPreviewModal({
             initial={{ opacity: 0, scale: 0.9, y: 40 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 40 }}
-            className="bg-white rounded-[40px] max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col md:flex-row shadow-2xl relative z-20"
+            className="bg-white dark:bg-gray-900/80 rounded-[40px] max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col md:flex-row shadow-2xl relative z-20"
           >
             <button
               onClick={onClose}
-              className="absolute top-6 right-6 z-10 p-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl backdrop-blur-md transition-all md:text-gray-900 md:bg-gray-100 md:hover:bg-gray-200"
+              className="absolute top-6 right-6 z-10 p-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl backdrop-blur-md transition-all md:text-gray-900 dark:text-gray-50 md:bg-gray-100 dark:bg-gray-800 md:hover:bg-gray-200"
             >
               <X size={24} />
             </button>
@@ -195,18 +195,18 @@ function Controls({
   const isSquare = avatarFormat === 'square';
 
   return (
-    <div className="w-full md:w-[400px] p-10 flex flex-col justify-between bg-white border-l border-gray-100 overflow-y-auto">
+    <div className="w-full md:w-[400px] p-10 flex flex-col justify-between bg-white dark:bg-gray-900/80 border-l border-gray-200 dark:border-gray-800 overflow-y-auto">
       <div className="space-y-10">
         <div className="space-y-4">
-          <div className="flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-lg w-fit">
-            <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+          <div className="flex items-center gap-2 px-3 py-1 bg-gray-100 dark:bg-gray-800 rounded-lg w-fit">
+            <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 dark:text-gray-500">
               Avatar ID: {avatar.avatar_id}
             </span>
           </div>
-          <h3 className="text-4xl font-black text-gray-900 tracking-tight leading-tight">
+          <h3 className="text-4xl font-black text-gray-900 dark:text-gray-50 tracking-tight leading-tight">
             {avatar.avatar_name}
           </h3>
-          <p className="text-gray-500 font-medium leading-relaxed">
+          <p className="text-gray-500 dark:text-gray-400 dark:text-gray-500 font-medium leading-relaxed">
             Ideal para{' '}
             {avatar.avatar_type === 'realistic'
               ? 'anúncios de alta conversão'
@@ -217,10 +217,10 @@ function Controls({
 
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+            <h4 className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
               Output Format
             </h4>
-            <span className="text-[10px] font-bold text-blue-600 uppercase">
+            <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase">
               Ajuste de Composição
             </span>
           </div>
@@ -238,8 +238,8 @@ function Controls({
                   className={cn(
                     'p-3 rounded-[20px] border-2 text-left transition-all group/opt relative overflow-hidden',
                     active
-                      ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-sm'
-                      : 'border-gray-100 text-gray-500 hover:border-gray-200 hover:bg-gray-50'
+                      ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 shadow-sm'
+                      : 'border-gray-200 dark:border-gray-800 text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:bg-gray-800/60'
                   )}
                 >
                   <div className="flex items-center gap-2 mb-1">
@@ -258,7 +258,7 @@ function Controls({
           </div>
         </div>
 
-        <div className="p-6 bg-amber-50 rounded-3xl border border-amber-100 space-y-4">
+        <div className="p-6 bg-amber-50 dark:bg-amber-950/40 rounded-3xl border border-amber-100 space-y-4">
           <div className="flex items-center gap-2 text-amber-900">
             <Info size={16} />
             <h5 className="font-black text-xs uppercase tracking-tight">
@@ -275,7 +275,7 @@ function Controls({
                   </label>
                   <button
                     onClick={() => onCropOffsetChange(0)}
-                    className="text-[9px] font-black text-amber-600 bg-amber-100/50 px-2 py-1 rounded hover:bg-amber-100 transition-colors uppercase"
+                    className="text-[9px] font-black text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-950/30/50 px-2 py-1 rounded hover:bg-amber-100 dark:bg-amber-950/30 transition-colors uppercase"
                   >
                     Resetar para o Centro
                   </button>
@@ -289,7 +289,7 @@ function Controls({
                   onChange={(e) => onCropOffsetChange(parseInt(e.target.value))}
                   className="w-full h-2 bg-amber-200 rounded-lg appearance-none cursor-pointer accent-amber-600"
                 />
-                <div className="flex justify-between text-[8px] text-amber-600/60 font-black uppercase tracking-tighter">
+                <div className="flex justify-between text-[8px] text-amber-600 dark:text-amber-400/60 font-black uppercase tracking-tighter">
                   <span>{isHorizontal ? 'Esquerda' : 'Topo'}</span>
                   <span>Centro (IA)</span>
                   <span>{isHorizontal ? 'Direita' : 'Base'}</span>
@@ -298,7 +298,7 @@ function Controls({
             </div>
           )}
 
-          <p className="text-[11px] text-amber-700 font-medium leading-relaxed">
+          <p className="text-[11px] text-amber-700 dark:text-amber-400 font-medium leading-relaxed">
             {isSquare
               ? 'Use o controle acima para ajustar o foco manualmente. O IA centraliza no sujeito por padrão.'
               : 'Ao selecionar **Square**, o enquadramento é ajustado para formato quadrado preservando a altura ou largura original do sujeito conforme a orientação nativa.'}
@@ -312,7 +312,7 @@ function Controls({
           className={cn(
             'w-full py-6 rounded-[24px] font-black uppercase tracking-[0.2em] text-xs transition-all flex items-center justify-center gap-3 active:scale-95',
             isSelected
-              ? 'bg-red-50 text-red-600 border-2 border-red-100 hover:bg-red-100'
+              ? 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border-2 border-red-100 hover:bg-red-100'
               : 'bg-blue-600 text-white shadow-2xl shadow-blue-100 hover:bg-blue-700'
           )}
         >
@@ -330,7 +330,7 @@ function Controls({
         </button>
         <button
           onClick={onClose}
-          className="w-full py-4 text-gray-400 font-black uppercase tracking-widest text-[10px] hover:text-gray-900 transition-all"
+          className="w-full py-4 text-gray-400 dark:text-gray-500 font-black uppercase tracking-widest text-[10px] hover:text-gray-900 dark:text-gray-50 transition-all"
         >
           Voltar para Galeria
         </button>

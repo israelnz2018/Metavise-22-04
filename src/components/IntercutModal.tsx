@@ -42,16 +42,16 @@ export function IntercutModal({
       onClick={() => !rendering && onClose()}
     >
       <div
-        className="bg-white rounded-[28px] max-w-2xl w-full max-h-[90vh] overflow-y-auto p-8 space-y-6 shadow-2xl"
+        className="bg-white dark:bg-gray-900/80 rounded-[28px] max-w-2xl w-full max-h-[90vh] overflow-y-auto p-8 space-y-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="space-y-2">
-          <h3 className="text-2xl font-black text-gray-900 uppercase italic">
+          <h3 className="text-2xl font-black text-gray-900 dark:text-gray-50 uppercase italic">
             ✂ Cortes pretos com texto
           </h3>
-          <p className="text-sm text-gray-600">
-            Alterna entre o avatar e tela preta com texto grande. O áudio continua tocando
-            durante a tela preta — só a imagem muda.
+          <p className="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500">
+            Alterna entre o avatar e tela preta com texto grande. O áudio continua tocando durante a
+            tela preta — só a imagem muda.
           </p>
         </div>
 
@@ -89,19 +89,19 @@ export function IntercutModal({
 
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <label className="text-[11px] font-black uppercase tracking-widest text-gray-700">
+            <label className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300 dark:text-gray-600">
               Textos das telas pretas
             </label>
             <button
               type="button"
               onClick={() => onTextsChange([...texts, ''])}
-              className="text-[10px] font-black uppercase tracking-widest text-purple-700 hover:text-purple-900"
+              className="text-[10px] font-black uppercase tracking-widest text-purple-700 dark:text-purple-300 hover:text-purple-900"
               disabled={rendering}
             >
               + Adicionar
             </button>
           </div>
-          <p className="text-[10px] text-gray-500 -mt-2">
+          <p className="text-[10px] text-gray-500 dark:text-gray-400 dark:text-gray-500 -mt-2">
             Se houver mais cortes que textos, eles são reutilizados em ciclo.
           </p>
           {texts.map((t, i) => (
@@ -115,14 +115,14 @@ export function IntercutModal({
                 }}
                 placeholder={`Texto ${i + 1} (ex.: "ESSA IA TRANSCREVE EM 30 SEGUNDOS")`}
                 rows={2}
-                className="flex-1 p-3 border-2 border-gray-200 rounded-xl text-sm focus:border-purple-500 focus:outline-none resize-none"
+                className="flex-1 p-3 border-2 border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:border-purple-500 focus:outline-none resize-none"
                 disabled={rendering}
               />
               {texts.length > 1 && (
                 <button
                   type="button"
                   onClick={() => onTextsChange(texts.filter((_, j) => j !== i))}
-                  className="px-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-100"
+                  className="px-3 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 rounded-xl hover:bg-red-100"
                   disabled={rendering}
                   title="Remover este texto"
                 >
@@ -137,7 +137,7 @@ export function IntercutModal({
           <button
             onClick={onClose}
             disabled={rendering}
-            className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-gray-200 disabled:opacity-50"
+            className="flex-1 py-3 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 dark:text-gray-600 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-gray-200 disabled:opacity-50"
           >
             Cancelar
           </button>
@@ -179,8 +179,12 @@ function RangeField({
 }: RangeFieldProps) {
   return (
     <div>
-      <label className="text-[11px] font-black uppercase tracking-widest text-gray-700">
-        {label}: <span className="text-purple-700">{value}{unit}</span>
+      <label className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300 dark:text-gray-600">
+        {label}:{' '}
+        <span className="text-purple-700 dark:text-purple-300">
+          {value}
+          {unit}
+        </span>
       </label>
       <input
         type="range"
@@ -192,7 +196,11 @@ function RangeField({
         className="w-full accent-purple-600"
         disabled={disabled}
       />
-      {hint && <p className="text-[10px] text-gray-500 mt-1">{hint}</p>}
+      {hint && (
+        <p className="text-[10px] text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">
+          {hint}
+        </p>
+      )}
     </div>
   );
 }
