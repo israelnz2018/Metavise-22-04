@@ -1,6 +1,7 @@
 import { motion } from 'motion/react';
 import { Loader2 } from 'lucide-react';
 import type { ProjectType } from '@/types/project';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 // New-project picker dialog. Opens from the Projects tab "+ Novo" button
 // and from the empty-state CTA. Owns no state of its own — App.tsx
@@ -30,14 +31,18 @@ export function NewProjectModal({
   onClose,
   onCreate,
 }: Props) {
+  const trapRef = useFocusTrap<HTMLDivElement>(isOpen);
   if (!isOpen) return null;
 
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-md animate-in fade-in duration-150"
       onClick={onClose}
+      role="dialog"
+      aria-modal="true"
     >
       <motion.div
+        ref={trapRef}
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.15 }}

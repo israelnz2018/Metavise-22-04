@@ -1,5 +1,6 @@
 import { Sparkles, AlertTriangle } from 'lucide-react';
 import { getActionLabel, type Action } from '@/lib/costs';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 /**
  * Pre-render cost preview. Shown before any credit-spending action
@@ -26,6 +27,7 @@ export function CostConfirmModal({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const trapRef = useFocusTrap<HTMLDivElement>(isOpen);
   if (!isOpen) return null;
 
   const insufficient = currentCredits < cost;
@@ -35,8 +37,11 @@ export function CostConfirmModal({
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-md px-4 animate-in fade-in duration-150"
       onClick={onCancel}
+      role="dialog"
+      aria-modal="true"
     >
       <div
+        ref={trapRef}
         className="bg-white dark:bg-gray-900 rounded-2xl max-w-md w-full p-6 shadow-2xl shadow-black/20 ring-1 ring-gray-200/60 dark:ring-gray-800 animate-in fade-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >

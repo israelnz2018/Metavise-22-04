@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react';
 import { Trash2, AlertCircle } from 'lucide-react';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 // Generic "are you sure?" overlay. Two visual tones:
 //   - 'danger' (default, red + Trash2): destructive actions
@@ -44,6 +45,7 @@ export function ConfirmModal({
   onCancel,
   onConfirm,
 }: Props) {
+  const trapRef = useFocusTrap<HTMLDivElement>(open);
   if (!open) return null;
   const styles = TONE_STYLES[tone];
   const Icon = icon || (tone === 'warning' ? AlertCircle : Trash2);
@@ -53,8 +55,11 @@ export function ConfirmModal({
       className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-md animate-in fade-in duration-150"
       style={{ zIndex: 99999 }}
       onClick={onCancel}
+      role="dialog"
+      aria-modal="true"
     >
       <div
+        ref={trapRef}
         className="bg-white dark:bg-gray-900 rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl shadow-black/20 ring-1 ring-gray-200/60 dark:ring-gray-800 space-y-4 animate-in fade-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
