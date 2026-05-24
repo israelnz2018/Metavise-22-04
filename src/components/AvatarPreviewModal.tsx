@@ -259,7 +259,7 @@ function Controls({
         </div>
 
         <div className="p-6 bg-amber-50 dark:bg-amber-950/40 rounded-3xl border border-amber-100 space-y-4">
-          <div className="flex items-center gap-2 text-amber-900">
+          <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200">
             <Info size={16} />
             <h5 className="font-black text-xs uppercase tracking-tight">
               Enquadramento Inteligente
@@ -270,7 +270,7 @@ function Controls({
             <div className="space-y-4 pt-2">
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <label className="text-[10px] font-black text-amber-900 uppercase tracking-widest">
+                  <label className="text-[10px] font-black text-amber-900 dark:text-amber-200 uppercase tracking-widest">
                     {isHorizontal ? 'Posição Horizontal' : 'Posição Vertical'}
                   </label>
                   <button

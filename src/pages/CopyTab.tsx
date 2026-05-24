@@ -307,7 +307,7 @@ export function CopyTab({
             return null;
           }
           return (
-            <div className="bg-gradient-to-br from-blue-50 to-purple-50 border-4 border-blue-200 rounded-[40px] p-6 md:p-8 shadow-sm space-y-4">
+            <div className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950/40 dark:to-purple-950/40 border-4 border-blue-200 dark:border-blue-800/60 rounded-[40px] p-6 md:p-8 shadow-sm space-y-4">
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white shrink-0">
@@ -1290,10 +1290,10 @@ export function CopyTab({
                       </span>
                     </div>
                     <div className="p-6 bg-blue-50/50 dark:bg-blue-950/40 rounded-3xl border-2 border-blue-100 dark:border-blue-900 shadow-sm hover:shadow-md transition-all">
-                      <h5 className="text-2xl font-black text-blue-900 mb-2">
+                      <h5 className="text-2xl font-black text-blue-900 dark:text-blue-200 mb-2">
                         {getRecomendacaoTempo(config.copy.answers.awarenessLevel)?.faixaSegundos}
                       </h5>
-                      <p className="text-sm font-medium text-blue-800/70 leading-relaxed italic">
+                      <p className="text-sm font-medium text-blue-800 dark:text-blue-300/70 leading-relaxed italic">
                         "{getRecomendacaoTempo(config.copy.answers.awarenessLevel)?.frase}"
                       </p>
                     </div>

@@ -1011,7 +1011,7 @@ const VozPremium: React.FC<Props> = ({
 
                 {/* Relaxation banner */}
                 {voicesRelaxed.length > 0 && !loadingVoices && (
-                  <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 rounded-2xl p-4 text-sm text-amber-900">
+                  <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 rounded-2xl p-4 text-sm text-amber-900 dark:text-amber-200">
                     <span className="font-bold">Combinação muito específica.</span> Removi
                     temporariamente:{' '}
                     {voicesRelaxed
@@ -1186,12 +1186,22 @@ const VozPremium: React.FC<Props> = ({
               <div className="space-y-6">
                 {/* Orientações */}
                 <div className="bg-blue-50 dark:bg-blue-950/40 rounded-2xl border border-blue-100 dark:border-blue-900 p-5">
-                  <h4 className="text-sm font-semibold text-blue-900 mb-3">Antes de começar</h4>
+                  <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-200 mb-3">
+                    Antes de começar
+                  </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <p className="text-sm text-blue-800">🎙 Fale como quer soar nos anúncios</p>
-                    <p className="text-sm text-blue-800">🔇 Ambiente silencioso, sem música</p>
-                    <p className="text-sm text-blue-800">⏱ Entre 1 e 2 minutos é o ideal</p>
-                    <p className="text-sm text-blue-800">📱 Microfone do celular funciona bem</p>
+                    <p className="text-sm text-blue-800 dark:text-blue-300">
+                      🎙 Fale como quer soar nos anúncios
+                    </p>
+                    <p className="text-sm text-blue-800 dark:text-blue-300">
+                      🔇 Ambiente silencioso, sem música
+                    </p>
+                    <p className="text-sm text-blue-800 dark:text-blue-300">
+                      ⏱ Entre 1 e 2 minutos é o ideal
+                    </p>
+                    <p className="text-sm text-blue-800 dark:text-blue-300">
+                      📱 Microfone do celular funciona bem
+                    </p>
                   </div>
                 </div>
 
@@ -1579,7 +1589,9 @@ const VozPremium: React.FC<Props> = ({
               >
                 <div className="flex items-center gap-2 mb-3">
                   <CheckCircle2 size={18} className="text-green-600 dark:text-green-400" />
-                  <span className="text-sm font-medium text-green-800">Áudio ativo</span>
+                  <span className="text-sm font-medium text-green-800 dark:text-green-300">
+                    Áudio ativo
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <audio controls src={localAudioUrl} className="flex-1" />
@@ -1687,7 +1699,7 @@ const VozPremium: React.FC<Props> = ({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+              <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-950/40 flex items-center justify-center flex-shrink-0">
                 <Trash2 size={18} className="text-red-600 dark:text-red-400" />
               </div>
               <div>

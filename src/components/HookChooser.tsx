@@ -258,7 +258,7 @@ const HookChooser: React.FC<Props> = ({
             <div className="bg-blue-600 p-1.5 rounded-lg text-white">
               <Library size={16} />
             </div>
-            <h3 className="text-sm font-black text-blue-900 uppercase tracking-widest">
+            <h3 className="text-sm font-black text-blue-900 dark:text-blue-200 uppercase tracking-widest">
               Copy Aprovada
             </h3>
             <span className="text-xs text-blue-600 dark:text-blue-400 ml-auto">
@@ -275,7 +275,7 @@ const HookChooser: React.FC<Props> = ({
           </p>
         </div>
       ) : (
-        <div className="bg-orange-50 rounded-3xl border-2 border-orange-200 p-6 text-center">
+        <div className="bg-orange-50 dark:bg-orange-950/30 rounded-3xl border-2 border-orange-200 dark:border-orange-800/60 p-6 text-center">
           <p className="text-sm text-orange-700 font-bold">
             Nenhuma copy aprovada. Volte à aba Copywriting e gere uma copy primeiro.
           </p>

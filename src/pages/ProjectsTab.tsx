@@ -537,7 +537,7 @@ export function ProjectsTab({
                   </span>
                 )}
                 <div className="flex items-start justify-between mb-4">
-                  <div className="w-11 h-11 bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600 dark:text-blue-400 dark:from-blue-950/40 dark:to-blue-900/30 dark:text-blue-400 rounded-xl flex items-center justify-center ring-1 ring-blue-100/60 dark:ring-blue-900/40 group-hover:from-blue-500 group-hover:to-blue-600 group-hover:text-white group-hover:ring-blue-400 transition-all">
+                  <div className="w-11 h-11 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/40 dark:to-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center ring-1 ring-blue-100/60 dark:ring-blue-900/40 group-hover:from-blue-500 group-hover:to-blue-600 group-hover:text-white group-hover:ring-blue-400 transition-all">
                     {project.type === 'complete' ? (
                       <Video size={22} />
                     ) : project.type === 'copy' ? (

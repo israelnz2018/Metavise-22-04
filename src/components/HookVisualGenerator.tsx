@@ -613,7 +613,7 @@ Gere the prompt onde o vídeo reforça visualmente a emoção do hook do início
           </div>
         ) : (
           <div className="bg-amber-50 dark:bg-amber-950/40 border-2 border-amber-200 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
-            <div className="text-sm text-amber-900">
+            <div className="text-sm text-amber-900 dark:text-amber-200">
               <strong className="font-black">Gancho pulado neste projeto</strong>
               <span className="block text-xs text-amber-700 dark:text-amber-400 mt-1">
                 A aba está dormente. Reative se mudou de ideia — os toggles de gancho voltam em Voz,
@@ -957,13 +957,13 @@ Gere the prompt onde o vídeo reforça visualmente a emoção do hook do início
                       <Zap size={20} />
                     </div>
                     <div>
-                      <p className="text-xs font-black text-blue-900 uppercase">
+                      <p className="text-xs font-black text-blue-900 dark:text-blue-200 uppercase">
                         Custo Estimado:{' '}
                         <span className="text-blue-600 dark:text-blue-400">
                           ${getEstimatedCost()}
                         </span>
                       </p>
-                      <p className="text-[10px] text-blue-800/60 font-bold uppercase">
+                      <p className="text-[10px] text-blue-800 dark:text-blue-300/60 font-bold uppercase">
                         Gerar 3 variações simultâneas
                       </p>
                     </div>
@@ -1060,10 +1060,10 @@ Gere the prompt onde o vídeo reforça visualmente a emoção do hook do início
                   <div className="space-y-6">
                     {/* Duration Info */}
                     <div className="p-6 bg-blue-50 dark:bg-blue-950/40 rounded-3xl border-2 border-blue-100 dark:border-blue-900">
-                      <p className="text-[10px] font-black text-blue-900 uppercase tracking-widest mb-1">
+                      <p className="text-[10px] font-black text-blue-900 dark:text-blue-200 uppercase tracking-widest mb-1">
                         ✅ Duração do vídeo: {duracaoVideo}s
                       </p>
-                      <p className="text-[10px] text-blue-800 font-bold uppercase">
+                      <p className="text-[10px] text-blue-800 dark:text-blue-300 font-bold uppercase">
                         {palavrasHook} palavras · ~{duracaoVideo}s
                       </p>
                     </div>

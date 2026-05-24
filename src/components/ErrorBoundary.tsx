@@ -36,12 +36,12 @@ export class ErrorBoundary extends React.Component<Props, State> {
     if (!this.state.error) return this.props.children;
 
     return (
-      <div className="max-w-2xl mx-auto my-12 bg-red-50 border-2 border-red-200 rounded-3xl p-8 text-center space-y-4">
-        <div className="w-14 h-14 mx-auto bg-red-100 text-red-600 rounded-2xl flex items-center justify-center">
+      <div className="max-w-2xl mx-auto my-12 bg-red-50 dark:bg-red-950/30 border-2 border-red-200 dark:border-red-900/60 rounded-3xl p-8 text-center space-y-4">
+        <div className="w-14 h-14 mx-auto bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400 rounded-2xl flex items-center justify-center">
           <AlertTriangle size={28} />
         </div>
         <div className="space-y-2">
-          <h3 className="text-xl font-black text-red-900">
+          <h3 className="text-xl font-black text-red-900 dark:text-red-200">
             Algo quebrou nesta tela
           </h3>
           <p className="text-sm text-red-700">
@@ -53,7 +53,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
             <summary className="cursor-pointer font-bold uppercase tracking-widest">
               Detalhes técnicos
             </summary>
-            <pre className="text-left bg-white border border-red-200 rounded-lg p-3 mt-2 overflow-auto max-h-48 text-[11px]">
+            <pre className="text-left bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border border-red-200 dark:border-red-900/60 rounded-lg p-3 mt-2 overflow-auto max-h-48 text-[11px]">
               {this.state.error.message}
               {this.state.error.stack && '\n\n' + this.state.error.stack}
             </pre>

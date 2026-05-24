@@ -5738,13 +5738,13 @@ export default function App() {
                       project doesn't use a separate hook. */}
                       {useHookFlow && (
                         <div className="max-w-4xl mx-auto px-6 pt-6">
-                          <div className="bg-white p-2 rounded-2xl border-2 border-gray-100 shadow-sm flex gap-1">
+                          <div className="bg-white dark:bg-gray-900/80 p-2 rounded-2xl border-2 border-gray-100 dark:border-gray-800 shadow-sm flex gap-1">
                             <button
                               onClick={() => setVoiceSource('copy')}
                               className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
                                 !isHook
-                                  ? 'bg-gray-900 text-white shadow-md'
-                                  : 'text-gray-500 hover:bg-gray-50'
+                                  ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 shadow-md'
+                                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60'
                               }`}
                             >
                               Voz do Corpo

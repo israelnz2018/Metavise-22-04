@@ -509,7 +509,9 @@ export function AvatarTab({
               <RefreshCw size={24} />
             </div>
             <div className="space-y-1">
-              <h4 className="text-lg font-black text-amber-900">Modo de Fallback (Diagnóstico)</h4>
+              <h4 className="text-lg font-black text-amber-900 dark:text-amber-200">
+                Modo de Fallback (Diagnóstico)
+              </h4>
               <p className="text-amber-700 dark:text-amber-400 text-sm font-medium">
                 Se a geração com áudio externo falhar, use esta opção para testar com uma voz nativa
                 do HeyGen.
@@ -1303,7 +1305,9 @@ export function AvatarTab({
               <AlertCircle size={32} />
             </div>
             <div className="space-y-2">
-              <p className="text-red-900 font-black text-xl">Erro ao carregar avatares</p>
+              <p className="text-red-900 dark:text-red-200 font-black text-xl">
+                Erro ao carregar avatares
+              </p>
               <p className="text-red-600 dark:text-red-400 font-medium">{avatarError}</p>
             </div>
             <button

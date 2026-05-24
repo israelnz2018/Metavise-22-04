@@ -696,10 +696,12 @@ export function PersonaTab({
                     </p>
                   </div>
                   <div className="bg-blue-50 dark:bg-blue-950/40 p-3 rounded-2xl border border-blue-100 dark:border-blue-900">
-                    <p className="text-[10px] font-black text-blue-900 uppercase tracking-widest mb-1">
+                    <p className="text-[10px] font-black text-blue-900 dark:text-blue-200 uppercase tracking-widest mb-1">
                       🎯 Nível {p.awarenessLevel} de Consciência
                     </p>
-                    <p className="text-xs text-blue-800 leading-snug">{p.awarenessReason}</p>
+                    <p className="text-xs text-blue-800 dark:text-blue-300 leading-snug">
+                      {p.awarenessReason}
+                    </p>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-[10px]">
                     <div className="text-gray-500 dark:text-gray-400">

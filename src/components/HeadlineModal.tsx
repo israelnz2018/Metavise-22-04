@@ -432,10 +432,10 @@ export function HeadlineModal(props: Props) {
                   className="w-4 h-4 accent-blue-500 mt-0.5"
                 />
                 <div className="flex-1">
-                  <span className="text-[11px] font-black text-blue-900 uppercase tracking-widest block">
+                  <span className="text-[11px] font-black text-blue-900 dark:text-blue-200 uppercase tracking-widest block">
                     🎙 Sincronizar com a fala (auto)
                   </span>
-                  <span className="text-[10px] text-blue-800 leading-tight">
+                  <span className="text-[10px] text-blue-800 dark:text-blue-300 leading-tight">
                     Transcreve o áudio e detecta o momento exato que o avatar fala cada headline. As
                     headlines aparecem só durante a fala (some quando ele para de falar). Demora
                     +30-90s (transcrição via AssemblyAI).

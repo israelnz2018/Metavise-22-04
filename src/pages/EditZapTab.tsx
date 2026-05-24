@@ -213,7 +213,7 @@ export function EditZapTab({
             Versão simplificada — ZapCap faz tudo (transcrição + b-rolls automaticamente).
           </p>
         </div>
-        <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-[10px] font-black uppercase tracking-widest">
+        <span className="px-3 py-1 bg-yellow-100 text-yellow-800 dark:text-yellow-300 rounded-full text-[10px] font-black uppercase tracking-widest">
           Beta
         </span>
       </div>
@@ -770,10 +770,10 @@ export function EditZapTab({
                     nothing. */}
                 {!zapEmphasizeKeywords && (
                   <div className="bg-red-50 dark:bg-red-950/40 border-2 border-red-300 rounded-lg p-3 space-y-1">
-                    <p className="text-[11px] text-red-900 font-black uppercase tracking-widest">
+                    <p className="text-[11px] text-red-900 dark:text-red-200 font-black uppercase tracking-widest">
                       ⚠ Pré-requisito desligado
                     </p>
-                    <p className="text-[10px] text-red-800 leading-tight">
+                    <p className="text-[10px] text-red-800 dark:text-red-300 leading-tight">
                       As cores customizadas só aparecem quando{' '}
                       <strong>"Destacar Palavras-Chave" está LIGADO</strong> (lá embaixo em
                       "Ajustes"). Sem isso, o ZapCap não destaca nenhuma palavra e as cores são
@@ -781,24 +781,24 @@ export function EditZapTab({
                     </p>
                     <button
                       onClick={() => setZapEmphasizeKeywords(true)}
-                      className="text-[10px] font-black text-red-700 underline hover:text-red-900 mt-1"
+                      className="text-[10px] font-black text-red-700 underline hover:text-red-900 dark:text-red-200 mt-1"
                     >
                       Ligar agora →
                     </button>
                   </div>
                 )}
                 <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 rounded-lg p-2 space-y-1">
-                  <p className="text-[10px] text-amber-900 leading-tight">
+                  <p className="text-[10px] text-amber-900 dark:text-amber-200 leading-tight">
                     <strong>O ZapCap expõe só 3 cores</strong> ({'randomColour 1/2/3'}) e cada
                     template usa elas de um jeito.
                   </p>
-                  <p className="text-[10px] text-amber-800 leading-tight">
+                  <p className="text-[10px] text-amber-800 dark:text-amber-300 leading-tight">
                     Em templates como o <strong>Viktor</strong>, a cor 1 costuma virar o fundo da
                     palavra falada e a cor 2 a letra por dentro. Em outros templates as 3 cores são
                     rotacionadas aleatoriamente. Teste mudando uma de cada vez pra mapear o seu
                     template.
                   </p>
-                  <p className="text-[10px] text-amber-800 leading-tight">
+                  <p className="text-[10px] text-amber-800 dark:text-amber-300 leading-tight">
                     Alguns templates simples (sem destaque embutido) podem ignorar essas cores — se
                     nada mudar, tente outro template.
                   </p>
@@ -983,8 +983,12 @@ export function EditZapTab({
       {isRendering && (
         <div className="bg-yellow-50 dark:bg-yellow-950/40 p-6 rounded-2xl border-2 border-yellow-200">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-sm font-black text-yellow-900">{zapState.step}</p>
-            <p className="text-sm font-black text-yellow-900">{zapState.progress}%</p>
+            <p className="text-sm font-black text-yellow-900 dark:text-yellow-200">
+              {zapState.step}
+            </p>
+            <p className="text-sm font-black text-yellow-900 dark:text-yellow-200">
+              {zapState.progress}%
+            </p>
           </div>
           <div className="w-full bg-yellow-200 rounded-full h-2 overflow-hidden">
             <div
@@ -1143,7 +1147,7 @@ export function EditZapTab({
               : bodyZapVersions[bodyZapVersions.length - 1];
 
           return (
-            <div className="bg-gradient-to-br from-amber-50 to-yellow-50 p-8 rounded-[40px] border-4 border-amber-200 shadow-xl space-y-5 mt-8">
+            <div className="bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-950/40 dark:to-yellow-950/40 p-8 rounded-[40px] border-4 border-amber-200 dark:border-amber-800/60 shadow-xl space-y-5 mt-8">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center text-white">
                   <Layers size={22} />

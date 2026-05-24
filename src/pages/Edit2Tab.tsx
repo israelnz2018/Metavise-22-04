@@ -276,7 +276,9 @@ export function Edit2Tab({
               <CheckCircle2 size={24} />
             </div>
             <div>
-              <h4 className="font-black text-green-900 text-sm">✅ Vídeo carregado com sucesso</h4>
+              <h4 className="font-black text-green-900 dark:text-green-200 text-sm">
+                ✅ Vídeo carregado com sucesso
+              </h4>
               <p className="text-[10px] font-bold text-green-600 dark:text-green-400 uppercase tracking-widest">
                 Formato detectado:{' '}
                 {autoEditState.videoFormat === '9:16'
@@ -485,7 +487,7 @@ export function Edit2Tab({
                     <CheckCircle2 size={24} />
                   </div>
                   <div>
-                    <h4 className="font-black text-green-900 border-none p-0 text-sm">
+                    <h4 className="font-black text-green-900 dark:text-green-200 border-none p-0 text-sm">
                       Análise Pronta
                     </h4>
                     <p className="text-[10px] font-bold text-green-600 dark:text-green-400 uppercase">
@@ -628,7 +630,7 @@ export function Edit2Tab({
                     <div className="p-8 bg-blue-50/50 dark:bg-blue-950/40 border-2 border-dashed border-blue-100 dark:border-blue-900 rounded-[32px] flex flex-col items-center justify-center gap-3 text-center">
                       <Sparkles className="text-blue-600 dark:text-blue-400" size={32} />
                       <div>
-                        <p className="text-sm font-black text-blue-900 uppercase">
+                        <p className="text-sm font-black text-blue-900 dark:text-blue-200 uppercase">
                           ⭐ IA selecionou os melhores momentos
                         </p>
                         <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">

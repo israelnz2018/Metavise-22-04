@@ -444,7 +444,9 @@ export function PlanTab({
             className="animate-spin mx-auto mb-3 text-purple-600 dark:text-purple-400"
             size={32}
           />
-          <p className="text-sm text-purple-800 font-bold">Construindo plano de marketing...</p>
+          <p className="text-sm text-purple-800 dark:text-purple-300 font-bold">
+            Construindo plano de marketing...
+          </p>
           <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
             Pode levar 20-40s (Claude analisando produto + persona)
           </p>
@@ -452,7 +454,7 @@ export function PlanTab({
       )}
 
       {error && (
-        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 rounded-xl p-4 text-sm text-amber-900 flex items-start justify-between gap-3">
+        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 rounded-xl p-4 text-sm text-amber-900 dark:text-amber-200 flex items-start justify-between gap-3">
           <div>
             <p className="font-bold mb-1">Não consegui gerar o plano agora.</p>
             <p className="text-xs">{error}</p>
@@ -470,10 +472,10 @@ export function PlanTab({
       {plan && (
         <div className="space-y-6">
           {/* Summary */}
-          <div className="bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-200 rounded-3xl p-6">
+          <div className="bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-950/40 dark:to-blue-950/40 border-2 border-purple-200 dark:border-purple-800/60 rounded-3xl p-6">
             <div className="flex items-center gap-2 mb-3">
               <Sparkles size={18} className="text-purple-600 dark:text-purple-400" />
-              <h3 className="font-black uppercase text-xs tracking-widest text-purple-900">
+              <h3 className="font-black uppercase text-xs tracking-widest text-purple-900 dark:text-purple-200">
                 Estratégia macro
               </h3>
             </div>
@@ -531,10 +533,10 @@ export function PlanTab({
                   className="bg-amber-50 dark:bg-amber-950/40 border border-amber-100 rounded-xl p-4 space-y-2"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-amber-800">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-amber-800 dark:text-amber-300">
                       {h.angle}
                     </span>
-                    <span className="text-xs font-black bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full">
+                    <span className="text-xs font-black bg-amber-200 text-amber-900 dark:text-amber-200 px-2 py-0.5 rounded-full">
                       {h.count}×
                     </span>
                   </div>
@@ -542,7 +544,7 @@ export function PlanTab({
                     "{h.example}"
                   </p>
                   <div className="flex flex-wrap gap-2 text-[10px]">
-                    <span className="bg-white dark:bg-gray-900/80 border border-amber-200 text-amber-800 px-2 py-0.5 rounded-full">
+                    <span className="bg-white dark:bg-gray-900/80 border border-amber-200 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-full">
                       {AWARENESS_PT[h.awarenessLevel] || h.awarenessLevel}
                     </span>
                   </div>
@@ -566,14 +568,14 @@ export function PlanTab({
                     className="flex items-start justify-between gap-3 p-2 bg-purple-50 dark:bg-purple-950/40 rounded-lg"
                   >
                     <div className="flex-1">
-                      <div className="text-xs font-black text-purple-900">
+                      <div className="text-xs font-black text-purple-900 dark:text-purple-200">
                         {AWARENESS_PT[a.level] || a.level}
                       </div>
                       <div className="text-[11px] text-gray-600 dark:text-gray-400 mt-0.5">
                         {a.approach}
                       </div>
                     </div>
-                    <span className="text-xs font-black bg-purple-200 text-purple-900 px-2 py-0.5 rounded-full whitespace-nowrap">
+                    <span className="text-xs font-black bg-purple-200 text-purple-900 dark:text-purple-200 px-2 py-0.5 rounded-full whitespace-nowrap">
                       {a.creativeCount}×
                     </span>
                   </div>
@@ -593,12 +595,14 @@ export function PlanTab({
                     className="flex items-start justify-between gap-3 p-2 bg-blue-50 dark:bg-blue-950/40 rounded-lg"
                   >
                     <div className="flex-1">
-                      <div className="text-xs font-black text-blue-900">{d.length}</div>
+                      <div className="text-xs font-black text-blue-900 dark:text-blue-200">
+                        {d.length}
+                      </div>
                       <div className="text-[11px] text-gray-600 dark:text-gray-400 mt-0.5">
                         {d.purpose}
                       </div>
                     </div>
-                    <span className="text-xs font-black bg-blue-200 text-blue-900 px-2 py-0.5 rounded-full whitespace-nowrap">
+                    <span className="text-xs font-black bg-blue-200 text-blue-900 dark:text-blue-200 px-2 py-0.5 rounded-full whitespace-nowrap">
                       {d.count}×
                     </span>
                   </div>
@@ -681,10 +685,10 @@ export function PlanTab({
 
           {/* Andromeda Tips */}
           {plan.andromedaTips?.length > 0 && (
-            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-3xl p-6">
+            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40 border-2 border-indigo-200 dark:border-indigo-800/60 rounded-3xl p-6">
               <div className="flex items-center gap-2 mb-3">
-                <Sparkles size={18} className="text-indigo-600" />
-                <h3 className="font-black uppercase text-xs tracking-widest text-indigo-900">
+                <Sparkles size={18} className="text-indigo-600 dark:text-indigo-400" />
+                <h3 className="font-black uppercase text-xs tracking-widest text-indigo-900 dark:text-indigo-200">
                   Dicas específicas pra Andromeda
                 </h3>
               </div>

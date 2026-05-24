@@ -136,14 +136,14 @@ export function AIRecommendationPanel({
   const section = variant === 'avatar' ? rec?.avatar : rec?.voice;
 
   return (
-    <div className="bg-gradient-to-br from-purple-50 via-blue-50 to-purple-50 border-2 border-purple-200 rounded-3xl p-6 shadow-sm">
+    <div className="bg-gradient-to-br from-purple-50 via-blue-50 to-purple-50 dark:from-purple-950/40 dark:via-blue-950/40 dark:to-purple-950/40 border-2 border-purple-200 dark:border-purple-800/60 rounded-3xl p-6 shadow-sm">
       <div className="flex items-start justify-between gap-4 mb-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-purple-600 text-white rounded-2xl flex items-center justify-center shadow-md">
             <Sparkles size={20} />
           </div>
           <div>
-            <h4 className="text-sm font-black uppercase tracking-widest text-purple-900">
+            <h4 className="text-sm font-black uppercase tracking-widest text-purple-900 dark:text-purple-200">
               IA recomenda — {variant === 'avatar' ? 'Avatar ideal' : 'Voz ideal'}
             </h4>
             <p className="text-xs text-purple-600 dark:text-purple-400 mt-0.5">
@@ -170,14 +170,14 @@ export function AIRecommendationPanel({
       )}
 
       {error && (
-        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 rounded-xl p-4 text-sm text-amber-900 flex items-start justify-between gap-3">
+        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 rounded-xl p-4 text-sm text-amber-900 dark:text-amber-200 flex items-start justify-between gap-3">
           <div className="flex-1">
             <p className="font-bold mb-1">
               {error.includes('529') || error.toLowerCase().includes('overloaded')
                 ? 'Claude está sobrecarregado agora.'
                 : 'Não consegui gerar a recomendação.'}
             </p>
-            <p className="text-xs text-amber-800">
+            <p className="text-xs text-amber-800 dark:text-amber-300">
               Você pode continuar escolhendo manualmente e tentar novamente em alguns minutos.
             </p>
           </div>
