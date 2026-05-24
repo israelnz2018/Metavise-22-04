@@ -153,19 +153,168 @@ function escapeFilterPath(p: string): string {
   return p.replace(/\\/g, '\\\\').replace(/:/g, '\\:').replace(/'/g, "\\'");
 }
 
-// POST /api/video/intercut
-// Takes a finished video and splices in black-screen text segments at a
-// regular cadence. Audio plays continuously through both avatar and black
-// chunks (the avatar audio just keeps going behind the black frames).
+// F6.3 — convert ms → ASS timestamp "H:MM:SS.cc".
+function msToAssTime(ms: number): string {
+  const totalCs = Math.round(ms / 10);
+  const cs = totalCs % 100;
+  const totalSec = Math.floor(totalCs / 100);
+  const s = totalSec % 60;
+  const totalMin = Math.floor(totalSec / 60);
+  const m = totalMin % 60;
+  const h = Math.floor(totalMin / 60);
+  return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(cs).padStart(2, '0')}`;
+}
+
+// F6.3 — convert hex color "#RRGGBB" → ASS "&H00BBGGRR".
+// ASS uses BGR order (not RGB), alpha first (00=fully visible).
+function hexToAssColor(hex: string): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m || !m[1]) return '&H0099FFFF'; // fallback: yellow-ish
+  const rgb = m[1];
+  const r = rgb.slice(0, 2);
+  const g = rgb.slice(2, 4);
+  const b = rgb.slice(4, 6);
+  return `&H00${b}${g}${r}`.toUpperCase();
+}
+
+// F6.3 — alignment digit per ASS spec (numpad layout, 1=BL, 5=MC, 8=TC).
+function positionToAssAlignment(position: string): number {
+  switch (position) {
+    case 'top':
+      return 8;
+    case 'middle':
+      return 5;
+    case 'bottom':
+      return 2;
+    default:
+      return 5; // default middle
+  }
+}
+
+// F6.3 — generate ASS file with KARAOKE-style word highlight. Each word
+// gets its own Dialogue line that's visible only during that word's
+// spoken window, with the current word painted in `highlightColor`. The
+// rest of the sentence stays in normal style. This matches how ZapCap-style
+// captions emphasize the spoken word, so a black-screen insertion looks
+// continuous with the rest of the captioned video.
 //
-// Body:
-//   videoUrl: string                — source video (any HTTP(S) URL)
-//   avatarChunkSec: number          — seconds of avatar between each black cut
-//   blackChunkSec: number           — seconds of black screen with text
-//   blackTexts: string[]            — text shown on each black segment; cycles
-//                                     if fewer entries than segments needed
-//   userId: string                  — for Firebase Storage path
-//   fontSize?: number               — drawtext fontsize (default 64)
+// words[].offsetMs is RELATIVE to segment start (not absolute video time).
+function writeAssFileKaraoke(
+  workDir: string,
+  idx: number,
+  text: string,
+  words: Array<{ text: string; offsetMs: number; durationMs: number }>,
+  width: number,
+  height: number,
+  fontSize: number,
+  position: string,
+  highlightColorHex: string,
+  totalDurationMs: number
+): string {
+  const p = path.join(workDir, `text_kara_${idx}.ass`);
+  const escapeAss = (s: string) =>
+    s.replace(/\\/g, '\\\\').replace(/\{/g, '\\{').replace(/\}/g, '\\}').replace(/\r?\n/g, '\\N');
+
+  const alignment = positionToAssAlignment(position);
+  const highlightAss = hexToAssColor(highlightColorHex);
+
+  // Build Dialogue lines: one per word. Each spans the word's time window
+  // and renders the whole sentence with ONLY this word inline-colored.
+  // Stable order matters — the wordTokens list mirrors text exactly so
+  // we can join with " " between them.
+  const wordTokens = words.map((w) => w.text);
+  const dialogueLines: string[] = [];
+
+  if (words.length === 0) {
+    // No word-level timing → fallback to static text for the whole duration.
+    dialogueLines.push(
+      `Dialogue: 0,${msToAssTime(0)},${msToAssTime(totalDurationMs)},Default,,0,0,0,,${escapeAss(text)}`
+    );
+  } else {
+    const firstWord = words[0]!;
+    const lastWord = words[words.length - 1]!;
+    // Show static sentence before the first word starts (avoids flash of empty).
+    if (firstWord.offsetMs > 50) {
+      dialogueLines.push(
+        `Dialogue: 0,${msToAssTime(0)},${msToAssTime(firstWord.offsetMs)},Default,,0,0,0,,${escapeAss(wordTokens.join(' '))}`
+      );
+    }
+
+    words.forEach((w, i) => {
+      const startMs = w.offsetMs;
+      // Extend the highlight slightly into the gap before the next word
+      // (looks smoother than abrupt color drops). Cap at totalDuration.
+      const nextStart = words[i + 1]?.offsetMs ?? totalDurationMs;
+      const endMs = Math.min(nextStart, totalDurationMs);
+      if (endMs <= startMs) return;
+
+      const parts = wordTokens.map((tok, j) => {
+        if (j === i) return `{\\1c${highlightAss}\\b1}${escapeAss(tok)}{\\r}`;
+        return escapeAss(tok);
+      });
+      dialogueLines.push(
+        `Dialogue: 0,${msToAssTime(startMs)},${msToAssTime(endMs)},Default,,0,0,0,,${parts.join(' ')}`
+      );
+    });
+
+    // After last word ends, hold the sentence static if there's time left.
+    const lastEnd = Math.min(lastWord.offsetMs + lastWord.durationMs, totalDurationMs);
+    if (totalDurationMs - lastEnd > 50) {
+      dialogueLines.push(
+        `Dialogue: 0,${msToAssTime(lastEnd)},${msToAssTime(totalDurationMs)},Default,,0,0,0,,${escapeAss(wordTokens.join(' '))}`
+      );
+    }
+  }
+
+  // MarginV: distance from edge in pixels. For middle (Alignment=5) it
+  // is ignored. For top (8) it's distance from top; for bottom (2) from bottom.
+  const marginV = position === 'middle' ? 0 : Math.round(height * 0.15);
+
+  const ass = `[Script Info]
+ScriptType: v4.00+
+PlayResX: ${width}
+PlayResY: ${height}
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Arial,${fontSize},&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,3,0,${alignment},80,80,${marginV},1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+${dialogueLines.join('\n')}
+`;
+
+  fs.writeFileSync(p, ass, 'utf8');
+  return p;
+}
+
+// POST /api/video/intercut
+// Takes a finished video and splices in black-screen text segments. Audio
+// plays continuously through both avatar and black chunks (the avatar audio
+// just keeps going behind the black frames).
+//
+// Two modes:
+//
+//   1) Legacy "cadence" mode (backwards compat) — alternates avatar/black
+//      at a regular interval until the video ends.
+//      Body: { videoUrl, userId, avatarChunkSec, blackChunkSec, blackTexts[], fontSize? }
+//
+//   2) F6.3 "manual insertions" mode — user picks WHERE and WHAT each black
+//      screen shows. Each insertion can carry per-word timestamps so we
+//      render the caption with the word-being-spoken highlighted in sync.
+//      Body: {
+//        videoUrl, userId, fontSize?,
+//        insertions: [{
+//          atSec: number,                  // when in the source video to insert
+//          durationSec: number,            // how long the black screen lasts
+//          text: string,                   // full sentence to display
+//          position: 'top'|'middle'|'bottom',
+//          words?: [{ text, offsetMs, durationMs }],   // karaoke timing
+//          highlightColor?: string,        // e.g. "#9333EA" — default purple
+//        }]
+//      }
 videoRouter.post(
   '/intercut',
   withFfmpegQueue(async (req, res) => {
@@ -176,20 +325,42 @@ videoRouter.post(
       blackTexts,
       userId,
       fontSize = 64,
+      insertions,
     } = req.body || {};
 
     if (!videoUrl || !userId) {
       return res.status(400).json({ error: 'videoUrl and userId are required.' });
     }
-    const A = Number(avatarChunkSec);
-    const B = Number(blackChunkSec);
-    if (!Number.isFinite(A) || A < 3 || A > 120) {
-      return res.status(400).json({ error: 'avatarChunkSec must be between 3 and 120.' });
+
+    // Mode detection: insertions[] present and non-empty → manual mode.
+    const isManualMode = Array.isArray(insertions) && insertions.length > 0;
+
+    // Legacy mode validation (only runs if NOT manual).
+    let A = 0;
+    let B = 0;
+    let texts: string[] = [];
+    if (!isManualMode) {
+      A = Number(avatarChunkSec);
+      B = Number(blackChunkSec);
+      if (!Number.isFinite(A) || A < 3 || A > 120) {
+        return res.status(400).json({ error: 'avatarChunkSec must be between 3 and 120.' });
+      }
+      if (!Number.isFinite(B) || B < 1 || B > 120) {
+        return res.status(400).json({ error: 'blackChunkSec must be between 1 and 120.' });
+      }
+      texts = Array.isArray(blackTexts) ? blackTexts.map((t) => String(t)) : [];
+    } else {
+      // Validate each insertion shape.
+      for (const ins of insertions) {
+        if (
+          !Number.isFinite(Number(ins?.atSec)) ||
+          !Number.isFinite(Number(ins?.durationSec)) ||
+          Number(ins.durationSec) <= 0
+        ) {
+          return res.status(400).json({ error: 'Each insertion needs atSec and durationSec > 0.' });
+        }
+      }
     }
-    if (!Number.isFinite(B) || B < 1 || B > 120) {
-      return res.status(400).json({ error: 'blackChunkSec must be between 1 and 120.' });
-    }
-    const texts: string[] = Array.isArray(blackTexts) ? blackTexts.map((t) => String(t)) : [];
 
     const intercutId = `intercut_${Date.now()}`;
     const workDir = path.join(GENERATED_DIR, intercutId);
@@ -201,9 +372,11 @@ videoRouter.post(
     try {
       log.info('intercut request', {
         videoUrl: videoUrl.substring(0, 80),
+        mode: isManualMode ? 'manual' : 'cadence',
         A,
         B,
         texts: texts.length,
+        insertions: isManualMode ? insertions.length : 0,
       });
 
       await downloadFile(videoUrl, sourcePath);
@@ -215,10 +388,23 @@ videoRouter.post(
       const vStream = metadata.streams.find((s: any) => s.codec_type === 'video');
       const W = vStream?.width || 1080;
       const H = vStream?.height || 1080;
-      if (totalDuration < A + 1) {
+      if (!isManualMode && totalDuration < A + 1) {
         return res.status(400).json({
           error: `Vídeo muito curto (${totalDuration.toFixed(1)}s) para inserir cortes a cada ${A}s.`,
         });
+      }
+      // Manual mode validation: each insertion must fit inside the source.
+      if (isManualMode) {
+        for (const ins of insertions) {
+          if (
+            Number(ins.atSec) < 0 ||
+            Number(ins.atSec) + Number(ins.durationSec) > totalDuration + 0.5
+          ) {
+            return res.status(400).json({
+              error: `Inserção em ${ins.atSec}s (+${ins.durationSec}s) cai fora do vídeo (${totalDuration.toFixed(1)}s).`,
+            });
+          }
+        }
       }
 
       // Extract the original audio track so we can re-mux it onto the new
@@ -236,63 +422,78 @@ videoRouter.post(
           .run();
       });
 
-      // Build the visual timeline:
-      // avatar(0..A), black(A..A+B), avatar(A+B..2A+B), black, ... until the
-      // source audio runs out. The avatar chunks come from the original video
-      // (silenced — we already extracted audio above). The black chunks are
-      // lavfi color sources of the same WxH with the hook text drawn on top.
+      // Build the visual timeline. Two strategies:
+      //
+      // Cadence mode: avatar(0..A), black(A..A+B), avatar, black, ... until
+      // the source audio runs out. Texts cycle if fewer than black segments.
+      //
+      // F6.3 manual mode: a list of explicit "insert black at X for Y seconds
+      // showing TEXT" events. We sort them by atSec and stitch avatar chunks
+      // around them. Each black chunk uses ASS karaoke (per-word highlight)
+      // when the insertion includes words[].
       const segments: string[] = [];
-      let cursor = 0;
       let segIdx = 0;
       let blackIdx = 0;
-      while (cursor < totalDuration - 0.05) {
-        // Avatar chunk: from cursor for min(A, remaining) seconds.
-        const aDur = Math.min(A, totalDuration - cursor);
-        if (aDur > 0.1) {
-          const segPath = path.join(workDir, `seg_${segIdx++}_avatar.mp4`);
-          await new Promise((resolve, reject) => {
-            ffmpeg(sourcePath)
-              .inputOptions('-accurate_seek')
-              .setStartTime(cursor)
-              .setDuration(aDur)
-              .outputOptions([
-                '-c:v libx264',
-                '-preset superfast',
-                '-crf 23',
-                '-an',
-                '-pix_fmt yuv420p',
-                '-r 30',
-                '-vf',
-                `scale=${W}:${H},setsar=1`,
-              ])
-              .output(segPath)
-              .on('end', () => resolve(null))
-              .on('error', reject)
-              .run();
-          });
-          segments.push(segPath);
-          cursor += aDur;
-        }
 
-        // Stop if the audio is about to end inside the next black chunk.
-        if (cursor >= totalDuration - 0.05) break;
+      // Helper: render the original video from `start` for `dur` seconds.
+      // Reused by both modes — only difference is when we call it.
+      const renderAvatarSegment = async (start: number, dur: number): Promise<void> => {
+        if (dur <= 0.1) return;
+        const segPath = path.join(workDir, `seg_${segIdx++}_avatar.mp4`);
+        await new Promise((resolve, reject) => {
+          ffmpeg(sourcePath)
+            .inputOptions('-accurate_seek')
+            .setStartTime(start)
+            .setDuration(dur)
+            .outputOptions([
+              '-c:v libx264',
+              '-preset superfast',
+              '-crf 23',
+              '-an',
+              '-pix_fmt yuv420p',
+              '-r 30',
+              '-vf',
+              `scale=${W}:${H},setsar=1`,
+            ])
+            .output(segPath)
+            .on('end', () => resolve(null))
+            .on('error', reject)
+            .run();
+        });
+        segments.push(segPath);
+      };
 
-        // Black chunk: B seconds (or whatever audio is left), cap to audio.
-        const bDur = Math.min(B, totalDuration - cursor);
-        if (bDur < 0.5) break;
-
-        const rawText = texts.length > 0 ? texts[blackIdx % texts.length] || '' : '';
-        blackIdx++;
-
+      // Helper: render a black segment with optional caption/karaoke.
+      const renderBlackSegment = async (
+        durSec: number,
+        text: string,
+        words: Array<{ text: string; offsetMs: number; durationMs: number }> | undefined,
+        position: string,
+        highlightColor: string
+      ): Promise<void> => {
+        if (durSec < 0.3) return;
         let subtitleFilter = '';
-        if (rawText) {
-          const assPath = writeAssFile(workDir, segIdx, rawText, W, H, fontSize);
+        if (text) {
+          const assPath =
+            words && words.length > 0
+              ? writeAssFileKaraoke(
+                  workDir,
+                  segIdx,
+                  text,
+                  words,
+                  W,
+                  H,
+                  fontSize,
+                  position,
+                  highlightColor,
+                  durSec * 1000
+                )
+              : writeAssFile(workDir, segIdx, text, W, H, fontSize);
           subtitleFilter = `,subtitles=${escapeFilterPath(assPath)}`;
         }
-
         const segPath = path.join(workDir, `seg_${segIdx++}_black.mp4`);
         await new Promise((resolve, reject) => {
-          ffmpeg(`color=c=black:s=${W}x${H}:d=${bDur}:r=30`)
+          ffmpeg(`color=c=black:s=${W}x${H}:d=${durSec}:r=30`)
             .inputFormat('lavfi')
             .outputOptions([
               '-c:v libx264',
@@ -309,7 +510,51 @@ videoRouter.post(
             .run();
         });
         segments.push(segPath);
-        cursor += bDur;
+        blackIdx++;
+      };
+
+      if (isManualMode) {
+        // Sort insertions by start time so the timeline is monotonic.
+        const sorted = [...insertions].sort((a: any, b: any) => Number(a.atSec) - Number(b.atSec));
+        let cursor = 0;
+        for (const ins of sorted) {
+          const at = Number(ins.atSec);
+          const dur = Number(ins.durationSec);
+          // Avatar fill from current cursor up to the insertion point.
+          if (at > cursor + 0.05) {
+            await renderAvatarSegment(cursor, at - cursor);
+          }
+          // Black insertion (replaces the avatar visual for `dur` seconds —
+          // original audio still plays underneath thanks to the remux step).
+          await renderBlackSegment(
+            dur,
+            String(ins.text || ''),
+            Array.isArray(ins.words) ? ins.words : undefined,
+            String(ins.position || 'middle'),
+            String(ins.highlightColor || '#9333EA')
+          );
+          cursor = at + dur;
+        }
+        // Tail: render the remaining avatar after the last insertion.
+        if (cursor < totalDuration - 0.05) {
+          await renderAvatarSegment(cursor, totalDuration - cursor);
+        }
+      } else {
+        // Legacy cadence mode (preserved as-is for backwards compat).
+        let cursor = 0;
+        while (cursor < totalDuration - 0.05) {
+          const aDur = Math.min(A, totalDuration - cursor);
+          if (aDur > 0.1) {
+            await renderAvatarSegment(cursor, aDur);
+            cursor += aDur;
+          }
+          if (cursor >= totalDuration - 0.05) break;
+          const bDur = Math.min(B, totalDuration - cursor);
+          if (bDur < 0.5) break;
+          const rawText = texts.length > 0 ? texts[blackIdx % texts.length] || '' : '';
+          await renderBlackSegment(bDur, rawText, undefined, 'middle', '#9333EA');
+          cursor += bDur;
+        }
       }
 
       if (segments.length === 0) {

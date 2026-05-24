@@ -183,6 +183,89 @@ assemblyAIRouter.post('/analyze', async (req, res) => {
   }
 });
 
+// GET /api/assemblyai/transcript/:transcriptId/sentences-with-words
+//
+// F6.2 (Blueprint Fase 6) — lightweight read of an EXISTING transcript.
+// Returns the list of sentences PLUS the word-level timestamps belonging
+// to each sentence, so the IntercutModal can present clickable cards
+// with the spoken phrase and the karaoke-ready word breakdown.
+//
+// This reuses the transcript already created by the ZapCap edit flow —
+// the client passes the transcriptId it received earlier; no new
+// transcription is triggered (no extra cost).
+//
+// Response shape:
+//   { sentences: [{
+//       text: string,
+//       startMs: number, endMs: number,
+//       words: [{ text: string, startMs: number, endMs: number }]
+//   }] }
+assemblyAIRouter.get('/transcript/:transcriptId/sentences-with-words', async (req, res) => {
+  const apiKey = getAssemblyAIKey();
+  if (!apiKey) {
+    return res.status(500).json({ error: 'ASSEMBLYAI_API_KEY não configurada.' });
+  }
+  const { transcriptId } = req.params;
+  if (!transcriptId) {
+    return res.status(400).json({ error: 'transcriptId é obrigatório.' });
+  }
+
+  try {
+    logToFile(`[AssemblyAI Sentences] Buscando transcript ${transcriptId}...`);
+    // Two parallel fetches: full transcript (for words[]) and sentences[]
+    // (for sentence boundaries). AssemblyAI splits these into separate
+    // endpoints so we batch them.
+    const [transcriptRes, sentencesRes] = await Promise.all([
+      fetch(`https://api.assemblyai.com/v2/transcript/${transcriptId}`, {
+        headers: { authorization: apiKey },
+      }),
+      fetch(`https://api.assemblyai.com/v2/transcript/${transcriptId}/sentences`, {
+        headers: { authorization: apiKey },
+      }),
+    ]);
+
+    if (!transcriptRes.ok) {
+      return res
+        .status(transcriptRes.status)
+        .json({ error: `AssemblyAI transcript fetch failed: ${transcriptRes.status}` });
+    }
+    if (!sentencesRes.ok) {
+      return res
+        .status(sentencesRes.status)
+        .json({ error: `AssemblyAI sentences fetch failed: ${sentencesRes.status}` });
+    }
+
+    const transcriptData = await transcriptRes.json();
+    const sentencesData = await sentencesRes.json();
+
+    const allWords: Array<{ text: string; start: number; end: number }> =
+      transcriptData.words || [];
+    const sentences: Array<{ text: string; start: number; end: number }> =
+      sentencesData.sentences || [];
+
+    // For each sentence, slice the words that fall inside its time window.
+    // AssemblyAI gives all timestamps in milliseconds.
+    const enriched = sentences.map((s) => ({
+      text: s.text,
+      startMs: s.start,
+      endMs: s.end,
+      words: allWords
+        .filter((w) => w.start >= s.start && w.end <= s.end)
+        .map((w) => ({ text: w.text, startMs: w.start, endMs: w.end })),
+    }));
+
+    logToFile(
+      `[AssemblyAI Sentences] OK ${transcriptId}: ${enriched.length} sentences, ${allWords.length} words`
+    );
+
+    return res.json({ sentences: enriched });
+  } catch (err: any) {
+    logToFile(`[AssemblyAI Sentences] FAIL: ${err.message}`);
+    log.error('[AssemblyAI Sentences] erro:', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/assemblyai/health
 assemblyAIRouter.get('/health', async (_req, res) => {
   const apiKey = getAssemblyAIKey();

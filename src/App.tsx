@@ -1182,10 +1182,11 @@ export default function App() {
     setHeadlineRendering,
     intercutSourceUrl,
     setIntercutSourceUrl,
-    intercutAvatarSec,
-    intercutBlackSec,
+    // F6.5 — intercutAvatarSec/intercutBlackSec/intercutTexts são legacy
+    // (modo cadência). O novo modal manual usa apenas intercutFontSize +
+    // insertions[] que vem como parâmetro. Mantidos no useZapState pra compat
+    // mas não destructured aqui.
     intercutFontSize,
-    intercutTexts,
     setIntercutRendering,
   } = zap;
 
@@ -4710,15 +4711,26 @@ export default function App() {
     }
   };
 
-  const handleRenderIntercut = async () => {
+  /** F6.5 — IntercutModal redesenhado entrega insertions[] (modo manual)
+   *  com texto, words[] e posição por inserção. O backend renderiza tela
+   *  preta com karaoke (palavra falada destacada) em cada momento. */
+  const handleRenderIntercut = async (
+    insertions: Array<{
+      id: string;
+      atSec: number;
+      durationSec: number;
+      text: string;
+      position: 'top' | 'middle' | 'bottom';
+      words: Array<{ text: string; offsetMs: number; durationMs: number }>;
+    }>
+  ) => {
     if (!intercutSourceUrl) return;
     if (!user?.uid) {
       toast.error('Faça login antes de gerar cortes pretos.');
       return;
     }
-    const texts = intercutTexts.map((t) => t.trim()).filter(Boolean);
-    if (texts.length === 0) {
-      toast.error('Adicione pelo menos um texto para o corte preto.');
+    if (!Array.isArray(insertions) || insertions.length === 0) {
+      toast.error('Adicione pelo menos uma frase pra inserir como tela preta.');
       return;
     }
 
@@ -4732,11 +4744,18 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           videoUrl: intercutSourceUrl,
-          avatarChunkSec: intercutAvatarSec,
-          blackChunkSec: intercutBlackSec,
-          blackTexts: texts,
           fontSize: intercutFontSize,
           userId: user.uid,
+          // F6.5 — novo formato manual. Backend detecta insertions[] presente
+          // e usa o modo "manual insertion" (alternativa: cadência legada).
+          insertions: insertions.map((ins) => ({
+            atSec: ins.atSec,
+            durationSec: ins.durationSec,
+            text: ins.text,
+            position: ins.position,
+            words: ins.words,
+            highlightColor: '#9333EA', // roxo Metavise — match com o screenshot
+          })),
         }),
       });
       const data = await res.json();
@@ -4744,8 +4763,6 @@ export default function App() {
 
       const newUrl: string = data.url;
       const isHookEdit = editZapModeRef.current === 'hook';
-      // Append to local versions only for body (gallery state). Persist to
-      // the slot matching the current edit mode.
       setZapState((prev) => ({
         ...prev,
         versions: isHookEdit ? prev.versions : [...(prev.versions || []), newUrl],
@@ -4762,10 +4779,10 @@ export default function App() {
           },
         };
       });
-      toast.success(`Vídeo com cortes pretos criado (${data.blackCount ?? texts.length} cortes).`, {
-        id: toastId,
-        duration: 5000,
-      });
+      toast.success(
+        `Vídeo com ${data.blackCount ?? insertions.length} corte${(data.blackCount ?? insertions.length) === 1 ? '' : 's'} preto${(data.blackCount ?? insertions.length) === 1 ? '' : 's'} criado.`,
+        { id: toastId, duration: 5000 }
+      );
       setIntercutSourceUrl(null);
     } catch (err: any) {
       console.error('[INTERCUT] error:', err);

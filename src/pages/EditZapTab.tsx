@@ -53,7 +53,18 @@ interface Props {
     storagePath: string | null;
   }) => Promise<void> | void;
   handleRenderHeadline: () => Promise<void> | void;
-  handleRenderIntercut: () => Promise<void> | void;
+  /** F6.5 — agora aceita insertions[] (modo manual: usuário escolhe momentos
+   *  e frases). Cada inserção carrega words[] pra karaoke por palavra. */
+  handleRenderIntercut: (
+    insertions: Array<{
+      id: string;
+      atSec: number;
+      durationSec: number;
+      text: string;
+      position: 'top' | 'middle' | 'bottom';
+      words: Array<{ text: string; offsetMs: number; durationMs: number }>;
+    }>
+  ) => Promise<void> | void;
   fetchZapCapTemplates: () => Promise<void> | void;
   zapCapTemplates: any[];
 }
@@ -174,14 +185,11 @@ export function EditZapTab({
     headlineRendering,
     intercutSourceUrl,
     setIntercutSourceUrl,
-    intercutAvatarSec,
-    setIntercutAvatarSec,
-    intercutBlackSec,
-    setIntercutBlackSec,
+    // F6.5 — intercutAvatarSec/intercutBlackSec/intercutTexts são legacy
+    // (modo cadência). O novo IntercutModal usa só fontSize + insertions[]
+    // construídas internamente. Mantidos no useZapState por compat.
     intercutFontSize,
     setIntercutFontSize,
-    intercutTexts,
-    setIntercutTexts,
     intercutRendering,
   } = zap;
   // Touch refs/state we destructure but might not use directly here so
@@ -1378,14 +1386,9 @@ export function EditZapTab({
       <IntercutModal
         open={!!intercutSourceUrl}
         rendering={intercutRendering}
-        avatarSec={intercutAvatarSec}
-        blackSec={intercutBlackSec}
+        sourceVideoUrl={intercutSourceUrl}
         fontSize={intercutFontSize}
-        texts={intercutTexts}
-        onAvatarSecChange={setIntercutAvatarSec}
-        onBlackSecChange={setIntercutBlackSec}
         onFontSizeChange={setIntercutFontSize}
-        onTextsChange={setIntercutTexts}
         onClose={() => setIntercutSourceUrl(null)}
         onRender={handleRenderIntercut}
       />

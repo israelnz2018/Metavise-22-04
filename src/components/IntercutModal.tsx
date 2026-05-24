@@ -1,202 +1,408 @@
-import { Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { toast } from 'react-hot-toast';
+import { Loader2, Plus, Trash2, X } from 'lucide-react';
 
-// "Cortes pretos com texto" modal — opens from the version gallery in
-// Edição Zap. Configures the FFmpeg /intercut endpoint: how long the
-// avatar segments run, how long the black-screen text cuts are, font
-// size, and the cycling text list.
+// "Cortes pretos com texto" modal — F6 redesign.
 //
-// Stateless — the parent owns every value + handler.
+// Lets the user insert black screens at SPECIFIC moments of an already-edited
+// ZapCap video. Audio continues playing under the black screen; the caption
+// shown on the black is pulled from the original spoken sentence (auto-loaded
+// from AssemblyAI) and highlights each word in sync as it's spoken.
+//
+// Flow:
+//   1. Modal opens with `sourceVideoUrl` from the parent.
+//   2. If no transcriptId is known, modal calls /api/assemblyai/analyze
+//      on the source URL to get one.
+//   3. With transcriptId, modal fetches /api/assemblyai/transcript/.../sentences-with-words
+//      and shows the sentences as clickable cards.
+//   4. User clicks "+ Adicionar" on each sentence to push it into the
+//      insertions list. Per-insertion controls: position (top/middle/bottom),
+//      durationSec (can extend beyond the spoken sentence), atSec (defaults
+//      to original time but editable).
+//   5. "Gerar" passes insertions[] + fontSize to the parent's onRender.
+//
+// Stateless about the *render itself* — that's parent business; modal just
+// hands back the user's choices.
+
+interface Insertion {
+  id: string; // stable for React key + delete
+  atSec: number;
+  durationSec: number;
+  text: string;
+  position: 'top' | 'middle' | 'bottom';
+  /** Word-level timestamps relative to the sentence start (offsetMs).
+   *  Used by backend to render karaoke highlight. */
+  words: Array<{ text: string; offsetMs: number; durationMs: number }>;
+}
+
+interface Sentence {
+  text: string;
+  startMs: number;
+  endMs: number;
+  words: Array<{ text: string; startMs: number; endMs: number }>;
+}
+
 interface Props {
   open: boolean;
   rendering: boolean;
-  avatarSec: number;
-  blackSec: number;
+  /** URL of the ZapCap-edited video the user clicked "Cortes" on. */
+  sourceVideoUrl: string | null;
+  /** Optional initial fontSize (kept in parent for persistence). */
   fontSize: number;
-  texts: string[];
-  onAvatarSecChange: (next: number) => void;
-  onBlackSecChange: (next: number) => void;
   onFontSizeChange: (next: number) => void;
-  onTextsChange: (next: string[]) => void;
   onClose: () => void;
-  onRender: () => void;
+  /** Fires "Gerar" — parent makes the /api/video/intercut call. */
+  onRender: (insertions: Insertion[]) => void;
 }
 
 export function IntercutModal({
   open,
   rendering,
-  avatarSec,
-  blackSec,
+  sourceVideoUrl,
   fontSize,
-  texts,
-  onAvatarSecChange,
-  onBlackSecChange,
   onFontSizeChange,
-  onTextsChange,
   onClose,
   onRender,
 }: Props) {
+  const [transcriptId, setTranscriptId] = useState<string | null>(null);
+  const [sentences, setSentences] = useState<Sentence[]>([]);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [loadingSentences, setLoadingSentences] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [insertions, setInsertions] = useState<Insertion[]>([]);
+
+  // Reset state when the modal closes or the source changes — avoids leaking
+  // transcripts/insertions across different videos.
+  useEffect(() => {
+    if (!open) {
+      setTranscriptId(null);
+      setSentences([]);
+      setInsertions([]);
+      setError(null);
+    }
+  }, [open]);
+
+  // Auto-analyze when modal opens with a sourceVideoUrl but no transcriptId.
+  // This runs AssemblyAI on the source video; the response gives us the
+  // transcriptId which feeds the next step. ~30s + small cost ($).
+  useEffect(() => {
+    if (!open || !sourceVideoUrl || transcriptId || analyzing) return;
+    let cancelled = false;
+    const run = async () => {
+      setAnalyzing(true);
+      setError(null);
+      try {
+        const res = await fetch('/api/assemblyai/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ videoUrl: sourceVideoUrl }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        if (!cancelled) setTranscriptId(data.transcriptId);
+      } catch (err: any) {
+        if (!cancelled) setError(err.message || 'Falha ao analisar áudio.');
+      } finally {
+        if (!cancelled) setAnalyzing(false);
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, sourceVideoUrl, transcriptId, analyzing]);
+
+  // When we have a transcriptId, fetch sentences-with-words for the picker.
+  useEffect(() => {
+    if (!transcriptId) return;
+    let cancelled = false;
+    const run = async () => {
+      setLoadingSentences(true);
+      try {
+        const res = await fetch(`/api/assemblyai/transcript/${transcriptId}/sentences-with-words`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        if (!cancelled) setSentences(data.sentences || []);
+      } catch (err: any) {
+        if (!cancelled) setError(err.message || 'Falha ao carregar frases.');
+      } finally {
+        if (!cancelled) setLoadingSentences(false);
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [transcriptId]);
+
+  const addInsertionFromSentence = (s: Sentence) => {
+    const atSec = Math.round((s.startMs / 1000) * 10) / 10;
+    const durationSec = Math.round(((s.endMs - s.startMs) / 1000) * 10) / 10;
+    // Convert word timestamps to be relative to sentence start (offsetMs).
+    const words = s.words.map((w) => ({
+      text: w.text,
+      offsetMs: w.startMs - s.startMs,
+      durationMs: w.endMs - w.startMs,
+    }));
+    setInsertions((prev) => [
+      ...prev,
+      {
+        id: `ins-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        atSec,
+        durationSec,
+        text: s.text,
+        position: 'middle',
+        words,
+      },
+    ]);
+  };
+
+  const updateInsertion = <K extends keyof Insertion>(id: string, key: K, value: Insertion[K]) => {
+    setInsertions((prev) => prev.map((i) => (i.id === id ? { ...i, [key]: value } : i)));
+  };
+
+  const removeInsertion = (id: string) => setInsertions((prev) => prev.filter((i) => i.id !== id));
+
+  const handleRender = () => {
+    if (insertions.length === 0) {
+      toast.error('Adicione pelo menos uma frase pra inserir como tela preta.');
+      return;
+    }
+    // Sort by atSec so the backend processes them in order.
+    const sorted = [...insertions].sort((a, b) => a.atSec - b.atSec);
+    onRender(sorted);
+  };
+
   if (!open) return null;
+
   return (
     <div
       className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
       onClick={() => !rendering && onClose()}
     >
       <div
-        className="bg-white dark:bg-gray-900/80 rounded-[28px] max-w-2xl w-full max-h-[90vh] overflow-y-auto p-8 space-y-6 shadow-2xl"
+        className="bg-white dark:bg-gray-900 rounded-[28px] max-w-3xl w-full max-h-[92vh] overflow-y-auto p-8 space-y-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="space-y-2">
-          <h3 className="text-2xl font-black text-gray-900 dark:text-gray-50 uppercase italic">
-            ✂ Cortes pretos com texto
-          </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Alterna entre o avatar e tela preta com texto grande. O áudio continua tocando durante a
-            tela preta — só a imagem muda.
-          </p>
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-2">
+            <h3 className="text-2xl font-black text-gray-900 dark:text-gray-50 uppercase italic">
+              ✂ Cortes pretos com texto
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Insere tela preta com legenda em momentos escolhidos. Áudio continua tocando — só a
+              imagem vira preta. A palavra falada é destacada em roxo.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            disabled={rendering}
+            className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 rounded-lg disabled:opacity-50"
+          >
+            <X size={18} />
+          </button>
         </div>
 
-        <div className="space-y-4">
-          <RangeField
-            label="Duração do avatar entre cortes"
-            value={avatarSec}
-            unit="s"
-            min={5}
-            max={60}
-            onChange={onAvatarSecChange}
-            disabled={rendering}
-          />
-          <RangeField
-            label="Duração da tela preta"
-            value={blackSec}
-            unit="s"
-            min={3}
-            max={60}
-            onChange={onBlackSecChange}
-            disabled={rendering}
-            hint="Pode ir até 60s por corte se quiser segurar o texto na tela."
-          />
-          <RangeField
-            label="Tamanho da fonte"
-            value={fontSize}
-            unit="px"
+        {error && (
+          <div className="p-3 bg-red-50 dark:bg-red-950/30 ring-1 ring-red-200 dark:ring-red-900/60 rounded-xl text-xs font-bold text-red-700 dark:text-red-300">
+            {error}
+          </div>
+        )}
+
+        {/* Estado 1: analisando o áudio */}
+        {analyzing && (
+          <div className="flex items-center gap-3 p-6 bg-purple-50 dark:bg-purple-950/30 ring-1 ring-purple-200 dark:ring-purple-900/60 rounded-2xl">
+            <Loader2 size={20} className="animate-spin text-purple-600 dark:text-purple-400" />
+            <div className="space-y-1">
+              <p className="text-sm font-black text-purple-900 dark:text-purple-200">
+                Analisando áudio do vídeo...
+              </p>
+              <p className="text-xs text-purple-700 dark:text-purple-300">
+                Isso leva ~30 segundos. Estamos extraindo as frases pra você escolher.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Estado 2: tem transcript, carregando frases */}
+        {loadingSentences && !analyzing && (
+          <div className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-800/60 rounded-xl">
+            <Loader2 size={16} className="animate-spin text-gray-500" />
+            <span className="text-xs font-bold text-gray-600 dark:text-gray-400">
+              Carregando frases...
+            </span>
+          </div>
+        )}
+
+        {/* Estado 3: frases disponíveis pra escolher */}
+        {!analyzing && !loadingSentences && sentences.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300">
+                Frases do vídeo ({sentences.length})
+              </h4>
+              <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                Clique + pra inserir como tela preta
+              </p>
+            </div>
+            <div className="space-y-1.5 max-h-[200px] overflow-y-auto pr-2">
+              {sentences.map((s, idx) => {
+                const tStart = (s.startMs / 1000).toFixed(1);
+                const dur = ((s.endMs - s.startMs) / 1000).toFixed(1);
+                return (
+                  <button
+                    key={`sent-${idx}-${s.startMs}`}
+                    onClick={() => addInsertionFromSentence(s)}
+                    disabled={rendering}
+                    className="w-full text-left flex items-start gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-800/60 hover:bg-purple-50 dark:hover:bg-purple-950/40 ring-1 ring-gray-200 dark:ring-gray-700 hover:ring-purple-400 transition-all disabled:opacity-50"
+                  >
+                    <span className="shrink-0 w-6 h-6 rounded-full bg-white dark:bg-gray-900 flex items-center justify-center ring-1 ring-gray-300 dark:ring-gray-600">
+                      <Plus size={12} className="text-purple-600 dark:text-purple-400" />
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-gray-900 dark:text-gray-100 leading-snug">
+                        {s.text}
+                      </p>
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+                        {tStart}s · dura {dur}s · {s.words.length} palavras
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Estado 4: inserções adicionadas */}
+        {insertions.length > 0 && (
+          <div className="space-y-3 pt-2 border-t border-gray-200 dark:border-gray-800">
+            <h4 className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300">
+              Telas pretas a inserir ({insertions.length})
+            </h4>
+            <div className="space-y-3">
+              {insertions.map((ins, i) => (
+                <div
+                  key={ins.id}
+                  className="p-4 rounded-2xl bg-purple-50/60 dark:bg-purple-950/30 ring-1 ring-purple-200 dark:ring-purple-900/60 space-y-3"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-xs font-bold text-purple-900 dark:text-purple-200 leading-snug flex-1">
+                      #{i + 1}: {ins.text}
+                    </p>
+                    <button
+                      onClick={() => removeInsertion(ins.id)}
+                      disabled={rendering}
+                      className="shrink-0 p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg disabled:opacity-50"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {/* atSec */}
+                    <div>
+                      <label className="text-[9px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300 block">
+                        Quando (seg)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        value={ins.atSec}
+                        onChange={(e) =>
+                          updateInsertion(ins.id, 'atSec', Number(e.target.value) || 0)
+                        }
+                        disabled={rendering}
+                        className="w-full p-2 mt-1 bg-white dark:bg-gray-900 ring-1 ring-gray-300 dark:ring-gray-700 rounded-lg text-xs font-bold text-gray-900 dark:text-gray-100"
+                      />
+                    </div>
+                    {/* durationSec */}
+                    <div>
+                      <label className="text-[9px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300 block">
+                        Duração (seg)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0.5"
+                        max="20"
+                        value={ins.durationSec}
+                        onChange={(e) =>
+                          updateInsertion(ins.id, 'durationSec', Number(e.target.value) || 0.5)
+                        }
+                        disabled={rendering}
+                        className="w-full p-2 mt-1 bg-white dark:bg-gray-900 ring-1 ring-gray-300 dark:ring-gray-700 rounded-lg text-xs font-bold text-gray-900 dark:text-gray-100"
+                      />
+                    </div>
+                    {/* position */}
+                    <div>
+                      <label className="text-[9px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300 block">
+                        Posição
+                      </label>
+                      <select
+                        value={ins.position}
+                        onChange={(e) =>
+                          updateInsertion(
+                            ins.id,
+                            'position',
+                            e.target.value as Insertion['position']
+                          )
+                        }
+                        disabled={rendering}
+                        className="w-full p-2 mt-1 bg-white dark:bg-gray-900 ring-1 ring-gray-300 dark:ring-gray-700 rounded-lg text-xs font-bold text-gray-900 dark:text-gray-100"
+                      >
+                        <option value="top">Topo</option>
+                        <option value="middle">Meio</option>
+                        <option value="bottom">Baixo</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Tamanho da fonte (global) */}
+        <div>
+          <label className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300">
+            Tamanho da fonte:{' '}
+            <span className="text-purple-700 dark:text-purple-300">{fontSize}px</span>
+          </label>
+          <input
+            type="range"
             min={28}
             max={120}
             step={2}
-            onChange={onFontSizeChange}
+            value={fontSize}
+            onChange={(e) => onFontSizeChange(parseInt(e.target.value))}
+            className="w-full accent-purple-600"
             disabled={rendering}
           />
         </div>
 
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <label className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300">
-              Textos das telas pretas
-            </label>
-            <button
-              type="button"
-              onClick={() => onTextsChange([...texts, ''])}
-              className="text-[10px] font-black uppercase tracking-widest text-purple-700 dark:text-purple-300 hover:text-purple-900"
-              disabled={rendering}
-            >
-              + Adicionar
-            </button>
-          </div>
-          <p className="text-[10px] text-gray-500 dark:text-gray-400 -mt-2">
-            Se houver mais cortes que textos, eles são reutilizados em ciclo.
-          </p>
-          {texts.map((t, i) => (
-            <div key={`intercut-text-${i}`} className="flex gap-2">
-              <textarea
-                value={t}
-                onChange={(e) => {
-                  const next = [...texts];
-                  next[i] = e.target.value;
-                  onTextsChange(next);
-                }}
-                placeholder={`Texto ${i + 1} (ex.: "ESSA IA TRANSCREVE EM 30 SEGUNDOS")`}
-                rows={2}
-                className="flex-1 p-3 border-2 border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:border-purple-500 focus:outline-none resize-none"
-                disabled={rendering}
-              />
-              {texts.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => onTextsChange(texts.filter((_, j) => j !== i))}
-                  className="px-3 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 rounded-xl hover:bg-red-100"
-                  disabled={rendering}
-                  title="Remover este texto"
-                >
-                  <Trash2 size={14} />
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-
+        {/* Ações */}
         <div className="flex gap-3 pt-2">
           <button
             onClick={onClose}
             disabled={rendering}
-            className="flex-1 py-3 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-gray-200 disabled:opacity-50"
+            className="flex-1 py-3 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50"
           >
             Cancelar
           </button>
           <button
-            onClick={onRender}
-            disabled={rendering}
-            className="flex-1 py-3 bg-purple-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-purple-700 disabled:opacity-50"
+            onClick={handleRender}
+            disabled={rendering || insertions.length === 0}
+            className="flex-1 py-3 bg-purple-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-purple-700 disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {rendering ? 'Gerando...' : 'Gerar com cortes pretos'}
+            {rendering && <Loader2 size={14} className="animate-spin" />}
+            {rendering
+              ? 'Gerando...'
+              : `Gerar com ${insertions.length} tela${insertions.length === 1 ? '' : 's'} preta${insertions.length === 1 ? '' : 's'}`}
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-interface RangeFieldProps {
-  label: string;
-  value: number;
-  unit: string;
-  min: number;
-  max: number;
-  step?: number;
-  disabled?: boolean;
-  hint?: string;
-  onChange: (next: number) => void;
-}
-
-function RangeField({
-  label,
-  value,
-  unit,
-  min,
-  max,
-  step = 1,
-  disabled,
-  hint,
-  onChange,
-}: RangeFieldProps) {
-  return (
-    <div>
-      <label className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300">
-        {label}:{' '}
-        <span className="text-purple-700 dark:text-purple-300">
-          {value}
-          {unit}
-        </span>
-      </label>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(parseInt(e.target.value))}
-        className="w-full accent-purple-600"
-        disabled={disabled}
-      />
-      {hint && <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">{hint}</p>}
     </div>
   );
 }
