@@ -282,6 +282,9 @@ assemblyAIRouter.post('/analyze/submit', async (req, res) => {
           auto_highlights: true,
         };
 
+    log.info(
+      `[AssemblyAI Submit] POSTing /v2/transcript body=${JSON.stringify(requestBody).substring(0, 200)}`
+    );
     const submitResponse = await fetch('https://api.assemblyai.com/v2/transcript', {
       method: 'POST',
       headers: { authorization: apiKey, 'Content-Type': 'application/json' },
@@ -290,16 +293,18 @@ assemblyAIRouter.post('/analyze/submit', async (req, res) => {
 
     if (!submitResponse.ok) {
       const errorMsg = await formatApiError(submitResponse);
+      log.error(`[AssemblyAI Submit] FAILED HTTP ${submitResponse.status}: ${errorMsg}`);
       return res.status(submitResponse.status).json({ error: `AssemblyAI submit: ${errorMsg}` });
     }
 
     const data = await submitResponse.json();
+    log.info(`[AssemblyAI Submit] OK transcriptId=${data.id}`);
     logToFile(
       `[AssemblyAI Submit] OK transcriptId=${data.id} (${lightweight ? 'lightweight' : 'heavy'})`
     );
     return res.json({ transcriptId: data.id });
   } catch (err: any) {
-    log.error('[AssemblyAI Submit] erro:', err.message);
+    log.error('[AssemblyAI Submit] erro NO TRY:', err.message, err.stack);
     return res.status(500).json({ error: err.message });
   }
 });
@@ -314,6 +319,7 @@ assemblyAIRouter.get('/analyze/status/:transcriptId', async (req, res) => {
   const apiKey = getAssemblyAIKey();
   if (!apiKey) return res.status(500).json({ error: 'ASSEMBLYAI_API_KEY não configurada.' });
   const { transcriptId } = req.params;
+  log.info(`[AssemblyAI Status] poll transcriptId=${transcriptId?.substring(0, 8)}`);
 
   try {
     const r = await fetch(`https://api.assemblyai.com/v2/transcript/${transcriptId}`, {
