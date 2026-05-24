@@ -13,10 +13,10 @@
 // state (config, videos, currentProjectId, etc.) still passes as
 // individual named props.
 
-import React from 'react';
+import React, { useState } from 'react';
 import type { AdConfig } from '@/App';
 import { toast } from 'react-hot-toast';
-import { Loader2, Layers, Trash2, Zap, Download } from 'lucide-react';
+import { AlertTriangle, Loader2, Layers, Trash2, Zap, Download } from 'lucide-react';
 import { cn, getVideoAspectRatioClass } from '@/lib/utils';
 import { getAuthorizedUrl } from '@/lib/gemini';
 import { VideoDurationBadge } from '@/components/VideoDurationBadge';
@@ -1039,102 +1039,102 @@ export function EditZapTab({
                 </div>
               </div>
             )}
-            {activeZapVersions.map((vUrl, idx) => (
-              <div key={`zap-v-${idx}-${vUrl}`} className="space-y-3">
-                <div
-                  className={`relative bg-black rounded-[28px] overflow-hidden border-4 ring-4 aspect-[9/16] ${
-                    isHookEdit
-                      ? 'border-amber-200 ring-amber-50'
-                      : 'border-yellow-200 ring-yellow-50'
-                  }`}
-                >
-                  <video
-                    src={getAuthorizedUrl(vUrl, platformApiKey || undefined) || undefined}
-                    className="w-full h-full object-contain"
-                    controls
-                    crossOrigin={
-                      vUrl?.includes('generativelanguage.googleapis.com')
-                        ? ('anonymous' as const)
-                        : undefined
-                    }
-                  />
+            {activeZapVersions.map((vUrl, idx) => {
+              // F6.13 — extraído pra reusar no VersionVideo onRemove.
+              const removeVersion = () => {
+                if (!isHookEdit) {
+                  setZapState((prev) => ({
+                    ...prev,
+                    versions: (prev.versions || []).filter((u) => u !== vUrl),
+                    finalVideoUrl: prev.finalVideoUrl === vUrl ? undefined : prev.finalVideoUrl,
+                  }));
+                }
+                setConfig((prev: any) => {
+                  const key = isHookEdit ? 'zapHookVersions' : 'zapVersions';
+                  const current = ((prev.edit as any)[key] as string[] | undefined) || [];
+                  return {
+                    ...prev,
+                    edit: { ...prev.edit, [key]: current.filter((u) => u !== vUrl) },
+                  };
+                });
+                toast.success(`Versão ${idx + 1} removida.`);
+              };
+              return (
+                <div key={`zap-v-${idx}-${vUrl}`} className="space-y-3">
                   <div
-                    className={`absolute top-3 left-3 text-white text-[9px] font-black px-2 py-1 rounded uppercase tracking-widest ${
-                      isHookEdit ? 'bg-amber-500' : 'bg-yellow-500'
+                    className={`relative bg-black rounded-[28px] overflow-hidden border-4 ring-4 aspect-[9/16] ${
+                      isHookEdit
+                        ? 'border-amber-200 ring-amber-50'
+                        : 'border-yellow-200 ring-yellow-50'
                     }`}
                   >
-                    {isHookEdit ? 'Gancho' : 'Versão'} {idx + 1}
+                    <VersionVideo
+                      src={getAuthorizedUrl(vUrl, platformApiKey || undefined) || undefined}
+                      crossOrigin={
+                        vUrl?.includes('generativelanguage.googleapis.com')
+                          ? ('anonymous' as const)
+                          : undefined
+                      }
+                      onRemove={removeVersion}
+                      label={`${isHookEdit ? 'Gancho' : 'Versão'} ${idx + 1}`}
+                    />
+                    <div
+                      className={`absolute top-3 left-3 text-white text-[9px] font-black px-2 py-1 rounded uppercase tracking-widest ${
+                        isHookEdit ? 'bg-amber-500' : 'bg-yellow-500'
+                      }`}
+                    >
+                      {isHookEdit ? 'Gancho' : 'Versão'} {idx + 1}
+                    </div>
+                    <VideoDurationBadge src={vUrl} />
                   </div>
-                  <VideoDurationBadge src={vUrl} />
-                </div>
-                <div className="flex gap-2">
-                  <a
-                    href={vUrl}
-                    download={`video_zap_${isHookEdit ? 'hook' : 'body'}_v${idx + 1}.mp4`}
-                    className="flex-1 py-2 bg-gray-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black flex items-center justify-center gap-2"
-                  >
-                    <Download size={12} />
-                    Baixar
-                  </a>
-                  <button
-                    onClick={() => {
-                      setIntercutSourceUrl(vUrl);
-                    }}
-                    className="px-3 py-2 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-purple-100 flex items-center justify-center gap-1"
-                    title="Inserir cortes pretos com texto entre trechos do avatar"
-                  >
-                    ✂ Cortes
-                  </button>
-                  {isHookEdit && (
+                  <div className="flex gap-2">
+                    <a
+                      href={vUrl}
+                      download={`video_zap_${isHookEdit ? 'hook' : 'body'}_v${idx + 1}.mp4`}
+                      className="flex-1 py-2 bg-gray-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black flex items-center justify-center gap-2"
+                    >
+                      <Download size={12} />
+                      Baixar
+                    </a>
                     <button
                       onClick={() => {
-                        setHeadlineSourceUrl(vUrl);
+                        setIntercutSourceUrl(vUrl);
                       }}
-                      className="px-3 py-2 bg-pink-50 text-pink-700 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-pink-100 flex items-center justify-center gap-1"
-                      title="Adicionar headline colorida no topo (estilo anúncio Meta)"
+                      className="px-3 py-2 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-purple-100 flex items-center justify-center gap-1"
+                      title="Inserir cortes pretos com texto entre trechos do avatar"
                     >
-                      📰 Headline
+                      ✂ Cortes
                     </button>
-                  )}
-                  <button
-                    onClick={() => {
-                      if (
-                        !window.confirm(
-                          `Excluir Versão ${idx + 1}? Esta ação não pode ser desfeita.`
+                    {isHookEdit && (
+                      <button
+                        onClick={() => {
+                          setHeadlineSourceUrl(vUrl);
+                        }}
+                        className="px-3 py-2 bg-pink-50 text-pink-700 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-pink-100 flex items-center justify-center gap-1"
+                        title="Adicionar headline colorida no topo (estilo anúncio Meta)"
+                      >
+                        📰 Headline
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        if (
+                          !window.confirm(
+                            `Excluir Versão ${idx + 1}? Esta ação não pode ser desfeita.`
+                          )
                         )
-                      )
-                        return;
-                      // Body mode also updates the transient zapState.versions
-                      // (gallery state). Hook mode reads straight from config.
-                      if (!isHookEdit) {
-                        setZapState((prev) => ({
-                          ...prev,
-                          versions: (prev.versions || []).filter((u) => u !== vUrl),
-                          finalVideoUrl:
-                            prev.finalVideoUrl === vUrl ? undefined : prev.finalVideoUrl,
-                        }));
-                      }
-                      setConfig((prev: any) => {
-                        const key = isHookEdit ? 'zapHookVersions' : 'zapVersions';
-                        const current = ((prev.edit as any)[key] as string[] | undefined) || [];
-                        return {
-                          ...prev,
-                          edit: {
-                            ...prev.edit,
-                            [key]: current.filter((u) => u !== vUrl),
-                          },
-                        };
-                      });
-                      toast.success(`Versão ${idx + 1} excluída.`);
-                    }}
-                    className="px-3 py-2 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-100 flex items-center justify-center gap-1"
-                    title="Excluir esta versão"
-                  >
-                    <Trash2 size={12} />
-                  </button>
+                          return;
+                        removeVersion();
+                      }}
+                      className="px-3 py-2 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-100 flex items-center justify-center gap-1"
+                      title="Excluir esta versão"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -1452,5 +1452,53 @@ export function EditZapTab({
         onRender={handleRenderHeadline}
       />
     </div>
+  );
+}
+
+// F6.13 — Versão de vídeo com detector de URL quebrada. Quando o `<video>`
+// dá error de load (URL expirou no CDN, arquivo deletado, etc), substitui
+// pelo overlay claro com mensagem + dica de remover. Antes mostrava só
+// cinza sem dar pista do que tava errado.
+function VersionVideo({
+  src,
+  crossOrigin,
+  onRemove,
+  label,
+}: {
+  src: string | undefined;
+  crossOrigin?: 'anonymous';
+  onRemove?: () => void;
+  label: string;
+}) {
+  const [broken, setBroken] = useState(false);
+
+  if (broken) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 p-4 text-center gap-3">
+        <AlertTriangle size={32} className="text-red-500" />
+        <p className="text-xs font-black uppercase tracking-widest">{label}</p>
+        <p className="text-[11px] leading-tight opacity-80">
+          O link do vídeo expirou ou o arquivo não está mais disponível.
+        </p>
+        {onRemove && (
+          <button
+            onClick={onRemove}
+            className="px-3 py-2 bg-red-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-red-700 transition-colors"
+          >
+            Remover desta lista
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <video
+      src={src}
+      className="w-full h-full object-contain"
+      controls
+      crossOrigin={crossOrigin}
+      onError={() => setBroken(true)}
+    />
   );
 }
