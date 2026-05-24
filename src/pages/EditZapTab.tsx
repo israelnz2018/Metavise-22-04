@@ -1388,6 +1388,16 @@ export function EditZapTab({
         rendering={intercutRendering}
         sourceVideoUrl={intercutSourceUrl}
         fontSize={intercutFontSize}
+        // F6.8 — mapeia display string ("Português (Brasileiro)") pra
+        // ISO 639-1 ('pt') que o AssemblyAI espera. Quando o cliente já
+        // setou idioma na PersonaTab, pulamos a language_detection
+        // (transcrição ~30-40% mais rápida).
+        languageCode={(() => {
+          const lang = String(config.copy?.answers?.language || '').toLowerCase();
+          if (lang.includes('ingl') || lang === 'english' || lang === 'en') return 'en';
+          if (lang.includes('espan') || lang === 'spanish' || lang === 'es') return 'es';
+          return 'pt';
+        })()}
         onFontSizeChange={setIntercutFontSize}
         onClose={() => setIntercutSourceUrl(null)}
         onRender={handleRenderIntercut}

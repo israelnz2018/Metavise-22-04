@@ -54,6 +54,9 @@ interface Props {
   sourceVideoUrl: string | null;
   /** Optional initial fontSize (kept in parent for persistence). */
   fontSize: number;
+  /** F6.8 — ISO 639-1 language code ('pt', 'en', 'es'). Passed to AssemblyAI
+   *  so we skip language detection (saves ~30-40% time). Defaults to 'pt'. */
+  languageCode?: 'pt' | 'en' | 'es';
   onFontSizeChange: (next: number) => void;
   onClose: () => void;
   /** Fires "Gerar" — parent makes the /api/video/intercut call. */
@@ -65,6 +68,7 @@ export function IntercutModal({
   rendering,
   sourceVideoUrl,
   fontSize,
+  languageCode = 'pt',
   onFontSizeChange,
   onClose,
   onRender,
@@ -141,11 +145,17 @@ export function IntercutModal({
 
     const submitAndPoll = async () => {
       try {
-        // Step 1 — submit (fast).
+        // Step 1 — submit (fast). F6.8 — lightweight mode usa universal-2 +
+        // language_code explícito + sem auto_highlights. Cuts ~40-50% off the
+        // total transcription time vs. the default heavy mode.
         const submitRes = await fetch('/api/assemblyai/analyze/submit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ videoUrl: sourceVideoUrl }),
+          body: JSON.stringify({
+            videoUrl: sourceVideoUrl,
+            lightweight: true,
+            languageCode,
+          }),
         });
         const submitData = await submitRes.json();
         if (!submitRes.ok) throw new Error(submitData.error || `HTTP ${submitRes.status}`);
