@@ -4723,9 +4723,9 @@ export default function App() {
       position: 'top' | 'middle' | 'bottom';
       words: Array<{ text: string; offsetMs: number; durationMs: number }>;
     }>,
-    // F6.11 — settings global passados pelo modal: palavras por linha e
-    // threshold de fusão de cortes consecutivos.
-    settings?: { wordsPerLine?: number; mergeThresholdSec?: number }
+    // F6.11/F6.12 — settings global passados pelo modal: palavras por linha,
+    // threshold de fusão de cortes, uppercase toggle.
+    settings?: { wordsPerLine?: number; mergeThresholdSec?: number; uppercase?: boolean }
   ) => {
     if (!intercutSourceUrl) return;
     if (!user?.uid) {
@@ -4749,10 +4749,11 @@ export default function App() {
           videoUrl: intercutSourceUrl,
           fontSize: intercutFontSize,
           userId: user.uid,
-          // F6.11 — passa settings globais (palavras/linha, fusão).
-          // Backend usa defaults se omitidos.
+          // F6.11/F6.12 — passa settings globais. Backend usa defaults se omitidos.
           wordsPerLine: settings?.wordsPerLine ?? 4,
           mergeThresholdSec: settings?.mergeThresholdSec ?? 0.5,
+          uppercase: settings?.uppercase ?? true,
+          fontFamily: 'Impact',
           // F6.5 — novo formato manual. Backend detecta insertions[] presente
           // e usa o modo "manual insertion" (alternativa: cadência legada).
           insertions: insertions.map((ins) => ({

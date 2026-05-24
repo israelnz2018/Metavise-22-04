@@ -60,10 +60,11 @@ interface Props {
   onFontSizeChange: (next: number) => void;
   onClose: () => void;
   /** F6.11 — Fires "Gerar". Modal now passes settings alongside insertions
-   *  so the parent can forward them in the /api/video/intercut payload. */
+   *  so the parent can forward them in the /api/video/intercut payload.
+   *  F6.12 — adds `uppercase` flag. */
   onRender: (
     insertions: Insertion[],
-    settings: { wordsPerLine: number; mergeThresholdSec: number }
+    settings: { wordsPerLine: number; mergeThresholdSec: number; uppercase: boolean }
   ) => void;
 }
 
@@ -80,6 +81,8 @@ export function IntercutModal({
   // F6.11 — config sliders global (não por inserção pra ficar simples).
   const [wordsPerLine, setWordsPerLine] = useState<number>(4);
   const [mergeThresholdSec, setMergeThresholdSec] = useState<number>(0.5);
+  // F6.12 — caps + font. Default uppercase=true (estilo ZapCap pop-up).
+  const [uppercase, setUppercase] = useState<boolean>(true);
   const [transcriptId, setTranscriptId] = useState<string | null>(null);
   const [sentences, setSentences] = useState<Sentence[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
@@ -347,7 +350,7 @@ export function IntercutModal({
     }
     // Sort by atSec so the backend processes them in order.
     const sorted = [...insertions].sort((a, b) => a.atSec - b.atSec);
-    onRender(sorted, { wordsPerLine, mergeThresholdSec });
+    onRender(sorted, { wordsPerLine, mergeThresholdSec, uppercase });
   };
 
   if (!open) return null;
@@ -628,6 +631,25 @@ export function IntercutModal({
             disabled={rendering}
           />
         </div>
+
+        {/* F6.12 — UPPERCASE toggle. Default ON pra match estilo ZapCap pop-up. */}
+        <label className="flex items-center gap-3 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={uppercase}
+            onChange={(e) => setUppercase(e.target.checked)}
+            disabled={rendering}
+            className="w-5 h-5 accent-purple-600"
+          />
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300">
+              Texto em CAIXA ALTA
+            </p>
+            <p className="text-[10px] text-gray-500 dark:text-gray-400">
+              Liga/desliga uppercase. Default ligado (visual ZapCap pop-up).
+            </p>
+          </div>
+        </label>
 
         {/* Ações */}
         <div className="flex gap-3 pt-2">

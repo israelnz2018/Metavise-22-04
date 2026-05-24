@@ -211,11 +211,16 @@ function writeAssFileKaraoke(
   position: string,
   highlightColorHex: string,
   totalDurationMs: number,
-  wordsPerLine: number = 4
+  wordsPerLine: number = 4,
+  uppercase: boolean = true,
+  fontFamily: string = 'Impact'
 ): string {
   const p = path.join(workDir, `text_kara_${idx}.ass`);
   const escapeAss = (s: string) =>
     s.replace(/\\/g, '\\\\').replace(/\{/g, '\\{').replace(/\}/g, '\\}').replace(/\r?\n/g, '\\N');
+  // F6.12 — apply UPPERCASE here so static text fallback + per-word renders
+  // all share the same transform.
+  const transform = (s: string) => (uppercase ? s.toUpperCase() : s);
 
   const alignment = positionToAssAlignment(position);
   const highlightAss = hexToAssColor(highlightColorHex);
@@ -225,21 +230,31 @@ function writeAssFileKaraoke(
   if (words.length === 0) {
     // No word-level timing → fallback to static text for the whole duration.
     dialogueLines.push(
-      `Dialogue: 0,${msToAssTime(0)},${msToAssTime(totalDurationMs)},Default,,0,0,0,,${escapeAss(text)}`
+      `Dialogue: 0,${msToAssTime(0)},${msToAssTime(totalDurationMs)},Default,,0,0,0,,${escapeAss(transform(text))}`
     );
   } else {
-    // F6.11 — Split words into groups of `wordsPerLine`. Up to 2 lines of
-    // wordsPerLine words each = max chunk = 2 × wordsPerLine words.
-    // Going with 1 line per chunk for simplicity (max wordsPerLine words
-    // per dialogue). Future: wrap to 2 lines if chunk has >wordsPerLine.
+    // F6.11/F6.12 — Split words into groups respecting BOTH wordsPerLine
+    // AND sentence boundaries. A new group starts whenever:
+    //   - Current group reached wordsPerLine words, OR
+    //   - Previous word ended with sentence punctuation (. ! ?)
+    // This avoids ugly mid-sentence reads like "as well. The vitamin".
     const groupSize = Math.max(1, Math.min(8, Math.floor(wordsPerLine)));
+    const endsSentence = (t: string): boolean => /[.!?]['")\]]?$/.test(t.trim());
     const groups: Array<typeof words> = [];
-    for (let i = 0; i < words.length; i += groupSize) {
-      groups.push(words.slice(i, i + groupSize));
+    let current: typeof words = [];
+    for (const w of words) {
+      current.push(w);
+      const reachedSize = current.length >= groupSize;
+      const sentenceEnd = endsSentence(w.text);
+      if (reachedSize || sentenceEnd) {
+        groups.push(current);
+        current = [];
+      }
     }
+    if (current.length > 0) groups.push(current);
 
     groups.forEach((group, groupIdx) => {
-      const groupTokens = group.map((w) => w.text);
+      const groupTokens = group.map((w) => transform(w.text));
       const groupStartMs = group[0]!.offsetMs;
       const isLastGroup = groupIdx === groups.length - 1;
       // Group ends when NEXT group starts (or end of segment if last).
@@ -287,7 +302,7 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,Arial,${fontSize},&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,3,0,${alignment},80,80,${marginV},1
+Style: Default,${fontFamily},${fontSize},&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,3,0,${alignment},80,80,${marginV},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -478,7 +493,9 @@ videoRouter.post(
         words: Array<{ text: string; offsetMs: number; durationMs: number }> | undefined,
         position: string,
         highlightColor: string,
-        wordsPerLine: number = 4
+        wordsPerLine: number = 4,
+        uppercase: boolean = true,
+        fontFamily: string = 'Impact'
       ): Promise<void> => {
         if (durSec < 0.3) return;
         let subtitleFilter = '';
@@ -496,7 +513,9 @@ videoRouter.post(
                   position,
                   highlightColor,
                   durSec * 1000,
-                  wordsPerLine
+                  wordsPerLine,
+                  uppercase,
+                  fontFamily
                 )
               : writeAssFile(workDir, segIdx, text, W, H, fontSize);
           subtitleFilter = `,subtitles=${escapeFilterPath(assPath)}`;
@@ -537,6 +556,11 @@ videoRouter.post(
           1,
           Math.min(8, Math.floor(Number(req.body?.wordsPerLine ?? 4)))
         );
+        // F6.12 — uppercase + fontFamily controls. Default uppercase=true
+        // (ZapCap pop-up looks usually uppercase). Default font Impact —
+        // heavy sans-serif most similar to the Viktor template.
+        const uppercase = req.body?.uppercase !== false;
+        const fontFamily = String(req.body?.fontFamily || 'Impact');
 
         const sorted = [...insertions].sort((a: any, b: any) => Number(a.atSec) - Number(b.atSec));
 
@@ -599,7 +623,9 @@ videoRouter.post(
             g.words,
             g.position,
             g.highlightColor,
-            wordsPerLine
+            wordsPerLine,
+            uppercase,
+            fontFamily
           );
           cursor = g.atSec + g.totalDurationSec;
         }

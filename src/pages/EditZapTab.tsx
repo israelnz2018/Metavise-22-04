@@ -64,7 +64,7 @@ interface Props {
       position: 'top' | 'middle' | 'bottom';
       words: Array<{ text: string; offsetMs: number; durationMs: number }>;
     }>,
-    settings?: { wordsPerLine?: number; mergeThresholdSec?: number }
+    settings?: { wordsPerLine?: number; mergeThresholdSec?: number; uppercase?: boolean }
   ) => Promise<void> | void;
   fetchZapCapTemplates: () => Promise<void> | void;
   zapCapTemplates: any[];
