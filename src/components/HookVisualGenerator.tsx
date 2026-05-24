@@ -587,11 +587,11 @@ Gere the prompt onde o vídeo reforça visualmente a emoção do hook do início
       {onToggleUseHook &&
         (useHookFlow ? (
           <div className="bg-gray-50 dark:bg-gray-800/60 border-2 border-gray-200 dark:border-gray-800 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
-            <div className="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500">
+            <div className="text-sm text-gray-600 dark:text-gray-400">
               <strong className="font-black text-gray-900 dark:text-gray-50">
                 Não vai usar gancho separado?
               </strong>
-              <span className="block text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">
+              <span className="block text-xs text-gray-500 dark:text-gray-400 mt-1">
                 Pula esta aba, esconde o toggle de gancho em Voz/Avatar/Edição e o botão de juntar.
               </span>
             </div>
@@ -696,7 +696,7 @@ Gere the prompt onde o vídeo reforça visualmente a emoção do hook do início
                     A. Escolher Hook
                   </h3>
                 </div>
-                <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
                   Escolha um hook da biblioteca, filtre por tipo/tom/nível, ou escreva o seu
                   próprio.
                 </p>
@@ -753,7 +753,7 @@ Gere the prompt onde o vídeo reforça visualmente a emoção do hook do início
                           className={
                             sessionHook
                               ? 'text-blue-600 dark:text-blue-400'
-                              : 'text-gray-500 dark:text-gray-400 dark:text-gray-500'
+                              : 'text-gray-500 dark:text-gray-400'
                           }
                         />
                       </div>
@@ -762,12 +762,12 @@ Gere the prompt onde o vídeo reforça visualmente a emoção do hook do início
                       </p>
                     </div>
                     <h4
-                      className={`text-base font-black mb-1 ${sessionHook ? 'text-gray-900 dark:text-gray-50' : 'text-gray-500 dark:text-gray-400 dark:text-gray-500'}`}
+                      className={`text-base font-black mb-1 ${sessionHook ? 'text-gray-900 dark:text-gray-50' : 'text-gray-500 dark:text-gray-400'}`}
                     >
                       Gerar Voz do Hook
                     </h4>
                     <p
-                      className={`text-xs leading-relaxed ${sessionHook ? 'text-gray-500 dark:text-gray-400 dark:text-gray-500' : 'text-gray-600 dark:text-gray-400 dark:text-gray-500'}`}
+                      className={`text-xs leading-relaxed ${sessionHook ? 'text-gray-500 dark:text-gray-400' : 'text-gray-600 dark:text-gray-400'}`}
                     >
                       Vai para a aba Voz para gerar áudio do gancho.
                     </p>
@@ -786,7 +786,7 @@ Gere the prompt onde o vídeo reforça visualmente a emoção do hook do início
                           className={
                             sessionHook
                               ? 'text-purple-600 dark:text-purple-400'
-                              : 'text-gray-500 dark:text-gray-400 dark:text-gray-500'
+                              : 'text-gray-500 dark:text-gray-400'
                           }
                         />
                       </div>
@@ -795,12 +795,12 @@ Gere the prompt onde o vídeo reforça visualmente a emoção do hook do início
                       </p>
                     </div>
                     <h4
-                      className={`text-base font-black mb-1 ${sessionHook ? 'text-gray-900 dark:text-gray-50' : 'text-gray-500 dark:text-gray-400 dark:text-gray-500'}`}
+                      className={`text-base font-black mb-1 ${sessionHook ? 'text-gray-900 dark:text-gray-50' : 'text-gray-500 dark:text-gray-400'}`}
                     >
                       Gerar Vídeo com Avatar
                     </h4>
                     <p
-                      className={`text-xs leading-relaxed ${sessionHook ? 'text-gray-500 dark:text-gray-400 dark:text-gray-500' : 'text-gray-600 dark:text-gray-400 dark:text-gray-500'}`}
+                      className={`text-xs leading-relaxed ${sessionHook ? 'text-gray-500 dark:text-gray-400' : 'text-gray-600 dark:text-gray-400'}`}
                     >
                       Vai para a aba Avatar (HeyGen).
                     </p>
@@ -825,7 +825,7 @@ Gere the prompt onde o vídeo reforça visualmente a emoção do hook do início
                   <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">
                     Hook Aprovado
                   </p>
-                  <p className="text-lg font-bold text-gray-700 dark:text-gray-300 dark:text-gray-600 italic">
+                  <p className="text-lg font-bold text-gray-700 dark:text-gray-300 italic">
                     "{approvedHook}"
                   </p>
                 </div>
@@ -835,7 +835,7 @@ Gere the prompt onde o vídeo reforça visualmente a emoção do hook do início
                 {onProceedToVoice && (
                   <button
                     onClick={onProceedToVoice}
-                    className="px-10 py-5 bg-white dark:bg-gray-900/80 border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 dark:text-gray-600 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:border-gray-300 transition-all shadow-lg flex items-center gap-3"
+                    className="px-10 py-5 bg-white dark:bg-gray-900/80 border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:border-gray-300 transition-all shadow-lg flex items-center gap-3"
                   >
                     Ir para Voz Premium
                     <ChevronRight />
@@ -936,7 +936,7 @@ Gere the prompt onde o vídeo reforça visualmente a emoção do hook do início
                             </p>
                           </div>
                           <div className="flex items-center gap-3">
-                            <span className="text-xs font-black text-gray-500 dark:text-gray-400 dark:text-gray-500">
+                            <span className="text-xs font-black text-gray-500 dark:text-gray-400">
                               ${q.cost}
                             </span>
                             {selectedImageQuality === q.id && (
@@ -1130,7 +1130,7 @@ Gere the prompt onde o vídeo reforça visualmente a emoção do hook do início
                               </p>
                             </div>
                             <div className="flex items-center gap-3">
-                              <span className="text-[10px] font-black text-gray-500 dark:text-gray-400 dark:text-gray-500">
+                              <span className="text-[10px] font-black text-gray-500 dark:text-gray-400">
                                 {duracaoVideo}s = ~${(duracaoVideo * q.costPerSec).toFixed(2)}
                               </span>
                               {selectedVideoQuality === q.id && (
@@ -1159,7 +1159,7 @@ Gere the prompt onde o vídeo reforça visualmente a emoção do hook do início
                             style={{ width: `${videoGenerationProgress}%` }}
                           />
                         </div>
-                        <p className="text-[10px] text-gray-500 dark:text-gray-400 dark:text-gray-500 font-medium italic">
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium italic">
                           Aguarde, sua copy visual está sendo preparada.
                         </p>
                       </div>
@@ -1227,7 +1227,7 @@ Gere the prompt onde o vídeo reforça visualmente a emoção do hook do início
               <div className="flex items-center justify-center gap-4">
                 <button
                   onClick={() => setCurrentStep('improve')}
-                  className="px-8 py-4 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 dark:text-gray-500 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-200 transition-all"
+                  className="px-8 py-4 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-200 transition-all"
                 >
                   Desejo refazer
                 </button>

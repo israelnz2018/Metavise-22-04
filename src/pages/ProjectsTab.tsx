@@ -265,7 +265,7 @@ export function ProjectsTab({
                         <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">
                           {key}
                         </p>
-                        <p className="text-sm font-bold text-gray-700 dark:text-gray-300 dark:text-gray-600">
+                        <p className="text-sm font-bold text-gray-700 dark:text-gray-300">
                           {Array.isArray(value) ? value.join(', ') : String(value)}
                         </p>
                       </div>
@@ -404,7 +404,7 @@ export function ProjectsTab({
           <h3 className="text-2xl font-black text-gray-900 dark:text-gray-50 tracking-tight">
             Meus Projetos
           </h3>
-          <p className="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm">
+          <p className="text-gray-500 dark:text-gray-400 text-sm">
             Gerencie seus projetos e criações.
           </p>
         </div>
@@ -425,19 +425,19 @@ export function ProjectsTab({
           <div className="relative flex-1 min-w-[200px]">
             <Search
               size={16}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 dark:text-gray-600 dark:text-gray-400 dark:text-gray-500"
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 dark:text-gray-500"
             />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar pelo nome…"
-              className="w-full pl-11 pr-10 py-3 bg-gray-50 dark:bg-gray-800/60 border border-transparent rounded-xl text-sm focus:bg-white dark:bg-gray-900/80 dark:focus:bg-gray-800 focus:border-blue-400 dark:focus:border-blue-700 outline-none transition-all dark:text-gray-100 dark:placeholder:text-gray-500 dark:text-gray-400 dark:text-gray-500"
+              className="w-full pl-11 pr-10 py-3 bg-gray-50 dark:bg-gray-800/60 border border-transparent rounded-xl text-sm focus:bg-white dark:focus:bg-gray-800 focus:border-blue-400 dark:focus:border-blue-700 outline-none transition-all text-gray-900 dark:text-gray-100 dark:placeholder:text-gray-500"
             />
             {search && (
               <button
                 onClick={() => setSearch('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 dark:text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400 dark:text-gray-500 dark:hover:text-gray-300 dark:hover:text-gray-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-300"
                 title="Limpar"
               >
                 <X size={14} />
@@ -445,15 +445,15 @@ export function ProjectsTab({
             )}
           </div>
 
-          <div className="flex items-center gap-1 p-1 bg-gray-100 dark:bg-gray-800/70 dark:bg-gray-800/60 rounded-xl">
+          <div className="flex items-center gap-1 p-1 bg-gray-100 dark:bg-gray-800/60 rounded-xl">
             {TYPE_FILTERS.map((f) => (
               <button
                 key={f.value}
                 onClick={() => setTypeFilter(f.value)}
                 className={`px-3 py-2 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all ${
                   typeFilter === f.value
-                    ? 'bg-white dark:bg-gray-900/80 text-blue-600 dark:text-blue-400 shadow-sm dark:bg-gray-900 dark:text-blue-300'
-                    : 'text-gray-400 dark:text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 dark:text-gray-500 dark:hover:text-gray-300 dark:hover:text-gray-600'
+                    ? 'bg-white dark:bg-gray-900 text-blue-600 dark:text-blue-300 shadow-sm'
+                    : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
                 }`}
               >
                 {f.label}
@@ -464,7 +464,7 @@ export function ProjectsTab({
           <select
             value={sortMode}
             onChange={(e) => setSortMode(e.target.value as SortMode)}
-            className="px-4 py-3 bg-gray-50 dark:bg-gray-800/60 border border-transparent rounded-xl text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-300 dark:text-gray-600 focus:bg-white dark:bg-gray-900/80 dark:focus:bg-gray-800 focus:border-blue-400 dark:focus:border-blue-700 outline-none cursor-pointer"
+            className="px-4 py-3 bg-gray-50 dark:bg-gray-800/60 border border-transparent rounded-xl text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-300 focus:bg-white dark:focus:bg-gray-800 focus:border-blue-400 dark:focus:border-blue-700 outline-none cursor-pointer"
           >
             <option value="recent">Mais recente</option>
             <option value="oldest">Mais antigo</option>
@@ -472,7 +472,7 @@ export function ProjectsTab({
           </select>
 
           {(search || typeFilter !== 'all') && (
-            <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-auto">
+            <span className="text-[10px] font-bold text-gray-400 dark:text-gray-400 uppercase tracking-widest ml-auto">
               {filteredProjects.length} de {projects.length}
             </span>
           )}
@@ -489,7 +489,7 @@ export function ProjectsTab({
               <p className="text-lg font-bold text-gray-900 dark:text-gray-50">
                 Nenhum projeto encontrado
               </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                 Comece criando seu primeiro projeto agora mesmo.
               </p>
             </div>
@@ -505,7 +505,7 @@ export function ProjectsTab({
             <p className="text-lg font-bold text-gray-900 dark:text-gray-50">
               Nenhum projeto bate com sua busca
             </p>
-            <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               Tente outro termo ou limpe os filtros.
             </p>
             <button
@@ -513,7 +513,7 @@ export function ProjectsTab({
                 setSearch('');
                 setTypeFilter('all');
               }}
-              className="mt-2 px-5 py-2 bg-gray-900 dark:bg-gray-100 dark:bg-gray-800 text-white dark:text-gray-900 dark:text-gray-50 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-black dark:hover:bg-white dark:hover:bg-gray-900/80 transition-colors"
+              className="mt-2 px-5 py-2 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-black dark:hover:bg-white transition-colors"
             >
               Limpar filtros
             </button>
@@ -554,7 +554,7 @@ export function ProjectsTab({
                         e.stopPropagation();
                         onDuplicateProject(project);
                       }}
-                      className="p-1.5 text-gray-300 dark:text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 dark:hover:bg-blue-950/40 rounded-lg transition-colors"
+                      className="p-1.5 text-gray-300 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-lg transition-colors"
                       title="Duplicar Projeto"
                     >
                       <Copy size={16} />
@@ -564,7 +564,7 @@ export function ProjectsTab({
                         e.stopPropagation();
                         onDeleteProject(project.id);
                       }}
-                      className="p-1.5 text-gray-300 dark:text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 dark:hover:bg-red-950/40 rounded-lg transition-colors"
+                      className="p-1.5 text-gray-300 dark:text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors"
                       title="Excluir Projeto"
                     >
                       <Trash2 size={16} />
@@ -586,7 +586,7 @@ export function ProjectsTab({
                 </p>
 
                 <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-800">
-                  <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+                  <span className="text-[10px] font-bold text-gray-400 dark:text-gray-400 uppercase tracking-widest">
                     {project.createdAt?.toDate
                       ? project.createdAt.toDate().toLocaleDateString()
                       : 'Recentemente'}

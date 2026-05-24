@@ -27,13 +27,13 @@ export function PersonaPathModal({ project, onClose, onProceed }: Props) {
           </div>
           <div>
             <h3 className="text-xl font-black text-gray-900 dark:text-gray-50">Novo Subprojeto</h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest">
+            <p className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-widest">
               Você já sabe quem é seu cliente?
             </p>
           </div>
         </div>
 
-        <p className="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500 leading-relaxed mb-6 mt-2">
+        <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-6 mt-2">
           Antes de começar, queremos entender como você quer trabalhar o público desse subprojeto.
         </p>
 

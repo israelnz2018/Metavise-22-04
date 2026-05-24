@@ -52,7 +52,7 @@ export function ElevenLabsConfigModal({
         </div>
 
         <div className="space-y-4">
-          <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 font-medium">
+          <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
             Insira sua API Key do ElevenLabs para habilitar a geração de vozes. Você pode encontrar
             sua chave no perfil da sua conta ElevenLabs.
           </p>
@@ -81,7 +81,7 @@ export function ElevenLabsConfigModal({
           </button>
           <button
             onClick={onClose}
-            className="flex-1 px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-200 transition-all"
+            className="flex-1 px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 transition-all"
           >
             Cancelar
           </button>

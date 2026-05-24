@@ -268,7 +268,7 @@ export function PersonaTab({
             <Users size={28} className="text-blue-600 dark:text-blue-400" />
             Identificar Persona
           </h3>
-          <p className="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm mt-1">
+          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
             Responda 9 perguntas — a IA gera 3 personas com nível de consciência. Escolha uma para
             continuar.
           </p>
@@ -320,7 +320,7 @@ export function PersonaTab({
                   'px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all',
                   a.category === cat
                     ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white dark:bg-gray-900/80 text-gray-700 dark:text-gray-300 dark:text-gray-600 border-gray-200 dark:border-gray-700 hover:border-blue-300'
+                    : 'bg-white dark:bg-gray-900/80 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-blue-300'
                 )}
               >
                 {cat}
@@ -348,7 +348,7 @@ export function PersonaTab({
           </label>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+              <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">
                 De:
               </span>
               <input
@@ -362,7 +362,7 @@ export function PersonaTab({
               />
             </div>
             <div>
-              <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+              <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">
                 Para:
               </span>
               <input
@@ -420,7 +420,7 @@ export function PersonaTab({
                 <div className="text-sm font-black text-gray-900 dark:text-gray-50">
                   {opt.label}
                 </div>
-                <div className="text-[10px] text-gray-500 dark:text-gray-400 dark:text-gray-500 font-bold">
+                <div className="text-[10px] text-gray-500 dark:text-gray-400 font-bold">
                   {opt.desc}
                 </div>
               </button>
@@ -444,7 +444,7 @@ export function PersonaTab({
                   'px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all',
                   differentials.includes(d)
                     ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white dark:bg-gray-900/80 text-gray-700 dark:text-gray-300 dark:text-gray-600 border-gray-200 dark:border-gray-700 hover:border-blue-300'
+                    : 'bg-white dark:bg-gray-900/80 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-blue-300'
                 )}
               >
                 {d}
@@ -491,7 +491,7 @@ export function PersonaTab({
                   'px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all',
                   personaTriedBefore.includes(t)
                     ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white dark:bg-gray-900/80 text-gray-700 dark:text-gray-300 dark:text-gray-600 border-gray-200 dark:border-gray-700 hover:border-blue-300'
+                    : 'bg-white dark:bg-gray-900/80 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-blue-300'
                 )}
               >
                 {t}
@@ -513,7 +513,7 @@ export function PersonaTab({
                   'px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all',
                   a.payingCapacity === p
                     ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white dark:bg-gray-900/80 text-gray-700 dark:text-gray-300 dark:text-gray-600 border-gray-200 dark:border-gray-700 hover:border-blue-300'
+                    : 'bg-white dark:bg-gray-900/80 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-blue-300'
                 )}
               >
                 {p}
@@ -529,7 +529,7 @@ export function PersonaTab({
               (escolha 1-3)
             </span>
           </label>
-          <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 italic leading-relaxed">
+          <p className="text-xs text-gray-500 dark:text-gray-400 italic leading-relaxed">
             Não é o que o produto faz na superfície (ex: "perder peso") — é o que a pessoa REALMENTE
             quer ao resolver o problema (ex: "ser admirada nas fotos", "se sentir desejada de
             novo"). Pense no que ela diria se ninguém estivesse ouvindo.
@@ -691,7 +691,7 @@ export function PersonaTab({
                   )}
                   <div>
                     <h5 className="text-lg font-black text-gray-900 dark:text-gray-50">{p.name}</h5>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 leading-snug mt-1">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 leading-snug mt-1">
                       {p.description}
                     </p>
                   </div>
@@ -702,10 +702,10 @@ export function PersonaTab({
                     <p className="text-xs text-blue-800 leading-snug">{p.awarenessReason}</p>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-[10px]">
-                    <div className="text-gray-500 dark:text-gray-400 dark:text-gray-500">
+                    <div className="text-gray-500 dark:text-gray-400">
                       <strong className="text-gray-900 dark:text-gray-50">Idade:</strong> {p.age}
                     </div>
-                    <div className="text-gray-500 dark:text-gray-400 dark:text-gray-500">
+                    <div className="text-gray-500 dark:text-gray-400">
                       <strong className="text-gray-900 dark:text-gray-50">Gênero:</strong>{' '}
                       {p.gender}
                     </div>
@@ -715,47 +715,37 @@ export function PersonaTab({
                       <strong className="text-gray-900 dark:text-gray-50 block text-[10px] uppercase tracking-widest">
                         Dor principal
                       </strong>{' '}
-                      <span className="text-gray-700 dark:text-gray-300 dark:text-gray-600">
-                        {p.mainPain}
-                      </span>
+                      <span className="text-gray-700 dark:text-gray-300">{p.mainPain}</span>
                     </div>
                     <div>
                       <strong className="text-gray-900 dark:text-gray-50 block text-[10px] uppercase tracking-widest">
                         Desejo oculto
                       </strong>{' '}
-                      <span className="text-gray-700 dark:text-gray-300 dark:text-gray-600">
-                        {p.hiddenDesire}
-                      </span>
+                      <span className="text-gray-700 dark:text-gray-300">{p.hiddenDesire}</span>
                     </div>
                     <div>
                       <strong className="text-gray-900 dark:text-gray-50 block text-[10px] uppercase tracking-widest">
                         Medo dominante
                       </strong>{' '}
-                      <span className="text-gray-700 dark:text-gray-300 dark:text-gray-600">
-                        {p.dominantFear}
-                      </span>
+                      <span className="text-gray-700 dark:text-gray-300">{p.dominantFear}</span>
                     </div>
                     <div>
                       <strong className="text-gray-900 dark:text-gray-50 block text-[10px] uppercase tracking-widest">
                         Objeção principal
                       </strong>{' '}
-                      <span className="text-gray-700 dark:text-gray-300 dark:text-gray-600">
-                        {p.mainObjection}
-                      </span>
+                      <span className="text-gray-700 dark:text-gray-300">{p.mainObjection}</span>
                     </div>
                     <div>
                       <strong className="text-gray-900 dark:text-gray-50 block text-[10px] uppercase tracking-widest">
                         Gatilho emocional
                       </strong>{' '}
-                      <span className="text-gray-700 dark:text-gray-300 dark:text-gray-600">
-                        {p.emotionalTrigger}
-                      </span>
+                      <span className="text-gray-700 dark:text-gray-300">{p.emotionalTrigger}</span>
                     </div>
                     <div className="pt-2 border-t border-gray-200 dark:border-gray-800">
                       <strong className="text-gray-900 dark:text-gray-50 block text-[10px] uppercase tracking-widest">
                         Ângulo de vídeo
                       </strong>{' '}
-                      <span className="text-gray-700 dark:text-gray-300 dark:text-gray-600">
+                      <span className="text-gray-700 dark:text-gray-300">
                         {p.recommendedVideoAngle}
                       </span>
                     </div>
@@ -763,7 +753,7 @@ export function PersonaTab({
                       <strong className="text-gray-900 dark:text-gray-50 block text-[10px] uppercase tracking-widest">
                         Hook recomendado
                       </strong>{' '}
-                      <span className="text-gray-700 dark:text-gray-300 dark:text-gray-600">
+                      <span className="text-gray-700 dark:text-gray-300">
                         {p.recommendedHookType}
                       </span>
                     </div>
@@ -771,7 +761,7 @@ export function PersonaTab({
                       <strong className="text-gray-900 dark:text-gray-50 block text-[10px] uppercase tracking-widest">
                         Tom
                       </strong>{' '}
-                      <span className="text-gray-700 dark:text-gray-300 dark:text-gray-600">
+                      <span className="text-gray-700 dark:text-gray-300">
                         {p.communicationTone}
                       </span>
                     </div>
@@ -779,23 +769,19 @@ export function PersonaTab({
                       <strong className="text-gray-900 dark:text-gray-50 block text-[10px] uppercase tracking-widest">
                         Promessa
                       </strong>{' '}
-                      <span className="text-gray-700 dark:text-gray-300 dark:text-gray-600">
-                        {p.strongestPromise}
-                      </span>
+                      <span className="text-gray-700 dark:text-gray-300">{p.strongestPromise}</span>
                     </div>
                     <div>
                       <strong className="text-gray-900 dark:text-gray-50 block text-[10px] uppercase tracking-widest">
                         CTA
                       </strong>{' '}
-                      <span className="text-gray-700 dark:text-gray-300 dark:text-gray-600">
-                        {p.recommendedCTA}
-                      </span>
+                      <span className="text-gray-700 dark:text-gray-300">{p.recommendedCTA}</span>
                     </div>
                     <div className="pt-2 border-t border-gray-200 dark:border-gray-800">
                       <strong className="text-gray-900 dark:text-gray-50 block text-[10px] uppercase tracking-widest">
                         Por que é {p.rank}?
                       </strong>{' '}
-                      <span className="text-gray-700 dark:text-gray-300 dark:text-gray-600 italic">
+                      <span className="text-gray-700 dark:text-gray-300 italic">
                         {p.whyMainOrSecondaryOrTertiary}
                       </span>
                     </div>

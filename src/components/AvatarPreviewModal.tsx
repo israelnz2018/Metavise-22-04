@@ -199,14 +199,14 @@ function Controls({
       <div className="space-y-10">
         <div className="space-y-4">
           <div className="flex items-center gap-2 px-3 py-1 bg-gray-100 dark:bg-gray-800 rounded-lg w-fit">
-            <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 dark:text-gray-500">
+            <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">
               Avatar ID: {avatar.avatar_id}
             </span>
           </div>
           <h3 className="text-4xl font-black text-gray-900 dark:text-gray-50 tracking-tight leading-tight">
             {avatar.avatar_name}
           </h3>
-          <p className="text-gray-500 dark:text-gray-400 dark:text-gray-500 font-medium leading-relaxed">
+          <p className="text-gray-500 dark:text-gray-400 font-medium leading-relaxed">
             Ideal para{' '}
             {avatar.avatar_type === 'realistic'
               ? 'anúncios de alta conversão'
@@ -239,7 +239,7 @@ function Controls({
                     'p-3 rounded-[20px] border-2 text-left transition-all group/opt relative overflow-hidden',
                     active
                       ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 shadow-sm'
-                      : 'border-gray-200 dark:border-gray-800 text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:border-gray-200 dark:hover:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/60'
+                      : 'border-gray-200 dark:border-gray-800 text-gray-500 dark:text-gray-400 hover:border-gray-200 dark:hover:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/60'
                   )}
                 >
                   <div className="flex items-center gap-2 mb-1">

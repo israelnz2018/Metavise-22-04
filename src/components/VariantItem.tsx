@@ -143,7 +143,7 @@ export const VariantItem: React.FC<VariantItemProps> = ({
                       setRenameValue(variant.name);
                       setIsRenaming(false);
                     }}
-                    className="px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 dark:text-gray-500 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-gray-200 transition-all"
+                    className="px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-gray-200 transition-all"
                   >
                     Cancelar
                   </button>
@@ -224,7 +224,7 @@ export const VariantItem: React.FC<VariantItemProps> = ({
                   >
                     <Type size={14} />
                   </div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-400 dark:text-gray-500">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-400">
                     Copywriting Gerada
                   </span>
                 </div>
@@ -266,7 +266,7 @@ export const VariantItem: React.FC<VariantItemProps> = ({
                         <p className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
                           Script Original
                         </p>
-                        <div className="text-xs text-gray-700 dark:text-gray-300 dark:text-gray-600 whitespace-pre-wrap font-medium leading-relaxed">
+                        <div className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-medium leading-relaxed">
                           {variant.config.copy.generatedScript}
                         </div>
                       </div>
@@ -275,7 +275,7 @@ export const VariantItem: React.FC<VariantItemProps> = ({
                           <p className="text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest">
                             Script Otimizado (ElevenLabs)
                           </p>
-                          <div className="text-xs text-gray-700 dark:text-gray-300 dark:text-gray-600 whitespace-pre-wrap font-bold leading-relaxed">
+                          <div className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-bold leading-relaxed">
                             {variant.config.copy.optimizedScript}
                           </div>
                         </div>
@@ -306,7 +306,7 @@ export const VariantItem: React.FC<VariantItemProps> = ({
                   >
                     <Volume2 size={14} />
                   </div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-400 dark:text-gray-500">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-400">
                     Narração {idx + 1}
                   </span>
                 </div>
@@ -392,7 +392,7 @@ export const VariantItem: React.FC<VariantItemProps> = ({
                   >
                     <Video size={14} />
                   </div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-400 dark:text-gray-500">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-400">
                     Vídeo Avatar {idx + 1}
                   </span>
                 </div>

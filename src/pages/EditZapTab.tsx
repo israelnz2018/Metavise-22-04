@@ -209,7 +209,7 @@ export function EditZapTab({
             <Zap size={28} className="text-yellow-500" />
             Edição Zap
           </h3>
-          <p className="text-gray-500 dark:text-gray-400 dark:text-gray-500 text-sm mt-1">
+          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
             Versão simplificada — ZapCap faz tudo (transcrição + b-rolls automaticamente).
           </p>
         </div>
@@ -230,7 +230,7 @@ export function EditZapTab({
             className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
               !isHookEdit
                 ? 'bg-yellow-500 text-white shadow-md'
-                : 'text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:bg-yellow-50 dark:hover:bg-yellow-950/40'
+                : 'text-gray-500 dark:text-gray-400 hover:bg-yellow-50 dark:hover:bg-yellow-950/40'
             }`}
           >
             Editar Corpo
@@ -246,7 +246,7 @@ export function EditZapTab({
             className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
               isHookEdit
                 ? 'bg-amber-500 text-white shadow-md'
-                : 'text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:bg-amber-50 dark:hover:bg-amber-950/40'
+                : 'text-gray-500 dark:text-gray-400 hover:bg-amber-50 dark:hover:bg-amber-950/40'
             }`}
           >
             Editar Gancho
@@ -268,7 +268,7 @@ export function EditZapTab({
 
         {availableVideos.length === 0 ? (
           <div className="p-8 text-center bg-gray-50 dark:bg-gray-800/60 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700">
-            <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 font-bold">
+            <p className="text-sm text-gray-500 dark:text-gray-400 font-bold">
               Nenhum vídeo disponível. Gere um vídeo em "Gerar Vídeo com Avatar" primeiro.
             </p>
           </div>
@@ -364,7 +364,7 @@ export function EditZapTab({
 
         {zapCapTemplates.length === 0 ? (
           <div className="p-8 text-center bg-gray-50 dark:bg-gray-800/60 rounded-2xl">
-            <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500 font-bold mb-3">
+            <p className="text-sm text-gray-500 dark:text-gray-400 font-bold mb-3">
               Carregando templates...
             </p>
             <button
@@ -389,10 +389,10 @@ export function EditZapTab({
               )}
             >
               <div className="text-3xl mb-2">🚫</div>
-              <p className="text-xs font-black text-gray-700 dark:text-gray-300 dark:text-gray-600 uppercase tracking-widest">
+              <p className="text-xs font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest">
                 Nenhuma
               </p>
-              <p className="text-[9px] text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1 leading-tight">
+              <p className="text-[9px] text-gray-500 dark:text-gray-400 mt-1 leading-tight">
                 Pula a legenda. Útil pra aplicar só Cortes/Headline.
               </p>
               {zapTemplateId === '__none__' && (
@@ -468,7 +468,7 @@ export function EditZapTab({
                   'px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all',
                   zapLanguage === lang.value
                     ? 'bg-yellow-500 text-white border-yellow-500'
-                    : 'bg-white dark:bg-gray-900/80 text-gray-700 dark:text-gray-300 dark:text-gray-600 border-gray-200 dark:border-gray-700 hover:border-yellow-300'
+                    : 'bg-white dark:bg-gray-900/80 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-yellow-300'
                 )}
               >
                 {lang.label}
@@ -587,7 +587,7 @@ export function EditZapTab({
                   'px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all',
                   zapVideoFormat === fmt.value
                     ? 'bg-yellow-500 text-white border-yellow-500'
-                    : 'bg-white dark:bg-gray-900/80 text-gray-700 dark:text-gray-300 dark:text-gray-600 border-gray-200 dark:border-gray-700 hover:border-yellow-300'
+                    : 'bg-white dark:bg-gray-900/80 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-yellow-300'
                 )}
               >
                 {fmt.label}
@@ -626,11 +626,11 @@ export function EditZapTab({
           <p className="text-[10px] font-black text-yellow-700 uppercase tracking-widest">
             💡 Como controlar a largura da legenda
           </p>
-          <p className="text-[11px] text-gray-600 dark:text-gray-400 dark:text-gray-500 leading-relaxed">
+          <p className="text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed">
             ZapCap não tem ajuste direto de largura. Pra deixar a legenda{' '}
             <strong>mais estreita</strong>:
           </p>
-          <ul className="text-[11px] text-gray-600 dark:text-gray-400 dark:text-gray-500 space-y-1 list-disc list-inside">
+          <ul className="text-[11px] text-gray-600 dark:text-gray-400 space-y-1 list-disc list-inside">
             <li>Diminua o tamanho da fonte abaixo (36-40px)</li>
             <li>Troque para um template que renderize menos texto por linha</li>
             <li>
@@ -688,7 +688,7 @@ export function EditZapTab({
           {/* Cor da fonte + borda — sempre visíveis */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="bg-white dark:bg-gray-900/80 p-3 rounded-xl border-2 border-gray-200 dark:border-gray-800">
-              <div className="text-[10px] font-black text-gray-700 dark:text-gray-300 dark:text-gray-600 uppercase tracking-widest mb-2">
+              <div className="text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest mb-2">
                 Cor das letras
               </div>
               <div className="flex items-center gap-2">
@@ -708,7 +708,7 @@ export function EditZapTab({
               </div>
             </div>
             <div className="bg-white dark:bg-gray-900/80 p-3 rounded-xl border-2 border-gray-200 dark:border-gray-800">
-              <div className="text-[10px] font-black text-gray-700 dark:text-gray-300 dark:text-gray-600 uppercase tracking-widest mb-2">
+              <div className="text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest mb-2">
                 Cor da borda (contorno)
               </div>
               <div className="flex items-center gap-2">
@@ -758,7 +758,7 @@ export function EditZapTab({
                 onChange={(e) => setZapUseCustomHighlight(e.target.checked)}
                 className="w-4 h-4 accent-yellow-500"
               />
-              <span className="text-[11px] font-black text-gray-700 dark:text-gray-300 dark:text-gray-600 uppercase tracking-widest">
+              <span className="text-[11px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest">
                 Cores customizadas pra palavras em destaque
               </span>
             </label>
@@ -821,7 +821,7 @@ export function EditZapTab({
                   ].map((hl, i) => (
                     <div key={i}>
                       <div
-                        className="text-[9px] font-black text-gray-600 dark:text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1"
+                        className="text-[9px] font-black text-gray-600 dark:text-gray-400 uppercase tracking-widest mb-1"
                         title={hl.hint}
                       >
                         {hl.label}
@@ -852,7 +852,7 @@ export function EditZapTab({
 
           {/* Presets rápidos — preenchem font + stroke + highlights de uma vez */}
           <div>
-            <div className="text-[10px] font-black text-gray-600 dark:text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">
+            <div className="text-[10px] font-black text-gray-600 dark:text-gray-400 uppercase tracking-widest mb-2">
               Presets rápidos (clica pra preencher tudo)
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
@@ -1152,7 +1152,7 @@ export function EditZapTab({
                   <h3 className="text-xl font-black text-gray-900 dark:text-gray-50 uppercase italic">
                     Juntar Gancho + Corpo
                   </h3>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
                     Escolha qualquer versão do gancho e qualquer versão do corpo. O resultado vai
                     pra galeria "Vídeos Completos" abaixo.
                   </p>

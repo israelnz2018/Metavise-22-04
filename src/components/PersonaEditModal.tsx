@@ -78,7 +78,7 @@ export function PersonaEditModal({ open, persona, onChange, onClose, onSave }: P
             onClick={onClose}
             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors"
           >
-            <X size={20} className="text-gray-600 dark:text-gray-400 dark:text-gray-500" />
+            <X size={20} className="text-gray-600 dark:text-gray-400" />
           </button>
         </div>
 
@@ -154,7 +154,7 @@ export function PersonaEditModal({ open, persona, onChange, onClose, onSave }: P
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="text-xs font-black text-gray-700 dark:text-gray-300 dark:text-gray-600 uppercase tracking-widest">
+      <label className="text-xs font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest">
         {label}
       </label>
       {children}

@@ -328,7 +328,7 @@ export function AvatarTab({
             className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
               !isHookMode
                 ? 'bg-gray-900 text-white shadow-md'
-                : 'text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800/60'
+                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60'
             }`}
           >
             Avatar do Corpo
@@ -341,7 +341,7 @@ export function AvatarTab({
             className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
               isHookMode
                 ? 'bg-amber-500 text-white shadow-md'
-                : 'text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:bg-amber-50 dark:hover:bg-amber-950/40'
+                : 'text-gray-500 dark:text-gray-400 hover:bg-amber-50 dark:hover:bg-amber-950/40'
             }`}
           >
             Avatar do Gancho
@@ -403,7 +403,7 @@ export function AvatarTab({
               : 'border-blue-200 bg-blue-50/40 dark:bg-blue-950/40'
           }`}
         >
-          <p className="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
             {isHookMode
               ? '⚠ Você ainda não gerou o áudio do gancho. Vá em "Voz" → toggle "Voz do Gancho" → gerar.'
               : '⚠ Você ainda não gerou o áudio do corpo. Vá em "Voz" → gerar.'}
@@ -647,7 +647,7 @@ export function AvatarTab({
                 Selecione o vídeo que deseja usar no projeto.
               </p>
             </div>
-            <span className="px-3 py-1 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 dark:text-gray-500 rounded-full text-[10px] font-black uppercase tracking-widest">
+            <span className="px-3 py-1 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-full text-[10px] font-black uppercase tracking-widest">
               {(isHookMode ? hookVideos : videos || []).length}{' '}
               {(isHookMode ? hookVideos : videos || []).length === 1 ? 'Vídeo' : 'Vídeos'}
             </span>
@@ -857,7 +857,7 @@ export function AvatarTab({
                 className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest transition-all border-2 ${
                   showOnlyFavorites
                     ? 'bg-amber-400 text-amber-950 border-amber-400 shadow-md'
-                    : 'bg-white dark:bg-gray-900/80 text-gray-500 dark:text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700 hover:border-amber-300 hover:text-amber-700 dark:hover:text-amber-400'
+                    : 'bg-white dark:bg-gray-900/80 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-amber-300 hover:text-amber-700 dark:hover:text-amber-400'
                 }`}
                 title="Mostrar somente seus avatares favoritos"
               >
@@ -894,7 +894,7 @@ export function AvatarTab({
                     gender: e.target.value,
                   }))
                 }
-                className="w-full pl-10 pr-4 py-4 bg-gray-50 dark:bg-gray-800/60 border-2 border-transparent focus:border-blue-600 focus:bg-white dark:bg-gray-900/80 rounded-2xl outline-none transition-all text-sm font-bold text-gray-600 dark:text-gray-400 dark:text-gray-500 appearance-none"
+                className="w-full pl-10 pr-4 py-4 bg-gray-50 dark:bg-gray-800/60 border-2 border-transparent focus:border-blue-600 focus:bg-white dark:bg-gray-900/80 rounded-2xl outline-none transition-all text-sm font-bold text-gray-600 dark:text-gray-400 appearance-none"
               >
                 <option value="">Todos Gêneros</option>
                 <option value="male">Masculino</option>
@@ -915,7 +915,7 @@ export function AvatarTab({
                     sort: e.target.value,
                   }))
                 }
-                className="w-full pl-10 pr-4 py-4 bg-gray-50 dark:bg-gray-800/60 border-2 border-transparent focus:border-blue-600 focus:bg-white dark:bg-gray-900/80 rounded-2xl outline-none transition-all text-sm font-bold text-gray-600 dark:text-gray-400 dark:text-gray-500 appearance-none"
+                className="w-full pl-10 pr-4 py-4 bg-gray-50 dark:bg-gray-800/60 border-2 border-transparent focus:border-blue-600 focus:bg-white dark:bg-gray-900/80 rounded-2xl outline-none transition-all text-sm font-bold text-gray-600 dark:text-gray-400 appearance-none"
               >
                 <option value="name">A a Z</option>
                 <option value="ads">Melhores para Anúncios</option>
@@ -1051,7 +1051,7 @@ export function AvatarTab({
                 HeyGen
               </span>
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 font-medium italic">
+            <p className="text-xs text-gray-500 dark:text-gray-400 font-medium italic">
               Selecione o avatar acima para iniciar a geração.
             </p>
 
@@ -1186,7 +1186,7 @@ export function AvatarTab({
             <div className="flex flex-col md:flex-row gap-8">
               <div className="flex-1 space-y-4">
                 <div className="flex items-center justify-between">
-                  <h5 className="text-[10px] font-black text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em]">
+                  <h5 className="text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-[0.2em]">
                     Status HeyGen
                   </h5>
                   <div className="flex items-center gap-2">
@@ -1209,13 +1209,13 @@ export function AvatarTab({
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
-                    <p className="text-[8px] font-black text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">
+                    <p className="text-[8px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">
                       ID do Vídeo
                     </p>
                     <p className="text-[10px] font-mono text-blue-400 truncate">{videoOp.id}</p>
                   </div>
                   <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
-                    <p className="text-[8px] font-black text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">
+                    <p className="text-[8px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">
                       Progresso
                     </p>
                     <p className="text-lg font-black text-white">{videoOp.progress}%</p>
@@ -1236,7 +1236,7 @@ export function AvatarTab({
               </div>
 
               <div className="flex-1 space-y-4">
-                <h5 className="text-[10px] font-black text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em]">
+                <h5 className="text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-[0.2em]">
                   Métricas de Tempo
                 </h5>
                 <div className="grid grid-cols-2 gap-4">
@@ -1262,13 +1262,13 @@ export function AvatarTab({
                     <p className="text-[8px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
                       Polls (Consultas)
                     </p>
-                    <p className="text-xl font-black text-gray-500 dark:text-gray-400 dark:text-gray-500">
+                    <p className="text-xl font-black text-gray-500 dark:text-gray-400">
                       {videoOp.pollCount || 0}
                     </p>
                   </div>
                 </div>
                 <div className="pt-2 border-t border-white/5">
-                  <p className="text-[8px] font-black text-gray-600 dark:text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+                  <p className="text-[8px] font-black text-gray-600 dark:text-gray-400 uppercase tracking-widest">
                     Iniciado às: {videoOp.requestSentTime}
                   </p>
                 </div>
@@ -1279,7 +1279,7 @@ export function AvatarTab({
 
         <div className="flex items-center justify-between px-2">
           <div className="flex flex-col gap-1">
-            <p className="text-sm font-bold text-gray-500 dark:text-gray-400 dark:text-gray-500">
+            <p className="text-sm font-bold text-gray-500 dark:text-gray-400">
               Exibindo{' '}
               <span className="text-blue-600 dark:text-blue-400">{filteredAvatars.length}</span>{' '}
               avatares encontrados

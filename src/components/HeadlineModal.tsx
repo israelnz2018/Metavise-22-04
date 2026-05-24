@@ -190,7 +190,7 @@ export function HeadlineModal(props: Props) {
     if (words.length === 0) {
       return (
         <div className="bg-gray-50 dark:bg-gray-800/60 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl p-4 text-center">
-          <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500">{emptyMsg}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{emptyMsg}</p>
         </div>
       );
     }
@@ -198,7 +198,7 @@ export function HeadlineModal(props: Props) {
     const bgColorMap = ['', bgHl1, bgHl2, bgHl3];
     return (
       <div className="bg-gray-50 dark:bg-gray-800/60 p-3 rounded-xl border-2 border-gray-200 dark:border-gray-800 space-y-2">
-        <label className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300 dark:text-gray-600">
+        <label className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300">
           {label}
         </label>
         <div className="flex flex-wrap gap-2">
@@ -236,7 +236,7 @@ export function HeadlineModal(props: Props) {
                   <button
                     onClick={() => cycle('tc')}
                     title={`Letra: ${ws.tc === 0 ? 'padrão' : `cor ${ws.tc}`}`}
-                    className="flex items-center gap-1 px-2 py-0.5 rounded bg-white/90 hover:bg-white dark:hover:bg-gray-900/80 text-[9px] font-black text-gray-700 dark:text-gray-300 dark:text-gray-600"
+                    className="flex items-center gap-1 px-2 py-0.5 rounded bg-white/90 hover:bg-white dark:hover:bg-gray-900/80 text-[9px] font-black text-gray-700 dark:text-gray-300"
                   >
                     L
                     <span
@@ -248,7 +248,7 @@ export function HeadlineModal(props: Props) {
                   <button
                     onClick={() => cycle('bg')}
                     title={`Fundo: ${ws.bg === 0 ? 'nenhum' : `cor ${ws.bg}`}`}
-                    className="flex items-center gap-1 px-2 py-0.5 rounded bg-white/90 hover:bg-white dark:hover:bg-gray-900/80 text-[9px] font-black text-gray-700 dark:text-gray-300 dark:text-gray-600"
+                    className="flex items-center gap-1 px-2 py-0.5 rounded bg-white/90 hover:bg-white dark:hover:bg-gray-900/80 text-[9px] font-black text-gray-700 dark:text-gray-300"
                   >
                     F
                     <span
@@ -265,7 +265,7 @@ export function HeadlineModal(props: Props) {
         <button
           onClick={() => setter([])}
           disabled={rendering}
-          className="text-[10px] font-black text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 dark:text-gray-600 underline"
+          className="text-[10px] font-black text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 dark:text-gray-600 underline"
         >
           {clearLabel}
         </button>
@@ -286,14 +286,14 @@ export function HeadlineModal(props: Props) {
           <h3 className="text-2xl font-black text-gray-900 dark:text-gray-50 uppercase italic">
             📰 Headline no topo do vídeo
           </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
             Adiciona uma barra colorida com texto no topo do gancho — estilo anúncio do Meta. Cria
             uma nova versão; o original fica intacto.
           </p>
         </div>
 
         <div>
-          <label className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300 dark:text-gray-600">
+          <label className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300">
             Texto da headline
           </label>
           <input
@@ -305,7 +305,7 @@ export function HeadlineModal(props: Props) {
             disabled={rendering}
             maxLength={140}
           />
-          <p className="text-[10px] text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">
+          <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
             {text.length}/140 caracteres. Use os chips abaixo pra colorir palavras individuais.
           </p>
         </div>
@@ -333,7 +333,7 @@ export function HeadlineModal(props: Props) {
             disabled={rendering}
           />
           <div>
-            <label className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300 dark:text-gray-600">
+            <label className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300">
               Espessura da borda:{' '}
               <span className="text-pink-700">
                 {strokeWidth === 0 ? 'sem borda' : `${strokeWidth}px`}
@@ -374,7 +374,7 @@ export function HeadlineModal(props: Props) {
         </div>
 
         <div>
-          <label className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300 dark:text-gray-600">
+          <label className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300">
             Pré-visualização da barra
             {sourceDims && (
               <span className="ml-2 text-[9px] text-gray-400 dark:text-gray-500 normal-case font-normal">
@@ -385,7 +385,7 @@ export function HeadlineModal(props: Props) {
           {renderPreview(text || 'SUA HEADLINE AQUI', wordStyles, bgColor)}
           {headline2Enabled && headline2Text.trim() && (
             <>
-              <p className="text-[10px] text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-3 mb-1">
+              <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-3 mb-1">
                 ↓ 2ª headline (substitui a 1ª na hora certa)
               </p>
               {renderPreview(headline2Text, headline2WordStyles, headline2BgColor)}
@@ -412,11 +412,11 @@ export function HeadlineModal(props: Props) {
               disabled={rendering}
               className="w-4 h-4 accent-pink-500"
             />
-            <span className="text-[11px] font-black text-gray-700 dark:text-gray-300 dark:text-gray-600 uppercase tracking-widest">
+            <span className="text-[11px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest">
               ➕ Adicionar segunda headline
             </span>
           </label>
-          <p className="text-[10px] text-gray-500 dark:text-gray-400 dark:text-gray-500 -mt-1 ml-6">
+          <p className="text-[10px] text-gray-500 dark:text-gray-400 -mt-1 ml-6">
             A 1ª aparece no início, a 2ª substitui no ponto que você escolher. Ambas usam a mesma
             paleta e borda.
           </p>
@@ -445,7 +445,7 @@ export function HeadlineModal(props: Props) {
 
               {!autoTime && (
                 <div>
-                  <label className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300 dark:text-gray-600">
+                  <label className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300">
                     Trocar headline em: <span className="text-pink-700">{switchPct}%</span> do vídeo
                   </label>
                   <input
@@ -462,7 +462,7 @@ export function HeadlineModal(props: Props) {
               )}
 
               <div>
-                <label className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300 dark:text-gray-600">
+                <label className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300">
                   Texto da 2ª headline
                 </label>
                 <input
@@ -477,7 +477,7 @@ export function HeadlineModal(props: Props) {
               </div>
 
               <div>
-                <label className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300 dark:text-gray-600">
+                <label className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300">
                   Cor do fundo da 2ª barra
                 </label>
                 <div className="flex items-center gap-2 mt-1">
@@ -513,7 +513,7 @@ export function HeadlineModal(props: Props) {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300 dark:text-gray-600">
+            <label className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300">
               Tamanho da fonte: <span className="text-pink-700">{fontSize}px</span>
             </label>
             <input
@@ -528,7 +528,7 @@ export function HeadlineModal(props: Props) {
             />
           </div>
           <div>
-            <label className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300 dark:text-gray-600">
+            <label className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300">
               Altura da barra: <span className="text-pink-700">{barHeightPct}%</span>
             </label>
             <input
@@ -541,7 +541,7 @@ export function HeadlineModal(props: Props) {
               className="w-full accent-pink-600"
               disabled={rendering}
             />
-            <p className="text-[10px] text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
               % da altura total do vídeo
             </p>
           </div>
@@ -551,7 +551,7 @@ export function HeadlineModal(props: Props) {
           <button
             onClick={onClose}
             disabled={rendering}
-            className="flex-1 py-3 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 dark:text-gray-600 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-gray-200 disabled:opacity-50"
+            className="flex-1 py-3 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-gray-200 disabled:opacity-50"
           >
             Cancelar
           </button>
@@ -581,7 +581,7 @@ function ColorField({
 }) {
   return (
     <div>
-      <label className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300 dark:text-gray-600">
+      <label className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300">
         {label}
       </label>
       <div className="flex items-center gap-2 mt-1">
@@ -615,13 +615,13 @@ function PaletteRow({
 }) {
   return (
     <div>
-      <label className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300 dark:text-gray-600">
+      <label className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300">
         {heading}
       </label>
       <div className="grid grid-cols-3 gap-2 mt-2">
         {entries.map((hl, i) => (
           <div key={i}>
-            <div className="text-[9px] font-black text-gray-600 dark:text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">
+            <div className="text-[9px] font-black text-gray-600 dark:text-gray-400 uppercase tracking-widest mb-1">
               {hl.label}
             </div>
             <div className="flex items-center gap-1">

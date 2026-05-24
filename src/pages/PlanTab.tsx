@@ -266,7 +266,7 @@ export function PlanTab({
           <h2 className="text-3xl font-black text-gray-900 dark:text-gray-50 tracking-tight">
             Plano de Marketing
           </h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500 max-w-2xl">
+          <p className="text-sm text-gray-600 dark:text-gray-400 max-w-2xl">
             Estratégia completa pra Meta Ads considerando Andromeda: volume e diversidade vencem
             perfeição individual. Quantos criativos, quais ângulos, durações, estrutura de campanha
             — tudo calculado pra esse produto + persona.
@@ -276,7 +276,7 @@ export function PlanTab({
           {plan && (
             <button
               onClick={handleDownloadPDF}
-              className="text-xs font-bold uppercase tracking-widest text-gray-700 dark:text-gray-300 dark:text-gray-600 hover:text-gray-900 dark:hover:text-gray-50 flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-gray-400"
+              className="text-xs font-bold uppercase tracking-widest text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-50 flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-gray-400"
             >
               <Download size={12} />
               Baixar PDF
@@ -426,12 +426,12 @@ export function PlanTab({
       {/* Skip-to-copy shortcut: user can bypass the plan and jump straight
           to copywriting if they don't need the strategy guide right now. */}
       <div className="bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 rounded-2xl px-5 py-3 flex items-center justify-between gap-4">
-        <p className="text-xs text-gray-600 dark:text-gray-400 dark:text-gray-500">
+        <p className="text-xs text-gray-600 dark:text-gray-400">
           Não quer ver o plano agora? Pode pular pra Copy.
         </p>
         <button
           onClick={onContinue}
-          className="text-xs font-black uppercase tracking-widest text-gray-700 dark:text-gray-300 dark:text-gray-600 hover:text-gray-900 dark:hover:text-gray-50 flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white dark:bg-gray-900/80 border border-gray-200 dark:border-gray-700 hover:border-gray-400"
+          className="text-xs font-black uppercase tracking-widest text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-50 flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white dark:bg-gray-900/80 border border-gray-200 dark:border-gray-700 hover:border-gray-400"
         >
           Pular para Copy
           <ArrowRight size={12} />
@@ -477,7 +477,7 @@ export function PlanTab({
                 Estratégia macro
               </h3>
             </div>
-            <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-line">
+            <p className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-line">
               {plan.summary}
             </p>
           </div>
@@ -492,10 +492,10 @@ export function PlanTab({
               <div className="text-5xl font-black text-gray-900 dark:text-gray-50 mb-2">
                 {plan.creativeVolume.totalCreatives}
               </div>
-              <p className="text-xs text-gray-600 dark:text-gray-400 dark:text-gray-500">
+              <p className="text-xs text-gray-600 dark:text-gray-400">
                 {plan.creativeVolume.perAudience} por audiência
               </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-3 leading-relaxed">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 leading-relaxed">
                 {plan.creativeVolume.rationale}
               </p>
             </PlanCard>
@@ -510,7 +510,7 @@ export function PlanTab({
                 <Stat label="Ad sets" value={plan.adStructure.adSets} />
                 <Stat label="Crtvs/set" value={plan.adStructure.creativesPerAdSet} />
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-3 leading-relaxed">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 leading-relaxed">
                 {plan.adStructure.rationale}
               </p>
             </PlanCard>
@@ -546,9 +546,7 @@ export function PlanTab({
                       {AWARENESS_PT[h.awarenessLevel] || h.awarenessLevel}
                     </span>
                   </div>
-                  <p className="text-[11px] text-gray-600 dark:text-gray-400 dark:text-gray-500">
-                    {h.rationale}
-                  </p>
+                  <p className="text-[11px] text-gray-600 dark:text-gray-400">{h.rationale}</p>
                 </div>
               ))}
             </div>
@@ -571,7 +569,7 @@ export function PlanTab({
                       <div className="text-xs font-black text-purple-900">
                         {AWARENESS_PT[a.level] || a.level}
                       </div>
-                      <div className="text-[11px] text-gray-600 dark:text-gray-400 dark:text-gray-500 mt-0.5">
+                      <div className="text-[11px] text-gray-600 dark:text-gray-400 mt-0.5">
                         {a.approach}
                       </div>
                     </div>
@@ -596,7 +594,7 @@ export function PlanTab({
                   >
                     <div className="flex-1">
                       <div className="text-xs font-black text-blue-900">{d.length}</div>
-                      <div className="text-[11px] text-gray-600 dark:text-gray-400 dark:text-gray-500 mt-0.5">
+                      <div className="text-[11px] text-gray-600 dark:text-gray-400 mt-0.5">
                         {d.purpose}
                       </div>
                     </div>
@@ -618,12 +616,12 @@ export function PlanTab({
             >
               <div className="grid grid-cols-2 gap-3 my-2">
                 <div>
-                  <div className="text-[10px] uppercase tracking-widest text-gray-500 dark:text-gray-400 dark:text-gray-500 font-bold">
+                  <div className="text-[10px] uppercase tracking-widest text-gray-500 dark:text-gray-400 font-bold">
                     Mínimo
                   </div>
                   <div className="text-2xl font-black text-gray-900 dark:text-gray-50">
                     R${plan.budget.dailyMin}
-                    <span className="text-xs font-normal text-gray-500 dark:text-gray-400 dark:text-gray-500">
+                    <span className="text-xs font-normal text-gray-500 dark:text-gray-400">
                       /dia
                     </span>
                   </div>
@@ -640,7 +638,7 @@ export function PlanTab({
                   </div>
                 </div>
               </div>
-              <p className="text-[11px] text-gray-600 dark:text-gray-400 dark:text-gray-500 leading-relaxed">
+              <p className="text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed">
                 {plan.budget.rationale}
               </p>
             </PlanCard>
@@ -672,9 +670,7 @@ export function PlanTab({
                   </span>
                 </div>
                 <div>
-                  <span className="font-black text-gray-700 dark:text-gray-300 dark:text-gray-600">
-                    Revisar:
-                  </span>{' '}
+                  <span className="font-black text-gray-700 dark:text-gray-300">Revisar:</span>{' '}
                   <span className="text-gray-900 dark:text-gray-50">
                     {plan.iterationPlan.iterationFrequency}
                   </span>
@@ -694,7 +690,7 @@ export function PlanTab({
               </div>
               <ul className="space-y-2">
                 {plan.andromedaTips.map((tip, i) => (
-                  <li key={i} className="flex gap-2 text-sm text-gray-800">
+                  <li key={i} className="flex gap-2 text-sm text-gray-800 dark:text-gray-200">
                     <span className="text-indigo-400 font-black">→</span>
                     <span>{tip}</span>
                   </li>
@@ -714,7 +710,7 @@ export function PlanTab({
               </div>
               <ol className="space-y-2 list-decimal list-inside">
                 {plan.nextSteps.map((step, i) => (
-                  <li key={i} className="text-sm text-gray-800">
+                  <li key={i} className="text-sm text-gray-800 dark:text-gray-200">
                     {step}
                   </li>
                 ))}
@@ -779,7 +775,7 @@ export function PlanTab({
                     ? 'bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300'
                     : color === 'amber'
                       ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
-                      : 'bg-gray-100 text-gray-700';
+                      : 'bg-gray-100 text-gray-700 dark:bg-gray-800/60 dark:text-gray-300';
               return (
                 <div
                   key={brief.id}
@@ -900,7 +896,7 @@ function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div>
       <div className="text-3xl font-black text-gray-900 dark:text-gray-50">{value}</div>
-      <div className="text-[9px] uppercase tracking-widest text-gray-500 dark:text-gray-400 dark:text-gray-500 font-bold">
+      <div className="text-[9px] uppercase tracking-widest text-gray-500 dark:text-gray-400 font-bold">
         {label}
       </div>
     </div>

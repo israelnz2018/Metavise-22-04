@@ -455,7 +455,7 @@ export function Edit2Tab({
                 />
               </div>
               <div className="mt-4 flex items-center justify-between px-4">
-                <p className="text-[10px] font-black text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+                <p className="text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">
                   Preview
                 </p>
                 <div className="flex gap-2">
@@ -661,13 +661,13 @@ export function Edit2Tab({
                                   'text-[8px] font-black px-1.5 py-0.5 rounded uppercase',
                                   candidate.rank >= 0.7
                                     ? 'bg-green-100 text-green-700 dark:text-green-400'
-                                    : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 dark:text-gray-500'
+                                    : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
                                 )}
                               >
                                 {Math.round(candidate.rank * 100)}%
                               </span>
                             </div>
-                            <p className="text-[11px] font-bold text-gray-800 line-clamp-2 italic leading-tight">
+                            <p className="text-[11px] font-bold text-gray-800 dark:text-gray-200 line-clamp-2 italic leading-tight">
                               "{candidate.text}"
                             </p>
                             {isSelected && (

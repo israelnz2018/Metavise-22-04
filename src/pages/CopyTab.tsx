@@ -244,7 +244,7 @@ export function CopyTab({
             <h2 className="text-2xl font-black text-gray-900 dark:text-gray-50 uppercase tracking-tight">
               Antes de criar sua copy...
             </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 dark:text-gray-500">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               Precisamos saber quem vai assistir este vídeo. Isso garante uma copy muito mais
               eficaz.
             </p>
@@ -329,28 +329,34 @@ export function CopyTab({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                 <div className="bg-white dark:bg-gray-900/80 p-3 rounded-2xl border border-blue-100 dark:border-blue-900">
-                  <p className="text-[9px] font-black text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">
+                  <p className="text-[9px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">
                     Dor principal
                   </p>
-                  <p className="text-gray-800 leading-snug">{activePersona.mainPain}</p>
+                  <p className="text-gray-800 dark:text-gray-200 leading-snug">
+                    {activePersona.mainPain}
+                  </p>
                 </div>
                 <div className="bg-white dark:bg-gray-900/80 p-3 rounded-2xl border border-blue-100 dark:border-blue-900">
-                  <p className="text-[9px] font-black text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">
+                  <p className="text-[9px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">
                     Desejo profundo
                   </p>
-                  <p className="text-gray-800 leading-snug">{activePersona.hiddenDesire}</p>
+                  <p className="text-gray-800 dark:text-gray-200 leading-snug">
+                    {activePersona.hiddenDesire}
+                  </p>
                 </div>
                 <div className="bg-white dark:bg-gray-900/80 p-3 rounded-2xl border border-blue-100 dark:border-blue-900">
-                  <p className="text-[9px] font-black text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">
+                  <p className="text-[9px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">
                     Objeção principal
                   </p>
-                  <p className="text-gray-800 leading-snug">{activePersona.mainObjection}</p>
+                  <p className="text-gray-800 dark:text-gray-200 leading-snug">
+                    {activePersona.mainObjection}
+                  </p>
                 </div>
                 <div className="bg-white dark:bg-gray-900/80 p-3 rounded-2xl border border-blue-100 dark:border-blue-900">
-                  <p className="text-[9px] font-black text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">
+                  <p className="text-[9px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">
                     Idade · Gênero
                   </p>
-                  <p className="text-gray-800 leading-snug">
+                  <p className="text-gray-800 dark:text-gray-200 leading-snug">
                     {activePersona.age} · {activePersona.gender}
                   </p>
                 </div>
@@ -546,7 +552,7 @@ export function CopyTab({
                   <m.icon size={24} />
                 </div>
                 <span
-                  className={`text-sm font-black uppercase tracking-tight ${config.copy.mode === m.id ? 'text-blue-900' : 'text-gray-500 dark:text-gray-400 dark:text-gray-500'}`}
+                  className={`text-sm font-black uppercase tracking-tight ${config.copy.mode === m.id ? 'text-blue-900' : 'text-gray-500 dark:text-gray-400'}`}
                 >
                   {m.label}
                 </span>
@@ -666,7 +672,7 @@ export function CopyTab({
                                   className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border-2 ${
                                     isSelected
                                       ? 'bg-blue-600 border-blue-600 text-white shadow-md'
-                                      : 'bg-white dark:bg-gray-900/80 border-gray-200 dark:border-gray-800 text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:border-gray-200 dark:hover:border-gray-700'
+                                      : 'bg-white dark:bg-gray-900/80 border-gray-200 dark:border-gray-800 text-gray-500 dark:text-gray-400 hover:border-gray-200 dark:hover:border-gray-700'
                                   }`}
                                 >
                                   {opt}
@@ -1167,7 +1173,7 @@ export function CopyTab({
                             {strat.label}
                           </p>
                         </div>
-                        <p className="text-[11px] text-gray-500 dark:text-gray-400 dark:text-gray-500 font-medium mb-3 leading-relaxed">
+                        <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium mb-3 leading-relaxed">
                           {strat.desc}
                         </p>
                         <ul className="space-y-1">
@@ -1316,7 +1322,7 @@ export function CopyTab({
                         className={`py-3 px-1 rounded-xl border-2 transition-all text-xs font-black uppercase tracking-tighter ${
                           config.copy.targetWordCount === opt.words
                             ? 'border-blue-600 bg-blue-600 text-white shadow-lg shadow-blue-100 scale-105'
-                            : 'border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/60 text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:border-blue-200 hover:bg-white dark:hover:bg-gray-900/80'
+                            : 'border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/60 text-gray-600 dark:text-gray-400 hover:border-blue-200 hover:bg-white dark:hover:bg-gray-900/80'
                         }`}
                       >
                         {opt.label}
@@ -1326,7 +1332,7 @@ export function CopyTab({
 
                   <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/60 rounded-2xl border border-gray-200 dark:border-gray-800">
                     <div className="flex items-center gap-3">
-                      <p className="text-sm font-bold text-gray-600 dark:text-gray-400 dark:text-gray-500">
+                      <p className="text-sm font-bold text-gray-600 dark:text-gray-400">
                         {config.copy.targetWordCount
                           ? `✍️ ${config.copy.targetWordCount} palavras`
                           : 'Dica: 150 palavras'}
@@ -1411,7 +1417,7 @@ export function CopyTab({
                       </button>
                     </div>
                     <AutoResizeTextarea
-                      className="w-full p-8 bg-gray-50 dark:bg-gray-800/60 rounded-[32px] border-2 border-transparent focus:border-blue-600 focus:bg-white dark:bg-gray-900/80 outline-none text-gray-700 dark:text-gray-300 dark:text-gray-600 leading-relaxed font-mono text-sm transition-all"
+                      className="w-full p-8 bg-gray-50 dark:bg-gray-800/60 rounded-[32px] border-2 border-transparent focus:border-blue-600 focus:bg-white dark:bg-gray-900/80 outline-none text-gray-700 dark:text-gray-300 leading-relaxed font-mono text-sm transition-all"
                       value={config.copy.generatedScript || ''}
                       onChange={(e: any) => {
                         setConfig((prev: any) => ({

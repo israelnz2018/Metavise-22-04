@@ -206,7 +206,7 @@ export function AIRecommendationPanel({
           </div>
 
           {rec?.reasoning && (
-            <div className="bg-white/60 rounded-xl p-3 text-xs text-gray-700 dark:text-gray-300 dark:text-gray-600 leading-relaxed border border-purple-100">
+            <div className="bg-white/60 rounded-xl p-3 text-xs text-gray-700 dark:text-gray-300 leading-relaxed border border-purple-100">
               <span className="font-bold text-purple-700 dark:text-purple-300">Por quê: </span>
               {rec.reasoning}
             </div>

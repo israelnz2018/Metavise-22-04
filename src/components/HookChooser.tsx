@@ -266,7 +266,7 @@ const HookChooser: React.FC<Props> = ({
             </span>
           </div>
           <div className="bg-white dark:bg-gray-900/80 rounded-2xl p-5 max-h-72 overflow-y-auto border border-blue-100 dark:border-blue-900">
-            <p className="text-sm text-gray-700 dark:text-gray-300 dark:text-gray-600 whitespace-pre-wrap leading-relaxed">
+            <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
               {approvedCopy}
             </p>
           </div>
@@ -321,7 +321,7 @@ const HookChooser: React.FC<Props> = ({
               Filtros usados para gerar os 9 hooks
             </p>
             <div className="mb-3">
-              <p className="text-[9px] font-black text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">
+              <p className="text-[9px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">
                 Nível de Consciência
               </p>
               <div className="flex gap-1.5">
@@ -342,7 +342,7 @@ const HookChooser: React.FC<Props> = ({
             </div>
             <div>
               <div className="flex items-center justify-between mb-1">
-                <p className="text-[9px] font-black text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+                <p className="text-[9px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">
                   Tipos de Hook
                 </p>
                 <p className="text-[9px] text-amber-600 dark:text-amber-400 font-bold">
@@ -372,7 +372,7 @@ const HookChooser: React.FC<Props> = ({
               <div key={`ai-group-${g.type}-${gIdx}`} className="space-y-3">
                 <div className="flex items-center gap-2">
                   <div className="w-1.5 h-4 bg-purple-600 rounded-full"></div>
-                  <span className="text-[10px] font-black text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+                  <span className="text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">
                     Grupo {gIdx + 1}: {g.type}
                   </span>
                 </div>
@@ -409,7 +409,7 @@ const HookChooser: React.FC<Props> = ({
                           </div>
                           <div className="flex-1 pr-16">
                             <p
-                              className={`text-sm font-bold leading-relaxed ${isSelected ? 'text-blue-900' : 'text-gray-700 dark:text-gray-300 dark:text-gray-600'}`}
+                              className={`text-sm font-bold leading-relaxed ${isSelected ? 'text-blue-900' : 'text-gray-700 dark:text-gray-300'}`}
                             >
                               {text}
                             </p>
@@ -469,7 +469,7 @@ const HookChooser: React.FC<Props> = ({
                 <button
                   key={`opt3-tone-${t.id}`}
                   onClick={() => setTone(active ? 'Todos' : t.id)}
-                  className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition ${active ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:bg-gray-200'}`}
+                  className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition ${active ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200'}`}
                 >
                   {t.label}
                 </button>
@@ -586,7 +586,7 @@ const HookChooser: React.FC<Props> = ({
                   <div className="flex items-start gap-3">
                     <button onClick={() => handlePickHook(item.hook)} className="flex-1 text-left">
                       <p
-                        className={`text-sm font-bold leading-relaxed ${isSelected ? 'text-blue-900' : 'text-gray-700 dark:text-gray-300 dark:text-gray-600'}`}
+                        className={`text-sm font-bold leading-relaxed ${isSelected ? 'text-blue-900' : 'text-gray-700 dark:text-gray-300'}`}
                       >
                         {item.hook}
                       </p>
@@ -674,7 +674,7 @@ function BlockCheckbox({
       className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition border-2 ${
         isActive
           ? 'bg-blue-600 border-blue-600 text-white shadow-md'
-          : 'bg-white dark:bg-gray-900/80 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 dark:text-gray-500 hover:border-blue-300'
+          : 'bg-white dark:bg-gray-900/80 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-blue-300'
       }`}
     >
       <div

@@ -49,7 +49,7 @@ export function IntercutModal({
           <h3 className="text-2xl font-black text-gray-900 dark:text-gray-50 uppercase italic">
             ✂ Cortes pretos com texto
           </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
             Alterna entre o avatar e tela preta com texto grande. O áudio continua tocando durante a
             tela preta — só a imagem muda.
           </p>
@@ -89,7 +89,7 @@ export function IntercutModal({
 
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <label className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300 dark:text-gray-600">
+            <label className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300">
               Textos das telas pretas
             </label>
             <button
@@ -101,7 +101,7 @@ export function IntercutModal({
               + Adicionar
             </button>
           </div>
-          <p className="text-[10px] text-gray-500 dark:text-gray-400 dark:text-gray-500 -mt-2">
+          <p className="text-[10px] text-gray-500 dark:text-gray-400 -mt-2">
             Se houver mais cortes que textos, eles são reutilizados em ciclo.
           </p>
           {texts.map((t, i) => (
@@ -137,7 +137,7 @@ export function IntercutModal({
           <button
             onClick={onClose}
             disabled={rendering}
-            className="flex-1 py-3 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 dark:text-gray-600 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-gray-200 disabled:opacity-50"
+            className="flex-1 py-3 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-gray-200 disabled:opacity-50"
           >
             Cancelar
           </button>
@@ -179,7 +179,7 @@ function RangeField({
 }: RangeFieldProps) {
   return (
     <div>
-      <label className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300 dark:text-gray-600">
+      <label className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300">
         {label}:{' '}
         <span className="text-purple-700 dark:text-purple-300">
           {value}
@@ -196,11 +196,7 @@ function RangeField({
         className="w-full accent-purple-600"
         disabled={disabled}
       />
-      {hint && (
-        <p className="text-[10px] text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">
-          {hint}
-        </p>
-      )}
+      {hint && <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">{hint}</p>}
     </div>
   );
 }

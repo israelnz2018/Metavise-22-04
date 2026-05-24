@@ -139,7 +139,7 @@ export function FinalTab({
             )}
           </>
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center p-8 text-gray-500 dark:text-gray-400 dark:text-gray-500">
+          <div className="w-full h-full flex flex-col items-center justify-center p-8 text-gray-500 dark:text-gray-400">
             {loading ||
             (videoOp && videoOp.status !== 'completed' && videoOp.status !== 'failed') ? (
               <>
@@ -158,7 +158,7 @@ export function FinalTab({
 
                 {generationStage === 'video' && videoOp && (
                   <div className="mt-4 space-y-2 w-full max-w-[240px]">
-                    <div className="flex justify-between text-[10px] font-black text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+                    <div className="flex justify-between text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">
                       <span>Fila: {videoOp.queuedTime || 0}s</span>
                       <span>Render: {videoOp.renderTime || 0}s</span>
                     </div>
@@ -244,7 +244,7 @@ export function FinalTab({
                   {logs.map((log, i) => (
                     <p
                       key={`log-item-${i}`}
-                      className="text-[10px] text-gray-500 dark:text-gray-400 dark:text-gray-500 font-mono text-left opacity-60"
+                      className="text-[10px] text-gray-500 dark:text-gray-400 font-mono text-left opacity-60"
                     >
                       {log}
                     </p>
@@ -282,7 +282,7 @@ export function FinalTab({
                 >
                   Gerar Vídeo Final
                 </button>
-                <p className="text-[10px] text-gray-500 dark:text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest">
+                <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-widest">
                   Custo: 100 Créditos
                 </p>
               </div>
@@ -339,7 +339,7 @@ export function FinalTab({
           <span className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 tracking-wider">
             Ângulo
           </span>
-          <p className="text-sm font-bold text-gray-700 dark:text-gray-300 dark:text-gray-600 truncate">
+          <p className="text-sm font-bold text-gray-700 dark:text-gray-300 truncate">
             {config.angle}
           </p>
         </div>
@@ -347,7 +347,7 @@ export function FinalTab({
           <span className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 tracking-wider">
             Avatar
           </span>
-          <p className="text-sm font-bold text-gray-700 dark:text-gray-300 dark:text-gray-600 truncate">
+          <p className="text-sm font-bold text-gray-700 dark:text-gray-300 truncate">
             {config.avatar.faceId === 'custom'
               ? 'Personalizado'
               : AVATARS.find((a) => a.id === config.avatar.faceId)?.name}
@@ -357,7 +357,7 @@ export function FinalTab({
           <span className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 tracking-wider">
             Edição
           </span>
-          <p className="text-sm font-bold text-gray-700 dark:text-gray-300 dark:text-gray-600 truncate">
+          <p className="text-sm font-bold text-gray-700 dark:text-gray-300 truncate">
             {config.edit.transition !== 'none' ? 'Com Efeitos' : 'Básica'}
           </p>
         </div>
@@ -365,7 +365,7 @@ export function FinalTab({
           <span className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 tracking-wider">
             Trilha
           </span>
-          <p className="text-sm font-bold text-gray-700 dark:text-gray-300 dark:text-gray-600 truncate">
+          <p className="text-sm font-bold text-gray-700 dark:text-gray-300 truncate">
             {config.edit.backgroundMusic !== 'none' ? 'Ativa' : 'Sem Música'}
           </p>
         </div>
