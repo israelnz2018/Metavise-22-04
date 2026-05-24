@@ -395,6 +395,9 @@ server/routes/claude.routes.ts             /marketing-plan endpoint
 ## 14. Commits Index (Blueprint Feature)
 
 ```
+acac931  Fase 4 — Dados do Projeto + Porta A (persona)
+74d51c3  Fase 4 — entry point com escolha VSL vs Produto
+7a4cce3  Phase 3.x docs — BLUEPRINT_FEATURE.md context handoff
 769f43f  Phase 3.5 — CopyTab active brief banner
 (3.4)    Phase 3.3 + 3.4 — BriefEditModal + create-subprojeto popup
 (3.2)    Phase 3.2 — briefs grid
@@ -413,5 +416,147 @@ list at any time.
 
 ---
 
-_Last updated: end of Phase 3. Pick up at Phase 4 (wiring polish) or
-Phase 5 (vendedor flow without VSL) next._
+## 15. Fase 4 — Vendedor flow + Dados do Projeto
+
+Introduces two parallel entry points so the same Blueprint engine serves
+both affiliates (who have a VSL/landing) and pure sellers (who only have
+the product). The mental model: persona discovery is the only step that
+differs by user type — everything downstream (Plan → 15 briefs → variants)
+is shared.
+
+### 15.1 NewProjectModal — `sourceMode` choice
+
+When the user selects "Projeto Completo" (Blueprint), the modal now shows
+a second card row asking:
+
+📺 "Tenho VSL ou landing pronta" → `sourceMode='vsl'`
+🎁 "Só tenho o produto pra anunciar" → `sourceMode='product'`
+
+The choice persists at `config.copy.sourceMode`. Specialty types
+(copy/video/edit) don't see this and behave as before.
+
+### 15.2 Post-create routing in `handleCreateProject`
+
+```
+sourceMode='vsl'      → SourceTab opens directly in 'auto' mode
+                        (skip the "Manual vs Automática" picker — already
+                        decided in the modal)
+
+sourceMode='product'  → PersonaPathModal opens automatically
+                        (the new Project becomes pendingNewSubproject;
+                        proceedNewSubproject routes based on path)
+
+undefined (legacy)    → SourceTab opens in 'choose' mode (original behavior)
+```
+
+The `SourceTab` gained an `initialMode` prop (default `'choose'`) to
+support this without breaking projects without sourceMode.
+
+### 15.3 `proceedNewSubproject` — vendedor branch
+
+`proceedNewSubproject` detects vendedor first-time setup
+(`config.copy.sourceMode === 'product'`) and routes differently from
+legacy subprojeto creation:
+
+```
+                       │ Vendedor (sourceMode='product')  │ Legacy
+─────────────────────  ┼──────────────────────────────────┼──────────────
+'known' path           │ → PersonaTab (9 campos vazios)   │ → CopyTab direto
+                       │   discoveryMode='known'          │   (skip Blueprint)
+─────────────────────  ┼──────────────────────────────────┼──────────────
+'discover' path        │ → CopyTab modo 'discovering'     │ → PersonaTab
+                       │   ATIVA o código órfão das 5     │   (9 campos vazios)
+                       │   perguntas soft (linhas 386-509
+                       │   do CopyTab.tsx que estavam
+                       │   dormentes)
+```
+
+The 5 soft questions (produto/problema/resultado/cliente/beneficiário)
+end with `handleGeneratePersona(discoveryAnswers)` which generates the
+3 personas, same as the 9-question form.
+
+### 15.4 "Dados do Projeto" — new concept on detail view
+
+Introduces a new section on the ProjectsTab detail view that groups
+everything that exists BEFORE turning into a subprojeto. Lives in
+`ProjectDataSection` (private component at bottom of `ProjectsTab.tsx`).
+
+Rendered conditionally based on what data is present:
+
+```
+┌───────────────────────────────────────┐
+│ 📋 Dados do Projeto                   │
+│                                       │
+│ 🎬 Material da fonte (if extracted):  │
+│   • productInfo.productName           │
+│   • productInfo.offer                 │
+│   • productInfo.mainPain              │
+│   • sourceText length                 │
+│                                       │
+│ 👥 Personas identificadas (if any):   │
+│   ← cards clicáveis (Porta A)         │
+│                                       │
+│ 💡 Sugestões de criativos (if any):   │
+│   ← bullets verticais (Porta B)       │
+│     ✓ executado vs ○ pendente         │
+└───────────────────────────────────────┘
+```
+
+**Subprojetos só nascem via popup.** The grid is read-only data until
+the user explicitly creates a variant via one of the 2 portas.
+
+### 15.5 Porta A — persona → subprojeto
+
+`handleSelectPersonaFromProject(project, persona)`:
+
+1. Makes project current via `handleLoadProject(project, 'projects')`
+2. Sets `pendingPersonaExec` → triggers ConfirmModal
+3. On confirm: `handleConfirmPersonaExec`:
+   - Builds variant config from `productInfo` + `persona.raw`
+   - Empty brief (cliente preenche ângulo/hook/duração na Copy)
+   - `variantId = 'persona-{persona.id}-{Date.now()}'`
+   - Persists to Firestore, navigates to Copy
+
+The variant carries `personaOrigin: { id, name }` so future UI can
+distinguish persona-origin from brief-origin variants.
+
+### 15.6 Porta B — brief → subprojeto (reuses Phase 3.4)
+
+`handleSelectBriefFromProject(project, brief)`:
+
+1. Makes project current
+2. Delegates to existing `handleBriefClick(brief)` → `pendingBriefExec`
+3. Same flow as Phase 3.4 (snapshot the brief, create variant with
+   `variantId === brief.id` for deterministic mapping)
+
+### 15.7 Removed: "Novo Subprojeto" button
+
+The button is gone from the project detail view. Subprojetos nascem
+ONLY via the 2 portas above. Legacy projects without briefs/personas
+have no create-variant button — solution for that is deferred (the
+fallback would be a "Gerar Plano agora" CTA in the empty Dados
+section, but we keep it simple per "não vamos complicar").
+
+### 15.8 What did NOT change
+
+- PlanTab continues to exist as a separate page (decision: don't merge
+  into Dados do Projeto for now — "depois mudamos e juntamos se precisar")
+- copy/video/editing project types still exist in NewProjectModal
+  (decision adiada — sempre Completo planned for future)
+- All variant generation pipelines (Copy → Voice → Avatar → Edit →
+  Export) untouched
+- All Phase 1-3 work intact
+
+### 15.9 Commits
+
+```
+74d51c3  Fase 4 — entry point com escolha VSL vs Produto
+acac931  Fase 4 — Dados do Projeto + Porta A (persona)
+```
+
+---
+
+_Last updated: end of Fase 4 (entry point + Dados do Projeto + 2 portas).
+Pick up at Fase 5 if the user wants Criativo 16+ (big variation button
+inside a subprojeto, derivedFromBriefId) or at any wiring polish needed
+after live testing._
