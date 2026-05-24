@@ -1,6 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { Loader2, Plus, Trash2, X } from 'lucide-react';
+
+// F6.7 — module-level cache of videoUrl → transcriptId. Persists for the
+// lifetime of the SPA page (cleared on reload). Avoids paying AssemblyAI
+// again if the user closes and re-opens Cortes on the same video.
+const transcriptCache = new Map<string, string>();
 
 // "Cortes pretos com texto" modal — F6 redesign.
 //
@@ -67,48 +72,151 @@ export function IntercutModal({
   const [transcriptId, setTranscriptId] = useState<string | null>(null);
   const [sentences, setSentences] = useState<Sentence[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
+  const [analyzeStatus, setAnalyzeStatus] = useState<string>('');
+  const [analyzeElapsedSec, setAnalyzeElapsedSec] = useState(0);
   const [loadingSentences, setLoadingSentences] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [insertions, setInsertions] = useState<Insertion[]>([]);
+
+  // F6.7 — refs pra cancelar polling + timer ao fechar modal ou cancelar.
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const elapsedIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const cancelledRef = useRef(false);
+
+  const stopAnalyze = () => {
+    cancelledRef.current = true;
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+    if (elapsedIntervalRef.current) {
+      clearInterval(elapsedIntervalRef.current);
+      elapsedIntervalRef.current = null;
+    }
+  };
 
   // Reset state when the modal closes or the source changes — avoids leaking
   // transcripts/insertions across different videos.
   useEffect(() => {
     if (!open) {
+      stopAnalyze();
       setTranscriptId(null);
       setSentences([]);
       setInsertions([]);
       setError(null);
+      setAnalyzing(false);
+      setAnalyzeStatus('');
+      setAnalyzeElapsedSec(0);
+    } else {
+      cancelledRef.current = false;
     }
   }, [open]);
 
-  // Auto-analyze when modal opens with a sourceVideoUrl but no transcriptId.
-  // This runs AssemblyAI on the source video; the response gives us the
-  // transcriptId which feeds the next step. ~30s + small cost ($).
+  // F6.7 — auto-analyze on open, but now using submit + poll pattern.
+  // - Check cache first (instant if same video was analyzed earlier).
+  // - POST /analyze/submit → get transcriptId fast (~1-2s).
+  // - Poll GET /analyze/status/:id every 3s until 'completed' or 'error'.
+  // - Show elapsed seconds + AssemblyAI status to give the user feedback.
+  // - inFlight + cancelledRef guard against race conditions and lifecycle leaks.
   useEffect(() => {
     if (!open || !sourceVideoUrl || transcriptId || analyzing) return;
-    let cancelled = false;
-    const run = async () => {
-      setAnalyzing(true);
-      setError(null);
+
+    // Cache hit → skip the whole AssemblyAI roundtrip.
+    const cached = transcriptCache.get(sourceVideoUrl);
+    if (cached) {
+      setTranscriptId(cached);
+      return;
+    }
+
+    const startTime = Date.now();
+    setAnalyzing(true);
+    setAnalyzeStatus('Enviando vídeo pra análise...');
+    setAnalyzeElapsedSec(0);
+    setError(null);
+
+    // Tick a 1s elapsed counter (visual only).
+    elapsedIntervalRef.current = setInterval(() => {
+      setAnalyzeElapsedSec(Math.round((Date.now() - startTime) / 1000));
+    }, 1000);
+
+    const submitAndPoll = async () => {
       try {
-        const res = await fetch('/api/assemblyai/analyze', {
+        // Step 1 — submit (fast).
+        const submitRes = await fetch('/api/assemblyai/analyze/submit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ videoUrl: sourceVideoUrl }),
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-        if (!cancelled) setTranscriptId(data.transcriptId);
+        const submitData = await submitRes.json();
+        if (!submitRes.ok) throw new Error(submitData.error || `HTTP ${submitRes.status}`);
+        if (cancelledRef.current) return;
+        const tid = submitData.transcriptId;
+        setAnalyzeStatus('Na fila do AssemblyAI...');
+
+        // Step 2 — poll status until completed/error or 12min timeout.
+        // Race condition fix (same pattern as zap polling F6.1): inFlight
+        // guard prevents concurrent fetches when response is slow.
+        let inFlight = false;
+        let done = false;
+        const TIMEOUT_MS = 12 * 60 * 1000;
+        pollIntervalRef.current = setInterval(async () => {
+          if (cancelledRef.current || done) return;
+          if (inFlight) return;
+          if (Date.now() - startTime > TIMEOUT_MS) {
+            done = true;
+            stopAnalyze();
+            if (!cancelledRef.current) {
+              setAnalyzing(false);
+              setError('Tempo limite excedido (12min). Tente de novo com um vídeo mais curto.');
+            }
+            return;
+          }
+          inFlight = true;
+          try {
+            const r = await fetch(`/api/assemblyai/analyze/status/${tid}`);
+            const d = await r.json();
+            if (cancelledRef.current) return;
+            if (!r.ok) {
+              throw new Error(d.error || `HTTP ${r.status}`);
+            }
+            const status = d.status as string;
+            if (status === 'completed') {
+              done = true;
+              stopAnalyze();
+              transcriptCache.set(sourceVideoUrl, tid);
+              setTranscriptId(tid);
+              setAnalyzing(false);
+            } else if (status === 'error') {
+              done = true;
+              stopAnalyze();
+              setAnalyzing(false);
+              setError(d.error || 'AssemblyAI retornou erro no processamento.');
+            } else {
+              // queued / processing — update friendly status text
+              setAnalyzeStatus(
+                status === 'queued' ? 'Na fila do AssemblyAI...' : 'Processando áudio...'
+              );
+            }
+          } catch (err: any) {
+            // Network blips are non-fatal; next tick retries. Only surface
+            // the error if the polling is genuinely stuck.
+            console.warn('[Intercut Poll] tick error:', err.message);
+          } finally {
+            inFlight = false;
+          }
+        }, 3000);
       } catch (err: any) {
-        if (!cancelled) setError(err.message || 'Falha ao analisar áudio.');
-      } finally {
-        if (!cancelled) setAnalyzing(false);
+        if (cancelledRef.current) return;
+        stopAnalyze();
+        setAnalyzing(false);
+        setError(err.message || 'Falha ao iniciar análise.');
       }
     };
-    void run();
+
+    void submitAndPoll();
+
     return () => {
-      cancelled = true;
+      stopAnalyze();
     };
   }, [open, sourceVideoUrl, transcriptId, analyzing]);
 
@@ -209,18 +317,40 @@ export function IntercutModal({
           </div>
         )}
 
-        {/* Estado 1: analisando o áudio */}
+        {/* Estado 1: analisando o áudio com feedback de progresso. */}
         {analyzing && (
-          <div className="flex items-center gap-3 p-6 bg-purple-50 dark:bg-purple-950/30 ring-1 ring-purple-200 dark:ring-purple-900/60 rounded-2xl">
-            <Loader2 size={20} className="animate-spin text-purple-600 dark:text-purple-400" />
-            <div className="space-y-1">
-              <p className="text-sm font-black text-purple-900 dark:text-purple-200">
-                Analisando áudio do vídeo...
-              </p>
-              <p className="text-xs text-purple-700 dark:text-purple-300">
-                Isso leva ~30 segundos. Estamos extraindo as frases pra você escolher.
-              </p>
+          <div className="p-6 bg-purple-50 dark:bg-purple-950/30 ring-1 ring-purple-200 dark:ring-purple-900/60 rounded-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <Loader2 size={20} className="animate-spin text-purple-600 dark:text-purple-400" />
+              <div className="space-y-1 flex-1">
+                <p className="text-sm font-black text-purple-900 dark:text-purple-200">
+                  Analisando áudio do vídeo
+                </p>
+                <p className="text-xs text-purple-700 dark:text-purple-300">
+                  {analyzeStatus || 'Iniciando...'} ·{' '}
+                  <span className="font-mono">
+                    {Math.floor(analyzeElapsedSec / 60)}:
+                    {String(analyzeElapsedSec % 60).padStart(2, '0')}
+                  </span>{' '}
+                  decorrido
+                </p>
+              </div>
             </div>
+            <p className="text-[11px] text-purple-600/80 dark:text-purple-300/70 leading-relaxed">
+              Tempo total depende do tamanho do vídeo: ~30s pra vídeos curtos, até 3-5min pra vídeos
+              longos. Pode fechar este modal se preferir — o áudio fica em cache e a próxima
+              abertura é instantânea.
+            </p>
+            <button
+              onClick={() => {
+                stopAnalyze();
+                setAnalyzing(false);
+                setError('Análise cancelada.');
+              }}
+              className="text-[10px] font-black uppercase tracking-widest text-purple-700 dark:text-purple-300 hover:text-purple-900 dark:hover:text-purple-100 underline"
+            >
+              Cancelar análise
+            </button>
           </div>
         )}
 

@@ -183,6 +183,74 @@ assemblyAIRouter.post('/analyze', async (req, res) => {
   }
 });
 
+// POST /api/assemblyai/analyze/submit
+//
+// F6.6 — non-blocking version of /analyze. Submits the video for transcription
+// and returns the transcriptId IMMEDIATELY (~1-2s). The client then polls
+// /analyze/status/:transcriptId until status='completed'.
+//
+// Solves the original /analyze problem: it ran the entire 10-minute polling
+// loop server-side, blocking the HTTP request for the whole transcription.
+// Long videos (~5min) take 2-3min to process, which made the modal look
+// frozen with no feedback.
+assemblyAIRouter.post('/analyze/submit', async (req, res) => {
+  const apiKey = getAssemblyAIKey();
+  if (!apiKey) return res.status(500).json({ error: 'ASSEMBLYAI_API_KEY não configurada.' });
+  const { videoUrl } = req.body || {};
+  if (!videoUrl) return res.status(400).json({ error: 'videoUrl é obrigatório.' });
+
+  try {
+    log.info('[AssemblyAI Submit] enviando:', videoUrl.substring(0, 80));
+    const submitResponse = await fetch('https://api.assemblyai.com/v2/transcript', {
+      method: 'POST',
+      headers: { authorization: apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        audio_url: videoUrl,
+        speech_models: ['universal-3-pro', 'universal-2'],
+        language_detection: true,
+        auto_highlights: true,
+      }),
+    });
+
+    if (!submitResponse.ok) {
+      const errorMsg = await formatApiError(submitResponse);
+      return res.status(submitResponse.status).json({ error: `AssemblyAI submit: ${errorMsg}` });
+    }
+
+    const data = await submitResponse.json();
+    logToFile(`[AssemblyAI Submit] OK transcriptId=${data.id}`);
+    return res.json({ transcriptId: data.id });
+  } catch (err: any) {
+    log.error('[AssemblyAI Submit] erro:', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/assemblyai/analyze/status/:transcriptId
+//
+// F6.6 — Returns the current status of a transcription. Client polls this
+// every 3s until status='completed' or 'error'. No server-side loop.
+//
+// Response: { status: 'queued'|'processing'|'completed'|'error', error?: string }
+assemblyAIRouter.get('/analyze/status/:transcriptId', async (req, res) => {
+  const apiKey = getAssemblyAIKey();
+  if (!apiKey) return res.status(500).json({ error: 'ASSEMBLYAI_API_KEY não configurada.' });
+  const { transcriptId } = req.params;
+
+  try {
+    const r = await fetch(`https://api.assemblyai.com/v2/transcript/${transcriptId}`, {
+      headers: { authorization: apiKey },
+    });
+    if (!r.ok) {
+      return res.status(r.status).json({ error: `AssemblyAI status fetch: ${r.status}` });
+    }
+    const data = await r.json();
+    return res.json({ status: data.status, error: data.error || null });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/assemblyai/transcript/:transcriptId/sentences-with-words
 //
 // F6.2 (Blueprint Fase 6) — lightweight read of an EXISTING transcript.
