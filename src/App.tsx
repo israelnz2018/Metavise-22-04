@@ -4414,13 +4414,23 @@ export default function App() {
     if (zapPollRef.current) clearInterval(zapPollRef.current);
 
     let alreadyCompleted = false;
+    // F6.1 — race condition fix. ANTES o check `if (alreadyCompleted) return`
+    // estava só ANTES do fetch. Quando o backend demorava mais que o intervalo
+    // de 3s (comum na fase final do ZapCap), vários requests in-flight
+    // simultâneos retornavam "completed" ao mesmo tempo e cada um appendava
+    // a downloadUrl no `versions` → 4 vídeos duplicados na galeria.
+    // Agora: (1) `inFlight` previne fetches concorrentes; (2) re-check após
+    // o fetch defende em profundidade.
+    let inFlight = false;
     const startTime = Date.now();
     const TIMEOUT_MS = 10 * 60 * 1000;
 
     zapPollRef.current = setInterval(async () => {
-      try {
-        if (alreadyCompleted) return;
+      if (alreadyCompleted) return;
+      if (inFlight) return;
+      inFlight = true;
 
+      try {
         if (Date.now() - startTime > TIMEOUT_MS) {
           isZapRenderingRef.current = false;
           clearInterval(zapPollRef.current!);
@@ -4439,6 +4449,11 @@ export default function App() {
         const response = await fetch(`/api/zapcap/status/${videoId}/${taskId}?userId=${userId}`);
         const data = await response.json();
         console.log(`[ZAP SIMPLE Poll] status=${data.status}`);
+
+        // F6.1 — defense in depth: o inFlight guard já previne concorrência,
+        // mas se algo escapar (e.g. setInterval re-armado), esse re-check
+        // garante que só 1 fetch "vence" o completion.
+        if (alreadyCompleted) return;
 
         if (!response.ok) {
           const errorMsg = data.error || 'Erro no servidor (Polling)';
@@ -4558,6 +4573,10 @@ export default function App() {
         }
       } catch (err: any) {
         console.error('[ZAP SIMPLE Poll] error:', err);
+      } finally {
+        // F6.1 — libera o lock pra próxima tick poder fazer fetch.
+        // Crítico: se essa linha falhar, todo o polling trava.
+        inFlight = false;
       }
     }, 3000);
   };
@@ -4875,14 +4894,20 @@ export default function App() {
     if (zapcapPollRef.current) clearInterval(zapcapPollRef.current);
 
     let alreadyCompleted = false;
+    // F6.1 — mesmo race condition fix do startZapSimplePolling. Sem o inFlight
+    // guard, requests in-flight concorrentes na fase final do ZapCap appendam
+    // a downloadUrl 4× no autoEditState.versions.
+    let inFlight = false;
 
     const startTime = Date.now();
     const TIMEOUT_MS = 10 * 60 * 1000; // 10 minutos
 
     zapcapPollRef.current = setInterval(async () => {
-      try {
-        if (alreadyCompleted) return;
+      if (alreadyCompleted) return;
+      if (inFlight) return;
+      inFlight = true;
 
+      try {
         // Verificar Timeout
         if (Date.now() - startTime > TIMEOUT_MS) {
           isRenderingRef.current = false;
@@ -4904,6 +4929,9 @@ export default function App() {
         console.log(
           `[Poll] videoId=${videoId} taskId=${taskId} status=${data.status} ok=${response.ok}`
         );
+
+        // F6.1 — defense in depth após o fetch (caso o inFlight escape).
+        if (alreadyCompleted) return;
 
         if (!response.ok) {
           console.error(`[Poll] Erro no polling:`, data);
@@ -4984,6 +5012,9 @@ export default function App() {
         } else {
           console.error('Polling error:', err);
         }
+      } finally {
+        // F6.1 — libera o lock pra próxima tick poder fazer fetch.
+        inFlight = false;
       }
     }, 5000);
   };
