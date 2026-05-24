@@ -59,8 +59,12 @@ interface Props {
   languageCode?: 'pt' | 'en' | 'es';
   onFontSizeChange: (next: number) => void;
   onClose: () => void;
-  /** Fires "Gerar" — parent makes the /api/video/intercut call. */
-  onRender: (insertions: Insertion[]) => void;
+  /** F6.11 — Fires "Gerar". Modal now passes settings alongside insertions
+   *  so the parent can forward them in the /api/video/intercut payload. */
+  onRender: (
+    insertions: Insertion[],
+    settings: { wordsPerLine: number; mergeThresholdSec: number }
+  ) => void;
 }
 
 export function IntercutModal({
@@ -73,6 +77,9 @@ export function IntercutModal({
   onClose,
   onRender,
 }: Props) {
+  // F6.11 — config sliders global (não por inserção pra ficar simples).
+  const [wordsPerLine, setWordsPerLine] = useState<number>(4);
+  const [mergeThresholdSec, setMergeThresholdSec] = useState<number>(0.5);
   const [transcriptId, setTranscriptId] = useState<string | null>(null);
   const [sentences, setSentences] = useState<Sentence[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
@@ -340,7 +347,7 @@ export function IntercutModal({
     }
     // Sort by atSec so the backend processes them in order.
     const sorted = [...insertions].sort((a, b) => a.atSec - b.atSec);
-    onRender(sorted);
+    onRender(sorted, { wordsPerLine, mergeThresholdSec });
   };
 
   if (!open) return null;
@@ -569,6 +576,54 @@ export function IntercutModal({
             step={2}
             value={fontSize}
             onChange={(e) => onFontSizeChange(parseInt(e.target.value))}
+            className="w-full accent-purple-600"
+            disabled={rendering}
+          />
+        </div>
+
+        {/* F6.11 — Palavras por linha (estilo ZapCap pop-up). 1-8 palavras
+            agrupadas; a palavra falada fica em destaque enquanto o resto
+            do grupo cinza. */}
+        <div>
+          <label className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300">
+            Palavras por linha:{' '}
+            <span className="text-purple-700 dark:text-purple-300">{wordsPerLine}</span>
+            <span className="ml-2 normal-case font-medium text-gray-500 dark:text-gray-400 text-[10px]">
+              (estilo ZapCap pop-up: poucas palavras visíveis por vez)
+            </span>
+          </label>
+          <input
+            type="range"
+            min={1}
+            max={8}
+            step={1}
+            value={wordsPerLine}
+            onChange={(e) => setWordsPerLine(parseInt(e.target.value))}
+            className="w-full accent-purple-600"
+            disabled={rendering}
+          />
+        </div>
+
+        {/* F6.11 — Threshold de fusão de cortes consecutivos. Quando 2
+            inserções têm gap menor que isso, o backend funde elas num
+            segmento preto contínuo (não volta pro avatar entre elas). */}
+        <div>
+          <label className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300">
+            Fundir cortes próximos:{' '}
+            <span className="text-purple-700 dark:text-purple-300">
+              {mergeThresholdSec.toFixed(1)}s
+            </span>
+            <span className="ml-2 normal-case font-medium text-gray-500 dark:text-gray-400 text-[10px]">
+              (se gap entre 2 telas pretas for menor que isso, não volta pro avatar)
+            </span>
+          </label>
+          <input
+            type="range"
+            min={0}
+            max={2}
+            step={0.1}
+            value={mergeThresholdSec}
+            onChange={(e) => setMergeThresholdSec(parseFloat(e.target.value))}
             className="w-full accent-purple-600"
             disabled={rendering}
           />

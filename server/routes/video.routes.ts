@@ -191,12 +191,13 @@ function positionToAssAlignment(position: string): number {
   }
 }
 
-// F6.3 — generate ASS file with KARAOKE-style word highlight. Each word
-// gets its own Dialogue line that's visible only during that word's
-// spoken window, with the current word painted in `highlightColor`. The
-// rest of the sentence stays in normal style. This matches how ZapCap-style
-// captions emphasize the spoken word, so a black-screen insertion looks
-// continuous with the rest of the captioned video.
+// F6.3/F6.11 — generate ASS file with KARAOKE-style word highlight.
+//
+// F6.11 changes: instead of one giant line with all words, we slice the
+// sentence into GROUPS of `wordsPerLine` words. While the spoken word is
+// in group N, only group N is visible (in 1-2 lines max). The active word
+// inside the group is painted in `highlightColor`. This mimics ZapCap's
+// pop-up style where only 1-8 words are on screen at a time (configurable).
 //
 // words[].offsetMs is RELATIVE to segment start (not absolute video time).
 function writeAssFileKaraoke(
@@ -209,7 +210,8 @@ function writeAssFileKaraoke(
   fontSize: number,
   position: string,
   highlightColorHex: string,
-  totalDurationMs: number
+  totalDurationMs: number,
+  wordsPerLine: number = 4
 ): string {
   const p = path.join(workDir, `text_kara_${idx}.ass`);
   const escapeAss = (s: string) =>
@@ -218,11 +220,6 @@ function writeAssFileKaraoke(
   const alignment = positionToAssAlignment(position);
   const highlightAss = hexToAssColor(highlightColorHex);
 
-  // Build Dialogue lines: one per word. Each spans the word's time window
-  // and renders the whole sentence with ONLY this word inline-colored.
-  // Stable order matters — the wordTokens list mirrors text exactly so
-  // we can join with " " between them.
-  const wordTokens = words.map((w) => w.text);
   const dialogueLines: string[] = [];
 
   if (words.length === 0) {
@@ -231,39 +228,50 @@ function writeAssFileKaraoke(
       `Dialogue: 0,${msToAssTime(0)},${msToAssTime(totalDurationMs)},Default,,0,0,0,,${escapeAss(text)}`
     );
   } else {
-    const firstWord = words[0]!;
-    const lastWord = words[words.length - 1]!;
-    // Show static sentence before the first word starts (avoids flash of empty).
-    if (firstWord.offsetMs > 50) {
-      dialogueLines.push(
-        `Dialogue: 0,${msToAssTime(0)},${msToAssTime(firstWord.offsetMs)},Default,,0,0,0,,${escapeAss(wordTokens.join(' '))}`
-      );
+    // F6.11 — Split words into groups of `wordsPerLine`. Up to 2 lines of
+    // wordsPerLine words each = max chunk = 2 × wordsPerLine words.
+    // Going with 1 line per chunk for simplicity (max wordsPerLine words
+    // per dialogue). Future: wrap to 2 lines if chunk has >wordsPerLine.
+    const groupSize = Math.max(1, Math.min(8, Math.floor(wordsPerLine)));
+    const groups: Array<typeof words> = [];
+    for (let i = 0; i < words.length; i += groupSize) {
+      groups.push(words.slice(i, i + groupSize));
     }
 
-    words.forEach((w, i) => {
-      const startMs = w.offsetMs;
-      // Extend the highlight slightly into the gap before the next word
-      // (looks smoother than abrupt color drops). Cap at totalDuration.
-      const nextStart = words[i + 1]?.offsetMs ?? totalDurationMs;
-      const endMs = Math.min(nextStart, totalDurationMs);
-      if (endMs <= startMs) return;
+    groups.forEach((group, groupIdx) => {
+      const groupTokens = group.map((w) => w.text);
+      const groupStartMs = group[0]!.offsetMs;
+      const isLastGroup = groupIdx === groups.length - 1;
+      // Group ends when NEXT group starts (or end of segment if last).
+      const groupEndMs = isLastGroup
+        ? totalDurationMs
+        : Math.min(groups[groupIdx + 1]![0]!.offsetMs, totalDurationMs);
 
-      const parts = wordTokens.map((tok, j) => {
-        if (j === i) return `{\\1c${highlightAss}\\b1}${escapeAss(tok)}{\\r}`;
-        return escapeAss(tok);
+      // For each word in the group, render the GROUP with that word highlighted.
+      // Word visibility = from this word's start to next word's start.
+      group.forEach((w, i) => {
+        const startMs = w.offsetMs;
+        const isLastInGroup = i === group.length - 1;
+        const endMs = isLastInGroup ? groupEndMs : Math.min(group[i + 1]!.offsetMs, groupEndMs);
+        if (endMs <= startMs) return;
+
+        const parts = groupTokens.map((tok, j) => {
+          if (j === i) return `{\\1c${highlightAss}\\b1}${escapeAss(tok)}{\\r}`;
+          return escapeAss(tok);
+        });
+        dialogueLines.push(
+          `Dialogue: 0,${msToAssTime(startMs)},${msToAssTime(endMs)},Default,,0,0,0,,${parts.join(' ')}`
+        );
       });
-      dialogueLines.push(
-        `Dialogue: 0,${msToAssTime(startMs)},${msToAssTime(endMs)},Default,,0,0,0,,${parts.join(' ')}`
-      );
-    });
 
-    // After last word ends, hold the sentence static if there's time left.
-    const lastEnd = Math.min(lastWord.offsetMs + lastWord.durationMs, totalDurationMs);
-    if (totalDurationMs - lastEnd > 50) {
-      dialogueLines.push(
-        `Dialogue: 0,${msToAssTime(lastEnd)},${msToAssTime(totalDurationMs)},Default,,0,0,0,,${escapeAss(wordTokens.join(' '))}`
-      );
-    }
+      // If there's a tiny gap before group starts (first group only),
+      // show the group statically.
+      if (groupIdx === 0 && groupStartMs > 50) {
+        dialogueLines.unshift(
+          `Dialogue: 0,${msToAssTime(0)},${msToAssTime(groupStartMs)},Default,,0,0,0,,${escapeAss(groupTokens.join(' '))}`
+        );
+      }
+    });
   }
 
   // MarginV: distance from edge in pixels. For middle (Alignment=5) it
@@ -469,7 +477,8 @@ videoRouter.post(
         text: string,
         words: Array<{ text: string; offsetMs: number; durationMs: number }> | undefined,
         position: string,
-        highlightColor: string
+        highlightColor: string,
+        wordsPerLine: number = 4
       ): Promise<void> => {
         if (durSec < 0.3) return;
         let subtitleFilter = '';
@@ -486,7 +495,8 @@ videoRouter.post(
                   fontSize,
                   position,
                   highlightColor,
-                  durSec * 1000
+                  durSec * 1000,
+                  wordsPerLine
                 )
               : writeAssFile(workDir, segIdx, text, W, H, fontSize);
           subtitleFilter = `,subtitles=${escapeFilterPath(assPath)}`;
@@ -514,28 +524,86 @@ videoRouter.post(
       };
 
       if (isManualMode) {
-        // Sort insertions by start time so the timeline is monotonic.
+        // F6.11 — Merge consecutive insertions that have a tiny gap between
+        // them into ONE continuous black segment. Avoids the visual hiccup
+        // of going back to avatar for half a second between two sentences.
+        // The merged segment plays both captions back-to-back, each timed
+        // by the absolute audio offset.
+        const mergeThresholdSec = Math.max(
+          0,
+          Math.min(2, Number(req.body?.mergeThresholdSec ?? 0.5))
+        );
+        const wordsPerLine = Math.max(
+          1,
+          Math.min(8, Math.floor(Number(req.body?.wordsPerLine ?? 4)))
+        );
+
         const sorted = [...insertions].sort((a: any, b: any) => Number(a.atSec) - Number(b.atSec));
-        let cursor = 0;
+
+        // Group consecutive insertions whose gap < threshold.
+        // Each group becomes one black segment with concatenated captions.
+        type MergedGroup = {
+          atSec: number; // start of first insertion
+          totalDurationSec: number; // end of last insertion - start of first
+          text: string; // concatenated text
+          words: Array<{ text: string; offsetMs: number; durationMs: number }>;
+          position: string;
+          highlightColor: string;
+        };
+        const groups: MergedGroup[] = [];
         for (const ins of sorted) {
           const at = Number(ins.atSec);
           const dur = Number(ins.durationSec);
-          // Avatar fill from current cursor up to the insertion point.
-          if (at > cursor + 0.05) {
-            await renderAvatarSegment(cursor, at - cursor);
+          const endAt = at + dur;
+          const last = groups[groups.length - 1];
+          const lastEnd = last ? last.atSec + last.totalDurationSec : -Infinity;
+          if (last && at - lastEnd <= mergeThresholdSec) {
+            // Merge into the previous group: extend duration, append caption.
+            const insWords = Array.isArray(ins.words) ? ins.words : [];
+            // Offset each word from the merged group's atSec.
+            const wordOffset = (at - last.atSec) * 1000;
+            const shiftedWords = insWords.map((w: any) => ({
+              text: String(w.text),
+              offsetMs: Number(w.offsetMs) + wordOffset,
+              durationMs: Number(w.durationMs),
+            }));
+            last.text = (last.text + ' ' + String(ins.text || '')).trim();
+            last.words = last.words.concat(shiftedWords);
+            last.totalDurationSec = endAt - last.atSec;
+          } else {
+            groups.push({
+              atSec: at,
+              totalDurationSec: dur,
+              text: String(ins.text || ''),
+              words: Array.isArray(ins.words)
+                ? ins.words.map((w: any) => ({
+                    text: String(w.text),
+                    offsetMs: Number(w.offsetMs),
+                    durationMs: Number(w.durationMs),
+                  }))
+                : [],
+              position: String(ins.position || 'middle'),
+              highlightColor: String(ins.highlightColor || '#9333EA'),
+            });
           }
-          // Black insertion (replaces the avatar visual for `dur` seconds —
-          // original audio still plays underneath thanks to the remux step).
-          await renderBlackSegment(
-            dur,
-            String(ins.text || ''),
-            Array.isArray(ins.words) ? ins.words : undefined,
-            String(ins.position || 'middle'),
-            String(ins.highlightColor || '#9333EA')
-          );
-          cursor = at + dur;
         }
-        // Tail: render the remaining avatar after the last insertion.
+
+        let cursor = 0;
+        for (const g of groups) {
+          if (g.atSec > cursor + 0.05) {
+            await renderAvatarSegment(cursor, g.atSec - cursor);
+          }
+          await renderBlackSegment(
+            g.totalDurationSec,
+            g.text,
+            g.words,
+            g.position,
+            g.highlightColor,
+            wordsPerLine
+          );
+          cursor = g.atSec + g.totalDurationSec;
+        }
+        // Tail: render the remaining avatar after the last group.
         if (cursor < totalDuration - 0.05) {
           await renderAvatarSegment(cursor, totalDuration - cursor);
         }

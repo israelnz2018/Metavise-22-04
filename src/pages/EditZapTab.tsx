@@ -53,8 +53,8 @@ interface Props {
     storagePath: string | null;
   }) => Promise<void> | void;
   handleRenderHeadline: () => Promise<void> | void;
-  /** F6.5 — agora aceita insertions[] (modo manual: usuário escolhe momentos
-   *  e frases). Cada inserção carrega words[] pra karaoke por palavra. */
+  /** F6.5 — aceita insertions[] (modo manual). F6.11 — opcional settings
+   *  com wordsPerLine + mergeThresholdSec do modal. */
   handleRenderIntercut: (
     insertions: Array<{
       id: string;
@@ -63,7 +63,8 @@ interface Props {
       text: string;
       position: 'top' | 'middle' | 'bottom';
       words: Array<{ text: string; offsetMs: number; durationMs: number }>;
-    }>
+    }>,
+    settings?: { wordsPerLine?: number; mergeThresholdSec?: number }
   ) => Promise<void> | void;
   fetchZapCapTemplates: () => Promise<void> | void;
   zapCapTemplates: any[];
