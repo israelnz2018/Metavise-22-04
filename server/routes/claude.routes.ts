@@ -686,7 +686,11 @@ Preencha todos os campos do formulário. Retorne APENAS o JSON.`;
       },
       body: JSON.stringify({
         model: DEFAULT_MODEL,
-        max_tokens: 1500,
+        // F7.4 — bumped from 1500 → 4000. The schema has ~30 fields with
+        // string values 50-200 chars each. 1500 tokens was hitting the
+        // ceiling and truncating mid-string, breaking JSON.parse and
+        // surfacing "Claude retornou resposta inválida (não-JSON)".
+        max_tokens: 4000,
         system: SYSTEM,
         messages: [{ role: 'user', content: USER }],
       }),
@@ -706,6 +710,14 @@ Preencha todos os campos do formulário. Retorne APENAS o JSON.`;
       : null;
     const responseText = textBlock?.text || '';
     const clean = responseText.replace(/^```(?:json)?\s*|\s*```$/g, '').trim();
+    // F7.4 — log raw response when stop reason is `max_tokens` so we can
+    // diagnose truncation in future bumps. data.stop_reason comes from the
+    // Anthropic API directly.
+    if (data.stop_reason === 'max_tokens') {
+      log.warn(
+        `[persona-from-product] hit max_tokens cap (${responseText.length} chars) — bump if this keeps happening`
+      );
+    }
 
     let answers;
     try {
@@ -713,7 +725,7 @@ Preencha todos os campos do formulário. Retorne APENAS o JSON.`;
     } catch {
       return res.status(500).json({
         success: false,
-        error: 'Claude retornou resposta inválida (não-JSON).',
+        error: `Claude retornou resposta inválida (não-JSON). Stop reason: ${data.stop_reason || 'unknown'}`,
         raw: responseText.substring(0, 500),
       });
     }
