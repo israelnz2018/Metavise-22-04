@@ -395,13 +395,37 @@ server/routes/claude.routes.ts             /marketing-plan endpoint
 ## 14. Commits Index (Blueprint Feature)
 
 ```
+33e87a7  feat(credits) — chip clicável + endpoint grant + welcome 10k
+e3f4d9a  fix(credits) — catch Firestore credentials → não crasha
+9c32766  fix(persona) — persona-from-product max_tokens 4000
+5d6d4b1  fix(music) — mensagem clara missing_permissions ElevenLabs
+a402815  feat(editzap) — música de fundo (upload MP3 + IA)
+a399e0e  fix(persist) — retry Firebase + fallback local
+5a3d185  fix(editzap) — detector de vídeo quebrado na Galeria
+8574fbd  feat(intercut) — caps + Impact + quebra por sentença
+a565381  fix(intercut) — downloadFile suporta /generated/
+d22c64b  feat(intercut) — palavras/linha (1-8) + fusão gaps
+1662aab  fix(intercut) — race condition matava polling
+985e437  fix(intercut) — logs extras no backend
+49cca44  fix(intercut) — suporte /generated/ no /analyze/submit
+171e5d0  fix(intercut) — logs verbose + erros reais no modal
+612044b  chore(dev) — tsx watch hot reload backend
+c7ce4e9  perf(intercut) — análise AssemblyAI ~40-50% mais rápida
+b4c531c  fix(intercut) — polling com feedback no Cortes
+7425f6c  feat(editzap) — Cortes pretos manual com karaoke
+7d26680  fix(zapcap) — race condition causava 4 vídeos duplicados
+7f7fcbc  fix(ui) — contraste cards coloridos dark mode
+0bed712  fix(ui) — texto duplo dark: ilegível
+1a86aed  feat(blueprint) Fase 5.4 — NewProjectModal só Blueprint
+2fe07c1  feat(blueprint) Fase 5 — Criativo 16+ (variação grande)
+e72c724  docs(blueprint) Fase 4 — Vendedor + Dados do Projeto
 acac931  Fase 4 — Dados do Projeto + Porta A (persona)
 74d51c3  Fase 4 — entry point com escolha VSL vs Produto
 7a4cce3  Phase 3.x docs — BLUEPRINT_FEATURE.md context handoff
 769f43f  Phase 3.5 — CopyTab active brief banner
-(3.4)    Phase 3.3 + 3.4 — BriefEditModal + create-subprojeto popup
-(3.2)    Phase 3.2 — briefs grid
-(3.1)    Phase 3.1 — PlanTab v2 header
+2051be0  Phase 3.3 + 3.4 — BriefEditModal + create-subprojeto popup
+89711ea  Phase 3.2 — briefs grid
+041d88f  Phase 3.1 — PlanTab v2 header
 56e5ed8  Phase 2.3 — auto-fill PersonaTab from ProductInfo
 9656724  Phase 2.2 — handleGoToPlan wired in App.tsx
 326821d  Phase 2.1 — PersonaTab badges + checkboxes + 'Ir pro Plano'
@@ -627,6 +651,401 @@ Calculado como `briefs.length + 1` — sequencial natural.
 
 ---
 
-_Last updated: end of Fase 5 (Criativo 16+ via BriefEditModal mode='create').
-Próximos passos sugeridos: testar end-to-end, polish na UI da seção
-Dados do Projeto, ou novas features (ex: filtros no grid de briefs)._
+## 17. Fase 6 — Cortes (Intercut) overhaul
+
+Reformulação completa do IntercutModal (`src/components/IntercutModal.tsx`) e
+do endpoint `/api/video/intercut` (`server/routes/video.routes.ts`). O recurso
+"cortes pretos" deixou de ser automático (N cortes igualmente distribuídos)
+e virou **manual**: o cliente escolhe sentenças da transcrição, define
+posição/duração de cada inserção, e as legendas karaoke por palavra são
+renderizadas em cima do clip preto.
+
+### 17.1 Fluxo no modal
+
+1. **Auto-analyze ao abrir** — useEffect detecta `open=true` e chama
+   `/api/assemblyai/analyze/submit` com o `sourceVideoUrl`. O resultado
+   é cacheado em `transcriptCache: Map<videoUrl, transcriptId>` no nível
+   do módulo, então re-abrir o modal pro mesmo vídeo é instantâneo.
+
+2. **Polling lightweight** — a cada 3s chama `/analyze/status/:transcriptId`
+   até `completed`. Mostra elapsedTime + botão "Cancelar" que dá
+   `cancelledRef.current = true` (cleanup do useEffect).
+
+3. **Lista de sentenças** — quando ready, busca
+   `/api/assemblyai/transcript/:id/sentences-with-words` que retorna
+   `{ sentences: [{ text, start, end, words: [{ text, start, end }] }] }`.
+   UI mostra cada sentença com `[+ Adicionar]` que push num array
+   `insertions[]`.
+
+4. **Lista de inserções** — cada item tem `atSec`, `durationSec`,
+   `position` ('top'|'middle'|'bottom'), `words[]` (snapshot dos words
+   da sentença com timestamps absolutos do vídeo).
+
+5. **Controles globais** — `fontSize` (px), `wordsPerLine` (1-8),
+   `mergeThresholdSec` (0-2s, default 0.5), `uppercase` (default true),
+   `fontFamily` (default "Impact").
+
+6. **Submit** → POST `/api/video/intercut` com payload contendo
+   `sourceVideoUrl`, `insertions[]`, e os settings globais.
+
+### 17.2 Backend `/intercut` — merge + render
+
+```
+1. downloadFile(sourceVideoUrl)  ← suporta http E /generated/ local (F6.12)
+2. Ordena insertions por atSec
+3. Fusão de cortes consecutivos (F6.9):
+   for cada par consecutivo:
+     if next.atSec - (cur.atSec + cur.durationSec) < mergeThresholdSec:
+       cur.durationSec = next.end - cur.start
+       cur.words.push(...next.words)
+       delete next
+4. Pra cada bloco mesclado:
+   - Gera segmento preto com ffmpeg color=black:s=WxH:d=durationSec
+   - Renderiza karaoke ASS via writeAssFileKaraoke (per-group word highlight)
+   - Burn-in das legendas com -vf ass=file.ass
+5. Concatena: avatar[0:atSec1] + black1 + avatar[end1:atSec2] + black2 + ...
+6. persistVideo → local + Firebase (com retry)
+7. Responde { videoUrl, durationSec, fromLocal? }
+```
+
+### 17.3 `writeAssFileKaraoke` — quebra por sentença
+
+Lógica chave (F6.11):
+
+- Se `wordsPerLine = N`, agrupa words em buckets de N.
+- Mas se uma sentença acaba no meio de um bucket (detectado por
+  `.`/`!`/`?` no texto da word), força quebra ali — evita "...hoje o
+  novo / produto chegou" virar uma linha esquisita.
+- Cada bucket vira um event ASS com timing baseado nas timestamps
+  reais das words, com per-word `\k<centiseconds>` pra highlight
+  estilo karaoke.
+- `position` mapeia pra `\an8` (top), `\an5` (middle), `\an2` (bottom).
+- `uppercase: true` aplica `.toUpperCase()` nas palavras antes de
+  escrever no ASS.
+- `fontFamily: "Impact"` no Style line.
+
+### 17.4 AssemblyAI submit + poll pattern (F6.7)
+
+Substituiu o velho `/transcribe` (request bloqueante que poderia rodar
+10min e timeout). Novo modelo:
+
+- `POST /api/assemblyai/analyze/submit` — chama AssemblyAI com
+  `speech_models: ['universal-2']` (não `speech_model`, deprecated),
+  `language_code: 'pt'` (skip auto-detection — economiza ~30%),
+  SEM `auto_highlights` (irrelevante pro intercut, custa tempo).
+  Suporta `/generated/` paths via `uploadLocalFileToAssemblyAI`
+  helper que sobe o arquivo local pro AssemblyAI primeiro.
+  Retorna `{ transcriptId }` em <2s.
+
+- `GET /api/assemblyai/analyze/status/:transcriptId` — proxy pro
+  AssemblyAI GET /transcript/:id, retorna `{ status, error? }`.
+
+- `GET /api/assemblyai/transcript/:id/sentences-with-words` —
+  combina `/sentences` + `/words` do AssemblyAI numa só response
+  agrupada por sentença.
+
+### 17.5 Race condition fix (F6.10) — useEffect ressuscitado
+
+Bug originalmente cabuloso: useEffect tinha `analyzing` na dep array.
+`setAnalyzing(true)` no início → React agendou re-render → cleanup
+disparou → `cancelledRef.current = true` → polling morto antes do
+primeiro tick.
+
+Fix: dep array virou `[open, sourceVideoUrl]` (só o que importa pra
+re-abrir o modal). E `cancelledRef.current = false` no início do
+effect (não no cleanup). Resultado: polling sobrevive ao re-render.
+
+### 17.6 Arquivos modificados
+
+```
+src/components/IntercutModal.tsx          redesign completo
+server/routes/video.routes.ts             /intercut refactor + merge
+server/routes/assemblyai.routes.ts        /analyze/submit + status
+                                          + sentences-with-words
+                                          + uploadLocalFileToAssemblyAI
+server/utils/download.ts                  suporte /generated/ paths
+src/pages/EditZapTab.tsx                  handleRenderIntercut signature
+                                          updated pra passar settings
+```
+
+### 17.7 Commits Fase 6
+
+```
+7425f6c  feat — Cortes karaoke + manual insertion (base)
+b4c531c  fix — polling com feedback no Cortes
+c7ce4e9  perf — análise AssemblyAI ~40-50% mais rápida
+49cca44  fix — suporte /generated/ no /analyze/submit
+985e437  fix — logs verbose backend
+612044b  chore — tsx watch hot reload
+171e5d0  fix — logs frontend + erros reais
+1662aab  fix — race condition useEffect (cabuloso)
+d22c64b  feat — palavras/linha 1-8 + fusão consecutivos
+a565381  fix — downloadFile suporta /generated/
+8574fbd  feat — caps default + Impact + quebra sentença
+```
+
+---
+
+## 18. Fase 7 — Música de fundo
+
+Adiciona seção "Música de Fundo" no EditZapTab (`src/pages/EditZapTab.tsx`),
+posicionada **entre** "Galeria de Versões" e "Juntar Gancho + Corpo".
+Cliente escolhe um vídeo da galeria, faz upload de MP3 OU gera com
+ElevenLabs Music API, ajusta volume/fade, e gera nova versão na galeria.
+
+### 18.1 Componente `MusicSection` (`src/components/MusicSection.tsx`)
+
+UI:
+
+```
+┌─────────────────────────────────────────┐
+│ 🎵 Música de Fundo                       │
+│                                         │
+│ Vídeo de destino: [dropdown gallery]    │
+│                                         │
+│ Fonte: [● Upload MP3]  [○ Gerar com IA] │
+│                                         │
+│ (Upload mode)                            │
+│ [📁 Escolher arquivo (max 25MB)]        │
+│                                         │
+│ (IA mode)                                │
+│ [textarea: prompt]                      │
+│ Duração: [slider 10-180s]               │
+│ [Gerar música com ElevenLabs]           │
+│                                         │
+│ <audio controls> preview </audio>       │
+│                                         │
+│ Volume: [slider 5-100%, default 20%]    │
+│ Fade in:  [slider 0-5s, default 1s]     │
+│ Fade out: [slider 0-5s, default 2s]     │
+│                                         │
+│ [🎬 Aplicar música no vídeo]            │
+└─────────────────────────────────────────┘
+```
+
+### 18.2 Backend ElevenLabs (`server/routes/elevenlabs.routes.ts`)
+
+- `POST /api/elevenlabs/upload-music` — recebe `{ base64, filename }`,
+  salva em `/generated/music_<ts>.mp3`, responde `{ url }`.
+
+- `POST /api/elevenlabs/music/generate` — proxy pra
+  `https://api.elevenlabs.io/v1/music` com body:
+  ```
+  { prompt, music_length_ms, force_instrumental: true }
+  ```
+  Resposta binária → salva local + responde `{ url }`.
+  Se 401 `missing_permissions`: traduz pra mensagem amigável
+  recomendando Upload como alternativa (F7.3).
+
+### 18.3 Backend video `/add-music` (`server/routes/video.routes.ts`)
+
+```
+POST /api/video/add-music
+body: { videoUrl, musicUrl, volume?, fadeInSec?, fadeOutSec? }
+
+ffmpeg pipeline:
+1. downloadFile(videoUrl) + downloadFile(musicUrl)
+2. ffprobe pra pegar duração do vídeo
+3. ffmpeg -i video -i music
+   -filter_complex
+     [1:a]volume=<volume>,
+          apad,                              ← se música < vídeo, loop
+          atrim=0:<videoDur>,                ← se música > vídeo, corta
+          afade=in:st=0:d=<fadeIn>,
+          afade=out:st=<videoDur-fadeOut>:d=<fadeOut>
+     [music_processed];
+     [0:a][music_processed]amix=inputs=2:duration=first:dropout_transition=0
+     [aout]
+   -map 0:v -map [aout] -c:v copy -c:a aac
+   output.mp4
+4. persistVideo → versão nova na galeria
+```
+
+### 18.4 Arquivos novos/modificados
+
+```
+src/components/MusicSection.tsx        NEW (componente completo)
+src/pages/EditZapTab.tsx               import + mount entre Galeria
+                                       e Juntar Gancho+Corpo
+server/routes/elevenlabs.routes.ts     upload-music + music/generate
+server/routes/video.routes.ts          /add-music endpoint
+```
+
+### 18.5 Commits Fase 7
+
+```
+a402815  feat(editzap) — música de fundo (upload + IA)
+5d6d4b1  fix(music) — mensagem missing_permissions
+```
+
+---
+
+## 19. Bug Fixes recentes (não-feature)
+
+Bugs e melhorias de infra que tocaram código compartilhado. Documento
+porque alguns mudam invariantes (memory fallback, retry strategy).
+
+### 19.1 Race condition no polling do ZapCap (F7.0)
+
+`startZapSimplePolling` e `startZapCapPolling` em `src/App.tsx` podiam
+disparar fetches concorrentes quando a response demorava mais que o
+interval. Resultado: o `setVariants` rodava 4x com o mesmo vídeo
+recém-completado → 4 entradas duplicadas na galeria.
+
+**Fix unificado:**
+
+```typescript
+let inFlight = false;
+const tick = async () => {
+  if (inFlight) return; // guard
+  inFlight = true;
+  try {
+    const result = await fetch(...);
+    // re-check antes de pushar — pode ter completado entre fetches
+    const alreadyCompleted = currentVariants.some(v => v.id === jobId);
+    if (alreadyCompleted) return;
+    setVariants(...);
+  } finally {
+    inFlight = false;
+  }
+};
+```
+
+Pattern replicado nos 3 polling loops (zap simple, zap cap, intercut).
+
+### 19.2 Firestore credentials → server crash (F7.5)
+
+`creditsService.hasCredits()` chamado no `/avatar` endpoint quebrava
+o processo inteiro quando dev rodava sem service account
+("Could not load default credentials" do firebase-admin).
+
+**Fix em `server/services/creditsService.ts`:**
+
+- Flag `firestoreUnavailable: boolean` (latch — uma vez true, fica true).
+- `handleFirestoreFailure(operation, err)` — detecta a string de erro
+  (credentials / UNAUTHENTICATED / PERMISSION_DENIED / NOT_FOUND) e
+  acende a latch + log warning. Outras strings: log error mas não
+  latch (pode ser bug real).
+- Wrappers try/catch em `ensureAccount`, `getCredits`, `hasCredits`,
+  `deductCredits` — todos caem pro `memoryBalance: Map<uid, number>`
+  com `WELCOME_CREDITS = 10000` (bumpado de 100 porque cada avatar
+  custa 100 → uma geração zerava no dev).
+
+Comportamento: prod com Firestore → ledger real, atômico, com
+transactions. Dev sem creds → memory map, reseta no reboot.
+
+### 19.3 Vídeos cinza na galeria — URLs expiradas (F6.13 + F6.14)
+
+ZapCap CDN URLs expiram em ~24h. Recarregar o projeto depois → vídeos
+viravam preview cinza não-playable. **Não era novo**, só ficou óbvio
+com mais geração.
+
+**Fix duas camadas:**
+
+(a) Detector visual (`src/pages/EditZapTab.tsx` — componente
+`VersionVideo` inline no fim do arquivo):
+
+```typescript
+<video onError={() => setBroken(true)}>
+{broken && (
+  <Overlay>
+    ⚠️ Vídeo indisponível (URL expirou)
+    [Remover da galeria]
+  </Overlay>
+)}
+```
+
+(b) Helper `persistVideo` (`server/utils/persistVideo.ts` — NEW):
+
+```typescript
+export async function persistVideo(opts: PersistOptions): Promise<PersistResult> {
+  // 1. Salva local em /generated/ primeiro (sempre funciona)
+  // 2. Tenta upload Firebase com retry 3x (1s/2s/4s backoff)
+  // 3. Se Firebase falhar → fallback /generated/ URL local
+  //    (não-durável mas pelo menos não some no meio da sessão)
+  return { videoUrl, fromLocal, persisted };
+}
+
+export async function downloadAndPersist(sourceUrl, opts) {
+  // baixa source, depois chama persistVideo
+}
+```
+
+Usado em `/intercut`, `/headline`, `/concat`, `/add-music`. Resultado:
+mesmo se Firebase Storage estiver flaky, o vídeo aparece imediatamente
+local e tenta subir em background.
+
+### 19.4 Persona fill "JSON inválido" (F7.4)
+
+`/api/claude/persona-from-product` com `max_tokens: 1500` cortava a
+resposta JSON do Claude no meio de uma string longa → parse fail
+→ erro genérico no frontend.
+
+**Fix em `server/routes/claude.routes.ts`:**
+
+- `max_tokens: 1500 → 4000`
+- Log warn quando `stop_reason === 'max_tokens'` (sinal de que precisa
+  bumpar de novo).
+- Erro inclui `stop_reason` no message pro frontend mostrar.
+
+### 19.5 Dark mode "ilegível"
+
+64 ocorrências espalhadas de `dark:text-gray-300 dark:text-gray-600`
+(duas classes `dark:text-*` na mesma string — a última ganha por
+ordem CSS → todo texto virava gray-600 no dark, invisível).
+
+**Fix:**
+
+- Sed global removendo a duplicação errada.
+- Cards coloridos (`bg-gradient-from-amber-50`, etc.) ganharam
+  `dark:bg-amber-950/30` + `dark:text-amber-200` pra contraste.
+
+Commits: `0bed712` + `7f7fcbc`.
+
+### 19.6 Credits — chip clicável + grant (F7.6)
+
+Saldo virou link clicável no header (substituiu chip read-only).
+Click → prompt "Quantos créditos adicionar?" → POST
+`/api/user/credits/grant { amount }` (gated por requireAuth).
+
+Endpoint em `server/routes/user.routes.ts`:
+
+```typescript
+POST /api/user/credits/grant
+body: { amount: 1-100000 }
+→ creditUser(uid, amount, 'dev_grant', { grantedAt })
+→ { ok, newBalance, granted }
+```
+
+**Não é admin endpoint** — qualquer user autenticado pode dar
+créditos pra si mesmo. Em prod isso vira webhook de pagamento ou
+admin check real. Por ora resolve o "dev sem créditos" em 2 cliques.
+
+### 19.7 tsx watch — hot reload backend (F6.8)
+
+`package.json` script `dev` virou:
+
+```json
+"dev": "tsx watch --clear-screen=false server.ts"
+```
+
+Antes: cada edição em `server/*` exigia Ctrl+C + restart manual.
+Agora: salva, espera 1s, backend reinicia sozinho. `--clear-screen=false`
+preserva logs anteriores no terminal pra debug.
+
+### 19.8 Bumps & invariantes que mudaram
+
+| Constante                         | Antes  | Depois | Razão                                |
+| --------------------------------- | ------ | ------ | ------------------------------------ |
+| `WELCOME_CREDITS`                 | 100    | 10000  | Avatar custa 100 → 100 = 1 geração   |
+| `persona-from-product max_tokens` | 1500   | 4000   | JSON truncava                        |
+| AssemblyAI `speech_model`         | string | array  | API mudou pra `speech_models: [...]` |
+| ElevenLabs Music                  | n/a    | opt-in | Requer scope `music_generation`      |
+
+---
+
+_Last updated: end of Fase 7 + bug-fix batch.
+Próximos passos sugeridos: stripe/pagamento real pros créditos,
+biblioteca de músicas copyright-free pré-curadas (sem precisar
+ElevenLabs), variantes de duração na mesma versão do Cortes,
+filtros no grid de briefs._
