@@ -406,3 +406,84 @@ elevenLabsPremiumRouter.post('/upload-ready-audio', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// F7.1 — Upload um MP3 do cliente pra usar como música de fundo. Reusa a
+// mesma pasta /generated/ + base64 pattern. Cliente faz fetch da response
+// e usa { audioUrl } como musicUrl no /api/video/add-music depois.
+elevenLabsPremiumRouter.post('/upload-music', async (req, res) => {
+  const { fileBase64, fileName } = req.body || {};
+  if (!fileBase64) return res.status(400).json({ error: 'fileBase64 é obrigatório.' });
+  try {
+    const buffer = Buffer.from(fileBase64, 'base64');
+    const safe = (fileName || 'music.mp3').replace(/[^a-z0-9.-]/gi, '_');
+    const savedFileName = `music-${Date.now()}-${safe}`;
+    const filePath = path.join(GENERATED_DIR, savedFileName);
+    fs.writeFileSync(filePath, buffer);
+    log.info(`[Music Upload] saved ${savedFileName} (${buffer.length} bytes)`);
+    res.json({ audioUrl: `/generated/${savedFileName}`, sizeBytes: buffer.length });
+  } catch (err: any) {
+    log.error('[Music Upload] error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// F7.1 — POST /api/elevenlabs/music/generate
+//
+// Proxy pro endpoint ElevenLabs Music API. Recebe prompt, gera track
+// instrumental copyright-free, salva em /generated/, retorna URL local.
+// Custa créditos ElevenLabs (Pro plan = 100 gerações/mês).
+//
+// Body:
+//   prompt: string                  — descrição da track (ex: "upbeat pop")
+//   lengthMs?: number               — duração (3000-600000, default 30000)
+//   forceInstrumental?: boolean     — sem voz (default true pra ad background)
+elevenLabsRouter.post('/music/generate', async (req, res) => {
+  const apiKey = getElevenLabsKey();
+  if (!apiKey) {
+    return res.status(500).json({ error: 'ELEVENLABS_API_KEY não configurada.' });
+  }
+  const { prompt, lengthMs, forceInstrumental } = req.body || {};
+  if (!prompt || typeof prompt !== 'string') {
+    return res.status(400).json({ error: 'prompt (string) é obrigatório.' });
+  }
+  const durationMs = Math.max(3000, Math.min(600000, Number(lengthMs) || 30000));
+  const instrumental = forceInstrumental !== false; // default true
+
+  try {
+    log.info(
+      `[Music Gen] prompt="${prompt.substring(0, 60)}" durationMs=${durationMs} instrumental=${instrumental}`
+    );
+    const r = await fetch('https://api.elevenlabs.io/v1/music?output_format=mp3_44100_128', {
+      method: 'POST',
+      headers: {
+        'xi-api-key': apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt,
+        music_length_ms: durationMs,
+        model_id: 'music_v1',
+        force_instrumental: instrumental,
+      }),
+    });
+
+    if (!r.ok) {
+      const errText = await r.text();
+      log.error(`[Music Gen] FAILED HTTP ${r.status}: ${errText.substring(0, 200)}`);
+      return res.status(r.status).json({
+        error: `ElevenLabs Music: ${errText.substring(0, 200)}`,
+      });
+    }
+
+    const arrayBuffer = await r.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const filename = `eleven-music-${Date.now()}.mp3`;
+    const filePath = path.join(GENERATED_DIR, filename);
+    fs.writeFileSync(filePath, buffer);
+    log.info(`[Music Gen] OK saved ${filename} (${buffer.length} bytes)`);
+    res.json({ audioUrl: `/generated/${filename}`, sizeBytes: buffer.length });
+  } catch (err: any) {
+    log.error('[Music Gen] error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});

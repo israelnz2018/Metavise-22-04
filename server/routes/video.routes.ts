@@ -1405,3 +1405,130 @@ ${dialogueLines.join('\n')}
     }
   })
 );
+
+// POST /api/video/add-music
+//
+// F7.1 — Mix a background music track into an existing video, preserving
+// the original voiceover audio. Returns a durable URL via persistVideo.
+//
+// Body:
+//   videoUrl: string       — source video (http(s) or /generated/...)
+//   musicUrl: string       — music track (same)
+//   userId: string         — for Firebase Storage path
+//   volume?: number        — music volume 0.05-1.0 (default 0.2 = 20%)
+//   fadeInSec?: number     — music fade-in seconds (default 1)
+//   fadeOutSec?: number    — music fade-out seconds (default 2)
+videoRouter.post(
+  '/add-music',
+  withFfmpegQueue(async (req, res) => {
+    const {
+      videoUrl,
+      musicUrl,
+      userId,
+      volume = 0.2,
+      fadeInSec = 1,
+      fadeOutSec = 2,
+    } = req.body || {};
+    if (!videoUrl || !musicUrl || !userId) {
+      return res.status(400).json({ error: 'videoUrl, musicUrl, userId são obrigatórios.' });
+    }
+    const vol = Math.max(0.05, Math.min(1.0, Number(volume)));
+    const fIn = Math.max(0, Math.min(10, Number(fadeInSec)));
+    const fOut = Math.max(0, Math.min(10, Number(fadeOutSec)));
+
+    const jobId = `addmusic_${Date.now()}`;
+    const workDir = path.join(GENERATED_DIR, jobId);
+    fs.mkdirSync(workDir, { recursive: true });
+
+    try {
+      log.info('add-music request', {
+        videoUrl: String(videoUrl).substring(0, 80),
+        musicUrl: String(musicUrl).substring(0, 80),
+        volume: vol,
+      });
+
+      // downloadFile handles /generated/ local copy + http (F6.12 patch).
+      const videoPath = path.join(workDir, 'video.mp4');
+      const musicPath = path.join(workDir, 'music.mp3');
+      await downloadFile(videoUrl, videoPath);
+      await downloadFile(musicUrl, musicPath);
+
+      // Probe video duration so we can trim/pad music to fit.
+      const meta: any = await new Promise((resolve, reject) => {
+        ffmpeg.ffprobe(videoPath, (err, m) => (err ? reject(err) : resolve(m)));
+      });
+      const videoDurationSec: number = Number(meta.format.duration) || 0;
+      if (videoDurationSec < 0.5) {
+        throw new Error(`Vídeo muito curto (${videoDurationSec}s).`);
+      }
+
+      // Filtergraph: pad music with silence, trim to video duration,
+      // fade in/out, scale volume, then mix with original voiceover.
+      const fadeOutStart = Math.max(0, videoDurationSec - fOut);
+      const musicFilter = [
+        `apad`,
+        `atrim=duration=${videoDurationSec}`,
+        fIn > 0 ? `afade=t=in:st=0:d=${fIn}` : '',
+        fOut > 0 ? `afade=t=out:st=${fadeOutStart}:d=${fOut}` : '',
+        `volume=${vol}`,
+      ]
+        .filter(Boolean)
+        .join(',');
+
+      const filterComplex = `[1:a]${musicFilter}[bg];[0:a][bg]amix=inputs=2:duration=first:dropout_transition=0[aout]`;
+
+      const finalFilename = `${jobId}.mp4`;
+      const finalPath = path.join(GENERATED_DIR, finalFilename);
+
+      await new Promise((resolve, reject) => {
+        ffmpeg()
+          .input(videoPath)
+          .input(musicPath)
+          .complexFilter(filterComplex)
+          .outputOptions([
+            '-map',
+            '0:v:0',
+            '-map',
+            '[aout]',
+            '-c:v',
+            'copy',
+            '-c:a',
+            'aac',
+            '-b:a',
+            '192k',
+            '-shortest',
+            '-movflags',
+            '+faststart',
+          ])
+          .output(finalPath)
+          .on('end', () => resolve(null))
+          .on('error', reject)
+          .run();
+      });
+
+      // F6.14 — durable URL with retry + local fallback.
+      const persistedBuf = fs.readFileSync(finalPath);
+      const persistResult = await persistVideo({
+        buffer: persistedBuf,
+        filename: finalFilename,
+        storageFolder: 'addmusic',
+        userId,
+      });
+      log.info('add-music persisted', {
+        url: persistResult.url.split('?')[0],
+        firebase: persistResult.persisted,
+      });
+
+      res.json({ url: persistResult.url, durationSec: videoDurationSec });
+    } catch (err: any) {
+      log.error('add-music failed:', err.message);
+      res.status(500).json({ error: `Add music failed: ${err.message}` });
+    } finally {
+      try {
+        if (fs.existsSync(workDir)) fs.rmSync(workDir, { recursive: true, force: true });
+      } catch {
+        /* ignore */
+      }
+    }
+  })
+);

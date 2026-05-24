@@ -22,6 +22,7 @@ import { getAuthorizedUrl } from '@/lib/gemini';
 import { VideoDurationBadge } from '@/components/VideoDurationBadge';
 import { HeadlineModal } from '@/components/HeadlineModal';
 import { IntercutModal } from '@/components/IntercutModal';
+import { MusicSection } from '@/components/MusicSection';
 import type { ZapBundle } from '@/hooks/useZapState';
 
 interface Video {
@@ -1137,6 +1138,35 @@ export function EditZapTab({
             })}
           </div>
         </div>
+      )}
+
+      {/* F7.2 — Música de Fundo (opcional). Aparece quando há pelo menos 1
+          versão na galeria. Cliente escolhe upload ou IA, mixa via ffmpeg
+          amix, novo vídeo vira nova versão na galeria. */}
+      {activeZapVersions.length > 0 && (
+        <MusicSection
+          videoOptions={activeZapVersions.map((url, i) => ({
+            url,
+            label: `${isHookEdit ? 'Gancho' : 'Versão'} ${i + 1}`,
+          }))}
+          userId={user?.uid}
+          disabled={isRendering || intercutRendering || headlineRendering}
+          onMusicVersionReady={(newUrl) => {
+            // Append to BOTH transient zapState (gallery cards) and persisted
+            // config.edit.zapVersions / zapHookVersions so it survives reload.
+            if (!isHookEdit) {
+              setZapState((prev) => ({
+                ...prev,
+                versions: [...(prev.versions || []), newUrl],
+              }));
+            }
+            setConfig((prev: any) => {
+              const key = isHookEdit ? 'zapHookVersions' : 'zapVersions';
+              const current = ((prev.edit as any)[key] as string[] | undefined) || [];
+              return { ...prev, edit: { ...prev.edit, [key]: [...current, newUrl] } };
+            });
+          }}
+        />
       )}
 
       {/* JUNTAR Gancho + Corpo — picker livre (escondido se o projeto
