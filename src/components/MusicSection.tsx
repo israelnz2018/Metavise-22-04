@@ -108,12 +108,24 @@ export function MusicSection({ videoOptions, onMusicVersionReady, disabled, user
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      if (!res.ok) {
+        // F7.3 — friendly message for the most common ElevenLabs error:
+        // API key without `music_generation` scope (default for free tier).
+        const raw = String(data.error || `HTTP ${res.status}`);
+        if (raw.includes('missing_permissions') || raw.includes('music_generation')) {
+          throw new Error(
+            'Sua API key do ElevenLabs não tem permissão pra gerar música. ' +
+              'Habilite em elevenlabs.io/app/settings/api-keys (pode exigir plano Starter+). ' +
+              'Por enquanto, use a opção Upload com um MP3 royalty-free.'
+          );
+        }
+        throw new Error(raw);
+      }
       setMusicUrl(data.audioUrl);
       setMusicLabel(`IA: "${prompt.substring(0, 40)}${prompt.length > 40 ? '…' : ''}"`);
       toast.success('Música gerada pela IA!');
     } catch (err: any) {
-      toast.error(`Falha ao gerar: ${err.message}`);
+      toast.error(`Falha ao gerar: ${err.message}`, { duration: 10_000 });
     } finally {
       setGenerating(false);
     }
