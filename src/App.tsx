@@ -1940,6 +1940,10 @@ export default function App() {
   const [editingBrief, setEditingBrief] = useState<CreativeBrief | null>(null);
   /** Brief being "executed" (turned into a subprojeto). null = popup closed. */
   const [pendingBriefExec, setPendingBriefExec] = useState<CreativeBrief | null>(null);
+  /** Blueprint Fase 4 — Porta A: persona escolhida pra virar subprojeto sem
+   *  passar pelo plano de 15. Subprojeto nasce com productInfo + persona
+   *  carregados, brief = null (cliente preenche tudo na Copy depois). */
+  const [pendingPersonaExec, setPendingPersonaExec] = useState<WeightedPersona | null>(null);
 
   /** Persist the briefs array to config (deep-merge into copy.creativeBriefs). */
   const persistBriefs = (updated: CreativeBrief[]) => {
@@ -2113,6 +2117,104 @@ export default function App() {
       toast.success(`Subprojeto "${newVariant.name}" criado. Agora gere a copy.`);
     } catch (err) {
       console.error('Error executing brief:', err);
+      toast.error('Falha ao criar subprojeto.');
+    }
+  };
+
+  /** Blueprint Fase 4 — Porta B: cliente clica num brief dentro da seção
+   *  "Dados do Projeto" do ProjectsTab. O brief pode ser de QUALQUER projeto
+   *  (não só o current), então primeiro tornamos esse projeto current e
+   *  depois delegamos pro handleBriefClick que faz o resto. */
+  const handleSelectBriefFromProject = async (project: Project, brief: CreativeBrief) => {
+    if (project.id !== currentProjectId) {
+      // Carrega o projeto sem trocar de aba (step='projects' = fica aqui).
+      await handleLoadProject(project, 'projects');
+    }
+    // Pequeno delay pro state propagar antes do popup ler currentProjectId.
+    setTimeout(() => handleBriefClick(brief), 0);
+  };
+
+  /** Blueprint Fase 4 — Porta A: cliente clica em 1 persona da seção
+   *  "Dados do Projeto". Abre popup de confirmação (handleConfirmPersonaExec). */
+  const handleSelectPersonaFromProject = async (project: Project, persona: WeightedPersona) => {
+    if (project.id !== currentProjectId) {
+      await handleLoadProject(project, 'projects');
+    }
+    setTimeout(() => setPendingPersonaExec(persona), 0);
+  };
+
+  /** Blueprint Fase 4 — Porta A confirmada: cria variant a partir da persona
+   *  selecionada, SEM brief associado. Carrega productInfo + persona.raw nos
+   *  answers (mesma forma que handleConfirmBriefExec faz com brief.persona).
+   *  A diferença é que ângulo/hook/duração ficam vazios — cliente escolhe
+   *  tudo na Copy. */
+  const handleConfirmPersonaExec = async () => {
+    const persona = pendingPersonaExec;
+    if (!persona || !currentProjectId) return;
+    setPendingPersonaExec(null);
+
+    const personaRaw = (persona as any)?.raw || {};
+
+    // Mesma shape de answers que handleConfirmBriefExec produz — assim a
+    // CopyTab e AvatarTab leem do jeito que sempre leram. Sem angle/style/
+    // emotion explícitos porque não tem brief associado.
+    const overlayAnswers = {
+      ...config.copy.answers,
+      audience: personaRaw.description || config.copy.answers.audience || '',
+      age: personaRaw.age || config.copy.answers.age || '',
+      gender: personaRaw.gender || config.copy.answers.gender || '',
+      situation: personaRaw.currentSituation || config.copy.answers.situation || '',
+      painPoints: personaRaw.mainPain || config.copy.answers.painPoints || '',
+      // Awareness vem da persona (não de brief.awareness).
+      awarenessLevel: personaRaw.awarenessLevel || config.copy.answers.awarenessLevel || '3',
+      // Marca qual persona originou pra UI conseguir destacar.
+      selectedPersonaFull: JSON.stringify(personaRaw),
+    };
+
+    const variantId = `persona-${persona.id}-${Date.now()}`;
+    const variantConfig: AdConfig = {
+      ...config,
+      copy: {
+        ...config.copy,
+        answers: overlayAnswers,
+        // Reset gerados — variant nova começa limpa.
+        generatedScript: '',
+        generatedHooks: [],
+        optimizedScript: '',
+        // Marca qual persona originou (debug + futura UI).
+        activePersonaId: persona.id,
+      } as any,
+      videoUrl: null,
+      videoStoragePath: null,
+      audioUrl: null,
+      audioStoragePath: null,
+      audios: [],
+      videos: [],
+    };
+
+    const newVariant = {
+      id: variantId,
+      name: `Persona: ${persona.name || (persona as any).name || 'sem nome'}`,
+      config: variantConfig,
+      createdAt: new Date().toISOString(),
+      // Marca persona-origin pra distinguir de brief-origin no histórico.
+      personaOrigin: { id: persona.id, label: persona.name },
+    };
+
+    try {
+      const projectRef = doc(db, 'projects', currentProjectId);
+      const snap = await getDoc(projectRef);
+      const data = snap.data() || {};
+      const existingVariants = (data.variants || []) as any[];
+      const updated = [...existingVariants, newVariant];
+      await setDoc(projectRef, { variants: updated }, { merge: true });
+
+      setCurrentVariantId(variantId);
+      setConfig(variantConfig);
+      setCurrentStep('copy');
+      toast.success(`Subprojeto criado a partir da persona "${persona.name}".`);
+    } catch (err) {
+      console.error('Error creating persona-based variant:', err);
       toast.error('Falha ao criar subprojeto.');
     }
   };
@@ -5300,6 +5402,8 @@ export default function App() {
                   }}
                   onDeleteVideoFromArray={handleDeleteVideoFromArray}
                   onDuplicateProject={handleDuplicateProject}
+                  onSelectBriefFromProject={handleSelectBriefFromProject}
+                  onSelectPersonaFromProject={handleSelectPersonaFromProject}
                 />
               )}
               {currentStep === 'source' && (
@@ -6005,6 +6109,27 @@ export default function App() {
         tone="warning"
         onCancel={() => setPendingBriefExec(null)}
         onConfirm={handleConfirmBriefExec}
+      />
+
+      {/* Blueprint Fase 4 — Porta A: criar subprojeto a partir de uma
+          persona (sem brief). Pula o Plano de 15. */}
+      <ConfirmModal
+        open={!!pendingPersonaExec}
+        title="Criar subprojeto com essa persona?"
+        message={
+          pendingPersonaExec
+            ? `Persona: ${pendingPersonaExec.name}\n\n${
+                (pendingPersonaExec as any)?.raw?.mainPain
+                  ? `Dor principal: ${(pendingPersonaExec as any).raw.mainPain}\n`
+                  : ''
+              }\nO subprojeto vai começar vazio na Copy — sem brief de ângulo/hook pré-definidos. Você escolhe tudo na hora de gerar a copy.`
+            : ''
+        }
+        confirmLabel="Criar e ir pra Copy"
+        cancelLabel="Cancelar"
+        tone="warning"
+        onCancel={() => setPendingPersonaExec(null)}
+        onConfirm={handleConfirmPersonaExec}
       />
 
       {/* Delete Audio Modal — renderizado no topo para evitar z-index/overflow issues */}
