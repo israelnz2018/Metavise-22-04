@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Pencil, X } from 'lucide-react';
+import { Pencil, X, AlertTriangle } from 'lucide-react';
 import type { CreativeBrief, WeightedPersona } from '@/types/project';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 
@@ -79,12 +79,17 @@ export function BriefEditModal({
   isOpen,
   brief,
   personas,
+  mode = 'edit',
   onClose,
   onSave,
 }: {
   isOpen: boolean;
   brief: CreativeBrief | null;
   personas: WeightedPersona[];
+  /** Blueprint Fase 5 — quando 'create', mostra warning banner loud avisando
+   *  que vai gerar Criativo X+ (fora dos 15 originais). Default 'edit' preserva
+   *  comportamento da Fase 3.3 (edita um brief existente). */
+  mode?: 'edit' | 'create';
   onClose: () => void;
   onSave: (updated: CreativeBrief) => void;
 }) {
@@ -119,15 +124,25 @@ export function BriefEditModal({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-200/60 dark:shadow-blue-900/30 ring-1 ring-inset ring-white/20">
-              <Pencil size={16} />
+            <div
+              className={`w-9 h-9 rounded-xl text-white flex items-center justify-center shadow-lg ring-1 ring-inset ring-white/20 ${
+                mode === 'create'
+                  ? 'bg-gradient-to-br from-amber-500 to-orange-600 shadow-amber-200/60 dark:shadow-amber-900/30'
+                  : 'bg-gradient-to-br from-blue-500 to-blue-600 shadow-blue-200/60 dark:shadow-blue-900/30'
+              }`}
+            >
+              {mode === 'create' ? <AlertTriangle size={16} /> : <Pencil size={16} />}
             </div>
             <div>
               <h3 className="text-lg font-black text-gray-900 dark:text-gray-50 tracking-tight">
-                Editar Criativo {draft.index}
+                {mode === 'create'
+                  ? `Criar Criativo ${draft.index} (variação grande)`
+                  : `Editar Criativo ${draft.index}`}
               </h3>
               <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">
-                "Sugerimos, ele decide" — mude o que quiser
+                {mode === 'create'
+                  ? 'Conceito DIFERENTE dos 15 do plano'
+                  : '"Sugerimos, ele decide" — mude o que quiser'}
               </p>
             </div>
           </div>
@@ -139,6 +154,34 @@ export function BriefEditModal({
             <X size={18} />
           </button>
         </div>
+
+        {/* Blueprint Fase 5 — warning banner loud quando 'create'. Reforça que
+            isso vai gerar um Criativo ALÉM dos 15 originais. Conceito DIFERENTE
+            só (não usar pra re-render de avatar/voz — pra isso use versão
+            interna do subprojeto). */}
+        {mode === 'create' && (
+          <div className="mx-6 mt-4 p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 ring-1 ring-amber-300 dark:ring-amber-800/60">
+            <div className="flex gap-3">
+              <AlertTriangle
+                size={18}
+                className="shrink-0 text-amber-700 dark:text-amber-400 mt-0.5"
+              />
+              <div className="space-y-1.5 text-xs">
+                <p className="font-black uppercase tracking-widest text-amber-900 dark:text-amber-200">
+                  Você está criando um NOVO criativo (Criativo {draft.index})
+                </p>
+                <p className="text-amber-800 dark:text-amber-300/90 leading-relaxed">
+                  Use isso só quando o <strong>conceito é diferente</strong> dos 15 do plano (mudou
+                  ângulo, hook, awareness, persona ou duração de forma significativa).
+                </p>
+                <p className="text-amber-700 dark:text-amber-400/80 italic leading-relaxed">
+                  Pra re-renderizar avatar/voz/edição do mesmo conceito, crie uma{' '}
+                  <strong>versão interna</strong> dentro do subprojeto — não venha aqui.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Form */}
         <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
@@ -300,9 +343,15 @@ export function BriefEditModal({
           </button>
           <button
             onClick={() => onSave(draft)}
-            className="px-5 py-2.5 rounded-xl font-black uppercase text-xs tracking-widest text-white bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 active:scale-[0.98] transition-all shadow-lg shadow-blue-200/60 dark:shadow-blue-900/30 ring-1 ring-inset ring-white/20"
+            className={`px-5 py-2.5 rounded-xl font-black uppercase text-xs tracking-widest text-white active:scale-[0.98] transition-all shadow-lg ring-1 ring-inset ring-white/20 ${
+              mode === 'create'
+                ? 'bg-gradient-to-br from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 shadow-amber-200/60 dark:shadow-amber-900/30'
+                : 'bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-blue-200/60 dark:shadow-blue-900/30'
+            }`}
           >
-            Salvar alterações
+            {mode === 'create'
+              ? `Criar Criativo ${draft.index} e ir pra Copy`
+              : 'Salvar alterações'}
           </button>
         </div>
       </div>

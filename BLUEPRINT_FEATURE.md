@@ -552,11 +552,81 @@ section, but we keep it simple per "não vamos complicar").
 ```
 74d51c3  Fase 4 — entry point com escolha VSL vs Produto
 acac931  Fase 4 — Dados do Projeto + Porta A (persona)
+e72c724  Fase 4 docs
 ```
 
 ---
 
-_Last updated: end of Fase 4 (entry point + Dados do Projeto + 2 portas).
-Pick up at Fase 5 if the user wants Criativo 16+ (big variation button
-inside a subprojeto, derivedFromBriefId) or at any wiring polish needed
-after live testing._
+## 16. Fase 5 — Criativo 16+ (variação grande)
+
+Permite ao cliente expandir o plano além dos 15 briefs originais — para
+quando ele quer um conceito DIFERENTE (mudou ângulo, hook, persona,
+awareness ou duração de forma significativa) e não apenas uma
+re-renderização do mesmo conceito.
+
+### 16.1 Decisão chave: Versão vs Criativo Novo
+
+| Mudou no briefing?                    | Mesmo conceito? | Decisão                              |
+| ------------------------------------- | --------------- | ------------------------------------ |
+| Não, só re-render avatar/voz/edição   | Sim             | Versão interna do subprojeto         |
+| Mudou A/B de avatar pra Meta tracking | Sim             | Novo subprojeto (botão MM)           |
+| Sim — ângulo/hook/awareness/persona   | NÃO             | **Novo Criativo 16+** (esta feature) |
+
+O warning banner amber LOUD no BriefEditModal reforça isso pro cliente
+não confundir.
+
+### 16.2 BriefEditModal — prop `mode`
+
+```typescript
+mode?: 'edit' | 'create'   // default 'edit' preserva Fase 3.3
+```
+
+Quando `mode='create'`:
+
+- Header: ícone amber + título "Criar Criativo {N} (variação grande)"
+- Banner amber loud entre header e form com warning + dica de usar versão
+  interna pra re-renderizações
+- Botão "Salvar alterações" vira "Criar Criativo {N} e ir pra Copy" (amber)
+
+### 16.3 Botão CTA na seção Dados do Projeto
+
+No fim da lista de briefs (só renderiza se `briefs.length > 0`):
+
+```
+[💡 Criar Criativo {N+1} (variação grande)]   ← amber, ring-amber-300
+```
+
+Calculado como `briefs.length + 1` — sequencial natural.
+
+### 16.4 Handler `handleStartBigVariation`
+
+1. Se projeto ≠ current → `handleLoadProject(project, 'projects')`
+2. Calcula `nextIndex = max(briefs.map(b.index)) + 1` (fallback 16)
+3. Monta draft de CreativeBrief com defaults seguros:
+   - awareness `solution_aware`, angle `curiosidade`, style `depoimento`,
+     emotion `curiosidade`, ctaStyle `soft`, duration `30`
+   - hook/rationale vazios (cliente preenche)
+   - targetPersonaId/Name da primeira persona
+   - `derivedFromBriefId = ultimo_brief.id` pra rastreabilidade
+4. `setCreatingNewBrief(draft)` → abre BriefEditModal mode='create'
+
+### 16.5 Handler `handleSaveNewBigVariation`
+
+1. Garante index único (caso conflito com brief criado em paralelo)
+2. `persistBriefs([...current, persisted])` → salva no Firestore
+3. `setPendingBriefExec(persisted)` → dispara o ConfirmModal de criar
+   subprojeto (reusa Porta B / Fase 3.4)
+4. Cliente confirma → handleConfirmBriefExec → variant criada →
+   navega pra Copy
+
+### 16.6 Commits
+
+```
+(pendente)  Fase 5 — Criativo 16+ (botão + handler + warning)
+```
+
+---
+
+_Last updated: end of Fase 5 (Criativo 16+ via BriefEditModal mode='create').
+Próximos passos sugeridos: testar end-to-end, polish na UI da seção
+Dados do Projeto, ou novas features (ex: filtros no grid de briefs)._

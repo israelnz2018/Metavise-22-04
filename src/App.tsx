@@ -1944,6 +1944,10 @@ export default function App() {
    *  passar pelo plano de 15. Subprojeto nasce com productInfo + persona
    *  carregados, brief = null (cliente preenche tudo na Copy depois). */
   const [pendingPersonaExec, setPendingPersonaExec] = useState<WeightedPersona | null>(null);
+  /** Blueprint Fase 5 — Criativo 16+. Quando setado, abre BriefEditModal em
+   *  mode='create' com o draft pré-preenchido. Reusa BriefEditModal pra não
+   *  duplicar UI. Salvar → vira novo brief no plano + popup de subprojeto. */
+  const [creatingNewBrief, setCreatingNewBrief] = useState<CreativeBrief | null>(null);
 
   /** Persist the briefs array to config (deep-merge into copy.creativeBriefs). */
   const persistBriefs = (updated: CreativeBrief[]) => {
@@ -2217,6 +2221,70 @@ export default function App() {
       console.error('Error creating persona-based variant:', err);
       toast.error('Falha ao criar subprojeto.');
     }
+  };
+
+  /** Blueprint Fase 5 — "Criar variação grande" (Criativo 16+).
+   *  Inicia o fluxo abrindo o BriefEditModal pré-preenchido. NÃO cria o
+   *  brief ainda — só quando o cliente salvar no modal (handleSaveNewBigVariation).
+   *  Pré-preenche a partir do projeto (productInfo + 1ª persona disponível). */
+  const handleStartBigVariation = async (project: Project) => {
+    if (project.id !== currentProjectId) {
+      await handleLoadProject(project, 'projects');
+    }
+    setTimeout(() => {
+      const cfg: any = project.config || {};
+      const copy: any = cfg.copy || {};
+      const briefs: CreativeBrief[] = Array.isArray(copy.creativeBriefs) ? copy.creativeBriefs : [];
+      const personas: WeightedPersona[] = Array.isArray(copy.personasWithWeights)
+        ? copy.personasWithWeights
+        : [];
+
+      const nextIndex = briefs.length > 0 ? Math.max(...briefs.map((b) => b.index || 0)) + 1 : 16;
+      const firstPersona = personas[0];
+      const lastBrief = briefs[briefs.length - 1]; // pra derivedFromBriefId opcional
+
+      // Pré-preenchemos com defaults razoáveis (cliente edita tudo no modal).
+      // Awareness/angle/style/emotion são "solution_aware/curiosidade/depoimento"
+      // por serem combinação segura. Hook e rationale vazios — cliente preenche.
+      const draft: CreativeBrief = {
+        id: `brief-custom-${Date.now()}`,
+        index: nextIndex,
+        targetPersonaId: firstPersona?.id || '',
+        targetPersonaName: firstPersona?.name || 'Sem persona',
+        awareness: 'solution_aware',
+        angle: 'curiosidade',
+        hook: '',
+        durationTarget: 30,
+        emotion: 'curiosidade',
+        style: 'depoimento',
+        ctaStyle: 'soft',
+        promiseFocus: '',
+        rationale: '',
+        // Marca origem pra rastrear "esse criativo derivou do brief X".
+        derivedFromBriefId: lastBrief?.id,
+      };
+      setCreatingNewBrief(draft);
+    }, 0);
+  };
+
+  /** Blueprint Fase 5 — cliente confirmou no modal o novo brief.
+   *  Persiste no plano + dispara handleBriefClick (Porta B) pra criar variant
+   *  na sequência. O fluxo termina igual aos outros: ConfirmModal → variant
+   *  → CopyTab. */
+  const handleSaveNewBigVariation = (newBrief: CreativeBrief) => {
+    setCreatingNewBrief(null);
+    const currentBriefs =
+      ((config.copy as any)?.creativeBriefs as CreativeBrief[] | undefined) || [];
+    // Garante index único (caso draft tenha conflito com brief recém-adicionado).
+    const finalIndex =
+      Math.max(newBrief.index, ...currentBriefs.map((b) => b.index || 0).concat([0])) +
+      (currentBriefs.some((b) => b.index === newBrief.index) ? 1 : 0);
+    const persisted: CreativeBrief = { ...newBrief, index: finalIndex };
+    const updated = [...currentBriefs, persisted];
+    persistBriefs(updated);
+    toast.success(`Criativo ${finalIndex} adicionado ao plano.`);
+    // Imediatamente dispara o popup de criar subprojeto.
+    setPendingBriefExec(persisted);
   };
 
   /** Maps the persona's awarenessLevel field (which can come back as
@@ -5404,6 +5472,7 @@ export default function App() {
                   onDuplicateProject={handleDuplicateProject}
                   onSelectBriefFromProject={handleSelectBriefFromProject}
                   onSelectPersonaFromProject={handleSelectPersonaFromProject}
+                  onStartBigVariation={handleStartBigVariation}
                 />
               )}
               {currentStep === 'source' && (
@@ -6093,6 +6162,20 @@ export default function App() {
         }
         onClose={() => setEditingBrief(null)}
         onSave={handleSaveEditedBrief}
+      />
+
+      {/* Blueprint Fase 5 — mesmo BriefEditModal em mode='create' pro fluxo
+          Criativo 16+. Banner amber loud avisa que vai gerar novo criativo
+          fora dos 15. Save → vira brief + dispara popup de subprojeto. */}
+      <BriefEditModal
+        isOpen={!!creatingNewBrief}
+        brief={creatingNewBrief}
+        personas={
+          ((config.copy as any)?.personasWithWeights as WeightedPersona[] | undefined) || []
+        }
+        mode="create"
+        onClose={() => setCreatingNewBrief(null)}
+        onSave={handleSaveNewBigVariation}
       />
 
       {/* Create-subprojeto popup — Phase 3.4. Just confirmation, no edit. */}

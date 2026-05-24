@@ -69,6 +69,10 @@ interface ProjectsTabProps {
    *  seção "Dados do Projeto" pra criar subprojeto sem passar pelo plano.
    *  Carrega productInfo + persona como base, sem brief associado. */
   onSelectPersonaFromProject?: (p: Project, persona: any) => void;
+  /** Blueprint Fase 5 — abre BriefEditModal em mode='create' pra criar
+   *  Criativo 16+ (variação grande). Só aparece se o projeto já tem
+   *  briefs no plano (faz sentido falar em "16+" só se tem os primeiros). */
+  onStartBigVariation?: (p: Project) => void;
 }
 
 export function ProjectsTab({
@@ -92,6 +96,7 @@ export function ProjectsTab({
   onDuplicateProject,
   onSelectBriefFromProject,
   onSelectPersonaFromProject,
+  onStartBigVariation,
 }: ProjectsTabProps) {
   // Search + filter state for the list view. Persisted only in memory —
   // navigating away resets the filters, which is the right default
@@ -188,6 +193,7 @@ export function ProjectsTab({
           onSelectPersona={
             onSelectPersonaFromProject ? (p) => onSelectPersonaFromProject(project, p) : undefined
           }
+          onStartBigVariation={onStartBigVariation ? () => onStartBigVariation(project) : undefined}
         />
 
         <div className="bg-white dark:bg-gray-900/80 rounded-[40px] border-2 border-gray-200 dark:border-gray-800 shadow-xl overflow-hidden">
@@ -614,10 +620,14 @@ function ProjectDataSection({
   project,
   onSelectBrief,
   onSelectPersona,
+  onStartBigVariation,
 }: {
   project: Project;
   onSelectBrief?: (brief: CreativeBrief) => void;
   onSelectPersona?: (persona: any) => void;
+  /** Blueprint Fase 5 — clica no CTA "Criar variação grande" abaixo dos briefs.
+   *  Só aparece se há pelo menos 1 brief no plano. */
+  onStartBigVariation?: () => void;
 }) {
   const cfg: any = project.config || {};
   const copy: any = cfg.copy || {};
@@ -786,6 +796,25 @@ function ProjectDataSection({
                 );
               })}
             </ol>
+
+            {/* Blueprint Fase 5 — CTA Criativo 16+. Só aparece se já há
+                briefs no plano (faz sentido falar em "16+" só depois dos
+                primeiros). Estilo amber pra reforçar que é exceção, não
+                regra: cliente deve esgotar os 15 antes de partir pra cá. */}
+            {onStartBigVariation && (
+              <button
+                onClick={onStartBigVariation}
+                className="w-full mt-2 px-4 py-3 rounded-2xl bg-amber-50 dark:bg-amber-950/30 ring-1 ring-amber-300 dark:ring-amber-800/60 hover:bg-amber-100 dark:hover:bg-amber-950/50 hover:ring-amber-500 transition-all flex items-center justify-center gap-2 group"
+              >
+                <Sparkles
+                  size={14}
+                  className="text-amber-700 dark:text-amber-400 group-hover:scale-110 transition-transform"
+                />
+                <span className="text-xs font-black uppercase tracking-widest text-amber-900 dark:text-amber-200">
+                  Criar Criativo {briefs.length + 1} (variação grande)
+                </span>
+              </button>
+            )}
           </section>
         )}
       </div>
