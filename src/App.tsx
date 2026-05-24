@@ -148,6 +148,11 @@ export interface AdConfig {
     mode: 'improve' | 'as-is' | 'questions';
     subMode?: 'zero' | 'improve' | 'ready';
     discoveryMode?: 'unknown' | 'known' | 'discovering' | 'done';
+    /** Blueprint Fase 4 — escolhido no NewProjectModal pro tipo 'complete'.
+     *  'vsl'     = cliente tem material pronto (VSL/landing) — vai pra SourceTab modo auto
+     *  'product' = cliente só tem o produto — vai pro PersonaPathModal direto
+     *  Indefinido em projetos legacy. Roteamento real fica na Fase 4.2. */
+    sourceMode?: 'vsl' | 'product';
     answers: Record<string, any>;
     generatedScript: string;
     generatedHooks: any[];
@@ -826,6 +831,9 @@ export default function App() {
   const [isTestMode, setIsTestMode] = useState(false);
   const [useNativeFallback, setUseNativeFallback] = useState(false);
   const [copySubMode, setCopySubMode] = useState<'zero' | 'improve' | 'ready'>('zero');
+  // Blueprint Fase 4 — só aplicável quando type === 'complete'. Null antes
+  // do cliente escolher, força a UI a perguntar antes de habilitar "Criar".
+  const [newSourceMode, setNewSourceMode] = useState<'vsl' | 'product' | null>(null);
 
   const [copyDiscoveryMode, setCopyDiscoveryMode] = useState<
     'unknown' | 'known' | 'discovering' | 'done'
@@ -1681,6 +1689,11 @@ export default function App() {
           copy: {
             mode: 'questions',
             subMode: copySubMode,
+            // Blueprint Fase 4 — só persiste pra projetos 'complete'. Pros
+            // outros tipos fica undefined (e.g. video-only não precisa).
+            ...(newProjectType === 'complete' && newSourceMode
+              ? { sourceMode: newSourceMode }
+              : {}),
             answers: {},
             generatedScript: '',
             generatedHooks: [],
@@ -1713,9 +1726,32 @@ export default function App() {
       setConfig(projectData.config as AdConfig);
       setShowNewProjectModal(false);
       setNewProjectName('');
-      // New projects always start at Source so the client can paste a
-      // VSL/landing-page link before stepping into Persona/Copy. Specialty
-      // project types (video/editing-only) still jump deeper.
+      // Reset Blueprint Fase 4 escolha pra não vazar pra próximo projeto.
+      setNewSourceMode(null);
+      // Blueprint Fase 4 — vendedor (sourceMode='product') pula a Source
+      // (não tem material pra extrair) e cai direto no PersonaPathModal
+      // pra escolher "já sei vs me ajuda a descobrir". Reusa o pendingNewSubproject
+      // que o modal já consome — a variant em si só nasce depois via popup
+      // de brief/persona, então aqui só é setup do projeto recém-criado.
+      if (newProjectType === 'complete' && newSourceMode === 'product') {
+        const newProjectObj: Project<AdConfig> = {
+          id: docRef.id,
+          userId: user.uid,
+          name: newProjectName,
+          type: newProjectType,
+          config: projectData.config as AdConfig,
+          variants: [],
+          createdAt: new Date(),
+        };
+        setPendingNewSubproject(newProjectObj);
+        // Não muda currentStep — fica na ProjectsTab com o modal aberto
+        // por cima. Quando user escolher, proceedNewSubproject roteia.
+        return;
+      }
+
+      // Afiliado ('vsl'), legacy ou tipos não-complete: roteamento normal.
+      // Afiliado cai na SourceTab (que já abre em modo auto via initialMode).
+      // Specialty types (video/editing) pulam direto pra suas abas.
       const firstStepByType: Record<string, any> = {
         complete: 'source',
         copy: 'source',
@@ -2739,7 +2775,36 @@ export default function App() {
       delete newConfig.copy.answers.awarenessLevel;
     }
 
-    const finalDiscoveryMode = personaPath === 'known' ? 'known' : 'unknown';
+    // Blueprint Fase 4 — vendedor (sourceMode='product') sempre passa pelo
+    // Blueprint (Persona → Plan → 15 briefs). As 2 opções do popup mudam
+    // só ONDE ele começa, não O QUE acontece depois:
+    //   'known'    → PersonaTab com 9 campos vazios pra ele preencher
+    //                confiante. discoveryMode='known' marca que ele optou
+    //                por preencher sem ajuda.
+    //   'discover' → CopyTab com discoveryMode='discovering' que ativa as
+    //                5 perguntas soft sequenciais (código órfão lin 386-509
+    //                do CopyTab). No fim, IA gera personas.
+    //
+    // Fluxo legacy (sem sourceMode ou sourceMode='vsl') mantém comportamento
+    // antigo: 'known' → Copy direto, 'discover' → Persona. Não quebra
+    // projetos já existentes.
+    const isVendedorFirstTime = newConfig.copy?.sourceMode === 'product';
+    let finalDiscoveryMode: 'known' | 'unknown' | 'discovering';
+    let nextStep: 'persona' | 'copy';
+
+    if (isVendedorFirstTime) {
+      if (personaPath === 'discover') {
+        finalDiscoveryMode = 'discovering';
+        nextStep = 'copy'; // 'discovering' UI vive na CopyTab
+      } else {
+        finalDiscoveryMode = 'known';
+        nextStep = 'persona'; // 9 campos pra preencher
+      }
+    } else {
+      finalDiscoveryMode = personaPath === 'known' ? 'known' : 'unknown';
+      nextStep = personaPath === 'discover' ? 'persona' : 'copy';
+    }
+
     setCopyDiscoveryMode(finalDiscoveryMode);
     newConfig.copy.discoveryMode = finalDiscoveryMode;
 
@@ -2754,12 +2819,19 @@ export default function App() {
     setPendingNewSubproject(null);
     setCopyFieldsApplied(false);
 
-    if (personaPath === 'discover') {
-      setCurrentStep('persona');
-      toast.success('Iniciando novo subprojeto! Vamos identificar o persona primeiro.');
+    setCurrentStep(nextStep);
+    if (isVendedorFirstTime) {
+      toast.success(
+        personaPath === 'discover'
+          ? 'Vamos descobrir seu cliente em 5 perguntas rápidas!'
+          : 'Preencha o formulário pra IA gerar 3 personas.'
+      );
     } else {
-      setCurrentStep('copy');
-      toast.success('Iniciando novo subprojeto!');
+      toast.success(
+        personaPath === 'discover'
+          ? 'Iniciando novo subprojeto! Vamos identificar o persona primeiro.'
+          : 'Iniciando novo subprojeto!'
+      );
     }
   };
 
@@ -5233,6 +5305,11 @@ export default function App() {
               {currentStep === 'source' && (
                 <LazyTab>
                   <SourceTab
+                    // Blueprint Fase 4 — afiliado (sourceMode='vsl') já decidiu
+                    // que tem material no NewProjectModal. Pula a tela de
+                    // escolha "Manual vs Auto" e abre direto no modo auto.
+                    // Projetos legacy (sem sourceMode) caem no default 'choose'.
+                    initialMode={(config.copy as any)?.sourceMode === 'vsl' ? 'auto' : 'choose'}
                     existingInfo={((config.copy as any)?.productInfo as ProductInfo | null) || null}
                     onExtracted={(info, rawText) => {
                       // Persist extracted info AND seed the persona/copy answers
@@ -5872,11 +5949,21 @@ export default function App() {
         name={newProjectName}
         type={newProjectType}
         copySubMode={copySubMode}
+        sourceMode={newSourceMode}
         isSaving={isSaving}
         onNameChange={setNewProjectName}
-        onTypeChange={setNewProjectType}
+        onTypeChange={(next) => {
+          setNewProjectType(next);
+          // Source choice só faz sentido pro tipo 'complete' (Blueprint).
+          // Se trocar pra outro tipo, limpa pra não persistir lixo.
+          if (next !== 'complete') setNewSourceMode(null);
+        }}
         onCopySubModeChange={setCopySubMode}
-        onClose={() => setShowNewProjectModal(false)}
+        onSourceModeChange={setNewSourceMode}
+        onClose={() => {
+          setShowNewProjectModal(false);
+          setNewSourceMode(null);
+        }}
         onCreate={handleCreateProject}
       />
 

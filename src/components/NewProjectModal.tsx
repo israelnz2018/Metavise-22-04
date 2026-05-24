@@ -11,10 +11,15 @@ interface Props {
   name: string;
   type: ProjectType;
   copySubMode: 'zero' | 'improve' | 'ready';
+  /** Blueprint Fase 4 — escolha "tenho VSL" vs "só tenho produto".
+   *  Só renderizada quando type === 'complete'. Null = ainda não decidiu
+   *  (o botão "Criar Projeto" fica disabled até escolher uma opção). */
+  sourceMode: 'vsl' | 'product' | null;
   isSaving: boolean;
   onNameChange: (next: string) => void;
   onTypeChange: (next: ProjectType) => void;
   onCopySubModeChange: (next: 'zero' | 'improve' | 'ready') => void;
+  onSourceModeChange: (next: 'vsl' | 'product' | null) => void;
   onClose: () => void;
   onCreate: () => void;
 }
@@ -24,10 +29,12 @@ export function NewProjectModal({
   name,
   type,
   copySubMode,
+  sourceMode,
   isSaving,
   onNameChange,
   onTypeChange,
   onCopySubModeChange,
+  onSourceModeChange,
   onClose,
   onCreate,
 }: Props) {
@@ -118,6 +125,52 @@ export function NewProjectModal({
             ))}
           </div>
 
+          {/* Blueprint Fase 4 — Como o cliente está começando.
+              Só aparece quando tipo é 'complete' (Blueprint). Para outros
+              tipos (copy/video/edit) não faz sentido — eles têm fluxo
+              próprio. */}
+          {type === 'complete' && (
+            <div className="bg-purple-50/60 dark:bg-purple-950/30 rounded-xl p-4 space-y-3 ring-1 ring-purple-100/80 dark:ring-purple-900/40 animate-in fade-in slide-in-from-top-2 duration-300">
+              <p className="text-[10px] font-black text-purple-700 dark:text-purple-300 uppercase tracking-widest">
+                Como você está começando?
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <button
+                  onClick={() => onSourceModeChange('vsl')}
+                  className={`p-3 rounded-lg text-left transition-all ring-1 ${
+                    sourceMode === 'vsl'
+                      ? 'bg-white dark:bg-gray-900 ring-purple-500 shadow-sm'
+                      : 'ring-purple-200/60 dark:ring-purple-800/40 hover:bg-white/50 dark:hover:bg-gray-800/40'
+                  }`}
+                >
+                  <div className="text-lg mb-0.5">📺</div>
+                  <p className="text-xs font-bold text-gray-900 dark:text-gray-100 leading-tight">
+                    Tenho VSL ou landing pronta
+                  </p>
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium mt-0.5 leading-tight">
+                    A IA extrai persona e oferta direto do material
+                  </p>
+                </button>
+                <button
+                  onClick={() => onSourceModeChange('product')}
+                  className={`p-3 rounded-lg text-left transition-all ring-1 ${
+                    sourceMode === 'product'
+                      ? 'bg-white dark:bg-gray-900 ring-purple-500 shadow-sm'
+                      : 'ring-purple-200/60 dark:ring-purple-800/40 hover:bg-white/50 dark:hover:bg-gray-800/40'
+                  }`}
+                >
+                  <div className="text-lg mb-0.5">🎁</div>
+                  <p className="text-xs font-bold text-gray-900 dark:text-gray-100 leading-tight">
+                    Só tenho o produto pra anunciar
+                  </p>
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium mt-0.5 leading-tight">
+                    Te perguntamos sobre o cliente antes de gerar
+                  </p>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Sub-opções de copy — aparecem apenas quando 'copy' está selecionado */}
           {type === 'copy' && (
             <div className="bg-blue-50/60 dark:bg-blue-950/30 rounded-xl p-4 space-y-2 ring-1 ring-blue-100/80 dark:ring-blue-900/40 animate-in fade-in slide-in-from-top-2 duration-300">
@@ -153,7 +206,14 @@ export function NewProjectModal({
           </button>
           <button
             onClick={onCreate}
-            disabled={isSaving || !name.trim()}
+            disabled={
+              isSaving ||
+              !name.trim() ||
+              // Blueprint Fase 4 — sem escolher sourceMode no tipo
+              // 'complete' o roteamento pós-criação não sabe pra onde
+              // mandar o cliente. Bloqueia até decidir.
+              (type === 'complete' && !sourceMode)
+            }
             className="flex-1 py-3 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl font-black uppercase text-[10px] tracking-widest hover:from-blue-600 hover:to-blue-700 active:scale-[0.98] transition-all shadow-xl shadow-blue-200/60 dark:shadow-blue-900/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-blue-500 flex items-center justify-center gap-2 ring-1 ring-inset ring-white/20"
           >
             {isSaving ? <Loader2 className="animate-spin" size={16} /> : 'Criar Projeto'}

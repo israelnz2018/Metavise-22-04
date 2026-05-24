@@ -23,13 +23,23 @@ interface Props {
   // de Marketing because Source already populated persona+copy answers.
   onContinueManual: () => void;
   onContinueAuto: () => void;
+  /** Blueprint Fase 4 — quando o cliente já escolheu sourceMode='vsl' no
+   *  NewProjectModal, pula a tela "Manual vs Automática" e vai direto
+   *  pro modo auto. Default 'choose' preserva o comportamento legacy. */
+  initialMode?: Mode;
 }
 
-export function SourceTab({ existingInfo, onExtracted, onContinueManual, onContinueAuto }: Props) {
+export function SourceTab({
+  existingInfo,
+  onExtracted,
+  onContinueManual,
+  onContinueAuto,
+  initialMode = 'choose',
+}: Props) {
   // Always start with the manual-vs-auto question — even if the user has
   // a previous extraction saved. They can still see the saved info by
-  // clicking "Automática" again.
-  const [mode, setMode] = useState<Mode>('choose');
+  // clicking "Automática" again. Override via initialMode (Fase 4).
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [text, setText] = useState('');
   const [url, setUrl] = useState('');
   const [youtubeUrl, setYoutubeUrl] = useState('');
