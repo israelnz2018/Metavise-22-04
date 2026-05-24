@@ -148,6 +148,10 @@ export function IntercutModal({
         // Step 1 — submit (fast). F6.8 — lightweight mode usa universal-2 +
         // language_code explícito + sem auto_highlights. Cuts ~40-50% off the
         // total transcription time vs. the default heavy mode.
+        console.log('[Intercut] POST /analyze/submit ←', {
+          videoUrl: sourceVideoUrl?.substring(0, 80),
+          languageCode,
+        });
         const submitRes = await fetch('/api/assemblyai/analyze/submit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -157,11 +161,34 @@ export function IntercutModal({
             languageCode,
           }),
         });
-        const submitData = await submitRes.json();
-        if (!submitRes.ok) throw new Error(submitData.error || `HTTP ${submitRes.status}`);
+        const responseText = await submitRes.text();
+        console.log('[Intercut] /analyze/submit response:', submitRes.status, responseText);
+        let submitData: any = {};
+        try {
+          submitData = JSON.parse(responseText);
+        } catch {
+          // Non-JSON response — likely 404 or HTML error page from the server.
+          // Surface that distinctly so the user knows it's NOT an AssemblyAI issue.
+          throw new Error(
+            `Servidor respondeu HTTP ${submitRes.status} — endpoint não encontrado ou retornou HTML em vez de JSON. ` +
+              `Pode ser que o backend não foi reiniciado depois de adicionar /analyze/submit. ` +
+              `Body: ${responseText.substring(0, 200)}`
+          );
+        }
+        if (!submitRes.ok) {
+          throw new Error(
+            submitData.error || submitData.message || `HTTP ${submitRes.status} no submit.`
+          );
+        }
         if (cancelledRef.current) return;
         const tid = submitData.transcriptId;
-        setAnalyzeStatus('Na fila do AssemblyAI...');
+        if (!tid) {
+          throw new Error(
+            'Submit retornou sem transcriptId. Resposta: ' + responseText.substring(0, 200)
+          );
+        }
+        console.log('[Intercut] transcriptId:', tid);
+        setAnalyzeStatus(`Na fila do AssemblyAI... (id: ${tid.substring(0, 8)})`);
 
         // Step 2 — poll status until completed/error or 12min timeout.
         // Race condition fix (same pattern as zap polling F6.1): inFlight
@@ -184,12 +211,21 @@ export function IntercutModal({
           inFlight = true;
           try {
             const r = await fetch(`/api/assemblyai/analyze/status/${tid}`);
-            const d = await r.json();
+            const txt = await r.text();
+            let d: any = {};
+            try {
+              d = JSON.parse(txt);
+            } catch {
+              throw new Error(
+                `Status retornou non-JSON HTTP ${r.status}. Body: ${txt.substring(0, 150)}`
+              );
+            }
             if (cancelledRef.current) return;
             if (!r.ok) {
-              throw new Error(d.error || `HTTP ${r.status}`);
+              throw new Error(d.error || `HTTP ${r.status}: ${txt.substring(0, 150)}`);
             }
             const status = d.status as string;
+            console.log('[Intercut Poll]', status, d.error || '');
             if (status === 'completed') {
               done = true;
               stopAnalyze();
@@ -200,16 +236,20 @@ export function IntercutModal({
               done = true;
               stopAnalyze();
               setAnalyzing(false);
-              setError(d.error || 'AssemblyAI retornou erro no processamento.');
+              setError(
+                `AssemblyAI retornou erro: ${d.error || 'sem mensagem'}. Pode ser URL ` +
+                  `inacessível, áudio corrompido, ou problema na API.`
+              );
             } else {
               // queued / processing — update friendly status text
               setAnalyzeStatus(
-                status === 'queued' ? 'Na fila do AssemblyAI...' : 'Processando áudio...'
+                status === 'queued'
+                  ? 'Na fila do AssemblyAI...'
+                  : `Processando áudio (${status})...`
               );
             }
           } catch (err: any) {
-            // Network blips are non-fatal; next tick retries. Only surface
-            // the error if the polling is genuinely stuck.
+            // Network blips are non-fatal; next tick retries. Log fully.
             console.warn('[Intercut Poll] tick error:', err.message);
           } finally {
             inFlight = false;
