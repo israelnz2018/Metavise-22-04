@@ -122,8 +122,16 @@ export function IntercutModal({
   // - Poll GET /analyze/status/:id every 3s until 'completed' or 'error'.
   // - Show elapsed seconds + AssemblyAI status to give the user feedback.
   // - inFlight + cancelledRef guard against race conditions and lifecycle leaks.
+  //
+  // F6.10 — race condition fix: deps array só tem [open, sourceVideoUrl]. Antes
+  // tinha [open, sourceVideoUrl, transcriptId, analyzing] — quando setAnalyzing(true)
+  // rodava DENTRO do effect, a deps `analyzing` mudava, o cleanup rodava
+  // stopAnalyze() que setava cancelledRef.current=true, e o polling nunca
+  // chegava a iniciar (submit retornava OK mas o `if (cancelledRef.current) return`
+  // matava o fluxo). Resetar cancelledRef AQUI dentro garante state limpo.
   useEffect(() => {
-    if (!open || !sourceVideoUrl || transcriptId || analyzing) return;
+    if (!open || !sourceVideoUrl || transcriptId) return;
+    cancelledRef.current = false;
 
     // Cache hit → skip the whole AssemblyAI roundtrip.
     const cached = transcriptCache.get(sourceVideoUrl);
@@ -268,7 +276,11 @@ export function IntercutModal({
     return () => {
       stopAnalyze();
     };
-  }, [open, sourceVideoUrl, transcriptId, analyzing]);
+    // F6.10 — apenas open + sourceVideoUrl. NÃO incluir `analyzing` (mata o
+    // próprio polling) nem `transcriptId` (cleanup fica fazendo stopAnalyze
+    // por nada quando o polling completa).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, sourceVideoUrl]);
 
   // When we have a transcriptId, fetch sentences-with-words for the picker.
   useEffect(() => {
