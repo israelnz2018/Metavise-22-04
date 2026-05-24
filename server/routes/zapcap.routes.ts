@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import fs from 'fs';
-import admin from 'firebase-admin';
 import { formatApiError, processDataError } from '../utils/errorExtractor.js';
 import { logToFile } from '../utils/fileLogger.js';
 import { getZapCapKey, getAssemblyAIKey } from '../config/apiKeys.js';
 import { ZAPCAP_CONFIG_PATH } from '../config/paths.js';
 import { createLogger } from '../utils/logger.js';
 import { createTTLCache } from '../utils/cache.js';
+import { downloadAndPersist } from '../utils/persistVideo.js';
 const log = createLogger('ZapCap');
 
 // ZapCap templates change rarely — once a week tops on their side.
@@ -15,38 +15,33 @@ const log = createLogger('ZapCap');
 const templatesCache = createTTLCache<unknown>({ ttlMs: 15 * 60_000, maxEntries: 1 });
 const TEMPLATES_CACHE_KEY = 'all';
 
-// Mirrors a finished ZapCap video into our Firebase Storage so the URL
-// the SPA persists is permanent. ZapCap's CDN URLs are signed and expire
-// within hours, which is what makes saved versions go grey on reload.
-// Returns the public Firebase URL on success, or null on failure (caller
-// then falls back to the raw ZapCap URL).
+// F6.14 — Mirror a finished ZapCap video into durable storage. Always returns
+// a URL the SPA can render — never null. Strategy:
+//   1. Download from ZapCap CDN (URLs expire ~24h).
+//   2. Save local copy to GENERATED_DIR + try Firebase upload (3 retries
+//      with exponential backoff). Local copy survives if Firebase fails.
+//   3. Return Firebase signed URL if upload OK, else local /generated/ URL.
+//
+// Both URLs work in the browser; the Firebase one is more durable but
+// the local fallback is way better than the original "return CDN URL"
+// that vanished overnight.
 async function uploadZapCapToFirebase(sourceUrl: string, taskId: string): Promise<string | null> {
-  if (admin.apps.length === 0) {
-    log.warn('[ZapCap Persist] Firebase Admin not initialised — skipping upload');
-    return null;
-  }
   try {
-    const dl = await fetch(sourceUrl);
-    if (!dl.ok) throw new Error(`Download from ZapCap failed: ${dl.status}`);
-    const buf = Buffer.from(await dl.arrayBuffer());
-
-    const bucket = admin.storage().bucket();
-    const objectPath = `zapcap/${taskId}_${Date.now()}.mp4`;
-    const file = bucket.file(objectPath);
-    await file.save(buf, { metadata: { contentType: 'video/mp4' } });
-    // getSignedUrl works regardless of bucket-level access mode (Uniform
-    // bucket-level access in particular silently ignores makePublic ACLs).
-    // 03-09-2491 = year 2491, effectively forever.
-    const [publicUrl] = await file.getSignedUrl({
-      action: 'read',
-      expires: '03-09-2491',
+    const filename = `zapcap_${taskId}_${Date.now()}.mp4`;
+    const result = await downloadAndPersist(sourceUrl, {
+      filename,
+      storageFolder: 'zapcap',
     });
-    logToFile(`[ZapCap Persist] Uploaded to ${publicUrl.split('?')[0]} (${buf.length} bytes)`);
-    return publicUrl;
+    log.info(
+      `[ZapCap Persist] ${result.persisted ? 'Firebase' : 'local'} URL: ${result.url.split('?')[0]} (${result.size} bytes)`
+    );
+    return result.url;
   } catch (err: any) {
-    log.error('[ZapCap Persist] upload failed:', err.message);
+    log.error('[ZapCap Persist] download from ZapCap failed:', err.message);
     logToFile(`[ZapCap Persist] FAILED: ${err.message}`);
-    return null;
+    // Last-resort fallback: return source URL even if it's the CDN one.
+    // At least the user sees the video for ~24h until they regenerate.
+    return sourceUrl;
   }
 }
 

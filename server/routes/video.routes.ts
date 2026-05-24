@@ -10,6 +10,7 @@ import { processDataError } from '../utils/errorExtractor.js';
 import { createLogger } from '../utils/logger.js';
 import { withFfmpegQueue } from '../services/jobQueue.js';
 import { ENCODE_BALANCED } from '../config/ffmpeg.js';
+import { persistVideo } from '../utils/persistVideo.js';
 
 const log = createLogger('Video');
 
@@ -692,28 +693,21 @@ videoRouter.post(
           .run();
       });
 
-      // Persist to Firebase Storage so the URL doesn't depend on the local
-      // /generated/ folder surviving restarts. getSignedUrl avoids the
-      // makePublic-vs-Uniform-bucket-access pitfall.
-      let publicUrl = `/generated/${finalFilename}`;
-      if (admin.apps.length > 0) {
-        try {
-          const bucket = admin.storage().bucket();
-          const destination = `intercut/${userId}/${intercutId}.mp4`;
-          await bucket.upload(finalPath, {
-            destination,
-            metadata: { contentType: 'video/mp4' },
-          });
-          const [signedUrl] = await bucket.file(destination).getSignedUrl({
-            action: 'read',
-            expires: '03-09-2491',
-          });
-          publicUrl = signedUrl;
-          log.info('intercut uploaded', { publicUrl: publicUrl.split('?')[0] });
-        } catch (e: any) {
-          log.error('intercut firebase upload failed (returning local URL):', e.message);
-        }
-      }
+      // F6.14 — persistVideo handles retry + local fallback. URL returned
+      // is either a Firebase signed URL (durable forever) or a local
+      // /generated/ URL (still served by Express). Both work in the browser.
+      const persistedBuf = fs.readFileSync(finalPath);
+      const persistResult = await persistVideo({
+        buffer: persistedBuf,
+        filename: finalFilename,
+        storageFolder: 'intercut',
+        userId,
+      });
+      const publicUrl = persistResult.url;
+      log.info('intercut persisted', {
+        publicUrl: publicUrl.split('?')[0],
+        firebase: persistResult.persisted,
+      });
 
       res.json({ url: publicUrl, segments: segments.length, blackCount: blackIdx });
     } catch (err: any) {
@@ -848,24 +842,19 @@ videoRouter.post(
           .run();
       });
 
-      let publicUrl = `/generated/${finalFilename}`;
-      if (admin.apps.length > 0) {
-        try {
-          const bucket = admin.storage().bucket();
-          const destination = `concat/${userId}/${jobId}.mp4`;
-          await bucket.upload(finalPath, {
-            destination,
-            metadata: { contentType: 'video/mp4' },
-          });
-          const [signedUrl] = await bucket.file(destination).getSignedUrl({
-            action: 'read',
-            expires: '03-09-2491',
-          });
-          publicUrl = signedUrl;
-        } catch (e: any) {
-          log.error('concat firebase upload failed (returning local URL):', e.message);
-        }
-      }
+      // F6.14 — durable URL via persistVideo (retry + local fallback).
+      const persistedBuf = fs.readFileSync(finalPath);
+      const persistResult = await persistVideo({
+        buffer: persistedBuf,
+        filename: finalFilename,
+        storageFolder: 'concat',
+        userId,
+      });
+      const publicUrl = persistResult.url;
+      log.info('concat persisted', {
+        publicUrl: publicUrl.split('?')[0],
+        firebase: persistResult.persisted,
+      });
 
       res.json({ url: publicUrl, count: videos.length });
     } catch (err: any) {
@@ -1389,27 +1378,19 @@ ${dialogueLines.join('\n')}
           .run();
       });
 
-      // Persist to Firebase via signed URL (same robust pattern as the
-      // other endpoints).
-      let publicUrl = `/generated/${finalFilename}`;
-      if (admin.apps.length > 0) {
-        try {
-          const bucket = admin.storage().bucket();
-          const destination = `headline/${userId}/${jobId}.mp4`;
-          await bucket.upload(finalPath, {
-            destination,
-            metadata: { contentType: 'video/mp4' },
-          });
-          const [signedUrl] = await bucket.file(destination).getSignedUrl({
-            action: 'read',
-            expires: '03-09-2491',
-          });
-          publicUrl = signedUrl;
-          log.info('headline uploaded', { url: publicUrl.split('?')[0] });
-        } catch (e: any) {
-          log.error('headline firebase upload failed (returning local URL):', e.message);
-        }
-      }
+      // F6.14 — durable URL via persistVideo (retry + local fallback).
+      const persistedBuf = fs.readFileSync(finalPath);
+      const persistResult = await persistVideo({
+        buffer: persistedBuf,
+        filename: finalFilename,
+        storageFolder: 'headline',
+        userId,
+      });
+      const publicUrl = persistResult.url;
+      log.info('headline persisted', {
+        publicUrl: publicUrl.split('?')[0],
+        firebase: persistResult.persisted,
+      });
 
       res.json({ url: publicUrl, autoTimeStatus });
     } catch (err: any) {
