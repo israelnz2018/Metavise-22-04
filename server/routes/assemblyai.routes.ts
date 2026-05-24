@@ -1,11 +1,57 @@
 import { Router } from 'express';
 import fs from 'fs';
+import path from 'path';
 import { logToFile } from '../utils/fileLogger.js';
 import { formatApiError } from '../utils/errorExtractor.js';
 import { getAssemblyAIKey } from '../config/apiKeys.js';
-import { ASSEMBLYAI_CONFIG_PATH } from '../config/paths.js';
+import { ASSEMBLYAI_CONFIG_PATH, GENERATED_DIR } from '../config/paths.js';
 import { createLogger } from '../utils/logger.js';
 const log = createLogger('AssemblyAI');
+
+// F6.9 — Upload local file to AssemblyAI's /v2/upload endpoint and return
+// the upload_url that can be passed as audio_url in the transcript submit.
+//
+// Needed because the intercut endpoint sometimes returns a local path
+// ("/generated/intercut_xxx.mp4") when the Firebase upload fails — and
+// AssemblyAI lives in the cloud, so it can't access localhost files.
+async function uploadLocalFileToAssemblyAI(filePath: string, apiKey: string): Promise<string> {
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`Arquivo local não existe: ${filePath}`);
+  }
+  const stat = fs.statSync(filePath);
+  log.info(`[AssemblyAI Upload] enviando ${filePath} (${Math.round(stat.size / 1024)} KB)`);
+  const fileBuffer = fs.readFileSync(filePath);
+  const r = await fetch('https://api.assemblyai.com/v2/upload', {
+    method: 'POST',
+    headers: { authorization: apiKey, 'Content-Type': 'application/octet-stream' },
+    body: fileBuffer,
+  });
+  if (!r.ok) {
+    const errText = await r.text();
+    throw new Error(`Upload pra AssemblyAI falhou: HTTP ${r.status} ${errText}`);
+  }
+  const data = (await r.json()) as { upload_url: string };
+  log.info(`[AssemblyAI Upload] OK upload_url=${data.upload_url.substring(0, 80)}...`);
+  return data.upload_url;
+}
+
+// F6.9 — Resolve a videoUrl that might be a local path. If it points to
+// /generated/, read the file and upload it to AssemblyAI; return the
+// AssemblyAI upload URL. Otherwise return the original URL unchanged.
+async function resolveVideoUrlForAssemblyAI(videoUrl: string, apiKey: string): Promise<string> {
+  // External HTTP(S) URL → pass through.
+  if (/^https?:\/\//i.test(videoUrl)) return videoUrl;
+
+  // Local path: convert "/generated/foo.mp4" → absolute filesystem path
+  // then upload directly to AssemblyAI.
+  let localPath = videoUrl;
+  if (videoUrl.startsWith('/generated/')) {
+    localPath = path.join(GENERATED_DIR, videoUrl.replace('/generated/', ''));
+  } else if (!path.isAbsolute(videoUrl)) {
+    localPath = path.join(GENERATED_DIR, videoUrl);
+  }
+  return uploadLocalFileToAssemblyAI(localPath, apiKey);
+}
 
 export const assemblyAIRouter = Router();
 
@@ -205,35 +251,37 @@ assemblyAIRouter.post('/analyze/submit', async (req, res) => {
   const { videoUrl, lightweight, languageCode } = req.body || {};
   if (!videoUrl) return res.status(400).json({ error: 'videoUrl é obrigatório.' });
 
-  // F6.8 — build request body based on mode.
-  //
-  // Heavy mode (default): universal-3-pro (best accuracy) + language detection
-  //   (2 passes — detect, then transcribe) + auto_highlights (extra processing
-  //   pass for B-roll picking). ~2-5min for a 5-min video.
-  //
-  // Lightweight mode: universal-2 (~20% faster than -3-pro, accuracy
-  //   indistinguishable for karaoke captions) + explicit language_code
-  //   (skips the detection pass) + no auto_highlights (we only need
-  //   sentences/words for Intercut). Roughly ~1-2.5min for a 5-min video.
-  const requestBody: any = lightweight
-    ? {
-        audio_url: videoUrl,
-        speech_model: 'universal-2',
-        language_code: languageCode || 'pt',
-      }
-    : {
-        audio_url: videoUrl,
-        speech_models: ['universal-3-pro', 'universal-2'],
-        language_detection: true,
-        auto_highlights: true,
-      };
-
   try {
     log.info(
       '[AssemblyAI Submit] enviando:',
       videoUrl.substring(0, 80),
       lightweight ? '(lightweight)' : '(heavy)'
     );
+
+    // F6.9 — if videoUrl is a local /generated/ path, upload to AssemblyAI
+    // first and use the returned upload_url. External http(s) URLs pass
+    // through unchanged. Solves: ZapCap renders that failed Firebase upload
+    // come back with /generated/... paths that AssemblyAI can't reach.
+    const audioUrl = await resolveVideoUrlForAssemblyAI(videoUrl, apiKey);
+
+    // F6.8 — Heavy mode (default): universal-3-pro + language detection +
+    // auto_highlights. Lightweight: universal-2 + explicit language_code +
+    // no auto_highlights. ~40-50% faster for Intercut use case.
+    const requestBody: any = lightweight
+      ? {
+          audio_url: audioUrl,
+          // F6.8 fix — AssemblyAI deprecated `speech_model` (singular).
+          // Must use `speech_models` (plural, array) even with one model.
+          speech_models: ['universal-2'],
+          language_code: languageCode || 'pt',
+        }
+      : {
+          audio_url: audioUrl,
+          speech_models: ['universal-3-pro', 'universal-2'],
+          language_detection: true,
+          auto_highlights: true,
+        };
+
     const submitResponse = await fetch('https://api.assemblyai.com/v2/transcript', {
       method: 'POST',
       headers: { authorization: apiKey, 'Content-Type': 'application/json' },
