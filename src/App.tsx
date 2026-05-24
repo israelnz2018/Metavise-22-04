@@ -5315,9 +5315,33 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-4">
-            {/* Credits chip. Gradient + soft glow so it feels like a
-                premium status indicator, not just an info pill. */}
-            <div className="hidden sm:flex items-center gap-2 px-3.5 py-2 bg-gradient-to-br from-blue-50 to-blue-100/60 dark:from-blue-950/40 dark:to-blue-900/30 rounded-xl ring-1 ring-blue-200/60 dark:ring-blue-800/60 shadow-sm shadow-blue-200/30 dark:shadow-blue-900/20">
+            {/* Credits chip. F7.6 — agora clicável: clique abre prompt pra
+                adicionar créditos rapidamente (dev convenience). Em produção
+                isso deve virar fluxo de pagamento real. */}
+            <button
+              onClick={async () => {
+                const raw = window.prompt('Quantos créditos adicionar?', '10000');
+                if (!raw) return;
+                const amount = Math.max(1, Math.min(100000, parseInt(raw, 10) || 0));
+                if (!amount) return;
+                try {
+                  const { authedFetch } = await import('@/lib/authedFetch');
+                  const res = await authedFetch('/api/user/credits/grant', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ amount }),
+                  });
+                  const data = await res.json();
+                  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+                  setCredits(data.newBalance);
+                  toast.success(`+${data.granted} créditos! Saldo: ${data.newBalance}`);
+                } catch (err: any) {
+                  toast.error(`Falha: ${err.message}`);
+                }
+              }}
+              className="hidden sm:flex items-center gap-2 px-3.5 py-2 bg-gradient-to-br from-blue-50 to-blue-100/60 dark:from-blue-950/40 dark:to-blue-900/30 rounded-xl ring-1 ring-blue-200/60 dark:ring-blue-800/60 shadow-sm shadow-blue-200/30 dark:shadow-blue-900/20 hover:ring-blue-400 transition-all"
+              title="Clique pra adicionar créditos (dev)"
+            >
               <Sparkles className="text-blue-600 dark:text-blue-400" size={15} />
               <span className="text-sm font-black text-blue-700 dark:text-blue-300 tabular-nums">
                 {credits}
@@ -5325,7 +5349,7 @@ export default function App() {
               <span className="text-[10px] font-bold text-blue-500/70 dark:text-blue-500 uppercase tracking-widest">
                 Créditos
               </span>
-            </div>
+            </button>
             <RecentProjectsButton
               projects={projects}
               currentProjectId={currentProjectId}

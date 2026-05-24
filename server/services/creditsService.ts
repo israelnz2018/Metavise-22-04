@@ -18,7 +18,12 @@
 
 import admin from 'firebase-admin';
 
-const WELCOME_CREDITS = 100;
+// F7.6 — welcome bonus bumped pra 10000 (de 100) porque cada avatar
+// custa 100 créditos. Com 100, uma única geração zerava o saldo do
+// dev usando a app. Esse número só importa pro WELCOME (novo user) e
+// pro memory fallback (dev sem Firestore creds). Produção usa o saldo
+// real do Firestore.
+const WELCOME_CREDITS = 10000;
 
 // In-memory fallback used when Firestore is unavailable.
 const memoryBalance = new Map<string, number>();
