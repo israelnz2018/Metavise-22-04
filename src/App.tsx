@@ -50,6 +50,9 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Toaster, toast } from 'react-hot-toast';
 import { getAuthorizedUrl } from './lib/gemini';
 import { generateAdCopyWithClaude, discoverPersonaWithClaude } from './lib/claudeService';
+// UX18: carrega biblioteca pessoal do user pra injetar como few-shot
+// na geração de copy. Pega na hora — ~200ms, aceitável.
+import { loadPersonalLibrary } from './lib/personalCopyLibrary';
 import { auth, db, storage } from './lib/firebase';
 import { type CachedRecommendation } from './components/AIRecommendationPanel';
 import { STEPS, AD_STYLES } from './lib/constants';
@@ -3238,9 +3241,25 @@ export default function App() {
       // The model wraps the real script in JSON, so the stream shows
       // raw JSON-ish text first; on completion we parse + replace
       // with the clean script.
+      // UX18: carrega biblioteca pessoal do user (se logado) e injeta no
+      // answers como __clientCopyLibrary — claudeService.selectCopyExamples
+      // prioriza esses sobre os sistema-wide. Falha silenciosa se não der.
+      let clientCopyLibrary: any[] = [];
+      try {
+        if (user?.uid) {
+          clientCopyLibrary = await loadPersonalLibrary(user.uid);
+        }
+      } catch {
+        clientCopyLibrary = [];
+      }
+
       let streamed = '';
       const result = await generateAdCopyWithClaude(
-        { ...config.copy.answers, estiloAnuncio: styleWithDesc },
+        {
+          ...config.copy.answers,
+          estiloAnuncio: styleWithDesc,
+          __clientCopyLibrary: clientCopyLibrary,
+        },
         config.copy.mode,
         config.angle,
         config.copy.scriptLength,

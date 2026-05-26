@@ -60,6 +60,18 @@ import { CATEGORY_LABELS } from '@/data/contentRiskTerms';
 // UX16: editor beat-by-beat (regenera só 1 beat, não a copy inteira)
 import { ScriptBeatEditor } from '@/components/ScriptBeatEditor';
 import { parseScriptBeats } from '@/lib/claudeService';
+// UX18: biblioteca pessoal de copies
+import {
+  loadPersonalLibrary,
+  addToPersonalLibrary,
+  toggleStarPersonalCopy,
+  deletePersonalCopy,
+  type PersonalCopyDoc,
+} from '@/lib/personalCopyLibrary';
+import { CopyLibraryModal } from '@/components/CopyLibraryModal';
+import { inferVertical } from '@/data/copyLibrary';
+import { auth } from '@/lib/firebase';
+import { Library, BookmarkPlus } from 'lucide-react';
 
 interface Props {
   config: AdConfig;
@@ -291,6 +303,91 @@ export function CopyTab({
   const hasBeatMarkers = parsedBeats.length >= 2;
   const [beatMode, setBeatMode] = useState<boolean>(true);
 
+  // UX18: biblioteca pessoal. Carrega na montagem, recarrega quando user
+  // muda. Modal mostra sistema + minhas, com CRUD nas minhas.
+  const [personalLibrary, setPersonalLibrary] = useState<PersonalCopyDoc[]>([]);
+  const [showLibraryModal, setShowLibraryModal] = useState(false);
+  const currentUid = auth.currentUser?.uid || null;
+  React.useEffect(() => {
+    if (!currentUid) return;
+    loadPersonalLibrary(currentUid)
+      .then(setPersonalLibrary)
+      .catch((err) => console.warn('[loadPersonalLibrary] failed:', err));
+  }, [currentUid]);
+
+  const reloadLibrary = async () => {
+    if (!currentUid) return;
+    try {
+      const list = await loadPersonalLibrary(currentUid);
+      setPersonalLibrary(list);
+    } catch (err) {
+      console.warn(err);
+    }
+  };
+
+  // Botão "Marcar como copy boa" no script atual. Salva no Firestore com
+  // vertical inferida do productInfo, awareness do answers, etc.
+  const handleSaveAsExample = async () => {
+    if (!currentUid) {
+      toast.error('Você precisa estar logado pra salvar copies.');
+      return;
+    }
+    if (!scriptToScan) {
+      toast.error('Não há copy pra salvar.');
+      return;
+    }
+    const ansLang = (config.copy?.answers?.language as string) || '';
+    const lang: 'pt' | 'en' = /port|brasil/i.test(ansLang) ? 'pt' : 'en';
+    const vertical = inferVertical({
+      produto: config.copy?.answers?.productName,
+      oferta: config.copy?.answers?.productResult,
+      dorPrincipal: config.copy?.answers?.painPoints || config.copy?.answers?.situation,
+      audience: config.copy?.answers?.audience,
+    });
+    const awareness = (String(config.copy?.answers?.awarenessLevel || '3').charAt(0) ||
+      '3') as PersonalCopyDoc['awareness'];
+    const angle = (config.copy?.answers?.angleIdea as string) || '';
+    try {
+      await addToPersonalLibrary(currentUid, {
+        vertical: vertical || 'fisico',
+        awareness,
+        angle,
+        language: lang,
+        script: scriptToScan,
+        whyItWorks: '',
+        starred: false,
+        source: 'auto-from-generated',
+      });
+      await reloadLibrary();
+      toast.success('Copy salva na sua biblioteca! IA vai usar como referência.', {
+        duration: 4000,
+      });
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro ao salvar.');
+    }
+  };
+
+  const handleToggleStar = async (copyId: string, starred: boolean) => {
+    if (!currentUid) return;
+    try {
+      await toggleStarPersonalCopy(currentUid, copyId, starred);
+      await reloadLibrary();
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro.');
+    }
+  };
+
+  const handleDeleteLibraryItem = async (copyId: string) => {
+    if (!currentUid) return;
+    try {
+      await deletePersonalCopy(currentUid, copyId);
+      await reloadLibrary();
+      toast.success('Copy removida da biblioteca.');
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro ao remover.');
+    }
+  };
+
   const handlePickVariant = (script: string) => {
     setConfig((prev: any) => ({
       ...prev,
@@ -390,9 +487,18 @@ export function CopyTab({
         </div>
       )}
 
-      {/* Sticky fill-from-source button when productInfo exists */}
-      {productInfo && (
-        <div className="flex justify-end">
+      {/* Sticky fill-from-source button + library button */}
+      <div className="flex justify-end gap-2">
+        {/* UX18: abre modal da biblioteca (sistema + minhas) */}
+        <button
+          onClick={() => setShowLibraryModal(true)}
+          className="px-4 py-2.5 bg-white dark:bg-gray-900/80 ring-1 ring-gray-300 dark:ring-gray-700 text-gray-700 dark:text-gray-200 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800"
+          title="Vê e gerencia a biblioteca de copies que a IA usa como referência"
+        >
+          <Library size={14} />
+          Biblioteca ({personalLibrary.length})
+        </button>
+        {productInfo && (
           <button
             onClick={handleFillFromSource}
             className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow flex items-center gap-2"
@@ -401,8 +507,17 @@ export function CopyTab({
             <Sparkles size={14} />
             Preencha automaticamente
           </button>
-        </div>
-      )}
+        )}
+      </div>
+
+      {/* UX18: modal da biblioteca */}
+      <CopyLibraryModal
+        open={showLibraryModal}
+        onClose={() => setShowLibraryModal(false)}
+        personalLibrary={personalLibrary}
+        onToggleStar={handleToggleStar}
+        onDelete={handleDeleteLibraryItem}
+      />
 
       {/* Loading Overlay for project opening */}
       {isProjectLoading && (
@@ -1667,7 +1782,16 @@ export function CopyTab({
                           Copy Original
                         </h4>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 flex-wrap">
+                        {/* UX18: salva na biblioteca pessoal pra IA usar de referência */}
+                        <button
+                          onClick={handleSaveAsExample}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest transition-all"
+                          title="Adiciona esta copy à sua biblioteca pessoal — IA usará como referência nas próximas gerações"
+                        >
+                          <BookmarkPlus size={12} />
+                          Marcar como copy boa
+                        </button>
                         {/* UX15: botão self-critique. IA pontua 6 dimensões e
                             reescreve se score baixo. Custo extra: 1 chamada. */}
                         <button
