@@ -1810,6 +1810,22 @@ export default function App() {
       const docRef = await addDoc(collection(db, 'projects'), projectData);
       setCurrentProjectId(docRef.id);
       setConfig(projectData.config as AdConfig);
+      // UX8: reset comprehensive — antes só config era trocado. Top-level
+      // state (audios, videos, audioUrl, etc) + currentVariantId continuavam
+      // apontando pro projeto ANTERIOR. Auto-save 2s depois persistia esses
+      // assets antigos no projeto novo. Mesma família de bugs que UX6
+      // (variant) e agora aplicado pra criar projeto novo. Espelha o reset
+      // que handleLoadProject ja faz.
+      setCurrentVariantId(null);
+      setAudioUrl(null);
+      setAudioStoragePath(null);
+      setAudios([]);
+      setVideoUrl(null);
+      setVideoStoragePath(null);
+      setVideos([]);
+      setLastVideoMetadata(null);
+      setGenerationStage('idle');
+      setHasUnsavedCopyChanges(false);
       setShowNewProjectModal(false);
       setNewProjectName('');
       // Reset Blueprint Fase 4 escolha pra não vazar pra próximo projeto.

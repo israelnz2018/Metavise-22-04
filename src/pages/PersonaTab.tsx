@@ -277,10 +277,10 @@ export function PersonaTab({
           <button
             onClick={handleFillFromSource}
             className="shrink-0 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow flex items-center gap-2"
-            title="Usa a IA pra preencher os 9 campos com base na Fonte do Produto"
+            title="Usa a IA pra preencher os 9 campos automaticamente com base na Fonte do Produto"
           >
             <Sparkles size={14} />
-            Preencher com fonte
+            Preencha automaticamente
           </button>
         )}
       </div>

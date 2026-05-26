@@ -218,10 +218,10 @@ export function CopyTab({
           <button
             onClick={handleFillFromSource}
             className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow flex items-center gap-2"
-            title="Preenche todos os campos de Copy com base na Fonte do Produto"
+            title="Preenche todos os campos de Copy automaticamente com base na Fonte do Produto"
           >
             <Sparkles size={14} />
-            Preencher com fonte
+            Preencha automaticamente
           </button>
         </div>
       )}
