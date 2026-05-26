@@ -61,10 +61,24 @@ interface Props {
   onClose: () => void;
   /** F6.11 — Fires "Gerar". Modal now passes settings alongside insertions
    *  so the parent can forward them in the /api/video/intercut payload.
-   *  F6.12 — adds `uppercase` flag. */
+   *  F6.12 — adds `uppercase` flag.
+   *  F6.15 — adds `textColor`, `highlightColor`, `highlightMode`.
+   *  F6.16 — adds `popAnimation` toggle.
+   *  F6.17/F6.18/F6.19 — adds `outlineColor`, `fontFamily`, `background`. */
   onRender: (
     insertions: Insertion[],
-    settings: { wordsPerLine: number; mergeThresholdSec: number; uppercase: boolean }
+    settings: {
+      wordsPerLine: number;
+      mergeThresholdSec: number;
+      uppercase: boolean;
+      textColor: string;
+      highlightColor: string;
+      highlightMode: 'text' | 'background' | 'both' | 'none';
+      popAnimation: boolean;
+      outlineColor: string;
+      fontFamily: string;
+      background: 'black' | 'space' | 'gradient';
+    }
   ) => void;
 }
 
@@ -83,6 +97,24 @@ export function IntercutModal({
   const [mergeThresholdSec, setMergeThresholdSec] = useState<number>(0.5);
   // F6.12 — caps + font. Default uppercase=true (estilo ZapCap pop-up).
   const [uppercase, setUppercase] = useState<boolean>(true);
+  // F6.15 — cor base do texto + cor de destaque + modo de destaque.
+  // Defaults: branco, roxo, e modo "texto" (compatível com versão anterior).
+  const [textColor, setTextColor] = useState<string>('#FFFFFF');
+  const [highlightColor, setHighlightColor] = useState<string>('#9333EA');
+  const [highlightMode, setHighlightMode] = useState<'text' | 'background' | 'both' | 'none'>(
+    'text'
+  );
+  // F6.16 — animação "pop" do retângulo (scale-in tipo TikTok).
+  // Default off pra não surpreender quem já tinha gerações sem animação.
+  const [popAnimation, setPopAnimation] = useState<boolean>(false);
+  // F6.17 — cor da borda (outline) das letras. Default preto.
+  const [outlineColor, setOutlineColor] = useState<string>('#000000');
+  // F6.18 — escolha de fonte. Bundled fonts: Anton, Bebas Neue, Inter Black,
+  // Montserrat Black, Oswald. Impact é fallback do sistema.
+  const [fontFamily, setFontFamily] = useState<string>('Impact');
+  // F6.19 — fundo do segmento. 'black' = preto (default, comportamento atual).
+  // 'space' = starfield gerado via ffmpeg lavfi. 'gradient' = cor com hue shift.
+  const [background, setBackground] = useState<'black' | 'space' | 'gradient'>('black');
   const [transcriptId, setTranscriptId] = useState<string | null>(null);
   const [sentences, setSentences] = useState<Sentence[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
@@ -350,7 +382,18 @@ export function IntercutModal({
     }
     // Sort by atSec so the backend processes them in order.
     const sorted = [...insertions].sort((a, b) => a.atSec - b.atSec);
-    onRender(sorted, { wordsPerLine, mergeThresholdSec, uppercase });
+    onRender(sorted, {
+      wordsPerLine,
+      mergeThresholdSec,
+      uppercase,
+      textColor,
+      highlightColor,
+      highlightMode,
+      popAnimation,
+      outlineColor,
+      fontFamily,
+      background,
+    });
   };
 
   if (!open) return null;
@@ -650,6 +693,179 @@ export function IntercutModal({
             </p>
           </div>
         </label>
+
+        {/* F6.18/F6.19 — Fonte + Fundo do segmento. Bloco separado pra
+            decisões "visuais gerais" (vs destaque que é por palavra). */}
+        <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/40 ring-1 ring-gray-200/60 dark:ring-gray-700/60 space-y-4">
+          <p className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300">
+            🅰️ Tipografia & Fundo
+          </p>
+
+          <div className="grid grid-cols-2 gap-3">
+            {/* Fonte */}
+            <div>
+              <label className="text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-400 block mb-1.5">
+                Fonte
+              </label>
+              <select
+                value={fontFamily}
+                onChange={(e) => setFontFamily(e.target.value)}
+                disabled={rendering}
+                className="w-full p-2.5 bg-white dark:bg-gray-900 ring-1 ring-gray-200 dark:ring-gray-700 rounded-lg text-xs font-bold text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-purple-500 outline-none"
+              >
+                <option value="Impact">Impact (sistema)</option>
+                <option value="Anton">Anton (TikTok-style)</option>
+                <option value="Bebas Neue">Bebas Neue (condensada)</option>
+                <option value="Inter Black">Inter Black (moderna)</option>
+                <option value="Montserrat Black">Montserrat Black (geométrica)</option>
+                <option value="Oswald">Oswald (slim bold)</option>
+              </select>
+            </div>
+
+            {/* Fundo */}
+            <div>
+              <label className="text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-400 block mb-1.5">
+                Fundo do corte
+              </label>
+              <select
+                value={background}
+                onChange={(e) => setBackground(e.target.value as 'black' | 'space' | 'gradient')}
+                disabled={rendering}
+                className="w-full p-2.5 bg-white dark:bg-gray-900 ring-1 ring-gray-200 dark:ring-gray-700 rounded-lg text-xs font-bold text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-purple-500 outline-none"
+              >
+                <option value="black">Preto sólido</option>
+                <option value="space">Espaço (estrelas piscando)</option>
+                <option value="gradient">Gradient animado</option>
+              </select>
+            </div>
+          </div>
+
+          <p className="text-[10px] text-gray-500 dark:text-gray-400">
+            💡 Backgrounds são gerados em tempo real (sem download). Pra vídeo de fundo customizado
+            (ex: viagem espacial real), me peça depois — adiciono upload de MP4.
+          </p>
+        </div>
+
+        {/* F6.15 — controles de cor + modo de destaque da palavra falada.
+            Bloco visual separado do resto pra ficar claro que são opções
+            ligadas (cores + comportamento do destaque andam juntos). */}
+        <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/40 ring-1 ring-gray-200/60 dark:ring-gray-700/60 space-y-4">
+          <p className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300">
+            🎨 Destaque da palavra falada
+          </p>
+
+          {/* Modo de destaque */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-400">
+              Onde aparece o destaque
+            </label>
+            <div className="grid grid-cols-4 gap-1.5">
+              {(
+                [
+                  { id: 'text', label: 'Texto', desc: 'Letra muda de cor' },
+                  { id: 'background', label: 'Fundo', desc: 'Halo atrás da palavra' },
+                  { id: 'both', label: 'Ambos', desc: 'Letra + halo' },
+                  { id: 'none', label: 'Nenhum', desc: 'Sem destaque' },
+                ] as const
+              ).map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => setHighlightMode(m.id)}
+                  disabled={rendering}
+                  title={m.desc}
+                  className={`py-2 px-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                    highlightMode === m.id
+                      ? 'bg-purple-600 text-white shadow-sm'
+                      : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-purple-50 dark:hover:bg-purple-950/40 ring-1 ring-gray-200 dark:ring-gray-700'
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Color pickers — escondidos quando modo='none' (não fazem efeito).
+              F6.17 — adicionado picker da BORDA (outline) das letras junto. */}
+          {highlightMode !== 'none' && (
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-400 block mb-1.5">
+                  Cor do texto
+                </label>
+                <div className="flex items-center gap-2 p-2 bg-white dark:bg-gray-900 rounded-lg ring-1 ring-gray-200 dark:ring-gray-700">
+                  <input
+                    type="color"
+                    value={textColor}
+                    onChange={(e) => setTextColor(e.target.value)}
+                    disabled={rendering}
+                    className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
+                  />
+                  <span className="font-mono text-[10px] text-gray-700 dark:text-gray-300 uppercase">
+                    {textColor}
+                  </span>
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-400 block mb-1.5">
+                  Cor da borda
+                </label>
+                <div className="flex items-center gap-2 p-2 bg-white dark:bg-gray-900 rounded-lg ring-1 ring-gray-200 dark:ring-gray-700">
+                  <input
+                    type="color"
+                    value={outlineColor}
+                    onChange={(e) => setOutlineColor(e.target.value)}
+                    disabled={rendering}
+                    className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
+                  />
+                  <span className="font-mono text-[10px] text-gray-700 dark:text-gray-300 uppercase">
+                    {outlineColor}
+                  </span>
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-400 block mb-1.5">
+                  Cor do destaque
+                </label>
+                <div className="flex items-center gap-2 p-2 bg-white dark:bg-gray-900 rounded-lg ring-1 ring-gray-200 dark:ring-gray-700">
+                  <input
+                    type="color"
+                    value={highlightColor}
+                    onChange={(e) => setHighlightColor(e.target.value)}
+                    disabled={rendering}
+                    className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
+                  />
+                  <span className="font-mono text-[10px] text-gray-700 dark:text-gray-300 uppercase">
+                    {highlightColor}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* F6.16 — Animação "pop" do retângulo (TikTok/CapCut style).
+              Só faz sentido nos modos que desenham retângulo: background e both. */}
+          {(highlightMode === 'background' || highlightMode === 'both') && (
+            <label className="flex items-center gap-3 cursor-pointer select-none p-3 bg-white dark:bg-gray-900 rounded-lg ring-1 ring-gray-200 dark:ring-gray-700">
+              <input
+                type="checkbox"
+                checked={popAnimation}
+                onChange={(e) => setPopAnimation(e.target.checked)}
+                disabled={rendering}
+                className="w-5 h-5 accent-purple-600"
+              />
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300">
+                  ✨ Animar destaque (pop)
+                </p>
+                <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                  Retângulo entra escalando 90% → 108% → 100% (~250ms). Estilo TikTok/CapCut.
+                </p>
+              </div>
+            </label>
+          )}
+        </div>
 
         {/* Ações */}
         <div className="flex gap-3 pt-2">

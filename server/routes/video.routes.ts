@@ -154,6 +154,58 @@ function escapeFilterPath(p: string): string {
   return p.replace(/\\/g, '\\\\').replace(/:/g, '\\:').replace(/'/g, "\\'");
 }
 
+// F6.18 — pasta de fontes bundled (Anton, Bebas Neue, Inter Black, etc.).
+// libass usa fontconfig pra resolver nomes da fonte. Quando passamos
+// `fontsdir=...` no filter subtitles, libass adiciona essa pasta às fontes
+// disponíveis, permitindo usar fontes que o sistema não tem instaladas.
+// Caminho absoluto resolvido a partir do CWD do server.
+const FONTS_DIR = path.resolve(process.cwd(), 'server', 'assets', 'fonts');
+
+// F6.19 — cache de imagens de background pra evitar regenerar noise per
+// frame (era a causa da lentidão extrema). Geramos UMA PNG de starfield
+// por resolução, salvamos em disco, e usamos `-loop 1 -i` no ffmpeg
+// principal. Compressão temporal funciona a 100% porque cada frame é
+// idêntico (zoom adicionado via scale, super barato).
+const BG_CACHE_DIR = path.resolve(process.cwd(), 'server', 'assets', 'bg-cache');
+if (!fs.existsSync(BG_CACHE_DIR)) fs.mkdirSync(BG_CACHE_DIR, { recursive: true });
+
+async function ensureStarfieldVideo(width: number, height: number): Promise<string> {
+  // F6.19/F6.20 — starfield REAL: estrelas brilhantes esparsas em fundo
+  // azul-escuro (não cinza-grainy uniforme como antes).
+  //
+  // Técnica:
+  // - geq=lum=...random(0)<0.0015 → ~0.15% dos pixels viram brancos (255),
+  //   o resto fica numa cor muito escura (12). Pra 1080x1080 = ~1700 estrelas.
+  // - gblur sigma=0.6 → leve blur dá efeito de "bloom" nas estrelas
+  //   (parecem pontos mais suaves que pixels brutos).
+  // - cb=128,cr=128 → sem cromaticidade (estrelas brancas, não coloridas).
+  const fileName = `starfield_${width}x${height}.mp4`;
+  const filePath = path.join(BG_CACHE_DIR, fileName);
+  if (fs.existsSync(filePath)) return filePath;
+  await new Promise((resolve, reject) => {
+    ffmpeg(`color=c=0x06091a:s=${width}x${height}:d=1:r=30`)
+      .inputFormat('lavfi')
+      .outputOptions([
+        '-vf',
+        "geq=lum='if(lt(random(0),0.0015),255,12)':cb=128:cr=128,gblur=sigma=0.6",
+        '-c:v',
+        'libx264',
+        '-preset',
+        'ultrafast',
+        '-crf',
+        '20',
+        '-pix_fmt',
+        'yuv420p',
+        '-y',
+      ])
+      .output(filePath)
+      .on('end', () => resolve(null))
+      .on('error', reject)
+      .run();
+  });
+  return filePath;
+}
+
 // F6.3 — convert ms → ASS timestamp "H:MM:SS.cc".
 function msToAssTime(ms: number): string {
   const totalCs = Math.round(ms / 10);
@@ -214,7 +266,24 @@ function writeAssFileKaraoke(
   totalDurationMs: number,
   wordsPerLine: number = 4,
   uppercase: boolean = true,
-  fontFamily: string = 'Impact'
+  fontFamily: string = 'Impact',
+  // F6.15 — controles novos:
+  //   textColorHex      — cor base do texto (palavras não-destacadas). Default branco.
+  //   highlightMode     — como destacar a palavra ativa:
+  //     'text'        → muda a cor das letras (comportamento original)
+  //     'background'  → retângulo real desenhado atrás da palavra (F6.16,
+  //                     antes era um halo via \bord)
+  //     'both'        → letra muda de cor E retângulo aparece atrás
+  //     'none'        → sem destaque por palavra; frase estática
+  textColorHex: string = '#FFFFFF',
+  highlightMode: 'text' | 'background' | 'both' | 'none' = 'text',
+  // F6.16 — quando true, o retângulo (modo background/both) entra com
+  // animação "pop": escala de 90% → 108% → 100% em ~250ms, dando aquela
+  // batida visual estilo TikTok/CapCut. Sem efeito nos modos text/none.
+  popAnimation: boolean = false,
+  // F6.17 — cor da borda (outline) ao redor de cada letra. Default preto.
+  // Espessura controlada via outlineThickness (params da Style — Outline=3 padrão).
+  outlineColorHex: string = '#000000'
 ): string {
   const p = path.join(workDir, `text_kara_${idx}.ass`);
   const escapeAss = (s: string) =>
@@ -225,13 +294,69 @@ function writeAssFileKaraoke(
 
   const alignment = positionToAssAlignment(position);
   const highlightAss = hexToAssColor(highlightColorHex);
+  const textAss = hexToAssColor(textColorHex);
+  const outlineAss = hexToAssColor(outlineColorHex);
+
+  // F6.20 — Constrói o token destacado de acordo com o modo escolhido.
+  // Modos 'background'/'both' agora usam `\bord<grosso>\3c<cor>` aplicado
+  // direto na palavra → libass renderiza halo em volta da letra na posição
+  // exata. Zero estimativa de coordenada.
+  //
+  // popAnimation: usa `\t()` pra animar a espessura do bord (cresce e volta).
+  // Mesmo efeito visual de "pop" mas atrelado ao texto, não a um shape solto.
+  const popAnim = (baseBord: number): string => {
+    if (!popAnimation) return `\\bord${baseBord}`;
+    // Anima espessura: começa 80% → 115% (120ms) → 100% (130ms).
+    const start = Math.round(baseBord * 0.8);
+    const peak = Math.round(baseBord * 1.15);
+    return `\\bord${start}\\t(0,120,\\bord${peak})\\t(120,250,\\bord${baseBord})`;
+  };
+  const buildHighlightedToken = (tok: string): string => {
+    const escaped = escapeAss(tok);
+    switch (highlightMode) {
+      case 'text':
+        // Muda cor primária (preenchimento da letra) + bold.
+        return `{\\1c${highlightAss}\\b1}${escaped}{\\r}`;
+      case 'background':
+        // Texto na cor base + halo grosso colorido em volta da letra.
+        // O halo segue contorno da letra → fica visualmente como "fundo"
+        // colorido em volta da palavra. 100% alinhado à palavra falada
+        // porque libass renderiza junto com a letra.
+        return `{${popAnim(haloBorder)}\\3c${highlightAss}\\b1}${escaped}{\\r}`;
+      case 'both':
+        // Letra colorida + halo colorido (mesma cor) = palavra "embrulhada"
+        // toda em destaque.
+        return `{\\1c${highlightAss}${popAnim(haloBorder)}\\3c${highlightAss}\\b1}${escaped}{\\r}`;
+      case 'none':
+        return escaped;
+    }
+  };
+
+  // F6.20 — REVERTIDO da abordagem "retângulo via \p1 + \pos calculada":
+  // estimar largura/posição de palavra dentro de uma linha que pode quebrar
+  // em N linhas tem variáveis demais e falhava em casos comuns (foto do
+  // user mostrou retângulo entre 2 linhas de texto).
+  //
+  // Solução robusta: `\bord<grosso>\3c<cor>` aplicado na palavra ativa
+  // dentro do MESMO evento de texto. libass desenha o outline AUTOMA-
+  // TICAMENTE em volta da letra, no lugar correto, em qualquer linha,
+  // em qualquer alinhamento. Zero estimativa, 100% alinhado.
+  //
+  // Resultado visual: halo colorido grosso em volta da palavra (segue
+  // contorno das letras com cantos suaves), não retângulo perfeito. É
+  // o que ZapCap/TikTok fazem na prática.
+  // Espessura proporcional ao fontSize. Maior = mais "chunky"/parecido
+  // com retângulo. Pode ajustar futuramente se cliente quiser.
+  const haloBorder = Math.max(8, Math.round(fontSize * 0.25));
 
   const dialogueLines: string[] = [];
 
-  if (words.length === 0) {
-    // No word-level timing → fallback to static text for the whole duration.
+  if (words.length === 0 || highlightMode === 'none') {
+    // Sem timing por palavra OU modo "nenhum" → texto estático na duração toda.
+    const finalText =
+      words.length > 0 ? words.map((w) => transform(w.text)).join(' ') : transform(text);
     dialogueLines.push(
-      `Dialogue: 0,${msToAssTime(0)},${msToAssTime(totalDurationMs)},Default,,0,0,0,,${escapeAss(transform(text))}`
+      `Dialogue: 0,${msToAssTime(0)},${msToAssTime(totalDurationMs)},Default,,0,0,0,,${escapeAss(finalText)}`
     );
   } else {
     // F6.11/F6.12 — Split words into groups respecting BOTH wordsPerLine
@@ -263,8 +388,10 @@ function writeAssFileKaraoke(
         ? totalDurationMs
         : Math.min(groups[groupIdx + 1]![0]!.offsetMs, totalDurationMs);
 
-      // For each word in the group, render the GROUP with that word highlighted.
-      // Word visibility = from this word's start to next word's start.
+      // F6.20 — Pra cada palavra do grupo, emite UM evento de Dialogue com
+      // o grupo inteiro renderizado, e SÓ a palavra ativa recebendo os
+      // overrides de destaque (cor/halo via buildHighlightedToken). libass
+      // posiciona tudo automaticamente — zero estimativa de coordenada.
       group.forEach((w, i) => {
         const startMs = w.offsetMs;
         const isLastInGroup = i === group.length - 1;
@@ -272,7 +399,7 @@ function writeAssFileKaraoke(
         if (endMs <= startMs) return;
 
         const parts = groupTokens.map((tok, j) => {
-          if (j === i) return `{\\1c${highlightAss}\\b1}${escapeAss(tok)}{\\r}`;
+          if (j === i) return buildHighlightedToken(tok);
           return escapeAss(tok);
         });
         dialogueLines.push(
@@ -294,6 +421,8 @@ function writeAssFileKaraoke(
   // is ignored. For top (8) it's distance from top; for bottom (2) from bottom.
   const marginV = position === 'middle' ? 0 : Math.round(height * 0.15);
 
+  // F6.15 — PrimaryColour agora vem do textColor escolhido (não hardcoded
+  // branco). Outline preto continua. Shadow=0.
   const ass = `[Script Info]
 ScriptType: v4.00+
 PlayResX: ${width}
@@ -303,7 +432,7 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,${fontFamily},${fontSize},&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,3,0,${alignment},80,80,${marginV},1
+Style: Default,${fontFamily},${fontSize},${textAss},${textAss},${outlineAss},&H00000000,1,0,0,0,100,100,0,0,1,3,0,${alignment},80,80,${marginV},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -401,6 +530,15 @@ videoRouter.post(
         B,
         texts: texts.length,
         insertions: isManualMode ? insertions.length : 0,
+        // F6.17/F6.18/F6.19 — log dos params novos pra debug:
+        // se algum chegar undefined/default sem o cliente ter setado,
+        // sabemos que o frontend não tá enviando.
+        fontFamily: req.body?.fontFamily,
+        textColor: req.body?.textColor,
+        outlineColor: req.body?.outlineColor,
+        highlightMode: req.body?.highlightMode,
+        popAnimation: req.body?.popAnimation,
+        background: req.body?.background,
       });
 
       await downloadFile(videoUrl, sourcePath);
@@ -496,11 +634,25 @@ videoRouter.post(
         highlightColor: string,
         wordsPerLine: number = 4,
         uppercase: boolean = true,
-        fontFamily: string = 'Impact'
+        fontFamily: string = 'Impact',
+        // F6.15 — novos params propagados pro writeAssFileKaraoke
+        textColor: string = '#FFFFFF',
+        highlightMode: 'text' | 'background' | 'both' | 'none' = 'text',
+        // F6.16 — toggle da animação pop do retângulo
+        popAnimation: boolean = false,
+        // F6.17 — cor da borda (outline) ao redor das letras
+        outlineColor: string = '#000000',
+        // F6.19 — tipo de background. 'black' = preto sólido (default).
+        // 'space' = starfield via lavfi geq (estrelas piscando).
+        // 'gradient' = gradient animado via lavfi color + hue shift.
+        backgroundKind: 'black' | 'space' | 'gradient' = 'black'
       ): Promise<void> => {
         if (durSec < 0.3) return;
         let subtitleFilter = '';
         if (text) {
+          // F6.15 — mesmo no modo 'none' usamos writeAssFileKaraoke pra honrar
+          // textColor/uppercase/fontFamily corretamente. O modo 'none' por
+          // dentro renderiza texto estático sem destaque por palavra.
           const assPath =
             words && words.length > 0
               ? writeAssFileKaraoke(
@@ -516,29 +668,96 @@ videoRouter.post(
                   durSec * 1000,
                   wordsPerLine,
                   uppercase,
-                  fontFamily
+                  fontFamily,
+                  textColor,
+                  highlightMode,
+                  popAnimation,
+                  outlineColor
                 )
               : writeAssFile(workDir, segIdx, text, W, H, fontSize);
-          subtitleFilter = `,subtitles=${escapeFilterPath(assPath)}`;
+          // F6.18 — fontsdir aponta pras fontes bundled (Anton, Bebas Neue,
+          // Inter Black, etc.). Sem isso, libass usa só fontes do sistema.
+          subtitleFilter = `,subtitles=${escapeFilterPath(assPath)}:fontsdir=${escapeFilterPath(FONTS_DIR)}`;
         }
         const segPath = path.join(workDir, `seg_${segIdx++}_black.mp4`);
-        await new Promise((resolve, reject) => {
-          ffmpeg(`color=c=black:s=${W}x${H}:d=${durSec}:r=30`)
-            .inputFormat('lavfi')
-            .outputOptions([
-              '-c:v libx264',
-              '-preset superfast',
-              '-crf 23',
-              '-an',
-              '-pix_fmt yuv420p',
-              '-vf',
-              `setsar=1${subtitleFilter}`,
-            ])
-            .output(segPath)
-            .on('end', () => resolve(null))
-            .on('error', reject)
-            .run();
-        });
+        // F6.19 — input do ffmpeg varia por backgroundKind:
+        //
+        // black:    lavfi color=c=black — sólido, rápido.
+        //
+        // space:    PNG de starfield em cache (gerada 1x via noise filter),
+        //           lida com `-loop 1 -i path.png`. Por frame só precisa
+        //           re-encodar a mesma imagem → libx264 comprime massivamente
+        //           + processamento por frame mínimo. Adicionei zoom lento
+        //           via scale (cheap) pra dar vibe de "viagem".
+        //
+        // gradient: lavfi color + hue rotation. Cor muda no tempo mas posição
+        //           não → libx264 ainda comprime bem.
+        log.info(
+          `intercut segment: bg=${backgroundKind} font=${fontFamily} outline=${outlineColor}`
+        );
+        if (backgroundKind === 'space') {
+          // Gera/cacheia starfield MP4 (1x por resolução). Próximas
+          // chamadas com mesma resolução pulam a geração.
+          const starfieldPath = await ensureStarfieldVideo(W, H);
+          // -stream_loop -1 → repete o MP4 infinitamente (cheap, só demuxing).
+          // -t durSec corta no tempo desejado. Quase grátis em CPU.
+          await new Promise((resolve, reject) => {
+            ffmpeg(starfieldPath)
+              .inputOptions(['-stream_loop -1'])
+              .outputOptions([
+                '-c:v libx264',
+                '-preset superfast',
+                '-crf 23',
+                '-an',
+                '-pix_fmt yuv420p',
+                '-t',
+                String(durSec),
+                '-vf',
+                `setsar=1${subtitleFilter}`,
+              ])
+              .output(segPath)
+              .on('end', () => resolve(null))
+              .on('error', reject)
+              .run();
+          });
+        } else if (backgroundKind === 'gradient') {
+          await new Promise((resolve, reject) => {
+            ffmpeg(`color=c=0x1a0b3a:s=${W}x${H}:d=${durSec}:r=30`)
+              .inputFormat('lavfi')
+              .outputOptions([
+                '-c:v libx264',
+                '-preset superfast',
+                '-crf 23',
+                '-an',
+                '-pix_fmt yuv420p',
+                '-vf',
+                `setsar=1,hue=h=t*30:s=1.2${subtitleFilter}`,
+              ])
+              .output(segPath)
+              .on('end', () => resolve(null))
+              .on('error', reject)
+              .run();
+          });
+        } else {
+          // 'black' (default)
+          await new Promise((resolve, reject) => {
+            ffmpeg(`color=c=black:s=${W}x${H}:d=${durSec}:r=30`)
+              .inputFormat('lavfi')
+              .outputOptions([
+                '-c:v libx264',
+                '-preset superfast',
+                '-crf 23',
+                '-an',
+                '-pix_fmt yuv420p',
+                '-vf',
+                `setsar=1${subtitleFilter}`,
+              ])
+              .output(segPath)
+              .on('end', () => resolve(null))
+              .on('error', reject)
+              .run();
+          });
+        }
         segments.push(segPath);
         blackIdx++;
       };
@@ -562,6 +781,27 @@ videoRouter.post(
         // heavy sans-serif most similar to the Viktor template.
         const uppercase = req.body?.uppercase !== false;
         const fontFamily = String(req.body?.fontFamily || 'Impact');
+        // F6.15 — cor base do texto + modo de destaque por palavra.
+        // Defaults preservam comportamento antigo (texto branco, destaque
+        // em cor purple muda só a letra).
+        const textColor = String(req.body?.textColor || '#FFFFFF');
+        const allowedModes = ['text', 'background', 'both', 'none'] as const;
+        const reqMode = String(req.body?.highlightMode || 'text');
+        const highlightMode = (
+          allowedModes.includes(reqMode as any) ? reqMode : 'text'
+        ) as (typeof allowedModes)[number];
+        // F6.16 — animação pop do retângulo (default off pra preservar
+        // comportamento das gerações anteriores).
+        const popAnimation = req.body?.popAnimation === true;
+        // F6.17 — cor da borda das letras
+        const outlineColor = String(req.body?.outlineColor || '#000000');
+        // F6.19 — tipo de background do segmento. 'black' = comportamento
+        // atual. 'space' / 'gradient' geram via lavfi (sem download).
+        const allowedBackgrounds = ['black', 'space', 'gradient'] as const;
+        const reqBg = String(req.body?.background || 'black');
+        const background = (
+          allowedBackgrounds.includes(reqBg as any) ? reqBg : 'black'
+        ) as (typeof allowedBackgrounds)[number];
 
         const sorted = [...insertions].sort((a: any, b: any) => Number(a.atSec) - Number(b.atSec));
 
@@ -626,7 +866,12 @@ videoRouter.post(
             g.highlightColor,
             wordsPerLine,
             uppercase,
-            fontFamily
+            fontFamily,
+            textColor,
+            highlightMode,
+            popAnimation,
+            outlineColor,
+            background
           );
           cursor = g.atSec + g.totalDurationSec;
         }

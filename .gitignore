@@ -71,3 +71,6 @@ playwright/.cache/
 
 # ytdl-core debug dumps (emitted on player parse failures)
 *-player-script.js
+
+# Background cache (generated at runtime by intercut feature)
+server/assets/bg-cache/

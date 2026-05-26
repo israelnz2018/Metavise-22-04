@@ -28,6 +28,22 @@
       color 200ms ease;
   }
 
+  /* Fundo do html/body em si (não só do .app-shell). Sem isso, em dark
+     mode a barra de rolagem vertical revela o body branco padrão por
+     trás do track transparente → aquele "rastrinho branco" do lado
+     direito. Também resolve o flash branco no overscroll-bounce do
+     macOS. color-scheme:dark sinaliza pro browser usar elementos
+     nativos (scrollbar do macOS) no tema escuro. */
+  html,
+  body {
+    background-color: #ffffff;
+  }
+  html.dark,
+  html.dark body {
+    background-color: #08090f;
+    color-scheme: dark;
+  }
+
   /* Main app background — subtle radial glow at the top + soft
      vertical gradient. Inspired by Linear/Vercel: looks like a flat
      color at a glance, but the eye picks up the depth. The blue tint
@@ -63,12 +79,32 @@
     background-clip: content-box;
   }
   html.dark ::-webkit-scrollbar-thumb {
-    background: rgb(255 255 255 / 0.12);
+    /* 0.12 era invisível demais em dark — bumpado pra 0.2 default e
+       0.4 no hover. Agora dá pra identificar onde a barra está. */
+    background: rgb(255 255 255 / 0.2);
     background-clip: content-box;
   }
   html.dark ::-webkit-scrollbar-thumb:hover {
-    background: rgb(255 255 255 / 0.22);
+    background: rgb(255 255 255 / 0.4);
     background-clip: content-box;
+  }
+
+  /* Firefox: scrollbar-color define [thumb] [track] em uma linha. */
+  html {
+    scrollbar-color: rgb(0 0 0 / 0.15) transparent;
+    scrollbar-width: thin;
+  }
+  html.dark {
+    scrollbar-color: rgb(255 255 255 / 0.2) transparent;
+  }
+
+  /* Utility pra esconder scrollbar mas manter scroll funcional. Usado na
+     wizard nav do header (overflow-x-auto sem mostrar barra feia). */
+  .scrollbar-hide {
+    scrollbar-width: none; /* Firefox */
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Edge */
   }
 
   /* Softer focus rings — Tailwind's default works for keyboard

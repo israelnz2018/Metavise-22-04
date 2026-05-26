@@ -55,7 +55,8 @@ interface Props {
   }) => Promise<void> | void;
   handleRenderHeadline: () => Promise<void> | void;
   /** F6.5 — aceita insertions[] (modo manual). F6.11 — opcional settings
-   *  com wordsPerLine + mergeThresholdSec do modal. */
+   *  com wordsPerLine + mergeThresholdSec do modal.
+   *  F6.15 — adiciona textColor, highlightColor, highlightMode. */
   handleRenderIntercut: (
     insertions: Array<{
       id: string;
@@ -65,7 +66,18 @@ interface Props {
       position: 'top' | 'middle' | 'bottom';
       words: Array<{ text: string; offsetMs: number; durationMs: number }>;
     }>,
-    settings?: { wordsPerLine?: number; mergeThresholdSec?: number; uppercase?: boolean }
+    settings?: {
+      wordsPerLine?: number;
+      mergeThresholdSec?: number;
+      uppercase?: boolean;
+      textColor?: string;
+      highlightColor?: string;
+      highlightMode?: 'text' | 'background' | 'both' | 'none';
+      popAnimation?: boolean;
+      outlineColor?: string;
+      fontFamily?: string;
+      background?: 'black' | 'space' | 'gradient';
+    }
   ) => Promise<void> | void;
   fetchZapCapTemplates: () => Promise<void> | void;
   zapCapTemplates: any[];

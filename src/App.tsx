@@ -250,6 +250,19 @@ export default function App() {
   // by the hook; Tailwind's `dark:` variant takes care of the rest.
   const { isDark, toggle: toggleDarkMode } = useDarkMode();
   const [currentStep, setCurrentStep] = useState<Step>('projects');
+  // Ref pro container scrollável da wizard nav. Quando currentStep muda,
+  // useEffect abaixo rola a aba ativa pra ficar visível (necessário quando
+  // a nav é mais larga que o viewport e overflow-x-auto fica ativo).
+  const wizardNavRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const container = wizardNavRef.current;
+    if (!container) return;
+    const active = container.querySelector(`[data-step-id="${currentStep}"]`) as HTMLElement | null;
+    if (!active) return;
+    // scrollIntoView com inline:center deixa a aba ativa centralizada na
+    // viewport da nav, sem mexer no scroll vertical da página.
+    active.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }, [currentStep]);
   const [deleteProjectConfirmId, setDeleteProjectConfirmId] = useState<string | null>(null);
   const [voiceSource, setVoiceSource] = useState<'copy' | 'hook'>('copy');
   const [previewAvatar, setPreviewAvatar] = useState<any>(null);
@@ -4723,9 +4736,21 @@ export default function App() {
       position: 'top' | 'middle' | 'bottom';
       words: Array<{ text: string; offsetMs: number; durationMs: number }>;
     }>,
-    // F6.11/F6.12 — settings global passados pelo modal: palavras por linha,
-    // threshold de fusão de cortes, uppercase toggle.
-    settings?: { wordsPerLine?: number; mergeThresholdSec?: number; uppercase?: boolean }
+    // F6.11/F6.12/F6.15 — settings global passados pelo modal: palavras por linha,
+    // threshold de fusão de cortes, uppercase toggle, cor base do texto,
+    // cor de destaque, modo de destaque da palavra falada.
+    settings?: {
+      wordsPerLine?: number;
+      mergeThresholdSec?: number;
+      uppercase?: boolean;
+      textColor?: string;
+      highlightColor?: string;
+      highlightMode?: 'text' | 'background' | 'both' | 'none';
+      popAnimation?: boolean;
+      outlineColor?: string;
+      fontFamily?: string;
+      background?: 'black' | 'space' | 'gradient';
+    }
   ) => {
     if (!intercutSourceUrl) return;
     if (!user?.uid) {
@@ -4749,11 +4774,22 @@ export default function App() {
           videoUrl: intercutSourceUrl,
           fontSize: intercutFontSize,
           userId: user.uid,
-          // F6.11/F6.12 — passa settings globais. Backend usa defaults se omitidos.
+          // F6.11/F6.12/F6.15 — passa settings globais. Backend usa defaults se omitidos.
           wordsPerLine: settings?.wordsPerLine ?? 4,
           mergeThresholdSec: settings?.mergeThresholdSec ?? 0.5,
           uppercase: settings?.uppercase ?? true,
-          fontFamily: 'Impact',
+          // F6.18 — fonte agora vem do modal (default Impact pra compat).
+          fontFamily: settings?.fontFamily ?? 'Impact',
+          // F6.15 — cor base do texto + modo de destaque (global). Cor de
+          // destaque vai por insertion abaixo pra permitir variar no futuro.
+          textColor: settings?.textColor ?? '#FFFFFF',
+          highlightMode: settings?.highlightMode ?? 'text',
+          // F6.16 — animação pop do retângulo (default off)
+          popAnimation: settings?.popAnimation === true,
+          // F6.17 — cor da borda das letras
+          outlineColor: settings?.outlineColor ?? '#000000',
+          // F6.19 — fundo do segmento
+          background: settings?.background ?? 'black',
           // F6.5 — novo formato manual. Backend detecta insertions[] presente
           // e usa o modo "manual insertion" (alternativa: cadência legada).
           insertions: insertions.map((ins) => ({
@@ -4762,7 +4798,7 @@ export default function App() {
             text: ins.text,
             position: ins.position,
             words: ins.words,
-            highlightColor: '#9333EA', // roxo Metavise — match com o screenshot
+            highlightColor: settings?.highlightColor ?? '#9333EA',
           })),
         }),
       });
@@ -5221,13 +5257,13 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen app-shell text-gray-900 dark:text-gray-100 font-sans selection:bg-blue-100 dark:selection:bg-blue-900">
+    <div className="min-h-screen app-shell text-gray-900 dark:text-gray-100 font-sans selection:bg-blue-100 dark:selection:bg-blue-900 overflow-x-hidden">
       {/* Header. Frosted-glass: semi-transparent + backdrop blur so
           the app-shell gradient bleeds through subtly. Industry-standard
           modern SaaS pattern (Stripe, Linear, Vercel, Raycast). */}
       <header className="bg-white/75 dark:bg-gray-900/60 backdrop-blur-xl border-b border-gray-200/60 dark:border-gray-800/60 sticky top-0 z-50">
-        <div className="max-w-[1600px] mx-auto px-4 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
+        <div className="max-w-[1600px] mx-auto px-4 h-20 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 flex-shrink-0">
             <div className="w-10 h-10 bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-xl shadow-blue-200/60 dark:shadow-blue-900/30 ring-1 ring-inset ring-white/20">
               <Sparkles className="text-white drop-shadow-sm" size={22} />
             </div>
@@ -5242,7 +5278,7 @@ export default function App() {
           </div>
 
           {currentProjectId && (
-            <div className="hidden lg:flex items-center gap-3">
+            <div className="hidden lg:flex items-center gap-3 flex-shrink-0">
               {/* Active project chip. Subtle gradient, softer ring,
                   small dot indicator that the project is live. */}
               <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-br from-gray-50 to-gray-100/60 dark:from-gray-800/80 dark:to-gray-800/40 rounded-xl ring-1 ring-gray-200/60 dark:ring-gray-700/60">
@@ -5263,16 +5299,28 @@ export default function App() {
           {/* Wizard nav. Refined styling — same behavior as before.
               Active step uses a subtle white-to-blue gradient with a
               ring for stronger pop. Skipped state is line-through.
-              Container has softer borders and an inner shadow. */}
-          <div className="hidden md:flex items-center gap-0.5 bg-gray-100/70 dark:bg-gray-800/60 p-1 rounded-2xl border border-gray-200/60 dark:border-gray-700/60 shadow-inner shadow-gray-200/30 dark:shadow-black/20">
+              Container has softer borders and an inner shadow.
+
+              Overflow strategy (fix pra screen-overflow + área branca):
+              - flex-1 + min-w-0 → encolhe quando não cabe (não empurra resto)
+              - overflow-x-auto + scrollbar-hide → scroll interno se precisar
+              - data-step-id no botão + useEffect fora → aba ativa rola pra view
+              - flex-shrink-0 nos botões → cada um mantém tamanho próprio
+              Resultado: página nunca scrolla horizontal; só a nav scrolla
+              internamente, e a aba atual sempre fica visível. */}
+          <div
+            ref={wizardNavRef}
+            className="hidden md:flex min-w-0 items-center gap-0.5 bg-gray-100/70 dark:bg-gray-800/60 p-1 rounded-2xl border border-gray-200/60 dark:border-gray-700/60 shadow-inner shadow-gray-200/30 dark:shadow-black/20 overflow-x-auto scrollbar-hide"
+          >
             {STEPS.map((step, idx) => {
               const Icon = step.icon;
               const isActive = currentStep === step.id;
               const isSkipped = !useHookFlow && step.id === 'hook-visual';
 
               return (
-                <div key={step.id} className="flex items-center">
+                <div key={step.id} className="flex items-center flex-shrink-0">
                   <button
+                    data-step-id={step.id}
                     onClick={() => {
                       if (canNavigateTo(step.id)) {
                         setCurrentStep(step.id);
@@ -5314,7 +5362,7 @@ export default function App() {
             })}
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-shrink-0">
             {/* Credits chip. F7.6 — agora clicável: clique abre prompt pra
                 adicionar créditos rapidamente (dev convenience). Em produção
                 isso deve virar fluxo de pagamento real. */}
