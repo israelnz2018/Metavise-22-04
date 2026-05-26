@@ -43,7 +43,13 @@ import {
   COPY_SECTIONS,
   COPY_MODES,
 } from '@/lib/constants';
-import { personaFromProduct, rewriteSafeCopy, type ProductInfo } from '@/lib/claudeService';
+import {
+  personaFromProduct,
+  rewriteSafeCopy,
+  critiqueAndRewriteCopy,
+  generateAdCopyVariants,
+  type ProductInfo,
+} from '@/lib/claudeService';
 import { getRecomendedEstilo, getRecomendacaoTempo, countWords } from '@/lib/helpers';
 // UX13: content risk scanner — detecta medicamentos concorrentes, slurs,
 // celebridades, alegações médicas. Banner aparece acima da textarea da
@@ -193,6 +199,98 @@ export function CopyTab({
       },
     }));
     toast('Aviso registrado. Você assumiu o risco — boa sorte! 🤞', { icon: '⚠️' });
+  };
+
+  // UX15: Self-critique pass. Manual trigger DEPOIS que a copy foi
+  // gerada — user clica botão "Revisar com IA". Pontua 6 dimensões,
+  // reescreve se algum score < 8. Custo: 1 chamada Claude extra.
+  const [isCritiquing, setIsCritiquing] = useState(false);
+  const handleSelfCritique = async () => {
+    if (!scriptToScan) return;
+    setIsCritiquing(true);
+    const toastId = 'critique';
+    toast.loading('Revisando copy com IA...', { id: toastId });
+    try {
+      const result = await critiqueAndRewriteCopy({
+        script: scriptToScan,
+        answers: config.copy?.answers || {},
+        angle: (config.copy?.answers?.angleIdea as string) || 'Direto',
+      });
+      const avg =
+        Object.values(result.scores).reduce((a, b) => a + b, 0) /
+        Math.max(1, Object.values(result.scores).length);
+      if (result.needsRewrite && result.rewritten) {
+        // Sobrescreve campo certo: prefere finalScript (versão editada),
+        // senão atualiza generatedScript. Limpa optimized.
+        setConfig((prev: any) => ({
+          ...prev,
+          copy: {
+            ...prev.copy,
+            ...(prev.copy.finalScript
+              ? { finalScript: result.rewritten }
+              : { generatedScript: result.rewritten }),
+            optimizedScript: '',
+            contentRiskAcknowledgedHash: undefined,
+          },
+        }));
+        toast.success(`Copy aprimorada! Score médio: ${avg.toFixed(1)}/10. ${result.notes || ''}`, {
+          id: toastId,
+          duration: 5000,
+        });
+      } else {
+        toast.success(`Copy já está em ${avg.toFixed(1)}/10 — sem necessidade de reescrever.`, {
+          id: toastId,
+          duration: 4000,
+        });
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro na revisão.', { id: toastId });
+    } finally {
+      setIsCritiquing(false);
+    }
+  };
+
+  // UX15: Variants A/B. Gera 2 versões em paralelo. User escolhe.
+  const [isGeneratingVariants, setIsGeneratingVariants] = useState(false);
+  const [variants, setVariants] = useState<{ script: string }[] | null>(null);
+  const handleGenerateVariants = async () => {
+    // Reusa os answers já configurados + angleIdea ou default.
+    const answers = config.copy?.answers || {};
+    const mode = (config.copy?.mode || 'questions') as 'improve' | 'as-is' | 'questions';
+    const angle = (answers.angleIdea as string) || 'Direto';
+    setIsGeneratingVariants(true);
+    setVariants(null);
+    const toastId = 'variants';
+    toast.loading('Gerando 2 versões em paralelo...', { id: toastId });
+    try {
+      const results = await generateAdCopyVariants(
+        answers,
+        mode,
+        angle,
+        2,
+        (config.copy?.targetWordCount as number) || undefined
+      );
+      setVariants(results);
+      toast.success('2 versões prontas — escolha uma abaixo.', { id: toastId, duration: 4000 });
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro ao gerar variantes.', { id: toastId });
+    } finally {
+      setIsGeneratingVariants(false);
+    }
+  };
+  const handlePickVariant = (script: string) => {
+    setConfig((prev: any) => ({
+      ...prev,
+      copy: {
+        ...prev.copy,
+        generatedScript: script,
+        finalScript: '',
+        optimizedScript: '',
+        contentRiskAcknowledgedHash: undefined,
+      },
+    }));
+    setVariants(null);
+    toast.success('Versão selecionada!');
   };
 
   const handleFillFromSource = async () => {
@@ -1418,19 +1516,86 @@ export function CopyTab({
           )}
 
           {config.copy.mode !== 'as-is' && (
-            <div className="flex justify-center mt-12">
-              <button
-                onClick={handleGenerateCopy}
-                disabled={loading}
-                className="px-12 py-8 bg-blue-700 text-white rounded-[32px] font-black text-2xl flex items-center justify-center gap-4 shadow-xl shadow-blue-200/60 dark:shadow-blue-900/30 hover:bg-blue-800 transition-all hover:scale-[1.02] active:scale-95 ring-8 ring-blue-500/10 border-4 border-blue-400/20 disabled:opacity-50"
-              >
-                {loading ? (
-                  <Loader2 className="animate-spin" size={32} />
-                ) : (
-                  <Sparkles size={32} className="animate-pulse" />
-                )}
-                {config.copy.generatedScript ? '✨ Regerar Copy com IA' : '✨ Gerar Copy com IA'}
-              </button>
+            <div className="flex flex-col items-center mt-12 gap-3">
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <button
+                  onClick={handleGenerateCopy}
+                  disabled={loading || isGeneratingVariants}
+                  className="px-12 py-8 bg-blue-700 text-white rounded-[32px] font-black text-2xl flex items-center justify-center gap-4 shadow-xl shadow-blue-200/60 dark:shadow-blue-900/30 hover:bg-blue-800 transition-all hover:scale-[1.02] active:scale-95 ring-8 ring-blue-500/10 border-4 border-blue-400/20 disabled:opacity-50"
+                >
+                  {loading ? (
+                    <Loader2 className="animate-spin" size={32} />
+                  ) : (
+                    <Sparkles size={32} className="animate-pulse" />
+                  )}
+                  {config.copy.generatedScript ? '✨ Regerar Copy com IA' : '✨ Gerar Copy com IA'}
+                </button>
+                {/* UX15: variants A/B — gera 2 versões em paralelo */}
+                <button
+                  onClick={handleGenerateVariants}
+                  disabled={loading || isGeneratingVariants}
+                  className="px-6 py-6 bg-white dark:bg-gray-900/80 text-gray-900 dark:text-gray-100 border-2 border-gray-300 dark:border-gray-700 rounded-[32px] font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all disabled:opacity-50"
+                  title="Gera 2 versões diferentes pra você escolher — custa 2x o normal"
+                >
+                  {isGeneratingVariants ? (
+                    <Loader2 className="animate-spin" size={18} />
+                  ) : (
+                    <Sparkles size={18} />
+                  )}
+                  Gerar 2 versões
+                </button>
+              </div>
+              <p className="text-[10px] text-gray-400 dark:text-gray-500 italic">
+                Tip: "Gerar 2 versões" duplica o custo mas dá opção pra escolher a melhor
+              </p>
+            </div>
+          )}
+
+          {/* UX15: picker das 2 variantes geradas em paralelo */}
+          {variants && variants.length > 0 && (
+            <div className="mt-8 space-y-4">
+              <div className="text-center space-y-1">
+                <h3 className="text-2xl font-black text-gray-900 dark:text-gray-50">
+                  Escolha a versão que prefere
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  As duas usam o mesmo brief — variações naturais do modelo.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {variants.map((v, idx) => (
+                  <div
+                    key={idx}
+                    className="bg-white dark:bg-gray-900/80 rounded-3xl border-2 border-gray-200 dark:border-gray-800 p-6 space-y-4 flex flex-col"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-500">
+                        Versão {String.fromCharCode(65 + idx)}
+                      </span>
+                      <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                        {v.script.split(/\s+/).filter(Boolean).length} palavras
+                      </span>
+                    </div>
+                    <pre className="flex-1 text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap font-mono max-h-[400px] overflow-y-auto">
+                      {v.script}
+                    </pre>
+                    <button
+                      onClick={() => handlePickVariant(v.script)}
+                      className="w-full py-3 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-black dark:hover:bg-white transition-all"
+                    >
+                      Usar Versão {String.fromCharCode(65 + idx)}
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="text-center">
+                <button
+                  onClick={() => setVariants(null)}
+                  className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                >
+                  Descartar ambas
+                </button>
+              </div>
             </div>
           )}
 
@@ -1489,17 +1654,34 @@ export function CopyTab({
                           Copy Original
                         </h4>
                       </div>
-                      <button
-                        onClick={() =>
-                          setConfig((prev: any) => ({
-                            ...prev,
-                            copy: { ...prev.copy, generatedScript: '' },
-                          }))
-                        }
-                        className="text-[10px] font-black text-red-500 hover:underline uppercase tracking-widest"
-                      >
-                        Limpar
-                      </button>
+                      <div className="flex items-center gap-3">
+                        {/* UX15: botão self-critique. IA pontua 6 dimensões e
+                            reescreve se score baixo. Custo extra: 1 chamada. */}
+                        <button
+                          onClick={handleSelfCritique}
+                          disabled={isCritiquing}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-50 transition-all"
+                          title="IA pontua 6 dimensões e reescreve se identificar pontos fracos"
+                        >
+                          {isCritiquing ? (
+                            <Loader2 size={12} className="animate-spin" />
+                          ) : (
+                            <Sparkles size={12} />
+                          )}
+                          {isCritiquing ? 'Revisando...' : 'Revisar com IA'}
+                        </button>
+                        <button
+                          onClick={() =>
+                            setConfig((prev: any) => ({
+                              ...prev,
+                              copy: { ...prev.copy, generatedScript: '' },
+                            }))
+                          }
+                          className="text-[10px] font-black text-red-500 hover:underline uppercase tracking-widest"
+                        >
+                          Limpar
+                        </button>
+                      </div>
                     </div>
                     <AutoResizeTextarea
                       className="w-full p-8 bg-gray-50 dark:bg-gray-800/60 rounded-[32px] border-2 border-transparent focus:border-blue-600 focus:bg-white dark:focus:bg-gray-900/80 outline-none text-gray-700 dark:text-gray-300 leading-relaxed font-mono text-sm transition-all"

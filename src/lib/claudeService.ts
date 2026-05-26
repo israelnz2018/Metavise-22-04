@@ -1150,3 +1150,161 @@ FORMATO (JSON apenas):
     return text;
   }
 }
+
+// ─────────────────────────────────────────────
+// 6. SELF-CRITIQUE PASS (UX15) — Premium quality boost
+// ─────────────────────────────────────────────
+/**
+ * Pontua a copy gerada em 6 dimensões e reescreve se algum score < 8.
+ * Custo: ~1 chamada extra. Vale a pena pra cliente premium ou momentos
+ * onde a copy realmente importa.
+ *
+ * Filosofia: NÃO reescrever só por reescrever. Só mexer no que tá fraco.
+ * Mantém estrutura, beats, persona, ângulo. Output JSON com scores + se
+ * precisou reescrever + texto reescrito.
+ */
+export interface CritiqueScores {
+  specificity: number; // numeros, lugares, sensações reais?
+  hookStrength: number; // abertura para o scroll?
+  oralCadence: number; // soa falado, não escrito?
+  emotionalPull: number; // leitor SENTE algo?
+  modestCredibility: number; // sem "100% garantido", sem milagre?
+  mechanismClarity: number; // mecanismo único bate?
+}
+
+export interface CritiqueResult {
+  scores: CritiqueScores;
+  needsRewrite: boolean;
+  rewritten?: string;
+  /** Comentário curto do crítico — útil pra debug, não exibido pro user */
+  notes?: string;
+}
+
+export async function critiqueAndRewriteCopy(input: {
+  script: string;
+  answers: Record<string, any>;
+  angle: string;
+  /** Threshold abaixo do qual reescreve. Default 8 (de 10). */
+  rewriteThreshold?: number;
+}): Promise<CritiqueResult> {
+  const { script, answers, angle, rewriteThreshold = 8 } = input;
+  if (!script || !script.trim()) {
+    return {
+      scores: {
+        specificity: 0,
+        hookStrength: 0,
+        oralCadence: 0,
+        emotionalPull: 0,
+        modestCredibility: 0,
+        mechanismClarity: 0,
+      },
+      needsRewrite: false,
+    };
+  }
+
+  const targetLang: 'pt' | 'en' = isPortuguese(answers.language) ? 'pt' : 'en';
+
+  const systemPrompt = `You are a brutally honest senior copywriting editor. You score ad scripts on 6 dimensions and rewrite only the weak parts. You don't rewrite for the sake of rewriting — if a script is already 8+ on everything, you say so and leave it alone.
+
+Rewrite rules:
+- KEEP the beat structure intact (same beats, same order)
+- KEEP all real product facts, persona references, and angle
+- DO NOT invent new claims, characters, or deadlines not in the original
+- DO NOT translate — keep the same language
+- IMPROVE what's weak based on your scores
+
+Respond ONLY in valid JSON. No markdown.`;
+
+  const userPrompt = `Score this ad script and rewrite if any dimension scores below ${rewriteThreshold}/10.
+
+LANGUAGE: ${answers.language || 'Português (Brasileiro)'}
+ANGLE: ${angle}
+AUDIENCE: ${answers.audience || ''}
+CORE PAIN: ${answers.situation || answers.painPoints || ''}
+MECHANISM: ${answers.uniqueMechanism || ''}
+
+SCRIPT TO REVIEW:
+"""
+${script}
+"""
+
+Score 1-10:
+1. SPECIFICITY — Real numbers, places, sensations? Or vague (avoid "many", "soon", "lots")?
+2. HOOK STRENGTH — Does the opening sentence make the reader stop scrolling?
+3. ORAL CADENCE — Does it sound spoken${targetLang === 'pt' ? ' em português brasileiro idiomático (oral, não traduzido do inglês)' : ' naturally'}?
+4. EMOTIONAL PULL — Does the reader FEEL something specific (fear, hope, identification)?
+5. MODEST CREDIBILITY — Avoids "100% guaranteed", "miracle", "definitive cure"?
+6. MECHANISM CLARITY — Does the unique mechanism land clearly?
+
+If ALL ≥ ${rewriteThreshold}: needsRewrite=false, no rewritten field.
+If ANY < ${rewriteThreshold}: needsRewrite=true, provide rewritten preserving structure.
+
+FORMAT:
+{
+  "scores": { "specificity": 8, "hookStrength": 9, "oralCadence": 7, "emotionalPull": 8, "modestCredibility": 9, "mechanismClarity": 8 },
+  "needsRewrite": true,
+  "rewritten": "full script rewritten, with beat labels",
+  "notes": "1-line summary of what changed"
+}`;
+
+  const raw = await callClaude(systemPrompt, userPrompt, 3000);
+  try {
+    const cleaned = raw
+      .replace(/```json\n?/g, '')
+      .replace(/```\n?/g, '')
+      .trim();
+    const parsed = JSON.parse(cleaned);
+    return {
+      scores: parsed.scores || {
+        specificity: 0,
+        hookStrength: 0,
+        oralCadence: 0,
+        emotionalPull: 0,
+        modestCredibility: 0,
+        mechanismClarity: 0,
+      },
+      needsRewrite: !!parsed.needsRewrite,
+      rewritten: parsed.rewritten,
+      notes: parsed.notes,
+    };
+  } catch {
+    // Falha no parse — devolve neutro pra caller decidir (provavelmente
+    // mantém o script original sem warning).
+    return {
+      scores: {
+        specificity: 0,
+        hookStrength: 0,
+        oralCadence: 0,
+        emotionalPull: 0,
+        modestCredibility: 0,
+        mechanismClarity: 0,
+      },
+      needsRewrite: false,
+    };
+  }
+}
+
+// ─────────────────────────────────────────────
+// 7. VARIANTS A/B (UX15) — gerar N copies em paralelo
+// ─────────────────────────────────────────────
+/**
+ * Gera N copies em paralelo (mesma input, modelo varia naturalmente).
+ * Útil pra cliente comparar e escolher. Custo = N × custo de gerar 1.
+ *
+ * Não usa streaming porque a UI vai mostrar todos no fim (não dá pra
+ * stream múltiplos no mesmo lugar). Tempo total ≈ tempo de 1 (paralelo).
+ */
+export async function generateAdCopyVariants(
+  answers: Record<string, any>,
+  mode: 'improve' | 'as-is' | 'questions',
+  angle: string,
+  count: number = 2,
+  targetWordCount?: number
+): Promise<{ script: string }[]> {
+  const safeCount = Math.max(1, Math.min(4, count)); // max 4 pra não estourar custo
+  const runs = Array.from({ length: safeCount }, () =>
+    generateAdCopyWithClaude(answers, mode, angle, undefined, targetWordCount)
+  );
+  const results = await Promise.all(runs);
+  return results.map((r) => ({ script: r.script }));
+}
