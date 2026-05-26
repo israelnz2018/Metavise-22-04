@@ -12,8 +12,24 @@
  * 4. discoverPersonaWithClaude       → Descobrir avatar/persona
  */
 
+// UX14: few-shot examples + vertical inference pra melhorar qualidade
+// da copy gerada (em vez de só dar regras, mostramos exemplos).
+import {
+  selectCopyExamples,
+  inferVertical,
+  type CopyExample,
+  type AwarenessLevel,
+  type CopyVertical,
+} from '@/data/copyLibrary';
+
 const CLAUDE_URL = '/api/claude/complete';
 const CLAUDE_STREAM_URL = '/api/claude/complete-stream';
+
+/** Detecta se a língua-alvo é PT (BR ou PT) ou EN. */
+function isPortuguese(language?: string): boolean {
+  if (!language) return true; // default PT no app
+  return /port|brasil|brazil/i.test(language);
+}
 
 /**
  * Stream Claude completions token-by-token via SSE.
@@ -301,13 +317,65 @@ YOU MUST:
       ? `\nEMOTION DIRECTION: Write to actively trigger "${primaryEmotion}" in the reader. Use vocabulary, rhythm, and imagery that make them feel it — not just understand it.`
       : '';
 
-  const systemPrompt = `You are a senior direct-response copywriter specializing in Meta Ads, trained in Eugene Schwartz's five stages of awareness (Breakthrough Advertising). Your job is to write punchy, specific, honest video scripts for paid ads.
+  // UX14: few-shot examples + cultural PT-BR mode.
+  // Examples são injetados como referência de TOM e RITMO, não pra copiar.
+  // Cultural PT-BR só ativa quando lingua-alvo é português.
+  const targetLang: 'pt' | 'en' = isPortuguese(answers.language) ? 'pt' : 'en';
+  const inferredVertical: CopyVertical | undefined = inferVertical({
+    produto: answers.productName,
+    oferta: answers.productResult,
+    dorPrincipal: answers.painPoints || answers.situation,
+    audience: answers.audience,
+  });
+  const fewShotExamples: CopyExample[] = selectCopyExamples({
+    language: targetLang,
+    vertical: inferredVertical,
+    awareness: currentLevel as AwarenessLevel,
+    angleHint: angle,
+    count: 2,
+    clientLibrary: (answers.__clientCopyLibrary as CopyExample[]) || [],
+  });
+
+  const culturalBlock =
+    targetLang === 'pt'
+      ? `\n\nCULTURAL VOICE — PORTUGUÊS (BRASIL) — APPLY ONLY WHEN WRITING IN PORTUGUESE:
+- Use construções orais brasileiras: "presta atenção que vou te contar", "olha só", "saca só", "do nada", "de uma vez"
+- EVITE construções traduzidas-do-inglês: "você está prestes a descobrir", "no mundo de hoje", "neste universo", "uma jornada"
+- Prefira ritmo de fala, não de redação literária
+- Use "você" (não "tu", "vós" ou "tu" misturado)
+- Idiomatismos brasileiros são bem-vindos: "do tipo", "tipo assim", "saca?", "viu?", "né?", "olha aí"
+- Frases curtas. Vírgula > ponto-e-vírgula. Quebra de linha tem peso.
+- EVITE adjetivos genéricos: "incrível", "transformador", "revolucionário", "definitivo"
+- Especificidade > intensidade: "3 da manhã" > "muito tarde", "47 mil pessoas" > "milhares"`
+      : '';
+
+  const systemPrompt = `You are a senior direct-response copywriter specializing in Meta Ads, trained in Eugene Schwartz's five stages of awareness (Breakthrough Advertising). You write in the style of Gary Halbert, Stefan Georgi (RMBC), and Dan Kennedy — direct, specific, honest, oral cadence.
 
 OUTPUT LANGUAGE:
 Write the entire script in: ${answers.language || 'Português (Brasileiro)'}
-Every word must be in this language. If any input data is in a different language, translate it naturally before using it.
+Every word must be in this language. If any input data is in a different language, translate it naturally before using it.${culturalBlock}
 
 Respond ONLY with valid JSON. No markdown, no preamble.`;
+
+  // UX14: bloco de exemplos few-shot. Modelo se ancora no TOM e RITMO
+  // desses, sem copiar texto. Inclui só se temos pelo menos 1 exemplo
+  // relevante (não vai sempre haver — fallback é o comportamento antigo).
+  const referenceBlock =
+    fewShotExamples.length > 0
+      ? `\n\n--- REFERENCE EXAMPLES (study the TONE, RHYTHM, SPECIFICITY — do NOT copy text or claims) ---
+These are examples of high-quality copy in the same style we want. Notice the sensory openings, specific numbers, oral cadence, modest promises, and confident close. Match the FEEL, not the content.
+
+${fewShotExamples
+  .map(
+    (e, i) => `EXAMPLE ${i + 1} [${e.vertical} · awareness ${e.awareness} · ${e.angle}]:
+"""
+${e.script}
+"""
+Why this works: ${e.whyItWorks}`
+  )
+  .join('\n\n')}
+`
+      : '';
 
   const userPrompt = `Write a Meta Ads video script. Follow every instruction precisely.
 
@@ -321,7 +389,7 @@ Hidden desire (the deeper want — connect transformation to this, not just surf
 Product: ${answers.productName || ''}
 Promised result: ${answers.productResult || ''}
 Unique mechanism: ${answers.uniqueMechanism || ''}
-
+${referenceBlock}
 --- CREATIVE DIRECTION ---
 Ad style: ${answers.estiloAnuncio || 'Direto ao Ponto'}
 Apply this style to the tone, rhythm, and sentence structure throughout the script.
