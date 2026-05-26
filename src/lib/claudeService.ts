@@ -1308,3 +1308,108 @@ export async function generateAdCopyVariants(
   const results = await Promise.all(runs);
   return results.map((r) => ({ script: r.script }));
 }
+
+// ─────────────────────────────────────────────
+// 8. REGERAR 1 BEAT (UX16) — não a copy inteira
+// ─────────────────────────────────────────────
+/**
+ * Regenera APENAS um beat específico, mantendo encaixe com os adjacentes.
+ * Útil quando user gosta da copy em geral mas quer melhorar uma seção
+ * específica — em vez de re-rodar o script inteiro e perder o resto.
+ */
+export async function regenerateBeat(input: {
+  beatLabel: string;
+  beatCurrentText: string;
+  fullScript: string;
+  answers: Record<string, any>;
+  angle: string;
+}): Promise<string> {
+  const { beatLabel, beatCurrentText, fullScript, answers, angle } = input;
+  if (!beatLabel || !fullScript) return beatCurrentText;
+
+  const targetLang: 'pt' | 'en' = isPortuguese(answers.language) ? 'pt' : 'en';
+  const culturalNote =
+    targetLang === 'pt'
+      ? '\n\nIDIOMA: Português brasileiro idiomático. Frases curtas e orais. Evite "está prestes a", "no mundo de hoje", "uma jornada". Use "olha só", "presta atenção", "do nada".'
+      : '';
+
+  const systemPrompt = `You rewrite ONE beat of a direct-response ad script while keeping seamless flow with the surrounding beats. You don't rewrite the whole script — only the requested beat. You preserve all real product facts and the script's overall angle.${culturalNote}
+
+Respond ONLY in JSON. No markdown.`;
+
+  const userPrompt = `Rewrite ONLY the [${beatLabel}] beat below. Keep the same role this beat plays in the script structure, but produce a different angle, sensory detail, or rhythm. Make sure it flows into the next beat naturally.
+
+FULL SCRIPT (for context — do NOT rewrite the whole thing):
+"""
+${fullScript}
+"""
+
+BEAT TO REWRITE — current text:
+"""
+${beatCurrentText}
+"""
+
+CONTEXT:
+- Language: ${answers.language || 'Português (Brasileiro)'}
+- Angle: ${angle}
+- Audience: ${answers.audience || ''}
+- Core pain: ${answers.situation || answers.painPoints || ''}
+- Product: ${answers.productName || ''}
+- Mechanism: ${answers.uniqueMechanism || ''}
+
+REQUIREMENTS:
+- Same approximate length (±20% of current beat word count)
+- Same role/function this beat plays
+- Must connect naturally with the beat that comes before and after
+- Do NOT include the [${beatLabel}] label in your output — just the body text
+- Do NOT invent new product claims or persona details not in the source
+
+FORMAT:
+{"newText": "rewritten beat text without the [LABEL]"}`;
+
+  const raw = await callClaude(systemPrompt, userPrompt, 1200);
+  try {
+    const cleaned = raw
+      .replace(/```json\n?/g, '')
+      .replace(/```\n?/g, '')
+      .trim();
+    if (cleaned.startsWith('{')) {
+      const parsed = JSON.parse(cleaned);
+      return (parsed.newText || parsed.text || beatCurrentText).trim();
+    }
+    return cleaned || beatCurrentText;
+  } catch {
+    return beatCurrentText;
+  }
+}
+
+// ─────────────────────────────────────────────
+// 8b. UTILITÁRIOS PRA PARSE DE BEATS (UX16)
+// ─────────────────────────────────────────────
+export interface ScriptBeat {
+  label: string;
+  text: string;
+  index: number;
+}
+
+/** Parsea script com markers `[LABEL]` em beats. Retorna [] se não tiver. */
+export function parseScriptBeats(script: string): ScriptBeat[] {
+  if (!script || !script.trim()) return [];
+  const regex = /\[([^\]]+)\]\s*([\s\S]*?)(?=\n*\[|\s*$)/g;
+  const beats: ScriptBeat[] = [];
+  let m: RegExpExecArray | null;
+  let idx = 0;
+  while ((m = regex.exec(script)) !== null) {
+    const rawLabel = (m[1] || '').trim();
+    const text = (m[2] || '').trim();
+    if (!text || !rawLabel) continue;
+    const cleanLabel = rawLabel.replace(/^BEAT\s*\d+\s*:?\s*/i, '').trim();
+    beats.push({ label: cleanLabel, text, index: idx++ });
+  }
+  return beats;
+}
+
+/** Re-monta o script. Mantém formato `[LABEL]\n<text>\n\n`. */
+export function assembleScriptFromBeats(beats: ScriptBeat[]): string {
+  return beats.map((b) => `[${b.label}]\n${b.text}`).join('\n\n');
+}

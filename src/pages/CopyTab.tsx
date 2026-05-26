@@ -57,6 +57,9 @@ import { getRecomendedEstilo, getRecomendacaoTempo, countWords } from '@/lib/hel
 import { scanForRisks } from '@/lib/contentRiskScanner';
 import { ContentRiskBanner } from '@/components/ContentRiskBanner';
 import { CATEGORY_LABELS } from '@/data/contentRiskTerms';
+// UX16: editor beat-by-beat (regenera só 1 beat, não a copy inteira)
+import { ScriptBeatEditor } from '@/components/ScriptBeatEditor';
+import { parseScriptBeats } from '@/lib/claudeService';
 
 interface Props {
   config: AdConfig;
@@ -278,6 +281,16 @@ export function CopyTab({
       setIsGeneratingVariants(false);
     }
   };
+  // UX16: toggle entre modo "textarea monolítico" e "beat-by-beat editor".
+  // Beat mode só está disponível quando o script tem markers [BEAT].
+  // Default: usa beat mode se houver markers.
+  const parsedBeats = useMemo(
+    () => parseScriptBeats(config.copy?.generatedScript || ''),
+    [config.copy?.generatedScript]
+  );
+  const hasBeatMarkers = parsedBeats.length >= 2;
+  const [beatMode, setBeatMode] = useState<boolean>(true);
+
   const handlePickVariant = (script: string) => {
     setConfig((prev: any) => ({
       ...prev,
@@ -1683,22 +1696,71 @@ export function CopyTab({
                         </button>
                       </div>
                     </div>
-                    <AutoResizeTextarea
-                      className="w-full p-8 bg-gray-50 dark:bg-gray-800/60 rounded-[32px] border-2 border-transparent focus:border-blue-600 focus:bg-white dark:focus:bg-gray-900/80 outline-none text-gray-700 dark:text-gray-300 leading-relaxed font-mono text-sm transition-all"
-                      value={config.copy.generatedScript || ''}
-                      onChange={(e: any) => {
-                        setConfig((prev: any) => ({
-                          ...prev,
-                          copy: {
-                            ...prev.copy,
-                            generatedScript: e.target.value,
-                            optimizedScript: '',
-                          },
-                        }));
-                        setHasUnsavedCopyChanges(true);
-                      }}
-                      minHeight="300px"
-                    />
+
+                    {/* UX16: toggle entre modo beat-by-beat e textarea
+                        monolítica. Só mostra toggle se há beats parseaveis
+                        (script tem markers [BEAT]). Default = beat mode. */}
+                    {hasBeatMarkers && (
+                      <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest">
+                        <button
+                          onClick={() => setBeatMode(true)}
+                          className={`px-3 py-1.5 rounded-lg transition-all ${
+                            beatMode
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                          }`}
+                        >
+                          🎬 Beat-by-Beat
+                        </button>
+                        <button
+                          onClick={() => setBeatMode(false)}
+                          className={`px-3 py-1.5 rounded-lg transition-all ${
+                            !beatMode
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                          }`}
+                        >
+                          📝 Texto Único
+                        </button>
+                      </div>
+                    )}
+
+                    {hasBeatMarkers && beatMode ? (
+                      // UX16: editor beat-by-beat
+                      <ScriptBeatEditor
+                        script={config.copy.generatedScript || ''}
+                        onChange={(newScript) => {
+                          setConfig((prev: any) => ({
+                            ...prev,
+                            copy: {
+                              ...prev.copy,
+                              generatedScript: newScript,
+                              optimizedScript: '',
+                            },
+                          }));
+                          setHasUnsavedCopyChanges(true);
+                        }}
+                        answers={config.copy?.answers || {}}
+                        angle={(config.copy?.answers?.angleIdea as string) || 'Direto'}
+                      />
+                    ) : (
+                      <AutoResizeTextarea
+                        className="w-full p-8 bg-gray-50 dark:bg-gray-800/60 rounded-[32px] border-2 border-transparent focus:border-blue-600 focus:bg-white dark:focus:bg-gray-900/80 outline-none text-gray-700 dark:text-gray-300 leading-relaxed font-mono text-sm transition-all"
+                        value={config.copy.generatedScript || ''}
+                        onChange={(e: any) => {
+                          setConfig((prev: any) => ({
+                            ...prev,
+                            copy: {
+                              ...prev.copy,
+                              generatedScript: e.target.value,
+                              optimizedScript: '',
+                            },
+                          }));
+                          setHasUnsavedCopyChanges(true);
+                        }}
+                        minHeight="300px"
+                      />
+                    )}
                     {config.copy.generatedScript && (
                       <div className="text-xs text-gray-400 dark:text-gray-500 text-right mt-2">
                         ✍️ {countWords(config.copy.generatedScript)} palavras
