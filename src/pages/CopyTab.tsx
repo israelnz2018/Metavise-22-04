@@ -13,7 +13,7 @@
 // All state stays in App.tsx; we receive it via props. `config` is
 // typed with the canonical `AdConfig` exported from App.tsx.
 
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import type { AdConfig } from '@/App';
 import { toast } from 'react-hot-toast';
 import {
@@ -43,8 +43,14 @@ import {
   COPY_SECTIONS,
   COPY_MODES,
 } from '@/lib/constants';
-import { personaFromProduct, type ProductInfo } from '@/lib/claudeService';
+import { personaFromProduct, rewriteSafeCopy, type ProductInfo } from '@/lib/claudeService';
 import { getRecomendedEstilo, getRecomendacaoTempo, countWords } from '@/lib/helpers';
+// UX13: content risk scanner — detecta medicamentos concorrentes, slurs,
+// celebridades, alegações médicas. Banner aparece acima da textarea da
+// copy gerada quando há detecção.
+import { scanForRisks } from '@/lib/contentRiskScanner';
+import { ContentRiskBanner } from '@/components/ContentRiskBanner';
+import { CATEGORY_LABELS } from '@/data/contentRiskTerms';
 
 interface Props {
   config: AdConfig;
@@ -130,6 +136,64 @@ export function CopyTab({
   const sections = COPY_SECTIONS;
   const modes = COPY_MODES;
   const productInfo = config.copy?.productInfo as ProductInfo | null;
+
+  // UX13: scan da copy gerada por termos arriscados. Memoizado pelo
+  // texto + hash do acknowledgment — só re-roda quando texto muda.
+  const scriptToScan = config.copy?.finalScript || config.copy?.generatedScript || '';
+  const scanResult = useMemo(() => scanForRisks(scriptToScan), [scriptToScan]);
+  const acknowledgedHash = (config.copy as any)?.contentRiskAcknowledgedHash as string | undefined;
+  // Banner aparece quando há risco E o user ainda não disse "manter assim"
+  // pra ESSA versão do texto. Se o texto mudar (hash novo), o ack invalida.
+  const showRiskBanner = scanResult.hasRisk && acknowledgedHash !== scanResult.textHash;
+  const [isRewriting, setIsRewriting] = useState(false);
+
+  const handleRewriteSafe = async () => {
+    if (!scriptToScan || scanResult.hits.length === 0) return;
+    setIsRewriting(true);
+    const toastId = 'rewrite-safe';
+    toast.loading('Reescrevendo versão segura...', { id: toastId });
+    try {
+      const hits = scanResult.hits.map((h) => ({
+        matched: h.matched,
+        category: CATEGORY_LABELS[h.term.category],
+        reason: h.term.reason,
+      }));
+      const safeText = await rewriteSafeCopy({
+        text: scriptToScan,
+        hits,
+        textType: 'script',
+      });
+      // Sobrescreve o campo correto: prefere finalScript se existia (versão
+      // editada/aprovada pelo user), senão atualiza generatedScript.
+      setConfig((prev: any) => ({
+        ...prev,
+        copy: {
+          ...prev.copy,
+          ...(prev.copy.finalScript ? { finalScript: safeText } : { generatedScript: safeText }),
+          // Limpa optimized — vai precisar refazer com texto novo
+          optimizedScript: '',
+          // Reset ack — texto novo vai ser re-escaneado naturalmente
+          contentRiskAcknowledgedHash: undefined,
+        },
+      }));
+      toast.success('Copy reescrita em versão segura!', { id: toastId });
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro ao reescrever.', { id: toastId });
+    } finally {
+      setIsRewriting(false);
+    }
+  };
+
+  const handleAcknowledgeRisk = () => {
+    setConfig((prev: any) => ({
+      ...prev,
+      copy: {
+        ...prev.copy,
+        contentRiskAcknowledgedHash: scanResult.textHash,
+      },
+    }));
+    toast('Aviso registrado. Você assumiu o risco — boa sorte! 🤞', { icon: '⚠️' });
+  };
 
   const handleFillFromSource = async () => {
     if (!productInfo) return;
@@ -1377,6 +1441,18 @@ export function CopyTab({
               className="space-y-8 mt-16"
             >
               <div className="grid grid-cols-1 gap-6">
+                {/* UX13: banner de risco. Aparece quando scan detecta termos
+                    arriscados (medicamento concorrente, celebridade, slur,
+                    cura definitiva, etc) E o user ainda nao deu ack. */}
+                {showRiskBanner && scanResult.maxSeverity && (
+                  <ContentRiskBanner
+                    hits={scanResult.hits}
+                    maxSeverity={scanResult.maxSeverity}
+                    isRewriting={isRewriting}
+                    onRewrite={handleRewriteSafe}
+                    onAcknowledge={handleAcknowledgeRisk}
+                  />
+                )}
                 {config.copy.finalScript && (
                   <div className="bg-green-50 dark:bg-green-950/40 p-6 rounded-[32px] border-2 border-green-100 flex items-center justify-between gap-6 animate-in fade-in slide-in-from-top-4 duration-500">
                     <div className="flex items-center gap-4">

@@ -16,7 +16,16 @@ import {
 } from 'lucide-react';
 import hooksBibleEn from '@/data/hooksBible_en.json';
 import hooksBiblePt from '@/data/hooksBible_pt.json';
-import { chooseHooksFromCopy, type HookSelectionContext } from '@/lib/claudeService';
+import {
+  chooseHooksFromCopy,
+  rewriteSafeCopy,
+  type HookSelectionContext,
+} from '@/lib/claudeService';
+// UX13: scanner de risco — hook também passa pela mesma checagem da copy
+// (medicamentos concorrentes, slurs, celebridades, etc).
+import { scanForRisks } from '@/lib/contentRiskScanner';
+import { ContentRiskBanner } from './ContentRiskBanner';
+import { CATEGORY_LABELS } from '@/data/contentRiskTerms';
 
 interface Props {
   language?: string;
@@ -251,6 +260,42 @@ const HookChooser: React.FC<Props> = ({
     setChosenHook('');
     setCustomHook('');
     setIsSaved(false);
+  };
+
+  // UX13: scan do hook escolhido. Banner aparece quando há risco E user
+  // ainda não deu ack pra ESTE hook específico. Ack é em memória (per-
+  // sessão) porque hook é texto curto e fácil de re-checar.
+  const hookScan = useMemo(() => scanForRisks(chosenHook), [chosenHook]);
+  const [hookAckHash, setHookAckHash] = useState<string | null>(null);
+  const showHookRiskBanner =
+    hookScan.hasRisk && hookAckHash !== hookScan.textHash && chosenHook.trim().length > 0;
+  const [isRewritingHook, setIsRewritingHook] = useState(false);
+
+  const handleRewriteSafeHook = async () => {
+    if (!chosenHook || hookScan.hits.length === 0) return;
+    setIsRewritingHook(true);
+    const toastId = 'rewrite-hook-safe';
+    toast.loading('Reescrevendo hook em versão segura...', { id: toastId });
+    try {
+      const hits = hookScan.hits.map((h) => ({
+        matched: h.matched,
+        category: CATEGORY_LABELS[h.term.category],
+        reason: h.term.reason,
+      }));
+      const safeText = await rewriteSafeCopy({ text: chosenHook, hits, textType: 'hook' });
+      setChosenHook(safeText);
+      setIsSaved(false);
+      toast.success('Hook reescrito! Revise e salve.', { id: toastId });
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro ao reescrever.', { id: toastId });
+    } finally {
+      setIsRewritingHook(false);
+    }
+  };
+
+  const handleAckHookRisk = () => {
+    setHookAckHash(hookScan.textHash);
+    toast('Aviso registrado. Você assumiu o risco. ⚠️');
   };
 
   // BlockCheckbox is defined at module scope below to keep React happy
@@ -676,6 +721,18 @@ const HookChooser: React.FC<Props> = ({
             })}
           </div>
         </div>
+      )}
+
+      {/* UX13: banner de risco do hook. Sticky junto com o Hook Final
+          pra ficar visível enquanto o user revisa. */}
+      {showHookRiskBanner && hookScan.maxSeverity && (
+        <ContentRiskBanner
+          hits={hookScan.hits}
+          maxSeverity={hookScan.maxSeverity}
+          isRewriting={isRewritingHook}
+          onRewrite={handleRewriteSafeHook}
+          onAcknowledge={handleAckHookRisk}
+        />
       )}
 
       {/* ─── HOOK FINAL / SALVAR ─── */}

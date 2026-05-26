@@ -183,6 +183,10 @@ export interface AdConfig {
     hookAudioStoragePath?: string | null;
     hookVideoUrl?: string;
     hookVideos?: AdConfig['videos'];
+    // UX13: hash do texto da copy quando o user clicou "Manter assim"
+    // no content risk banner. Banner não aparece de novo enquanto o texto
+    // não mudar. Hash invalida automaticamente quando texto muda.
+    contentRiskAcknowledgedHash?: string;
   };
   hookVisual: HookVisualData;
   avatar: {

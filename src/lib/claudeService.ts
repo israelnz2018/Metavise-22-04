@@ -995,3 +995,90 @@ export async function recommendAvatarAndVoice(input: {
   if (!data.success) throw new Error(data.error || 'Erro na recomendação.');
   return data.recommendation;
 }
+
+// ─────────────────────────────────────────────
+// 5. REESCREVER COPY DE FORMA SEGURA (UX13)
+// ─────────────────────────────────────────────
+/**
+ * Reescreve a copy substituindo termos detectados pelo content risk
+ * scanner (medicamentos, celebridades, slurs, alegações médicas, etc)
+ * por equivalentes seguros — preservando ângulo, emoção e estrutura.
+ *
+ * Recebe a copy original + lista de termos detectados (já com categoria
+ * e razão de cada um) pra que o Claude saiba EXATAMENTE o que evitar e
+ * por quê. Sem isso o modelo pode "suavizar demais" e perder o impacto.
+ */
+export interface SafeRewriteHit {
+  matched: string;
+  category: string;
+  reason: string;
+}
+
+export async function rewriteSafeCopy(input: {
+  text: string;
+  hits: SafeRewriteHit[];
+  /** Tipo do texto pro modelo entender — "hook" tem regras diferentes
+   *  de "script" (hook é abertura curta, script é texto inteiro). */
+  textType?: 'hook' | 'script';
+}): Promise<string> {
+  const { text, hits, textType = 'script' } = input;
+  if (!text || hits.length === 0) return text;
+
+  // Agrupa termos detectados num bloco legível pro prompt
+  const detectedBlock = hits
+    .map((h, i) => `${i + 1}. "${h.matched}" — ${h.category}: ${h.reason}`)
+    .join('\n');
+
+  const systemPrompt = `Você reescreve copy de anúncio pra remover termos que podem causar bloqueio no Meta Ads ou ação legal, MANTENDO ângulo, emoção, estrutura e impacto. Você não é um censor — você é um co-piloto que faz a copy "voar abaixo do radar" sem ficar genérica.
+
+REGRAS DE OURO:
+1. PRESERVE o tom, a dor, a promessa e a estrutura narrativa do original.
+2. SUBSTITUA termos perigosos por equivalentes que mantenham o impacto:
+   - Nome de medicamento → categoria genérica ("aquele remédio que o médico passa", "o tratamento tradicional", "os calmantes comuns")
+   - Nome de celebridade → papel/função ("um especialista", "uma autoridade no assunto", "alguém que passou por isso")
+   - Slur/discriminação → REMOVA completamente, não tem substituto seguro
+   - "Cura definitiva" → "alívio duradouro", "resolve pela raiz"
+   - "100% garantido" → "com garantia de satisfação"
+   - "Antes e depois" → "transformação", "mudança"
+   - Comparação nominal direta → indireta ("ao contrário dos métodos comuns")
+3. NÃO ADICIONE conteúdo novo. Não invente frases novas. Não expanda.
+4. MESMA língua do original (PT ou EN — não traduza).
+5. NÃO mencione no output que algo foi removido — entrega só a copy limpa.
+
+Responda APENAS em JSON válido sem markdown.`;
+
+  const userPrompt = `Reescreva ${textType === 'hook' ? 'este hook' : 'esta copy'} removendo os termos perigosos detectados.
+
+${textType === 'hook' ? 'HOOK' : 'COPY'} ORIGINAL:
+"""
+${text}
+"""
+
+TERMOS DETECTADOS (devem ser removidos ou substituídos):
+${detectedBlock}
+
+Sua tarefa: produza uma versão que NÃO contenha nenhum dos termos acima e seus equivalentes próximos, mas que mantenha o mesmo ângulo, dor central, e estrutura. Mantenha a mesma língua.
+
+FORMATO (JSON apenas):
+{"safeText": "${textType === 'hook' ? 'hook' : 'copy'} reescrita aqui"}`;
+
+  const raw = await callClaude(systemPrompt, userPrompt, 2500);
+
+  try {
+    const cleaned = raw
+      .replace(/```json\n?/g, '')
+      .replace(/```\n?/g, '')
+      .trim();
+    if (cleaned.startsWith('{')) {
+      const parsed = JSON.parse(cleaned);
+      return parsed.safeText || parsed.text || text;
+    }
+    return cleaned || text;
+  } catch {
+    const match = raw.match(/"safeText"\s*:\s*"([\s\S]*?)"\s*\}/);
+    if (match && match[1]) {
+      return match[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+    }
+    return text;
+  }
+}
