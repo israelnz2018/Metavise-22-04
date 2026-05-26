@@ -2213,6 +2213,17 @@ export default function App() {
       // Activate the variant + navigate to Copy.
       setCurrentVariantId(brief.id);
       setConfig(variantConfig);
+      // UX6: top-level state precisa ser zerado JUNTO com config, senão o
+      // auto-save 2s depois lê o audios/videos da variant ANTERIOR (que
+      // ainda está em React state) e grava no novo subprojeto. Mesma
+      // limpeza que handleLoadVariant faz quando carrega outra variant.
+      setAudioUrl(null);
+      setAudioStoragePath(null);
+      setAudios([]);
+      setVideoUrl(null);
+      setVideoStoragePath(null);
+      setVideos([]);
+      setGenerationStage('idle');
       setCurrentStep('copy');
       toast.success(`Subprojeto "${newVariant.name}" criado. Agora gere a copy.`);
     } catch (err) {
@@ -2311,6 +2322,16 @@ export default function App() {
 
       setCurrentVariantId(variantId);
       setConfig(variantConfig);
+      // UX6: mesma limpeza de top-level state que Porta B (brief) faz.
+      // Sem isso o auto-save persiste audios/videos da variant anterior
+      // no novo subprojeto criado a partir da persona.
+      setAudioUrl(null);
+      setAudioStoragePath(null);
+      setAudios([]);
+      setVideoUrl(null);
+      setVideoStoragePath(null);
+      setVideos([]);
+      setGenerationStage('idle');
       setCurrentStep('copy');
       toast.success(`Subprojeto criado a partir da persona "${persona.name}".`);
     } catch (err) {
