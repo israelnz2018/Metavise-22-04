@@ -1413,3 +1413,161 @@ export function parseScriptBeats(script: string): ScriptBeat[] {
 export function assembleScriptFromBeats(beats: ScriptBeat[]): string {
   return beats.map((b) => `[${b.label}]\n${b.text}`).join('\n\n');
 }
+
+// ─────────────────────────────────────────────
+// 9. HOOK LAB (UX17) — 9 hooks 100% originais
+// ─────────────────────────────────────────────
+/**
+ * Gera 9 hooks DO ZERO sem usar a hooks bible. Em vez de templates com
+ * placeholders preenchidos (UX10), aqui Claude inventa hooks completos
+ * usando 5 fórmulas comprovadas + contexto do projeto.
+ *
+ * Útil quando user quer hooks mais originais/personalizados. Bible
+ * continua disponível como alternativa.
+ */
+export interface OriginalHookGroup {
+  formula: string; // ex: "Curiosity Gap", "Paradigm Shift"
+  hooks: string[]; // 1-2 hooks por fórmula, total ≈ 9
+}
+
+export async function generateOriginalHooks(input: {
+  productInfo?: {
+    produto?: string;
+    oferta?: string;
+    dorPrincipal?: string;
+    [k: string]: any;
+  } | null;
+  persona?: {
+    name?: string;
+    age?: string;
+    mainPain?: string;
+    dominantFear?: string;
+    hiddenDesire?: string;
+    mainObjection?: string;
+    currentSituation?: string;
+    [k: string]: any;
+  } | null;
+  brief?: {
+    angle?: string;
+    emotion?: string;
+    style?: string;
+    promiseFocus?: string;
+    [k: string]: any;
+  } | null;
+  approvedCopy?: string;
+  language?: string;
+  awarenessLevel?: string;
+}): Promise<OriginalHookGroup[]> {
+  const { productInfo, persona, brief, approvedCopy, language, awarenessLevel } = input;
+  const targetLang: 'pt' | 'en' = isPortuguese(language) ? 'pt' : 'en';
+
+  const culturalNote =
+    targetLang === 'pt'
+      ? '\n\nIDIOMA: Português brasileiro idiomático. Frases curtas e orais. Evite traduções literais do inglês. Use construções como "presta atenção", "olha só", "do nada".'
+      : '';
+
+  const systemPrompt = `Você é um copywriter sênior especialista em hooks de Meta Ads. Você cria hooks 100% ORIGINAIS — não usa templates, não preenche lacunas. Cada hook é uma abertura única projetada pra parar o scroll.
+
+Você domina 5 fórmulas:
+1. CURIOSITY GAP — abrir um loop que o leitor PRECISA fechar. "X em cada Y pessoas têm Z mas só algumas percebem"
+2. PARADIGM SHIFT — contradizer uma crença popular. "Não é X. É Y." / "X não causa Z"
+3. TRANSFORMATION STORY — depoimento em 1ª pessoa, super específico. "Eu fazia X. Agora faço Y."
+4. PROBLEM-SPECIFIC — nomear sensação exata que só QUEM tem o problema conhece. "Aquela [sensação específica em momento específico] não é X"
+5. MASS DESIRE NAME — chamar o leitor pelo desejo escondido. "Se você quer X, presta atenção"${culturalNote}
+
+Responda APENAS em JSON válido sem markdown.`;
+
+  const contextBlock = [
+    productInfo?.produto ? `Produto: ${productInfo.produto}` : null,
+    productInfo?.oferta ? `Oferta: ${productInfo.oferta}` : null,
+    productInfo?.dorPrincipal ? `Dor central: ${productInfo.dorPrincipal}` : null,
+    persona?.name ? `Persona: ${persona.name}` : null,
+    persona?.age ? `Idade persona: ${persona.age}` : null,
+    persona?.currentSituation ? `Situação atual: ${persona.currentSituation}` : null,
+    persona?.mainPain ? `Dor da persona: ${persona.mainPain}` : null,
+    persona?.dominantFear ? `Medo dominante: ${persona.dominantFear}` : null,
+    persona?.hiddenDesire ? `Desejo oculto: ${persona.hiddenDesire}` : null,
+    persona?.mainObjection ? `Objeção principal: ${persona.mainObjection}` : null,
+    brief?.angle ? `Ângulo do criativo: ${brief.angle}` : null,
+    brief?.emotion ? `Emoção primária: ${brief.emotion}` : null,
+    brief?.style ? `Estilo: ${brief.style}` : null,
+    brief?.promiseFocus ? `Promessa central: ${brief.promiseFocus}` : null,
+    awarenessLevel ? `Nível de consciência: ${awarenessLevel}/5` : null,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const copyBlock = approvedCopy
+    ? `\nCOPY APROVADA (use como ancoragem do tom, mas hooks NÃO devem repetir frases dela):\n"""\n${approvedCopy}\n"""\n`
+    : '';
+
+  const userPrompt = `Crie 9 hooks 100% originais pra abrir este criativo. NÃO use templates. NÃO use lacunas (___, [X]). Cada hook deve ser uma frase pronta pra falar em voz alta.
+
+CONTEXTO:
+${contextBlock}
+${copyBlock}
+REGRAS:
+1. Distribua os 9 hooks em GRUPOS de fórmula: 2 hooks por fórmula. Total: 9-10 hooks em 5 grupos.
+2. Cada hook é específico — use detalhes concretos do produto/persona, não genéricos
+3. Tamanho: 5-25 palavras por hook
+4. Mesma língua do contexto (NÃO traduza)
+5. SEM aspas envolvendo o hook inteiro
+6. SEM placeholders restantes — cada hook é falável imediatamente
+7. Estilo direto-resposta — sem "no mundo de hoje", sem "uma jornada", sem "está prestes a"
+8. Preferir abertura sensorial/momento específico ("3 da manhã", "no espelho de manhã") quando fizer sentido
+
+FORMATO (JSON apenas):
+{
+  "grupos": [
+    {
+      "formula": "Curiosity Gap",
+      "hooks": ["hook 1 do tipo", "hook 2 do tipo"]
+    },
+    {
+      "formula": "Paradigm Shift",
+      "hooks": ["hook 1", "hook 2"]
+    },
+    {
+      "formula": "Transformation Story",
+      "hooks": ["hook 1", "hook 2"]
+    },
+    {
+      "formula": "Problem-Specific",
+      "hooks": ["hook 1", "hook 2"]
+    },
+    {
+      "formula": "Mass Desire",
+      "hooks": ["hook 1", "hook 2"]
+    }
+  ]
+}`;
+
+  const raw = await callClaude(systemPrompt, userPrompt, 2000);
+  try {
+    const cleaned = raw
+      .replace(/```json\n?/g, '')
+      .replace(/```\n?/g, '')
+      .trim();
+    const parsed = JSON.parse(cleaned);
+    const grupos = Array.isArray(parsed.grupos) ? parsed.grupos : [];
+    return grupos
+      .filter((g: any) => g && typeof g.formula === 'string' && Array.isArray(g.hooks))
+      .map((g: any) => ({
+        formula: g.formula,
+        hooks: g.hooks
+          .filter((h: any) => typeof h === 'string' && h.trim().length > 0)
+          .map((h: string) =>
+            // Remove aspas externas e placeholders restantes (defesa)
+            h
+              .trim()
+              .replace(/^["']|["']$/g, '')
+              .trim()
+          )
+          .filter((h: string) => !/(_{2,}|\[[a-zA-Zçãâáéíóôúû_ ]{2,}\])/.test(h)),
+      }))
+      .filter((g: any) => g.hooks.length > 0);
+  } catch (err: any) {
+    console.error('[generateOriginalHooks]', err?.message);
+    return [];
+  }
+}

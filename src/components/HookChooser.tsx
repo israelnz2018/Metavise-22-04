@@ -19,8 +19,11 @@ import hooksBiblePt from '@/data/hooksBible_pt.json';
 import {
   chooseHooksFromCopy,
   rewriteSafeCopy,
+  generateOriginalHooks,
   type HookSelectionContext,
+  type OriginalHookGroup,
 } from '@/lib/claudeService';
+import { Beaker } from 'lucide-react';
 // UX13: scanner de risco — hook também passa pela mesma checagem da copy
 // (medicamentos concorrentes, slurs, celebridades, etc).
 import { scanForRisks } from '@/lib/contentRiskScanner';
@@ -262,6 +265,50 @@ const HookChooser: React.FC<Props> = ({
     setIsSaved(false);
   };
 
+  // UX17: Hook Lab — gera 9 hooks 100% originais sem usar a biblia.
+  // Estado separado pra não conflitar com aiGeneratedGroups (biblia).
+  const [isLabGenerating, setIsLabGenerating] = useState(false);
+  const [labGroups, setLabGroups] = useState<OriginalHookGroup[]>([]);
+  const handleHookLab = async () => {
+    if (!approvedCopy) {
+      toast.error('A copy aprovada não está disponível.');
+      return;
+    }
+    setIsLabGenerating(true);
+    const toastId = 'hook-lab';
+    toast.loading('Hook Lab — gerando hooks originais...', { id: toastId });
+    try {
+      const grupos = await generateOriginalHooks({
+        productInfo: selectionContext?.productInfo,
+        persona: selectionContext?.persona,
+        brief: selectionContext?.brief,
+        approvedCopy,
+        language,
+        awarenessLevel: String(awarenessLevel || ''),
+      });
+      if (grupos.length === 0) {
+        toast.error('A IA não conseguiu gerar hooks originais. Tente novamente.', {
+          id: toastId,
+        });
+        return;
+      }
+      setLabGroups(grupos);
+      // Auto-ativa o bloco Lab pra clique funcionar
+      setActiveBlock('ai');
+      // Limpa grupos da biblia pra evitar confusão visual com 2 listas
+      setAiGeneratedGroups([]);
+      setRecommendedHookIds([]);
+      toast.success(`${grupos.reduce((s, g) => s + g.hooks.length, 0)} hooks originais gerados!`, {
+        id: toastId,
+        duration: 4000,
+      });
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro no Hook Lab.', { id: toastId });
+    } finally {
+      setIsLabGenerating(false);
+    }
+  };
+
   // UX13: scan do hook escolhido. Banner aparece quando há risco E user
   // ainda não deu ack pra ESTE hook específico. Ack é em memória (per-
   // sessão) porque hook é texto curto e fácil de re-checar.
@@ -350,21 +397,41 @@ const HookChooser: React.FC<Props> = ({
         </div>
       )}
 
-      {/* ─── BOTÃO: ANALISAR COPY E GERAR HOOKS ─── */}
+      {/* ─── BOTÕES: ANALISAR COPY (bíblia) + HOOK LAB (original) ─── */}
       {approvedCopy && (
-        <div className="flex flex-col items-center gap-2">
-          <button
-            onClick={handleAIRecommend}
-            disabled={isRecommending}
-            className="px-12 py-5 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-2xl font-black uppercase tracking-widest hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 transition-all shadow-xl shadow-purple-100 flex items-center gap-3 text-base"
-          >
-            {isRecommending ? (
-              <Loader2 className="animate-spin" size={20} />
-            ) : (
-              <Sparkles size={20} />
-            )}
-            {isRecommending ? 'Analisando copy e gerando hooks...' : 'Analisar Copy e Gerar Hooks'}
-          </button>
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <button
+              onClick={handleAIRecommend}
+              disabled={isRecommending || isLabGenerating}
+              className="px-10 py-5 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-2xl font-black uppercase tracking-widest hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 transition-all shadow-xl shadow-purple-100 flex items-center gap-3 text-sm"
+              title="Escolhe + preenche 9 hooks da biblioteca interna (~600 templates)"
+            >
+              {isRecommending ? (
+                <Loader2 className="animate-spin" size={20} />
+              ) : (
+                <Library size={20} />
+              )}
+              {isRecommending ? 'Analisando...' : 'Biblioteca de Hooks'}
+            </button>
+            {/* UX17: Hook Lab — gera 100% original sem usar templates */}
+            <button
+              onClick={handleHookLab}
+              disabled={isRecommending || isLabGenerating}
+              className="px-10 py-5 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-2xl font-black uppercase tracking-widest hover:from-amber-600 hover:to-orange-700 disabled:opacity-50 transition-all shadow-xl shadow-amber-100 flex items-center gap-3 text-sm"
+              title="Gera 9 hooks 100% originais (sem usar templates) usando persona + brief + 5 fórmulas comprovadas"
+            >
+              {isLabGenerating ? (
+                <Loader2 className="animate-spin" size={20} />
+              ) : (
+                <Beaker size={20} />
+              )}
+              {isLabGenerating ? 'Hook Lab gerando...' : 'Hook Lab (original)'}
+            </button>
+          </div>
+          <p className="text-[10px] text-gray-400 dark:text-gray-500 italic">
+            Biblioteca = preenche templates testados · Hook Lab = inventa do zero
+          </p>
           {/* UX4: indicador de contexto rico. Quando productInfo/persona/brief
               chegam aqui (subprojeto criado a partir de um brief no Plano),
               a IA usa esses dados pra escolher hooks aderentes ao ângulo —
@@ -530,6 +597,83 @@ const HookChooser: React.FC<Props> = ({
                             </span>
                           </div>
                         )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ─── UX17: BLOCO LAB — HOOKS 100% ORIGINAIS ─── */}
+      {labGroups.length > 0 && (
+        <div
+          className={`bg-white dark:bg-gray-900/80 rounded-3xl border-2 p-6 shadow-sm transition-all ${activeBlock === 'ai' ? 'border-amber-500 shadow-lg ring-2 ring-amber-100' : 'border-gray-200 dark:border-gray-800 opacity-90'}`}
+        >
+          <div className="flex items-center gap-2 mb-4">
+            <div className="bg-amber-600 p-1.5 rounded-lg text-white">
+              <Beaker size={16} />
+            </div>
+            <h3 className="text-sm font-black text-gray-900 dark:text-gray-50 uppercase tracking-widest flex-1">
+              Hook Lab — Hooks Originais
+            </h3>
+            <span className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 ring-1 ring-amber-200/60 dark:ring-amber-800/60">
+              {labGroups.reduce((s, g) => s + g.hooks.length, 0)} originais
+            </span>
+          </div>
+          <p className="text-[10px] text-gray-500 dark:text-gray-400 italic mb-4">
+            Gerados do zero usando persona + brief + 5 fórmulas comprovadas (curiosity gap, paradigm
+            shift, transformation, problem-specific, mass desire).
+          </p>
+
+          <div className="space-y-6">
+            {labGroups.map((g, gIdx) => (
+              <div key={`lab-group-${g.formula}-${gIdx}`} className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-4 bg-amber-600 rounded-full"></div>
+                  <span className="text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">
+                    Fórmula: {g.formula}
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {g.hooks.map((hookText, hIdx) => {
+                    const isSelected = chosenHook === hookText && activeBlock === 'ai';
+                    const isDisabled = activeBlock !== 'ai';
+                    return (
+                      <button
+                        key={`lab-hook-${gIdx}-${hIdx}`}
+                        onClick={() => handlePickHook(hookText, 'ai')}
+                        disabled={isDisabled}
+                        className={`w-full text-left p-5 rounded-3xl border-2 transition-all relative ${
+                          isSelected
+                            ? 'border-amber-600 bg-amber-50 dark:bg-amber-950/40 shadow-lg ring-2 ring-amber-100'
+                            : isDisabled
+                              ? 'border-gray-50 bg-gray-50/50 dark:bg-gray-800/60 cursor-not-allowed opacity-60'
+                              : 'border-gray-50 bg-gray-50 dark:bg-gray-800/60 hover:border-amber-200 hover:bg-white dark:hover:bg-gray-900/80'
+                        }`}
+                      >
+                        <div className="flex items-start gap-4">
+                          <div
+                            className={`mt-1 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${
+                              isSelected
+                                ? 'bg-amber-600 border-amber-600'
+                                : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/80'
+                            }`}
+                          >
+                            {isSelected && (
+                              <div className="w-2 h-2 bg-white dark:bg-gray-900/80 rounded-full"></div>
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <p
+                              className={`text-sm font-bold leading-relaxed ${isSelected ? 'text-amber-900 dark:text-amber-200' : 'text-gray-700 dark:text-gray-300'}`}
+                            >
+                              {hookText}
+                            </p>
+                          </div>
+                        </div>
                       </button>
                     );
                   })}
