@@ -4,7 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch --clear-screen=false server.ts",
+    "dev": "node scripts/dev-supervisor.mjs",
+    "dev:bare": "tsx server.ts",
+    "dev:watch": "tsx watch --clear-screen=false server.ts",
     "build": "vite build",
     "build:analyze": "ANALYZE=1 vite build",
     "preview": "vite preview",
