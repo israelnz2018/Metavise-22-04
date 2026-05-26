@@ -2,10 +2,15 @@ import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { Loader2, Plus, Trash2, X } from 'lucide-react';
 
-// F6.7 — module-level cache of videoUrl → transcriptId. Persists for the
-// lifetime of the SPA page (cleared on reload). Avoids paying AssemblyAI
-// again if the user closes and re-opens Cortes on the same video.
+// F6.7 — module-level cache of (videoUrl + lang) → transcriptId. Persists
+// for the lifetime of the SPA page (cleared on reload). Avoids paying
+// AssemblyAI again se cliente reabre Cortes no mesmo vídeo.
+//
+// P1 — lang faz parte da key porque um vídeo em inglês transcrito como
+// `pt` vira lixo. Cache por (url+lang) evita servir o lixo se cliente
+// depois trocar pra `en`.
 const transcriptCache = new Map<string, string>();
+const cacheKey = (url: string, lang: string) => `${url}|${lang}`;
 
 // "Cortes pretos com texto" modal — F6 redesign.
 //
@@ -56,7 +61,7 @@ interface Props {
   fontSize: number;
   /** F6.8 — ISO 639-1 language code ('pt', 'en', 'es'). Passed to AssemblyAI
    *  so we skip language detection (saves ~30-40% time). Defaults to 'pt'. */
-  languageCode?: 'pt' | 'en' | 'es';
+  languageCode?: 'auto' | 'pt' | 'en' | 'es';
   onFontSizeChange: (next: number) => void;
   onClose: () => void;
   /** F6.11 — Fires "Gerar". Modal now passes settings alongside insertions
@@ -87,7 +92,7 @@ export function IntercutModal({
   rendering,
   sourceVideoUrl,
   fontSize,
-  languageCode = 'pt',
+  languageCode = 'auto',
   onFontSizeChange,
   onClose,
   onRender,
@@ -116,6 +121,9 @@ export function IntercutModal({
   // 'space' = starfield gerado via ffmpeg lavfi. 'gradient' = cor com hue shift.
   const [background, setBackground] = useState<'black' | 'space' | 'gradient'>('black');
   const [transcriptId, setTranscriptId] = useState<string | null>(null);
+  // P1 — idioma escolhido. Default 'auto' = AssemblyAI detecta sozinha.
+  // Cliente pode forçar PT/EN/ES se a detecção errar ou pra ganhar velocidade.
+  const [chosenLang, setChosenLang] = useState<'auto' | 'pt' | 'en' | 'es'>(languageCode);
   const [sentences, setSentences] = useState<Sentence[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeStatus, setAnalyzeStatus] = useState<string>('');
@@ -123,6 +131,17 @@ export function IntercutModal({
   const [loadingSentences, setLoadingSentences] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [insertions, setInsertions] = useState<Insertion[]>([]);
+
+  // P1 — Invalida transcript ao trocar idioma (cache anterior pode tar lixo).
+  // Tem que vir DEPOIS das declarações de state acima.
+  useEffect(() => {
+    if (!open) return;
+    setTranscriptId(null);
+    setSentences([]);
+    setInsertions([]);
+    setError(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chosenLang]);
 
   // F6.7 — refs pra cancelar polling + timer ao fechar modal ou cancelar.
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -176,7 +195,7 @@ export function IntercutModal({
     cancelledRef.current = false;
 
     // Cache hit → skip the whole AssemblyAI roundtrip.
-    const cached = transcriptCache.get(sourceVideoUrl);
+    const cached = transcriptCache.get(cacheKey(sourceVideoUrl, chosenLang));
     if (cached) {
       setTranscriptId(cached);
       return;
@@ -200,7 +219,7 @@ export function IntercutModal({
         // total transcription time vs. the default heavy mode.
         console.log('[Intercut] POST /analyze/submit ←', {
           videoUrl: sourceVideoUrl?.substring(0, 80),
-          languageCode,
+          languageCode: chosenLang,
         });
         const submitRes = await fetch('/api/assemblyai/analyze/submit', {
           method: 'POST',
@@ -208,7 +227,7 @@ export function IntercutModal({
           body: JSON.stringify({
             videoUrl: sourceVideoUrl,
             lightweight: true,
-            languageCode,
+            languageCode: chosenLang,
           }),
         });
         const responseText = await submitRes.text();
@@ -279,7 +298,7 @@ export function IntercutModal({
             if (status === 'completed') {
               done = true;
               stopAnalyze();
-              transcriptCache.set(sourceVideoUrl, tid);
+              transcriptCache.set(cacheKey(sourceVideoUrl, chosenLang), tid);
               setTranscriptId(tid);
               setAnalyzing(false);
             } else if (status === 'error') {
@@ -322,7 +341,7 @@ export function IntercutModal({
     // próprio polling) nem `transcriptId` (cleanup fica fazendo stopAnalyze
     // por nada quando o polling completa).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, sourceVideoUrl]);
+  }, [open, sourceVideoUrl, chosenLang]);
 
   // When we have a transcriptId, fetch sentences-with-words for the picker.
   useEffect(() => {
@@ -424,6 +443,26 @@ export function IntercutModal({
           >
             <X size={18} />
           </button>
+        </div>
+
+        {/* P1 — Seletor de idioma. Default 'auto' = AssemblyAI detecta sozinho.
+            Cliente pode forçar pra ganhar velocidade. Trocar invalida cache
+            + força re-análise. */}
+        <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-gray-50 dark:bg-gray-800/40">
+          <span className="text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-400">
+            Idioma do áudio
+          </span>
+          <select
+            value={chosenLang}
+            onChange={(e) => setChosenLang(e.target.value as 'auto' | 'pt' | 'en' | 'es')}
+            disabled={analyzing || rendering}
+            className="px-2 py-1 text-xs font-bold bg-white dark:bg-gray-900 ring-1 ring-gray-200 dark:ring-gray-700 rounded-lg text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-purple-500 outline-none disabled:opacity-50"
+          >
+            <option value="auto">Auto (detectar)</option>
+            <option value="pt">Português</option>
+            <option value="en">English</option>
+            <option value="es">Español</option>
+          </select>
         </div>
 
         {error && (
