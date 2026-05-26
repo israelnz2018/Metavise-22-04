@@ -407,10 +407,38 @@ elevenLabsPremiumRouter.post('/upload-ready-audio', async (req, res) => {
   }
 });
 
+// F7.4 — Helper: write a .json sidecar next to the saved music file so the
+// library endpoint can show context (prompt used, original filename, source).
+// Failure here is non-fatal — the audio file still works without metadata.
+function writeMusicSidecar(
+  filePath: string,
+  meta: {
+    source: 'upload' | 'ai';
+    fileName?: string;
+    prompt?: string;
+    lengthMs?: number;
+    instrumental?: boolean;
+    sizeBytes: number;
+  }
+) {
+  try {
+    const sidecar = filePath + '.json';
+    fs.writeFileSync(
+      sidecar,
+      JSON.stringify({ ...meta, createdAt: new Date().toISOString() }, null, 2)
+    );
+  } catch (err: any) {
+    log.warn(`[Music] failed to write sidecar for ${path.basename(filePath)}: ${err.message}`);
+  }
+}
+
 // F7.1 — Upload um MP3 do cliente pra usar como música de fundo. Reusa a
 // mesma pasta /generated/ + base64 pattern. Cliente faz fetch da response
 // e usa { audioUrl } como musicUrl no /api/video/add-music depois.
-elevenLabsPremiumRouter.post('/upload-music', async (req, res) => {
+// NOTA: montado em elevenLabsRouter (não premium) pra bater com o path
+// usado pelo frontend (/api/elevenlabs/upload-music). Antes estava em
+// elevenLabsPremiumRouter por engano e o upload nunca funcionou.
+elevenLabsRouter.post('/upload-music', async (req, res) => {
   const { fileBase64, fileName } = req.body || {};
   if (!fileBase64) return res.status(400).json({ error: 'fileBase64 é obrigatório.' });
   try {
@@ -419,10 +447,98 @@ elevenLabsPremiumRouter.post('/upload-music', async (req, res) => {
     const savedFileName = `music-${Date.now()}-${safe}`;
     const filePath = path.join(GENERATED_DIR, savedFileName);
     fs.writeFileSync(filePath, buffer);
+    writeMusicSidecar(filePath, {
+      source: 'upload',
+      fileName: fileName || 'music.mp3',
+      sizeBytes: buffer.length,
+    });
     log.info(`[Music Upload] saved ${savedFileName} (${buffer.length} bytes)`);
     res.json({ audioUrl: `/generated/${savedFileName}`, sizeBytes: buffer.length });
   } catch (err: any) {
     log.error('[Music Upload] error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// F7.3 — GET /api/elevenlabs/music/library
+//
+// Lista todas as músicas salvas em /generated/ (uploads + geradas pela IA),
+// com metadata vinda dos sidecars .json quando disponíveis. Ordenado por
+// mais recente primeiro (mtime do arquivo). Pra cliente poder voltar e
+// reusar trilhas em projetos futuros.
+elevenLabsRouter.get('/music/library', async (_req, res) => {
+  try {
+    const all = fs.readdirSync(GENERATED_DIR);
+    // Aceita os 2 prefixos usados pelos endpoints de música:
+    //   music-*               (upload)
+    //   eleven-music-*        (gerado pela IA)
+    const musicFiles = all.filter(
+      (f) =>
+        (f.startsWith('music-') || f.startsWith('eleven-music-')) &&
+        !f.endsWith('.json') &&
+        /\.(mp3|wav|aac|m4a)$/i.test(f)
+    );
+
+    const tracks = musicFiles.map((fileName) => {
+      const filePath = path.join(GENERATED_DIR, fileName);
+      const stat = fs.statSync(filePath);
+      // Tenta ler sidecar — pode não existir (arquivos antigos pré-F7.4).
+      let meta: any = {};
+      const sidecarPath = filePath + '.json';
+      if (fs.existsSync(sidecarPath)) {
+        try {
+          meta = JSON.parse(fs.readFileSync(sidecarPath, 'utf-8'));
+        } catch {
+          // sidecar corrompido — ignora
+        }
+      }
+      // Inferência fallback pra arquivos sem sidecar.
+      const inferredSource: 'ai' | 'upload' = fileName.startsWith('eleven-music-')
+        ? 'ai'
+        : 'upload';
+      return {
+        url: `/generated/${fileName}`,
+        fileName,
+        sizeBytes: stat.size,
+        createdAt: meta.createdAt || stat.mtime.toISOString(),
+        source: meta.source || inferredSource,
+        prompt: meta.prompt,
+        originalFileName: meta.fileName,
+        lengthMs: meta.lengthMs,
+      };
+    });
+
+    // Mais recentes primeiro.
+    tracks.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    res.json({ tracks });
+  } catch (err: any) {
+    log.error('[Music Library] error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// F7.3 — DELETE /api/elevenlabs/music/:fileName
+//
+// Apaga uma música salva (mp3 + sidecar). Valida o nome de arquivo pra
+// evitar path traversal — só aceita o pattern dos prefixos legítimos.
+elevenLabsRouter.delete('/music/:fileName', async (req, res) => {
+  const { fileName } = req.params;
+  // Path-traversal guard: só basename, só prefixos conhecidos, só extensões de audio.
+  if (!fileName || fileName.includes('/') || fileName.includes('..')) {
+    return res.status(400).json({ error: 'fileName inválido.' });
+  }
+  if (!/^(music-|eleven-music-)/.test(fileName) || !/\.(mp3|wav|aac|m4a)$/i.test(fileName)) {
+    return res.status(400).json({ error: 'Nome de arquivo não corresponde a uma música salva.' });
+  }
+  try {
+    const filePath = path.join(GENERATED_DIR, fileName);
+    const sidecarPath = filePath + '.json';
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    if (fs.existsSync(sidecarPath)) fs.unlinkSync(sidecarPath);
+    log.info(`[Music Delete] removed ${fileName}`);
+    res.json({ ok: true });
+  } catch (err: any) {
+    log.error('[Music Delete] error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -480,6 +596,13 @@ elevenLabsRouter.post('/music/generate', async (req, res) => {
     const filename = `eleven-music-${Date.now()}.mp3`;
     const filePath = path.join(GENERATED_DIR, filename);
     fs.writeFileSync(filePath, buffer);
+    writeMusicSidecar(filePath, {
+      source: 'ai',
+      prompt,
+      lengthMs: durationMs,
+      instrumental,
+      sizeBytes: buffer.length,
+    });
     log.info(`[Music Gen] OK saved ${filename} (${buffer.length} bytes)`);
     res.json({ audioUrl: `/generated/${filename}`, sizeBytes: buffer.length });
   } catch (err: any) {

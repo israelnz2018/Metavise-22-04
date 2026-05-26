@@ -1,6 +1,48 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-hot-toast';
-import { Loader2, Music, Sparkles, Upload, X } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronUp,
+  Library,
+  Loader2,
+  Music,
+  Sparkles,
+  Trash2,
+  Upload,
+  X,
+} from 'lucide-react';
+
+// F7.3 — Música salva na biblioteca (vem do GET /music/library).
+interface MusicItem {
+  url: string;
+  fileName: string;
+  sizeBytes: number;
+  createdAt: string;
+  source: 'ai' | 'upload';
+  prompt?: string;
+  originalFileName?: string;
+  lengthMs?: number;
+}
+
+function formatRelativeDate(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffMin = Math.floor(diffMs / 60_000);
+  if (diffMin < 1) return 'agora';
+  if (diffMin < 60) return `${diffMin}min atrás`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h atrás`;
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay < 7) return `${diffDay}d atrás`;
+  return d.toLocaleDateString('pt-BR');
+}
+
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n}B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)}KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)}MB`;
+}
 
 // F7.2 — Background music section for EditZapTab.
 //
@@ -53,6 +95,63 @@ export function MusicSection({ videoOptions, onMusicVersionReady, disabled, user
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isBusy = uploading || generating || mixing || !!disabled;
 
+  // F7.5 — Biblioteca: lista todas as músicas salvas no servidor.
+  // Carrega no mount + recarrega após cada upload/geração bem-sucedida
+  // pro cliente ver a track nova aparecer na biblioteca.
+  const [library, setLibrary] = useState<MusicItem[]>([]);
+  const [loadingLib, setLoadingLib] = useState(false);
+  const [showLibrary, setShowLibrary] = useState(true);
+
+  async function loadLibrary() {
+    setLoadingLib(true);
+    try {
+      const r = await fetch('/api/elevenlabs/music/library');
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const d = await r.json();
+      setLibrary(d.tracks || []);
+    } catch (err: any) {
+      // Falha silenciosa — biblioteca é conveniência, não bloqueia o fluxo.
+      console.warn('[MusicSection] failed to load library:', err.message);
+    } finally {
+      setLoadingLib(false);
+    }
+  }
+
+  useEffect(() => {
+    loadLibrary();
+  }, []);
+
+  function selectFromLibrary(track: MusicItem) {
+    setMusicUrl(track.url);
+    const label = track.prompt
+      ? `IA: "${track.prompt.substring(0, 40)}${track.prompt.length > 40 ? '…' : ''}"`
+      : track.originalFileName || track.fileName;
+    setMusicLabel(label);
+    toast.success('Música selecionada da biblioteca.');
+  }
+
+  async function deleteFromLibrary(track: MusicItem) {
+    if (!confirm(`Apagar "${track.prompt || track.originalFileName || track.fileName}"?`)) return;
+    try {
+      const r = await fetch(`/api/elevenlabs/music/${encodeURIComponent(track.fileName)}`, {
+        method: 'DELETE',
+      });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        throw new Error(d.error || `HTTP ${r.status}`);
+      }
+      setLibrary((cur) => cur.filter((t) => t.fileName !== track.fileName));
+      // Se a música apagada era a selecionada, limpa a seleção.
+      if (musicUrl === track.url) {
+        setMusicUrl(null);
+        setMusicLabel('');
+      }
+      toast.success('Música removida da biblioteca.');
+    } catch (err: any) {
+      toast.error(`Erro ao apagar: ${err.message}`);
+    }
+  }
+
   // If videoOptions shrinks (deleted version) and our target is gone,
   // fall back to whatever is left.
   if (targetUrl && !videoOptions.some((v) => v.url === targetUrl)) {
@@ -83,6 +182,8 @@ export function MusicSection({ videoOptions, onMusicVersionReady, disabled, user
       setMusicUrl(data.audioUrl);
       setMusicLabel(file.name);
       toast.success('Música carregada.');
+      // F7.5 — refresh library so the new upload shows up.
+      loadLibrary();
     } catch (err: any) {
       toast.error(`Falha no upload: ${err.message}`);
     } finally {
@@ -124,6 +225,8 @@ export function MusicSection({ videoOptions, onMusicVersionReady, disabled, user
       setMusicUrl(data.audioUrl);
       setMusicLabel(`IA: "${prompt.substring(0, 40)}${prompt.length > 40 ? '…' : ''}"`);
       toast.success('Música gerada pela IA!');
+      // F7.5 — refresh library so the new track shows up.
+      loadLibrary();
     } catch (err: any) {
       toast.error(`Falha ao gerar: ${err.message}`, { duration: 10_000 });
     } finally {
@@ -210,6 +313,107 @@ export function MusicSection({ videoOptions, onMusicVersionReady, disabled, user
             </option>
           ))}
         </select>
+      </div>
+
+      {/* F7.5 — Biblioteca de músicas salvas */}
+      <div className="rounded-2xl border-2 border-purple-100 dark:border-purple-900/50 overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowLibrary((v) => !v)}
+          className="w-full flex items-center justify-between px-4 py-2.5 bg-purple-50/60 dark:bg-purple-950/30 hover:bg-purple-50 dark:hover:bg-purple-950/50 transition-colors"
+        >
+          <span className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-purple-700 dark:text-purple-300">
+            <Library size={14} />
+            Biblioteca de Músicas
+            <span className="ml-1 px-2 py-0.5 rounded-full bg-purple-200 dark:bg-purple-800 text-purple-900 dark:text-purple-100 text-[10px]">
+              {loadingLib ? '…' : library.length}
+            </span>
+          </span>
+          {showLibrary ? (
+            <ChevronUp size={16} className="text-purple-700 dark:text-purple-300" />
+          ) : (
+            <ChevronDown size={16} className="text-purple-700 dark:text-purple-300" />
+          )}
+        </button>
+        {showLibrary && (
+          <div className="p-3 bg-white dark:bg-gray-900/40 max-h-72 overflow-y-auto">
+            {loadingLib && library.length === 0 ? (
+              <div className="flex items-center justify-center py-6 text-purple-600 dark:text-purple-400 text-xs gap-2">
+                <Loader2 className="animate-spin" size={14} />
+                Carregando...
+              </div>
+            ) : library.length === 0 ? (
+              <p className="text-center text-xs text-gray-500 dark:text-gray-400 py-4">
+                Nenhuma música salva ainda. Gere ou faça upload abaixo.
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {library.map((track) => {
+                  const isSelected = musicUrl === track.url;
+                  const label = track.prompt || track.originalFileName || track.fileName;
+                  return (
+                    <li
+                      key={track.fileName}
+                      className={`p-3 rounded-xl border transition-all ${
+                        isSelected
+                          ? 'bg-purple-50 dark:bg-purple-950/40 border-purple-400 dark:border-purple-600'
+                          : 'bg-gray-50 dark:bg-gray-800/60 border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-700'
+                      }`}
+                    >
+                      <div className="flex items-start gap-2">
+                        <div
+                          className={`shrink-0 w-7 h-7 rounded-lg flex items-center justify-center ${
+                            track.source === 'ai'
+                              ? 'bg-gradient-to-br from-purple-500 to-pink-500 text-white'
+                              : 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                          }`}
+                          title={track.source === 'ai' ? 'Gerada por IA' : 'Upload'}
+                        >
+                          {track.source === 'ai' ? <Sparkles size={14} /> : <Upload size={14} />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p
+                            className="text-xs font-bold text-gray-900 dark:text-gray-100 truncate"
+                            title={label}
+                          >
+                            {label}
+                          </p>
+                          <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                            {formatRelativeDate(track.createdAt)} · {formatBytes(track.sizeBytes)}
+                          </p>
+                          <audio src={track.url} controls className="w-full mt-1.5 h-7" />
+                        </div>
+                      </div>
+                      <div className="flex gap-2 mt-2">
+                        <button
+                          type="button"
+                          onClick={() => selectFromLibrary(track)}
+                          disabled={isBusy}
+                          className={`flex-1 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                            isSelected
+                              ? 'bg-purple-200 dark:bg-purple-800 text-purple-900 dark:text-purple-100 cursor-default'
+                              : 'bg-purple-600 text-white hover:bg-purple-700'
+                          }`}
+                        >
+                          {isSelected ? '✓ Selecionada' : 'Usar esta'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteFromLibrary(track)}
+                          disabled={isBusy}
+                          title="Apagar da biblioteca"
+                          className="px-3 py-1.5 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Step 2 — pick source */}
