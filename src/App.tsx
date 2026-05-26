@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import HookVisualGenerator from './components/HookVisualGenerator';
 import VozPremium from './components/VozPremium';
 import { IntegrationsTab } from './pages/IntegrationsTab';
@@ -60,7 +60,10 @@ import { PersonaPathModal } from './components/PersonaPathModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { LazyTab } from './components/LazyTab';
 import { ToastLimiter } from './components/ToastLimiter';
-import { AutoSaveIndicator } from './components/AutoSaveIndicator';
+// UX2: AutoSaveIndicator removido do header (poluía a barra de abas).
+// Componente ainda existe em ./components/AutoSaveIndicator caso a gente
+// queira recolocar em outro lugar no futuro.
+// import { AutoSaveIndicator } from './components/AutoSaveIndicator';
 import { DarkModeToggle } from './components/DarkModeToggle';
 import { RecentProjectsButton } from './components/RecentProjectsButton';
 import { pushRecentProject } from './lib/recentProjects';
@@ -254,6 +257,22 @@ export default function App() {
   // useEffect abaixo rola a aba ativa pra ficar visível (necessário quando
   // a nav é mais larga que o viewport e overflow-x-auto fica ativo).
   const wizardNavRef = useRef<HTMLDivElement | null>(null);
+  // Estado dos chevrons (esquerda/direita): mostra/esconde conforme há
+  // overflow restante em cada direção. Atualizado em scroll, resize e
+  // troca de step. Default false pra não piscar no primeiro paint.
+  const [navScrollState, setNavScrollState] = useState<{ canLeft: boolean; canRight: boolean }>({
+    canLeft: false,
+    canRight: false,
+  });
+  const updateNavScrollState = useCallback(() => {
+    const c = wizardNavRef.current;
+    if (!c) return;
+    const canLeft = c.scrollLeft > 4;
+    const canRight = c.scrollLeft + c.clientWidth < c.scrollWidth - 4;
+    setNavScrollState((prev) =>
+      prev.canLeft === canLeft && prev.canRight === canRight ? prev : { canLeft, canRight }
+    );
+  }, []);
   useEffect(() => {
     const container = wizardNavRef.current;
     if (!container) return;
@@ -262,7 +281,58 @@ export default function App() {
     // scrollIntoView com inline:center deixa a aba ativa centralizada na
     // viewport da nav, sem mexer no scroll vertical da página.
     active.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-  }, [currentStep]);
+    // Recalcula visibilidade dos chevrons depois que o scroll-animation
+    // termina. rAF é uma boa aproximação (smooth dura ~300ms; o listener
+    // de scroll já cobre tudo nesse intervalo).
+    const id = requestAnimationFrame(updateNavScrollState);
+    return () => cancelAnimationFrame(id);
+  }, [currentStep, updateNavScrollState]);
+  useEffect(() => {
+    const c = wizardNavRef.current;
+    if (!c) return;
+    // Estado inicial + listeners de scroll/resize. passive:true porque só
+    // estamos lendo scrollLeft (não preventDefault).
+    updateNavScrollState();
+    c.addEventListener('scroll', updateNavScrollState, { passive: true });
+    window.addEventListener('resize', updateNavScrollState);
+    // Observa mudanças de tamanho do container (ex: sidebar aberto/fechado)
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => updateNavScrollState());
+      ro.observe(c);
+    }
+    return () => {
+      c.removeEventListener('scroll', updateNavScrollState);
+      window.removeEventListener('resize', updateNavScrollState);
+      ro?.disconnect();
+    };
+  }, [updateNavScrollState]);
+  // Wheel handler: converte scroll vertical do mouse em scroll horizontal
+  // da nav. Só intercepta quando há overflow horizontal real (senão deixa
+  // o scroll vertical da página passar normal). Trackpads com deltaX já
+  // funcionam — esse handler é pra mouse de roda.
+  useEffect(() => {
+    const c = wizardNavRef.current;
+    if (!c) return;
+    const onWheel = (e: WheelEvent) => {
+      if (c.scrollWidth <= c.clientWidth) return; // sem overflow → não intercepta
+      const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      if (delta === 0) return;
+      e.preventDefault();
+      c.scrollBy({ left: delta, behavior: 'auto' });
+    };
+    // passive:false porque precisamos chamar preventDefault
+    c.addEventListener('wheel', onWheel, { passive: false });
+    return () => c.removeEventListener('wheel', onWheel);
+  }, []);
+  const scrollNavBy = useCallback((dir: 'left' | 'right') => {
+    const c = wizardNavRef.current;
+    if (!c) return;
+    // Rola ~70% da viewport visível — passa de uma aba só, mas não tanto
+    // a ponto de pular varias de uma vez. Smooth pra ficar elegante.
+    const offset = Math.max(160, c.clientWidth * 0.7);
+    c.scrollBy({ left: dir === 'left' ? -offset : offset, behavior: 'smooth' });
+  }, []);
   const [deleteProjectConfirmId, setDeleteProjectConfirmId] = useState<string | null>(null);
   const [voiceSource, setVoiceSource] = useState<'copy' | 'hook'>('copy');
   const [previewAvatar, setPreviewAvatar] = useState<any>(null);
@@ -366,10 +436,12 @@ export default function App() {
   const [isSaving, setIsSaving] = useState(false);
   const [isProjectLoading, setIsProjectLoading] = useState(false);
   const [hasUnsavedCopyChanges, setHasUnsavedCopyChanges] = useState(false);
-  // Timestamp of the last successful save (any field, any tab). Drives
-  // the AutoSaveIndicator chip — "Salvando…", "Salvo agora", "Salvo
-  // há Xmin". null means we haven't saved this session yet.
-  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
+  // Timestamp of the last successful save (any field, any tab). UX2:
+  // AutoSaveIndicator removido, então o setter está unused mas o estado
+  // continua sendo "stampado" depois de cada save pra caso a gente queira
+  // mostrar isso de novo. Underscore-prefix evita warning de unused.
+
+  const [_lastSavedAt, setLastSavedAt] = useState<number | null>(null);
 
   const hydrateProjectConfig = (loadedConfig: AdConfig) => {
     // 0. Garantir hookVisual
@@ -2000,12 +2072,22 @@ export default function App() {
   };
 
   /** Click on a brief card — either open the existing variant or open the
-   *  confirmation popup. Wired to PlanTab.onBriefClick. */
+   *  confirmation popup. Wired to PlanTab.onBriefClick.
+   *
+   *  UX3 fix: o lookup agora usa as MESMAS 3 condições do isBriefExecuted
+   *  no ProjectsTab. Antes só tinha 2, então quando o auto-save descartava
+   *  o campo `brief` do variant (vide handleSaveProject), o popup falso de
+   *  "Criar este subprojeto?" reaparecia mesmo pra subprojeto já criado. */
   const handleBriefClick = (brief: CreativeBrief) => {
     // If the brief already spawned a variant, just open it.
     const existing = projects
       .find((p) => p.id === currentProjectId)
-      ?.variants?.find((v: any) => v.brief?.id === brief.id || v.id === brief.executedVariantId);
+      ?.variants?.find(
+        (v: any) =>
+          v.brief?.id === brief.id ||
+          v.id === brief.id || // ← variant.id == brief.id (set em handleConfirmBriefExec)
+          v.id === brief.executedVariantId
+      );
     if (existing) {
       setCurrentVariantId(existing.id);
       // Use the existing handler to load the variant config into the UI.
@@ -2433,7 +2515,10 @@ export default function App() {
     toast.success('Campos da Copy atualizados a partir do persona! ✨');
   };
 
-  const handleSaveProject = async (overridesOrEvent?: Partial<AdConfig> | React.MouseEvent) => {
+  const handleSaveProject = async (
+    overridesOrEvent?: Partial<AdConfig> | React.MouseEvent,
+    opts?: { silent?: boolean }
+  ) => {
     // Robust event detection to prevent circular structure errors
     const isEvent = !!(
       overridesOrEvent &&
@@ -2444,6 +2529,11 @@ export default function App() {
     );
 
     const overrides = isEvent ? {} : (overridesOrEvent as Partial<AdConfig>) || {};
+    // UX2: auto-save é silencioso por padrão. Toast só aparece quando o
+    // chamador explicita { silent: false } (botão "Salvar" do header).
+    // Antes esse toast pipocava a cada 2s porque o debounce roda em todo
+    // change de config.
+    const silent = opts?.silent !== false;
     if (!user || isProjectLoading) return;
 
     if (!currentProjectId) {
@@ -2513,12 +2603,23 @@ export default function App() {
         return cloned;
       };
 
+      // UX3: preserva campos do variant existente que NÃO derivam de config:
+      //   - `name`: pode ser "Criativo X - Consc.Y - Angle" (set por
+      //     handleConfirmBriefExec). Antes era sobrescrito por awarenessLevel.
+      //   - `brief`: snapshot do CreativeBrief que gerou o subprojeto. Sem
+      //     ele, handleBriefClick não acha o variant e mostra popup falso
+      //     de "Criar este subprojeto?". (Sintoma reportado pelo user.)
+      //   - `status`: 'brief_only' / outros. Apenas metadata, mas perder
+      //     ela é confuso pro futuro.
+      const existingAny = existingVariant as any;
       const newVariant: ProjectVariant = {
         id: variantId,
-        name: awarenessLevel,
+        name: existingAny?.name || awarenessLevel,
         config: configToSave,
         createdAt: existingVariant ? existingVariant.createdAt : new Date(),
-      };
+        ...(existingAny?.brief ? { brief: existingAny.brief } : {}),
+        ...(existingAny?.status ? { status: existingAny.status } : {}),
+      } as ProjectVariant;
 
       if (currentVariantId) {
         const index = variants.findIndex((v: any) => v.id === currentVariantId);
@@ -2550,11 +2651,13 @@ export default function App() {
 
       addLog('PROJETO_SALVO');
       if (process.env.NODE_ENV !== 'production') console.log('VOICE_SAVE_COMPLETED');
-      toast.success(
-        currentVariantId
-          ? `Versão "${awarenessLevel}" atualizada com sucesso!`
-          : `Versão "${awarenessLevel}" arquivada com sucesso!`
-      );
+      if (!silent) {
+        toast.success(
+          currentVariantId
+            ? `Versão "${awarenessLevel}" atualizada com sucesso!`
+            : `Versão "${awarenessLevel}" arquivada com sucesso!`
+        );
+      }
     } catch (err) {
       console.error('Error saving project:', err);
       setError('Falha ao salvar projeto.');
@@ -5288,11 +5391,10 @@ export default function App() {
                   {projects.find((p) => p.id === currentProjectId)?.name || 'Projeto Ativo'}
                 </span>
               </div>
-              <AutoSaveIndicator
-                isSaving={isSaving}
-                hasUnsavedChanges={hasUnsavedCopyChanges}
-                lastSavedAt={lastSavedAt}
-              />
+              {/* AutoSaveIndicator removido — ocupava espaço da wizard nav
+                  e o auto-save agora é silencioso (sem toast a cada mudança).
+                  Estados isSaving/hasUnsavedCopyChanges/lastSavedAt continuam
+                  populados internamente caso a gente queira readicionar. */}
             </div>
           )}
 
@@ -5308,58 +5410,95 @@ export default function App() {
               - flex-shrink-0 nos botões → cada um mantém tamanho próprio
               Resultado: página nunca scrolla horizontal; só a nav scrolla
               internamente, e a aba atual sempre fica visível. */}
-          <div
-            ref={wizardNavRef}
-            className="hidden md:flex min-w-0 items-center gap-0.5 bg-gray-100/70 dark:bg-gray-800/60 p-1 rounded-2xl border border-gray-200/60 dark:border-gray-700/60 shadow-inner shadow-gray-200/30 dark:shadow-black/20 overflow-x-auto scrollbar-hide"
-          >
-            {STEPS.map((step, idx) => {
-              const Icon = step.icon;
-              const isActive = currentStep === step.id;
-              const isSkipped = !useHookFlow && step.id === 'hook-visual';
+          {/* Wrapper que segura os chevrons + a nav rolável. min-w-0 deixa
+              encolher; gap-1 dá um respiro pequeno entre seta e container. */}
+          <div className="hidden md:flex min-w-0 items-center gap-1">
+            {/* Seta esquerda — só aparece quando há overflow pra esquerda.
+                tabindex=-1 + aria-hidden quando inativa pra não poluir tab
+                navigation. */}
+            <button
+              type="button"
+              onClick={() => scrollNavBy('left')}
+              aria-label="Rolar abas para esquerda"
+              tabIndex={navScrollState.canLeft ? 0 : -1}
+              aria-hidden={!navScrollState.canLeft}
+              className={`flex-shrink-0 flex items-center justify-center w-8 h-9 rounded-xl bg-white/80 dark:bg-gray-800/80 ring-1 ring-gray-200/60 dark:ring-gray-700/60 text-gray-500 hover:text-gray-800 dark:hover:text-gray-100 hover:bg-white dark:hover:bg-gray-700/80 transition-all duration-150 ${
+                navScrollState.canLeft
+                  ? 'opacity-100 pointer-events-auto'
+                  : 'opacity-0 pointer-events-none'
+              }`}
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <div
+              ref={wizardNavRef}
+              className="min-w-0 flex items-center gap-0.5 bg-gray-100/70 dark:bg-gray-800/60 p-1 rounded-2xl border border-gray-200/60 dark:border-gray-700/60 shadow-inner shadow-gray-200/30 dark:shadow-black/20 overflow-x-auto scrollbar-hide"
+            >
+              {STEPS.map((step, idx) => {
+                const Icon = step.icon;
+                const isActive = currentStep === step.id;
+                const isSkipped = !useHookFlow && step.id === 'hook-visual';
 
-              return (
-                <div key={step.id} className="flex items-center flex-shrink-0">
-                  <button
-                    data-step-id={step.id}
-                    onClick={() => {
-                      if (canNavigateTo(step.id)) {
-                        setCurrentStep(step.id);
-                      }
-                    }}
-                    onMouseEnter={() => {
-                      // Pre-fetch lazy chunks on hover so the navigation
-                      // click feels instant. No-op for non-lazy steps.
-                      if (step.id === 'source') void import('./pages/SourceTab');
-                      else if (step.id === 'plan') void import('./pages/PlanTab');
-                    }}
-                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl transition-all duration-150 ${
-                      isActive
-                        ? 'bg-white text-blue-600 shadow-sm ring-1 ring-blue-100/80 dark:bg-gray-900 dark:text-blue-300 dark:ring-blue-900/60'
-                        : isSkipped
-                          ? 'text-gray-400/70 dark:text-gray-600 line-through hover:text-gray-500 dark:hover:text-gray-400'
-                          : 'text-gray-500 hover:text-gray-800 hover:bg-white/60 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700/40'
-                    }`}
-                    title={isSkipped ? 'Gancho pulado — clique pra reativar' : undefined}
-                  >
-                    <Icon size={16} />
-                    <span className="text-sm font-bold whitespace-nowrap">
-                      {step.label}
-                      {isSkipped && (
-                        <span className="ml-1 text-[9px] font-black uppercase tracking-widest opacity-70 no-underline">
-                          · pulado
-                        </span>
-                      )}
-                    </span>
-                  </button>
-                  {idx < STEPS.length - 1 && (
-                    <ChevronRight
-                      size={12}
-                      className="text-gray-300/70 dark:text-gray-600 mx-0.5"
-                    />
-                  )}
-                </div>
-              );
-            })}
+                return (
+                  <div key={step.id} className="flex items-center flex-shrink-0">
+                    <button
+                      data-step-id={step.id}
+                      onClick={() => {
+                        if (canNavigateTo(step.id)) {
+                          setCurrentStep(step.id);
+                        }
+                      }}
+                      onMouseEnter={() => {
+                        // Pre-fetch lazy chunks on hover so the navigation
+                        // click feels instant. No-op for non-lazy steps.
+                        if (step.id === 'source') void import('./pages/SourceTab');
+                        else if (step.id === 'plan') void import('./pages/PlanTab');
+                      }}
+                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl transition-all duration-150 ${
+                        isActive
+                          ? 'bg-white text-blue-600 shadow-sm ring-1 ring-blue-100/80 dark:bg-gray-900 dark:text-blue-300 dark:ring-blue-900/60'
+                          : isSkipped
+                            ? 'text-gray-400/70 dark:text-gray-600 line-through hover:text-gray-500 dark:hover:text-gray-400'
+                            : 'text-gray-500 hover:text-gray-800 hover:bg-white/60 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700/40'
+                      }`}
+                      title={isSkipped ? 'Gancho pulado — clique pra reativar' : undefined}
+                    >
+                      <Icon size={16} />
+                      <span className="text-sm font-bold whitespace-nowrap">
+                        {step.label}
+                        {isSkipped && (
+                          <span className="ml-1 text-[9px] font-black uppercase tracking-widest opacity-70 no-underline">
+                            · pulado
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                    {idx < STEPS.length - 1 && (
+                      <ChevronRight
+                        size={12}
+                        className="text-gray-300/70 dark:text-gray-600 mx-0.5"
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {/* Seta direita — mirror da esquerda. Mostra quando ainda há
+                abas escondidas além do viewport. */}
+            <button
+              type="button"
+              onClick={() => scrollNavBy('right')}
+              aria-label="Rolar abas para direita"
+              tabIndex={navScrollState.canRight ? 0 : -1}
+              aria-hidden={!navScrollState.canRight}
+              className={`flex-shrink-0 flex items-center justify-center w-8 h-9 rounded-xl bg-white/80 dark:bg-gray-800/80 ring-1 ring-gray-200/60 dark:ring-gray-700/60 text-gray-500 hover:text-gray-800 dark:hover:text-gray-100 hover:bg-white dark:hover:bg-gray-700/80 transition-all duration-150 ${
+                navScrollState.canRight
+                  ? 'opacity-100 pointer-events-auto'
+                  : 'opacity-0 pointer-events-none'
+              }`}
+            >
+              <ChevronRight size={16} />
+            </button>
           </div>
 
           <div className="flex items-center gap-4 flex-shrink-0">
@@ -6216,7 +6355,9 @@ export default function App() {
           {currentStep !== 'copy' && (
             <div className="flex items-center gap-3">
               <button
-                onClick={() => handleSaveProject()}
+                // UX2: silent:false → este é o ÚNICO save com toast.
+                // Auto-save e saves programáticos rodam silenciosos.
+                onClick={() => handleSaveProject(undefined, { silent: false })}
                 disabled={isSaving}
                 className="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-gray-900/80 ring-1 ring-gray-200/60 dark:ring-gray-800/60 text-gray-700 dark:text-gray-200 rounded-xl font-bold hover:bg-gray-50 dark:hover:bg-gray-800 hover:ring-gray-300 dark:hover:ring-gray-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
