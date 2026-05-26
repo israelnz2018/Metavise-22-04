@@ -898,6 +898,20 @@ export async function recommendAvatarAndVoice(input: {
   copyAnswers?: any;
   copy?: string;
   productInfo?: any;
+  /** UX7: quando o subprojeto foi criado a partir de um brief do Plano de
+   *  Marketing, passar o brief enriquece o prompt com ângulo + emoção +
+   *  estilo + painPoint específicos. Claude consegue recomendar voz/avatar
+   *  alinhados ao tom do criativo, não só ao texto cru da copy. */
+  brief?: {
+    index?: number;
+    angle?: string;
+    emotion?: string;
+    style?: string;
+    promiseFocus?: string;
+    hook?: string;
+    rationale?: string;
+    durationTarget?: number;
+  } | null;
 }): Promise<AvatarVoiceRecommendation> {
   const response = await fetch('/api/claude/recommend-avatar-voice', {
     method: 'POST',

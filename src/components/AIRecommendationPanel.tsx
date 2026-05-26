@@ -16,6 +16,19 @@ interface Props {
   copyAnswers?: any;
   copy?: string;
   productInfo?: any;
+  // UX7: brief opcional — quando o subprojeto nasceu de um brief do Plano,
+  // a recomendação fica mais aderente ao ângulo/emoção do criativo. Header
+  // do painel também mostra "Otimizado pro Criativo X" pro user saber.
+  brief?: {
+    index?: number;
+    angle?: string;
+    emotion?: string;
+    style?: string;
+    promiseFocus?: string;
+    hook?: string;
+    rationale?: string;
+    durationTarget?: number;
+  } | null;
 
   // Which side of the recommendation to display (avatar vs voice). The
   // panel always fetches both — the unused side stays hidden.
@@ -36,13 +49,19 @@ function buildInputsKey(
   persona: any,
   copyAnswers: any,
   copy: string | undefined,
-  productInfo: any
+  productInfo: any,
+  brief: any
 ) {
   return JSON.stringify({
     p: persona ?? null,
     a: copyAnswers ?? null,
     c: copy ?? '',
     pi: productInfo ?? null,
+    // UX7: brief participa do cache key — se user editar o brief no
+    // PlanTab, a recomendação invalida sozinha.
+    b: brief
+      ? { i: brief.index, a: brief.angle, e: brief.emotion, s: brief.style, p: brief.promiseFocus }
+      : null,
   });
 }
 
@@ -96,12 +115,13 @@ export function AIRecommendationPanel({
   copyAnswers,
   copy,
   productInfo,
+  brief,
   variant,
   cached,
   onChange,
   onApplyFilters,
 }: Props) {
-  const currentInputsKey = buildInputsKey(persona, copyAnswers, copy, productInfo);
+  const currentInputsKey = buildInputsKey(persona, copyAnswers, copy, productInfo, brief);
   const cacheIsValid = cached && cached.inputsKey === currentInputsKey;
 
   const [rec, setRec] = useState<AvatarVoiceRecommendation | null>(
@@ -114,7 +134,13 @@ export function AIRecommendationPanel({
     setLoading(true);
     setError(null);
     try {
-      const r = await recommendAvatarAndVoice({ persona, copyAnswers, copy, productInfo });
+      const r = await recommendAvatarAndVoice({
+        persona,
+        copyAnswers,
+        copy,
+        productInfo,
+        brief,
+      });
       setRec(r);
       onChange?.({ rec: r, inputsKey: currentInputsKey });
     } catch (err: any) {
@@ -147,7 +173,11 @@ export function AIRecommendationPanel({
               IA recomenda — {variant === 'avatar' ? 'Avatar ideal' : 'Voz ideal'}
             </h4>
             <p className="text-xs text-purple-600 dark:text-purple-400 mt-0.5">
-              Baseado na persona + copy do projeto
+              {/* UX7: deixa claro que a recomendação considera o brief
+                  quando o subprojeto nasceu de um (não só copy genérica). */}
+              {brief
+                ? `Otimizado pra Criativo ${brief.index} · ${brief.angle || ''}${brief.emotion ? ' · ' + brief.emotion : ''}`
+                : 'Baseado na persona + copy do projeto'}
             </p>
           </div>
         </div>

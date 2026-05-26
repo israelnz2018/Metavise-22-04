@@ -15,6 +15,9 @@ import {
   Download,
   Users,
   AlertTriangle,
+  Check,
+  Circle,
+  Edit3,
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import {
@@ -732,142 +735,157 @@ export function PlanTab({
         </div>
       )}
 
-      {/* ─── V2 BRIEFS GRID ──────────────────────────────────────────
-          The 15 creative briefs generated alongside the macro plan.
-          Each card is a "shopping item" — the user clicks it to spawn
-          a subprojeto. Status indicator on top-right shows whether
-          this brief has already been executed (variant exists). */}
+      {/* ─── V2 BRIEFS CHECKLIST ─────────────────────────────────────
+          UX7: convertido de grid (3 colunas) pra checklist vertical
+          (1 linha por brief). User pediu formato de checklist com tick
+          pros executados e info clara por linha (consc + duração + angle).
+          15 criativos cabem confortavelmente em 1 tela com scroll suave. */}
       {isV2 && briefs.length > 0 && (
         <div className="space-y-4 pt-2">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
               <h3 className="text-2xl font-black text-gray-900 dark:text-gray-50 tracking-tight">
-                Plano de Criativos
+                Checklist de Criativos
               </h3>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                {briefs.length} criativos pra produzir. Clique em um pra criar o subprojeto.
+                {briefs.length} criativos pra produzir. Clique no botão de cada linha pra criar o
+                subprojeto.
               </p>
             </div>
             <div className="flex items-center gap-2 text-xs">
               {(() => {
                 const executed = briefs.filter((b) => briefToVariantMap?.[b.id]).length;
+                const pct = Math.round((executed / briefs.length) * 100);
                 return (
-                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 tabular-nums">
-                    {executed} de {briefs.length} executados
-                  </span>
+                  <div className="flex items-center gap-3">
+                    {/* Mini progress bar — visual quick-glance do quanto já foi feito */}
+                    <div className="w-32 h-1.5 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-green-500 to-emerald-500 transition-all duration-500"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 tabular-nums">
+                      {executed} de {briefs.length}
+                    </span>
+                  </div>
                 );
               })()}
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Lista vertical — uma linha por brief. Layout flex pra:
+              [tick] [persona color bar] [#] [main info] [chips] [actions] */}
+          <ol className="space-y-2">
             {briefs.map((brief) => {
               const color = personaColor.get(brief.targetPersonaId) || 'gray';
               const isExecuted = !!briefToVariantMap?.[brief.id];
-              const ringClass =
+              // Persona color bar (left edge) — visual grouping sem badge gigante
+              const colorBarClass =
                 color === 'blue'
-                  ? 'ring-blue-200/60 dark:ring-blue-900/40'
+                  ? 'bg-blue-500'
                   : color === 'purple'
-                    ? 'ring-purple-200/60 dark:ring-purple-900/40'
+                    ? 'bg-purple-500'
                     : color === 'amber'
-                      ? 'ring-amber-200/60 dark:ring-amber-900/40'
-                      : 'ring-gray-200/60 dark:ring-gray-800';
-              const badgeClass =
-                color === 'blue'
-                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300'
-                  : color === 'purple'
-                    ? 'bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300'
-                    : color === 'amber'
-                      ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
-                      : 'bg-gray-100 text-gray-700 dark:bg-gray-800/60 dark:text-gray-300';
+                      ? 'bg-amber-500'
+                      : 'bg-gray-400';
+              const awarenessNum =
+                brief.awareness === 'unaware'
+                  ? '1'
+                  : brief.awareness === 'problem_aware'
+                    ? '2'
+                    : brief.awareness === 'solution_aware'
+                      ? '3'
+                      : brief.awareness === 'product_aware'
+                        ? '4'
+                        : '5';
               return (
-                <div
+                <li
                   key={brief.id}
-                  className={`group relative bg-white dark:bg-gray-900/80 ring-1 ${ringClass} rounded-2xl p-4 space-y-3 transition-all hover:-translate-y-0.5 hover:shadow-lg ${
-                    isExecuted ? 'opacity-80' : ''
+                  className={`group relative flex items-stretch bg-white dark:bg-gray-900/80 ring-1 ring-gray-200/60 dark:ring-gray-800 rounded-2xl overflow-hidden transition-all hover:shadow-md hover:ring-gray-300 dark:hover:ring-gray-700 ${
+                    isExecuted ? 'bg-green-50/30 dark:bg-green-950/10' : ''
                   }`}
                 >
-                  {/* Top row: index + status */}
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-500 tabular-nums">
-                      Criativo {brief.index}
-                    </span>
-                    {isExecuted ? (
-                      <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400">
-                        ✓ executado
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 dark:bg-gray-800/60 dark:text-gray-400">
-                        ⚪ pendente
-                      </span>
-                    )}
-                  </div>
+                  {/* Color bar — left edge, persona color */}
+                  <div className={`w-1.5 flex-shrink-0 ${colorBarClass}`} />
 
-                  {/* Persona name */}
-                  <div
-                    className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-full inline-block ${badgeClass}`}
-                  >
-                    {brief.targetPersonaName}
-                  </div>
-
-                  {/* Hook preview (the actual first sentence) */}
-                  <p className="text-sm font-bold text-gray-900 dark:text-gray-50 leading-snug line-clamp-3">
-                    "{brief.hook}"
-                  </p>
-
-                  {/* Meta row: awareness + duration + angle */}
-                  <div className="flex items-center flex-wrap gap-1.5 text-[9px]">
-                    <span className="font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800/60 text-gray-600 dark:text-gray-400">
-                      Consc.{' '}
-                      {brief.awareness === 'unaware'
-                        ? '1'
-                        : brief.awareness === 'problem_aware'
-                          ? '2'
-                          : brief.awareness === 'solution_aware'
-                            ? '3'
-                            : brief.awareness === 'product_aware'
-                              ? '4'
-                              : '5'}
-                    </span>
-                    <span className="font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800/60 text-gray-600 dark:text-gray-400">
-                      {brief.durationTarget}s
-                    </span>
-                    <span className="font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800/60 text-gray-600 dark:text-gray-400 truncate max-w-[100px]">
-                      {brief.angle}
-                    </span>
-                  </div>
-
-                  {/* Rationale */}
-                  {brief.rationale && (
-                    <p className="text-[10px] text-gray-500 dark:text-gray-400 italic leading-relaxed line-clamp-2">
-                      💡 {brief.rationale}
-                    </p>
-                  )}
-
-                  {/* Action row */}
-                  <div className="flex items-center gap-2 pt-2 border-t border-gray-100 dark:border-gray-800">
-                    <button
-                      onClick={() => onBriefEdit?.(brief)}
-                      className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
-                    >
-                      ✏️ Editar
-                    </button>
-                    <div className="flex-1" />
-                    <button
-                      onClick={() => onBriefClick?.(brief)}
-                      className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg transition-all ${
+                  {/* Content */}
+                  <div className="flex-1 flex items-center gap-3 p-3 min-w-0">
+                    {/* Tick / circle */}
+                    <div
+                      className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center ring-1 ${
                         isExecuted
-                          ? 'bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/40'
-                          : 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 hover:bg-black dark:hover:bg-white'
+                          ? 'bg-green-100 dark:bg-green-950/40 ring-green-300 dark:ring-green-800 text-green-700 dark:text-green-400'
+                          : 'bg-white dark:bg-gray-900 ring-gray-300 dark:ring-gray-700 text-gray-400 dark:text-gray-600'
                       }`}
                     >
-                      {isExecuted ? 'Abrir Subprojeto' : '+ Criar Subprojeto'}
-                    </button>
+                      {isExecuted ? <Check size={14} strokeWidth={3} /> : <Circle size={10} />}
+                    </div>
+
+                    {/* Index */}
+                    <span className="flex-shrink-0 text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-500 tabular-nums w-12">
+                      Cr.{brief.index}
+                    </span>
+
+                    {/* Main column: hook + persona + rationale */}
+                    <div className="flex-1 min-w-0 space-y-0.5">
+                      <p className="text-sm font-bold text-gray-900 dark:text-gray-50 leading-tight line-clamp-1">
+                        "{brief.hook}"
+                      </p>
+                      <div className="flex items-center gap-2 text-[10px] text-gray-500 dark:text-gray-400">
+                        <span className="font-bold truncate max-w-[180px]">
+                          {brief.targetPersonaName}
+                        </span>
+                        {brief.rationale && (
+                          <>
+                            <span>·</span>
+                            <span className="italic truncate">{brief.rationale}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Chips: Consc + Duração + Angle */}
+                    <div className="hidden md:flex flex-shrink-0 items-center gap-1.5 text-[9px]">
+                      <span className="font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 ring-1 ring-indigo-200/60 dark:ring-indigo-800/40">
+                        Consc. {awarenessNum}
+                      </span>
+                      <span className="font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800/60 text-gray-600 dark:text-gray-400">
+                        {brief.durationTarget}s
+                      </span>
+                      <span
+                        className="font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800/60 text-gray-600 dark:text-gray-400 truncate max-w-[100px]"
+                        title={String(brief.angle)}
+                      >
+                        {brief.angle}
+                      </span>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex-shrink-0 flex items-center gap-1">
+                      <button
+                        onClick={() => onBriefEdit?.(brief)}
+                        title="Editar brief"
+                        className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                      >
+                        <Edit3 size={13} />
+                      </button>
+                      <button
+                        onClick={() => onBriefClick?.(brief)}
+                        className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg transition-all whitespace-nowrap ${
+                          isExecuted
+                            ? 'bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/40'
+                            : 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 hover:bg-black dark:hover:bg-white'
+                        }`}
+                      >
+                        {isExecuted ? 'Abrir' : '+ Criar Subprojeto'}
+                      </button>
+                    </div>
                   </div>
-                </div>
+                </li>
               );
             })}
-          </div>
+          </ol>
         </div>
       )}
     </div>

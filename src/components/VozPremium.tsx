@@ -63,6 +63,20 @@ interface Props {
   // Optional product info extracted from VSL/landing page — feeds the
   // recommendation prompt so it considers offer + awareness + tone.
   productInfo?: any;
+  // UX7: brief opcional do Plano de Marketing. Quando o subprojeto nasceu
+  // de um brief específico, a recomendação considera o ângulo + emoção
+  // + estilo do brief. Header do AIRecommendationPanel também mostra
+  // "Otimizado pra Criativo X".
+  brief?: {
+    index?: number;
+    angle?: string;
+    emotion?: string;
+    style?: string;
+    promiseFocus?: string;
+    hook?: string;
+    rationale?: string;
+    durationTarget?: number;
+  } | null;
 }
 
 const MODES: {
@@ -155,6 +169,7 @@ const VozPremium: React.FC<Props> = ({
   cachedRecommendation = null,
   onRecommendationChange,
   productInfo,
+  brief,
 }) => {
   const [mode, setMode] = useState<VozPremiumMode>('catalog');
   const [showRemoveActiveModal, setShowRemoveActiveModal] = useState(false);
@@ -872,6 +887,7 @@ const VozPremium: React.FC<Props> = ({
                   copyAnswers={copyAnswers}
                   copy={approvedScript}
                   productInfo={productInfo}
+                  brief={brief}
                   variant="voice"
                   cached={voiceRec}
                   onChange={setVoiceRec}

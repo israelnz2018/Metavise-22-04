@@ -6135,6 +6135,30 @@ export default function App() {
                         productInfo={
                           ((config.copy as any)?.productInfo as ProductInfo | null) || undefined
                         }
+                        // UX7: resolve brief ativo (quando subprojeto veio de
+                        // um brief do Plano) e passa pro painel de IA. Mesmo
+                        // padrão usado em AvatarTab logo abaixo — recomendação
+                        // fica alinhada ao ângulo/emoção/estilo do criativo.
+                        brief={(() => {
+                          const copyAny = config.copy as any;
+                          const activeId: string | undefined = copyAny?.activeBriefId;
+                          if (!activeId) return null;
+                          const briefs = Array.isArray(copyAny?.creativeBriefs)
+                            ? copyAny.creativeBriefs
+                            : [];
+                          const b = briefs.find((x: any) => x?.id === activeId);
+                          if (!b) return null;
+                          return {
+                            index: b.index,
+                            angle: String(b.angle || ''),
+                            emotion: String(b.emotion || ''),
+                            style: String(b.style || ''),
+                            promiseFocus: b.promiseFocus,
+                            hook: b.hook,
+                            rationale: b.rationale,
+                            durationTarget: b.durationTarget,
+                          };
+                        })()}
                         savedOptimizedScript={
                           isHook
                             ? ((config.copy as any)?.hookOptimizedScript as string | undefined) ||

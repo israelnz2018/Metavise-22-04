@@ -803,6 +803,26 @@ export function AvatarTab({
             config.copy.finalScript || config.copy.optimizedScript || config.copy.generatedScript
           }
           productInfo={(config.copy?.productInfo as ProductInfo | null) || undefined}
+          // UX7: resolve o brief ativo (quando subprojeto veio de um) e
+          // passa pro painel. Recomendação fica alinhada ao ângulo/emoção.
+          brief={(() => {
+            const copyAny = config.copy as any;
+            const activeId: string | undefined = copyAny?.activeBriefId;
+            if (!activeId) return null;
+            const briefs = Array.isArray(copyAny?.creativeBriefs) ? copyAny.creativeBriefs : [];
+            const b = briefs.find((x: any) => x?.id === activeId);
+            if (!b) return null;
+            return {
+              index: b.index,
+              angle: String(b.angle || ''),
+              emotion: String(b.emotion || ''),
+              style: String(b.style || ''),
+              promiseFocus: b.promiseFocus,
+              hook: b.hook,
+              rationale: b.rationale,
+              durationTarget: b.durationTarget,
+            };
+          })()}
           variant="avatar"
           cached={avatarRecommendation}
           onChange={setAvatarRecommendation}

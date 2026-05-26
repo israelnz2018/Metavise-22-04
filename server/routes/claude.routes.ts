@@ -1026,7 +1026,13 @@ claudeRouter.post('/recommend-avatar-voice', async (req, res) => {
     return res.status(500).json({ success: false, error: 'CLAUDE_API_KEY não configurada.' });
   }
 
-  const { persona = {}, copyAnswers = {}, copy = '', productInfo = null } = req.body || {};
+  const {
+    persona = {},
+    copyAnswers = {},
+    copy = '',
+    productInfo = null,
+    brief = null,
+  } = req.body || {};
 
   const SYSTEM = `You recommend the ideal HeyGen avatar profile and ElevenLabs voice profile for a Meta (Facebook/Instagram) video ad, based on the product, persona, and approved copy.
 
@@ -1051,7 +1057,18 @@ Return ONLY a JSON object with this exact shape (no prose, no markdown):
 
 Match the avatar/voice to who the persona would TRUST most. Energetic upbeat voice for hype/youth products. Calm authoritative voice for B2B/health. Brazilian accent unless the copy or persona suggests otherwise.`;
 
-  const USER = `${productInfo ? `PRODUCT INFO:\n${JSON.stringify(productInfo, null, 2)}\n\n` : ''}PERSONA:
+  // UX7: bloco opcional de brief — quando o subprojeto nasceu de um brief
+  // do Plano de Marketing, passamos angle/emotion/style/painPoint
+  // explicitamente. Antes esses dados ficavam diluídos em copyAnswers como
+  // angleIdea/primaryEmotion/estiloAnuncio e o modelo as vezes ignorava.
+  const briefBlock = brief
+    ? `CREATIVE BRIEF (este subprojeto foi criado a partir deste brief específico do plano de marketing — voz/avatar devem REFLETIR este ângulo e emoção):
+${JSON.stringify(brief, null, 2)}
+
+`
+    : '';
+
+  const USER = `${productInfo ? `PRODUCT INFO:\n${JSON.stringify(productInfo, null, 2)}\n\n` : ''}${briefBlock}PERSONA:
 ${JSON.stringify(persona, null, 2)}
 
 COPY ANSWERS:
