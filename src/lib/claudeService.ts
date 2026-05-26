@@ -424,7 +424,11 @@ export const chooseHooksFromCopy = async (
   if (!candidateHooks || candidateHooks.length === 0) return null;
   if (!approvedCopy) return null;
 
-  const systemPrompt = `Você é um especialista em copywriting para Meta Ads. Selecione hooks que combinem com a copy aprovada, o nível de consciência da audiência, e — quando fornecidos — o ângulo do criativo e a dor da persona-alvo. Hooks devem soar como abertura natural da copy, não introdução genérica. Responda APENAS em JSON válido sem markdown.`;
+  const systemPrompt = `Você é um especialista em copywriting para Meta Ads. Você tem 2 tarefas:
+1. Selecionar hooks que combinem com a copy aprovada, o nível de consciência da audiência, e — quando fornecidos — o ângulo do criativo e a dor da persona-alvo.
+2. PREENCHER os placeholders (___, [topic], [pain], etc) de cada hook selecionado usando o contexto fornecido (produto, persona, ângulo, copy). O resultado deve ser um hook FALÁVEL e PRONTO, não um template.
+
+Hooks devem soar como abertura natural da copy, não introdução genérica. Responda APENAS em JSON válido sem markdown.`;
 
   // Bloco opcional de contexto rico. Só montado quando ao menos 1 campo
   // não-vazio é fornecido — evita poluir o prompt em fluxos legacy.
@@ -471,7 +475,7 @@ ${contextBlock}
 CANDIDATOS (${candidateHooks.length}):
 ${candidateHooks.map((h: any) => `ID ${h.id} [${h.tipo}]: ${h.template}`).join('\n')}
 
-REGRAS:
+REGRAS DE SELEÇÃO:
 1. Selecione EXATAMENTE 3 hooks por tipo (9 total, 3 grupos)
 2. Os tipos vêm dos candidatos
 3. Escolha os mais alinhados com o tom, ângulo e mensagem da copy
@@ -481,22 +485,40 @@ REGRAS:
 5. Marque 1 ⭐ recomendado por grupo (o melhor)
 6. Não repita IDs
 
+REGRAS DE PREENCHIMENTO DOS PLACEHOLDERS (campo "filled"):
+7. Para cada hook selecionado, preencha TODOS os placeholders (___, ____,
+   [topic], [pain], [number], [audience], [product], [problem], etc) com
+   palavras concretas vindas do contexto (produto, persona, copy, brief).
+8. O texto preenchido deve ser FALÁVEL como abertura natural de anúncio:
+   - Comprimento de hook real (5-25 palavras)
+   - Sem placeholders restantes (zero "___", zero "[...]")
+   - Sem aspas envolvendo o texto inteiro
+   - Mesma língua do CONTEXTO/COPY (PT ou EN), não traduza
+9. Use detalhes ESPECÍFICOS do produto/persona, não genéricos. Se a dor é
+   "neuropatia nos pés", não use "essa dor" — use "queimação nos pés".
+10. Mantenha o ESPÍRITO do template original (curiosidade, contraste, etc)
+    — só preencha as lacunas, não reescreva a estrutura toda.
+11. Quando o template NÃO tem placeholders, "filled" deve ser o próprio
+    template (já está pronto pra falar).
+
 FORMATO (JSON apenas):
 {
   "grupos": [
     {
       "tipo": "nome do tipo",
       "hooks": [
-        {"id": 123, "recomendado": false},
-        {"id": 456, "recomendado": true},
-        {"id": 789, "recomendado": false}
+        {"id": 123, "recomendado": false, "filled": "hook preenchido falável aqui"},
+        {"id": 456, "recomendado": true, "filled": "outro hook preenchido aqui"},
+        {"id": 789, "recomendado": false, "filled": "terceiro preenchido aqui"}
       ]
     }
   ]
 }`;
 
   try {
-    const raw = await callClaude(systemPrompt, userPrompt, 1000);
+    // UX10: 2000 tokens (era 1000) — agora retorna também o campo "filled"
+    // pra cada hook (9 versões preenchidas + estrutura JSON).
+    const raw = await callClaude(systemPrompt, userPrompt, 2000);
     const cleaned = raw
       .replace(/```json\n?/g, '')
       .replace(/```\n?/g, '')

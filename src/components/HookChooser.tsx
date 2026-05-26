@@ -191,7 +191,19 @@ const HookChooser: React.FC<Props> = ({
           (grp.hooks || []).forEach((h: any) => {
             const fullHook = candidates.find((c: any) => c.id === h.id);
             if (fullHook) {
-              hooksForGroup.push(fullHook);
+              // UX10: merge `filled` text vindo da IA (versão preenchida sem
+              // placeholders) com o template original. Se a IA não retornou
+              // filled — fallback pro template (comportamento legacy).
+              const filledRaw: string | undefined =
+                typeof h.filled === 'string' && h.filled.trim() ? h.filled.trim() : undefined;
+              // Se ainda restam placeholders evidentes no filled (___ ou [X]),
+              // tratamos como falha e caímos pro template — evita mostrar
+              // "Here's what no one tells you about ___" como se fosse pronto.
+              const hasPlaceholders = filledRaw
+                ? /(_{2,}|\[[a-zA-Zçãâáéíóôúû_ ]{2,}\])/.test(filledRaw)
+                : true;
+              const filled = filledRaw && !hasPlaceholders ? filledRaw : null;
+              hooksForGroup.push({ ...fullHook, filled });
               if (h.recomendado) recIds.push(fullHook.id);
             }
           });
@@ -199,7 +211,7 @@ const HookChooser: React.FC<Props> = ({
         });
         setRecommendedHookIds(recIds);
         setAiGeneratedGroups(newGroups);
-        toast.success('9 hooks gerados pela IA!');
+        toast.success('9 hooks gerados e preenchidos pela IA!');
       } else {
         toast.error('A IA não conseguiu analisar. Tente novamente.');
       }
@@ -414,14 +426,19 @@ const HookChooser: React.FC<Props> = ({
                 </div>
                 <div className="space-y-2">
                   {g.hooks.map((h: any, hIdx: number) => {
-                    const text = h.template;
-                    const isSelected = chosenHook === text && activeBlock === 'ai';
+                    // UX10: usa `filled` (preenchido pela IA) como texto
+                    // principal e clicável. Fallback pro template quando
+                    // filled não chegou (rede ruim) ou veio com placeholders
+                    // restantes. Template original fica como subtitle.
+                    const displayText: string = h.filled || h.template;
+                    const hasFilled = !!h.filled && h.filled !== h.template;
+                    const isSelected = chosenHook === displayText && activeBlock === 'ai';
                     const isHookRecommended = recommendedHookIds.includes(h.id);
                     const isDisabled = activeBlock !== 'ai';
                     return (
                       <button
                         key={`ai-hook-${h.id}-${hIdx}`}
-                        onClick={() => handlePickHook(text, 'ai')}
+                        onClick={() => handlePickHook(displayText, 'ai')}
                         disabled={isDisabled}
                         className={`w-full text-left p-5 rounded-3xl border-2 transition-all relative ${
                           isSelected
@@ -443,12 +460,21 @@ const HookChooser: React.FC<Props> = ({
                               <div className="w-2 h-2 bg-white dark:bg-gray-900/80 rounded-full"></div>
                             )}
                           </div>
-                          <div className="flex-1 pr-16">
+                          <div className="flex-1 pr-16 space-y-1.5">
                             <p
                               className={`text-sm font-bold leading-relaxed ${isSelected ? 'text-blue-900' : 'text-gray-700 dark:text-gray-300'}`}
                             >
-                              {text}
+                              {displayText}
                             </p>
+                            {hasFilled && (
+                              // Mostra o template original em italico cinza
+                              // pequeno — user entende a "fórmula" que foi
+                              // preenchida. Hover no template não muda nada,
+                              // só visual.
+                              <p className="text-[10px] italic text-gray-400 dark:text-gray-500 leading-relaxed">
+                                Estrutura: {h.template}
+                              </p>
+                            )}
                           </div>
                         </div>
                         {isHookRecommended && (
