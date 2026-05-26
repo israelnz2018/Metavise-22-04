@@ -12,6 +12,7 @@ import {
   Play,
   Maximize,
   ChevronRight,
+  ChevronDown,
   Search,
   X,
   Copy,
@@ -650,6 +651,12 @@ function ProjectDataSection({
         (v as any)?.id === (briefs.find((b) => b.id === briefId) as any)?.executedVariantId
     );
 
+  // UX5: bloco fica colapsado por default — antes ocupava metade da tela
+  // mesmo quando o user só queria ver os subprojetos. Botão no header
+  // abre/fecha; chips ao lado mostram resumo do que tem dentro.
+  // (useState DEVE vir antes de qualquer early return — rules of hooks.)
+  const [isExpanded, setIsExpanded] = useState(false);
+
   // Esconde a seção inteira se o projeto não tem nada disso. Pra projetos
   // legacy isso é o caso normal. Quando a UI da Fase 4 estiver completa,
   // adicionaremos um CTA "Gerar Plano agora" aqui.
@@ -658,166 +665,222 @@ function ProjectDataSection({
   const hasBriefs = briefs.length > 0;
   if (!hasSource && !hasPersonas && !hasBriefs) return null;
 
+  // Resumo textual do que está dentro — mostrado quando colapsado pra
+  // dar contexto sem precisar abrir.
+  const summaryChips: { label: string; color: string }[] = [];
+  if (productInfo?.productName) {
+    summaryChips.push({
+      label: productInfo.productName,
+      color:
+        'bg-gradient-to-br from-indigo-50 to-purple-50/60 dark:from-indigo-950/40 dark:to-purple-950/30 text-indigo-700 dark:text-indigo-300 ring-indigo-200/60 dark:ring-indigo-800/40',
+    });
+  }
+  if (hasPersonas) {
+    summaryChips.push({
+      label: `${personas.length} persona${personas.length > 1 ? 's' : ''}`,
+      color:
+        'bg-gradient-to-br from-blue-50 to-purple-50/30 dark:from-blue-950/30 dark:to-purple-950/20 text-blue-700 dark:text-blue-300 ring-blue-200/60 dark:ring-blue-800/40',
+    });
+  }
+  if (hasBriefs) {
+    const executedCount = briefs.filter((b) => isBriefExecuted(b.id)).length;
+    summaryChips.push({
+      label: `${briefs.length} criativo${briefs.length > 1 ? 's' : ''}${
+        executedCount > 0 ? ` · ${executedCount} executado${executedCount > 1 ? 's' : ''}` : ''
+      }`,
+      color:
+        'bg-gradient-to-br from-amber-50 to-orange-50/60 dark:from-amber-950/30 dark:to-orange-950/20 text-amber-700 dark:text-amber-300 ring-amber-200/60 dark:ring-amber-800/40',
+    });
+  }
+
   return (
     <div className="bg-white dark:bg-gray-900/80 rounded-[40px] border-2 border-gray-200 dark:border-gray-800 shadow-xl overflow-hidden">
-      <div className="p-8 space-y-8">
-        <div className="flex items-center gap-2">
-          <Sparkles size={18} className="text-purple-600 dark:text-purple-400" />
-          <h3 className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
-            Dados do Projeto
-          </h3>
+      {/* Header sempre visível — clicável pra expandir/recolher.
+          Mostra resumo (chips) à direita pro user saber o que tem dentro
+          sem precisar abrir. */}
+      <button
+        type="button"
+        onClick={() => setIsExpanded((v) => !v)}
+        aria-expanded={isExpanded}
+        className="w-full flex items-center gap-3 p-6 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors text-left"
+      >
+        <Sparkles size={18} className="text-purple-600 dark:text-purple-400 flex-shrink-0" />
+        <h3 className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest flex-shrink-0">
+          Dados do Projeto
+        </h3>
+        {/* Chips resumo — somem em telas pequenas pra não quebrar */}
+        <div className="hidden sm:flex flex-wrap items-center gap-1.5 flex-1 min-w-0">
+          {summaryChips.map((c) => (
+            <span
+              key={c.label}
+              className={`px-2 py-0.5 rounded-md text-[10px] font-bold ring-1 truncate max-w-[180px] ${c.color}`}
+            >
+              {c.label}
+            </span>
+          ))}
         </div>
+        <ChevronDown
+          size={18}
+          className={`text-gray-400 dark:text-gray-500 flex-shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+        />
+      </button>
 
-        {hasSource && (
-          <section className="space-y-3">
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">
-              🎬 Material da fonte
-            </h4>
-            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-4 space-y-2 ring-1 ring-gray-200/60 dark:ring-gray-700/60">
-              {productInfo?.productName && (
-                <div className="text-xs">
-                  <span className="font-bold text-gray-900 dark:text-gray-100">Produto: </span>
-                  <span className="text-gray-700 dark:text-gray-300">
-                    {productInfo.productName}
+      {/* Conteúdo expansível — só monta DOM quando aberto pra economizar
+          renders em projetos com 15 briefs. Anim leve via max-height +
+          transition (Tailwind não tem animate-height nativo). */}
+      {isExpanded && (
+        <div className="px-8 pb-8 space-y-8 border-t border-gray-100 dark:border-gray-800 pt-6">
+          {hasSource && (
+            <section className="space-y-3">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">
+                🎬 Material da fonte
+              </h4>
+              <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-4 space-y-2 ring-1 ring-gray-200/60 dark:ring-gray-700/60">
+                {productInfo?.productName && (
+                  <div className="text-xs">
+                    <span className="font-bold text-gray-900 dark:text-gray-100">Produto: </span>
+                    <span className="text-gray-700 dark:text-gray-300">
+                      {productInfo.productName}
+                    </span>
+                  </div>
+                )}
+                {productInfo?.offer && (
+                  <div className="text-xs">
+                    <span className="font-bold text-gray-900 dark:text-gray-100">Oferta: </span>
+                    <span className="text-gray-700 dark:text-gray-300">{productInfo.offer}</span>
+                  </div>
+                )}
+                {productInfo?.mainPain && (
+                  <div className="text-xs">
+                    <span className="font-bold text-gray-900 dark:text-gray-100">
+                      Dor principal:{' '}
+                    </span>
+                    <span className="text-gray-700 dark:text-gray-300">{productInfo.mainPain}</span>
+                  </div>
+                )}
+                {sourceText && (
+                  <div className="text-[10px] text-gray-500 dark:text-gray-500 italic pt-2 border-t border-gray-200 dark:border-gray-700">
+                    Texto fonte: {sourceText.length.toLocaleString()} caracteres
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
+          {hasPersonas && (
+            <section className="space-y-3">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">
+                👥 Personas identificadas ({personas.length})
+                {onSelectPersona && (
+                  <span className="ml-2 normal-case font-medium text-gray-400 dark:text-gray-500">
+                    · clique pra criar subprojeto
                   </span>
-                </div>
-              )}
-              {productInfo?.offer && (
-                <div className="text-xs">
-                  <span className="font-bold text-gray-900 dark:text-gray-100">Oferta: </span>
-                  <span className="text-gray-700 dark:text-gray-300">{productInfo.offer}</span>
-                </div>
-              )}
-              {productInfo?.mainPain && (
-                <div className="text-xs">
-                  <span className="font-bold text-gray-900 dark:text-gray-100">
-                    Dor principal:{' '}
-                  </span>
-                  <span className="text-gray-700 dark:text-gray-300">{productInfo.mainPain}</span>
-                </div>
-              )}
-              {sourceText && (
-                <div className="text-[10px] text-gray-500 dark:text-gray-500 italic pt-2 border-t border-gray-200 dark:border-gray-700">
-                  Texto fonte: {sourceText.length.toLocaleString()} caracteres
-                </div>
-              )}
-            </div>
-          </section>
-        )}
-
-        {hasPersonas && (
-          <section className="space-y-3">
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">
-              👥 Personas identificadas ({personas.length})
-              {onSelectPersona && (
-                <span className="ml-2 normal-case font-medium text-gray-400 dark:text-gray-500">
-                  · clique pra criar subprojeto
-                </span>
-              )}
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {personas.map((p: any) => {
-                const conf =
-                  typeof p?.confidence === 'number' ? `${Math.round(p.confidence * 100)}%` : null;
-                return (
-                  <button
-                    key={p.id}
-                    onClick={() => onSelectPersona?.(p)}
-                    disabled={!onSelectPersona}
-                    className="text-left bg-gradient-to-br from-blue-50/50 to-purple-50/30 dark:from-blue-950/30 dark:to-purple-950/20 rounded-2xl p-4 space-y-2 ring-1 ring-blue-200/60 dark:ring-blue-800/40 hover:ring-blue-500 dark:hover:ring-blue-500 hover:shadow-md transition-all disabled:cursor-default disabled:hover:ring-blue-200/60 disabled:hover:shadow-none"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-black text-gray-900 dark:text-gray-100 leading-tight">
-                        {p.label || p.name || 'Persona'}
-                      </p>
-                      {conf && (
-                        <span className="shrink-0 px-1.5 py-0.5 bg-white dark:bg-gray-900 rounded text-[9px] font-black uppercase tracking-widest text-blue-700 dark:text-blue-300">
-                          {conf}
-                        </span>
-                      )}
-                    </div>
-                    {p?.raw?.mainPain && (
-                      <p className="text-[10px] text-gray-600 dark:text-gray-400 line-clamp-2">
-                        {p.raw.mainPain}
-                      </p>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-        )}
-
-        {hasBriefs && (
-          <section className="space-y-3">
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">
-              💡 Sugestões de criativos ({briefs.length})
-              {onSelectBrief && (
-                <span className="ml-2 normal-case font-medium text-gray-400 dark:text-gray-500">
-                  · clique pra criar subprojeto
-                </span>
-              )}
-            </h4>
-            <ol className="space-y-1.5">
-              {briefs.map((b, idx) => {
-                const executed = isBriefExecuted(b.id);
-                return (
-                  <li key={b.id}>
+                )}
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {personas.map((p: any) => {
+                  const conf =
+                    typeof p?.confidence === 'number' ? `${Math.round(p.confidence * 100)}%` : null;
+                  return (
                     <button
-                      onClick={() => onSelectBrief?.(b)}
-                      disabled={!onSelectBrief}
-                      className="w-full text-left flex items-start gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50 hover:bg-blue-50 dark:hover:bg-blue-950/40 ring-1 ring-gray-200/60 dark:ring-gray-700/60 hover:ring-blue-500 dark:hover:ring-blue-500 transition-all disabled:cursor-default disabled:hover:bg-gray-50 disabled:hover:ring-gray-200/60"
+                      key={p.id}
+                      onClick={() => onSelectPersona?.(p)}
+                      disabled={!onSelectPersona}
+                      className="text-left bg-gradient-to-br from-blue-50/50 to-purple-50/30 dark:from-blue-950/30 dark:to-purple-950/20 rounded-2xl p-4 space-y-2 ring-1 ring-blue-200/60 dark:ring-blue-800/40 hover:ring-blue-500 dark:hover:ring-blue-500 hover:shadow-md transition-all disabled:cursor-default disabled:hover:ring-blue-200/60 disabled:hover:shadow-none"
                     >
-                      <span className="shrink-0 w-7 h-7 rounded-full bg-white dark:bg-gray-900 flex items-center justify-center text-[10px] font-black text-gray-600 dark:text-gray-300 ring-1 ring-gray-200 dark:ring-gray-700">
-                        {executed ? '✓' : idx + 1}
-                      </span>
-                      <div className="flex-1 min-w-0 space-y-0.5">
-                        <p className="text-xs font-bold text-gray-900 dark:text-gray-100 leading-tight">
-                          {b.hook?.substring(0, 80) || 'Brief sem hook'}
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-black text-gray-900 dark:text-gray-100 leading-tight">
+                          {p.label || p.name || 'Persona'}
                         </p>
-                        <p className="text-[10px] text-gray-500 dark:text-gray-400 flex flex-wrap gap-x-2">
-                          <span>{b.angle}</span>
-                          <span>·</span>
-                          <span>{b.style}</span>
-                          <span>·</span>
-                          <span>{b.durationTarget}s</span>
-                          {executed && (
-                            <>
-                              <span>·</span>
-                              <span className="text-green-700 dark:text-green-400 font-bold">
-                                executado
-                              </span>
-                            </>
-                          )}
-                        </p>
+                        {conf && (
+                          <span className="shrink-0 px-1.5 py-0.5 bg-white dark:bg-gray-900 rounded text-[9px] font-black uppercase tracking-widest text-blue-700 dark:text-blue-300">
+                            {conf}
+                          </span>
+                        )}
                       </div>
+                      {p?.raw?.mainPain && (
+                        <p className="text-[10px] text-gray-600 dark:text-gray-400 line-clamp-2">
+                          {p.raw.mainPain}
+                        </p>
+                      )}
                     </button>
-                  </li>
-                );
-              })}
-            </ol>
+                  );
+                })}
+              </div>
+            </section>
+          )}
 
-            {/* Blueprint Fase 5 — CTA Criativo 16+. Só aparece se já há
+          {hasBriefs && (
+            <section className="space-y-3">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">
+                💡 Sugestões de criativos ({briefs.length})
+                {onSelectBrief && (
+                  <span className="ml-2 normal-case font-medium text-gray-400 dark:text-gray-500">
+                    · clique pra criar subprojeto
+                  </span>
+                )}
+              </h4>
+              <ol className="space-y-1.5">
+                {briefs.map((b, idx) => {
+                  const executed = isBriefExecuted(b.id);
+                  return (
+                    <li key={b.id}>
+                      <button
+                        onClick={() => onSelectBrief?.(b)}
+                        disabled={!onSelectBrief}
+                        className="w-full text-left flex items-start gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50 hover:bg-blue-50 dark:hover:bg-blue-950/40 ring-1 ring-gray-200/60 dark:ring-gray-700/60 hover:ring-blue-500 dark:hover:ring-blue-500 transition-all disabled:cursor-default disabled:hover:bg-gray-50 disabled:hover:ring-gray-200/60"
+                      >
+                        <span className="shrink-0 w-7 h-7 rounded-full bg-white dark:bg-gray-900 flex items-center justify-center text-[10px] font-black text-gray-600 dark:text-gray-300 ring-1 ring-gray-200 dark:ring-gray-700">
+                          {executed ? '✓' : idx + 1}
+                        </span>
+                        <div className="flex-1 min-w-0 space-y-0.5">
+                          <p className="text-xs font-bold text-gray-900 dark:text-gray-100 leading-tight">
+                            {b.hook?.substring(0, 80) || 'Brief sem hook'}
+                          </p>
+                          <p className="text-[10px] text-gray-500 dark:text-gray-400 flex flex-wrap gap-x-2">
+                            <span>{b.angle}</span>
+                            <span>·</span>
+                            <span>{b.style}</span>
+                            <span>·</span>
+                            <span>{b.durationTarget}s</span>
+                            {executed && (
+                              <>
+                                <span>·</span>
+                                <span className="text-green-700 dark:text-green-400 font-bold">
+                                  executado
+                                </span>
+                              </>
+                            )}
+                          </p>
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ol>
+
+              {/* Blueprint Fase 5 — CTA Criativo 16+. Só aparece se já há
                 briefs no plano (faz sentido falar em "16+" só depois dos
                 primeiros). Estilo amber pra reforçar que é exceção, não
                 regra: cliente deve esgotar os 15 antes de partir pra cá. */}
-            {onStartBigVariation && (
-              <button
-                onClick={onStartBigVariation}
-                className="w-full mt-2 px-4 py-3 rounded-2xl bg-amber-50 dark:bg-amber-950/30 ring-1 ring-amber-300 dark:ring-amber-800/60 hover:bg-amber-100 dark:hover:bg-amber-950/50 hover:ring-amber-500 transition-all flex items-center justify-center gap-2 group"
-              >
-                <Sparkles
-                  size={14}
-                  className="text-amber-700 dark:text-amber-400 group-hover:scale-110 transition-transform"
-                />
-                <span className="text-xs font-black uppercase tracking-widest text-amber-900 dark:text-amber-200">
-                  Criar Criativo {briefs.length + 1} (variação grande)
-                </span>
-              </button>
-            )}
-          </section>
-        )}
-      </div>
+              {onStartBigVariation && (
+                <button
+                  onClick={onStartBigVariation}
+                  className="w-full mt-2 px-4 py-3 rounded-2xl bg-amber-50 dark:bg-amber-950/30 ring-1 ring-amber-300 dark:ring-amber-800/60 hover:bg-amber-100 dark:hover:bg-amber-950/50 hover:ring-amber-500 transition-all flex items-center justify-center gap-2 group"
+                >
+                  <Sparkles
+                    size={14}
+                    className="text-amber-700 dark:text-amber-400 group-hover:scale-110 transition-transform"
+                  />
+                  <span className="text-xs font-black uppercase tracking-widest text-amber-900 dark:text-amber-200">
+                    Criar Criativo {briefs.length + 1} (variação grande)
+                  </span>
+                </button>
+              )}
+            </section>
+          )}
+        </div>
+      )}
     </div>
   );
 }
