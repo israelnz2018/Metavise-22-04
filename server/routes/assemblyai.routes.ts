@@ -267,13 +267,18 @@ assemblyAIRouter.post('/analyze/submit', async (req, res) => {
     // F6.8 — Heavy mode (default): universal-3-pro + language detection +
     // auto_highlights. Lightweight: universal-2 + explicit language_code +
     // no auto_highlights. ~40-50% faster for Intercut use case.
+    //
+    // F9.10 — Suporte a 'auto' / undefined: passa language_detection=true
+    // pra AssemblyAI detectar sozinha. ~30% mais lento que language_code
+    // explícito mas resolve o caso de áudios em vários idiomas.
+    const autoDetect = !languageCode || languageCode === 'auto';
     const requestBody: any = lightweight
       ? {
           audio_url: audioUrl,
           // F6.8 fix — AssemblyAI deprecated `speech_model` (singular).
           // Must use `speech_models` (plural, array) even with one model.
           speech_models: ['universal-2'],
-          language_code: languageCode || 'pt',
+          ...(autoDetect ? { language_detection: true } : { language_code: languageCode }),
         }
       : {
           audio_url: audioUrl,

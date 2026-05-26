@@ -18,6 +18,7 @@ import type { AdConfig } from '@/App';
 import { toast } from 'react-hot-toast';
 import { motion } from 'motion/react';
 import { Skeleton } from '@/components/Skeleton';
+import { SegmentedAvatarModal } from '@/components/SegmentedAvatarModal';
 import {
   User,
   Sparkles,
@@ -207,6 +208,10 @@ export function AvatarTab({
   // `showOnlyFavorites` is a chip in the filter row.
   const favorites = useAvatarFavorites();
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
+
+  // F9.7 — Modo Econômico (avatar segmentado). Estado isolado pra abrir
+  // modal sem mexer no flow normal de geração HeyGen.
+  const [segmentedModalOpen, setSegmentedModalOpen] = useState(false);
 
   let filteredAvatars = heygenAvatars.filter((a) => {
     const enrichment = AVATAR_ENRICHMENT[a.avatar_id] || {};
@@ -1175,8 +1180,40 @@ export function AvatarTab({
               )}
               {videoUrl ? 'Regerar Avatar' : 'Gerar Avatar'}
             </button>
+
+            {/* F9.7 — Modo Econômico: gera HeyGen só nos trechos que cliente
+                marca. Salva ~75% do custo HeyGen quando o anúncio final tem
+                cortes/b-rolls. Botão escondido se não tem áudio (precisa do
+                ElevenLabs gerado primeiro). */}
+            <button
+              onClick={() => setSegmentedModalOpen(true)}
+              disabled={loading || !config.avatar.faceId || !audioUrl}
+              title="Gerar avatar APENAS nos trechos visíveis (economia ~75% pra vídeos com cortes/b-rolls)"
+              className="w-full md:w-auto px-6 py-5 bg-gradient-to-br from-green-500 to-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 hover:from-green-600 hover:to-emerald-700 disabled:opacity-50 transition-all shadow-xl shadow-green-100"
+            >
+              💰 Modo Econômico
+            </button>
           </div>
         </div>
+
+        {/* F9.7 — Modal de avatar segmentado */}
+        <SegmentedAvatarModal
+          open={segmentedModalOpen}
+          avatarId={config.avatar.faceId || ''}
+          audioUrl={audioUrl || ''}
+          aspectRatio={config.format.aspectRatio as any}
+          scale={config.avatar.scale}
+          onVideoReady={(url, totalSec) => {
+            // Por enquanto: copia URL pro slot principal de vídeo e adiciona
+            // metadata mínima. Cliente vê o vídeo no preview de baixo.
+            // Future: adiciona à galeria de versões com label "Segmentado".
+            toast.success(`Avatar segmentado pronto! ${totalSec.toFixed(1)}s gerados.`);
+            // Setar como videoUrl atual via callback do parent. Por ora, parent
+            // (App.tsx) só vê via lastVideoMetadata — vou expandir depois.
+            console.log('[SegmentedAvatar] ready:', url, 'totalSec:', totalSec);
+          }}
+          onClose={() => setSegmentedModalOpen(false)}
+        />
 
         {/* Debug/Details Area */}
         {videoOp && (
@@ -1442,17 +1479,31 @@ export function AvatarTab({
                       </div>
                     </div>
                   </div>
-                  {/* Star button — pin/unpin this avatar to your
-                      favorites. Sits in the top-right unless the
-                      "selected" badge is already there, in which case
-                      we tuck the star into top-left next to the IA
-                      badge (which only shows when NOT selected). */}
-                  <button
+                  {/* Star toggle — pin/unpin this avatar to your favorites.
+                      Sits in the top-right unless the "selected" badge is
+                      already there, in which case we tuck the star into
+                      top-left next to the IA badge.
+
+                      Era `<button>` mas o card pai TAMBÉM é `<button>`, e
+                      HTML não permite button dentro de button (warning
+                      hidratação React). Trocado pra <div role="button"> com
+                      keyboard handlers + stopPropagation pra preservar
+                      acessibilidade sem violar o spec. */}
+                  <div
+                    role="button"
+                    tabIndex={0}
                     onClick={(e) => {
                       e.stopPropagation();
                       favorites.toggle(a.avatar_id);
                     }}
-                    className={`absolute z-10 ${
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        favorites.toggle(a.avatar_id);
+                      }
+                    }}
+                    className={`absolute z-10 cursor-pointer ${
                       config.avatar.faceId === a.avatar_id ? 'top-3 left-3' : 'top-3 right-3'
                     } w-8 h-8 rounded-full flex items-center justify-center shadow-lg border-2 border-white transition-all ${
                       favorites.isFavorite(a.avatar_id)
@@ -1464,12 +1515,18 @@ export function AvatarTab({
                         ? 'Remover dos favoritos'
                         : 'Adicionar aos favoritos'
                     }
+                    aria-label={
+                      favorites.isFavorite(a.avatar_id)
+                        ? 'Remover dos favoritos'
+                        : 'Adicionar aos favoritos'
+                    }
+                    aria-pressed={favorites.isFavorite(a.avatar_id)}
                   >
                     <Star
                       size={14}
                       className={favorites.isFavorite(a.avatar_id) ? 'fill-current' : ''}
                     />
-                  </button>
+                  </div>
                   {config.avatar.faceId === a.avatar_id && (
                     <div className="absolute top-3 right-3 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-lg border-2 border-white">
                       <CheckCircle2 size={18} />
