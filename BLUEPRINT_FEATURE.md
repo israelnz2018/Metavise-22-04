@@ -1044,8 +1044,288 @@ preserva logs anteriores no terminal pra debug.
 
 ---
 
-_Last updated: end of Fase 7 + bug-fix batch.
-Próximos passos sugeridos: stripe/pagamento real pros créditos,
-biblioteca de músicas copyright-free pré-curadas (sem precisar
-ElevenLabs), variantes de duração na mesma versão do Cortes,
-filtros no grid de briefs._
+## 20. Fase 6.15-6.20 — Cortes overhaul (fontes, cores, animação, fundos)
+
+Continuação do trabalho da Fase 6, adicionando customização visual
+ampla ao IntercutModal/Cortes sem mexer no que já funcionava.
+
+### 20.1 Controles novos no IntercutModal
+
+| Controle                   | Valores                                                    | Default   |
+| -------------------------- | ---------------------------------------------------------- | --------- |
+| **Fonte**                  | Impact, Anton, Bebas Neue, Inter Black, Montserrat, Oswald | Impact    |
+| **Cor do texto base**      | Color picker hex                                           | `#FFFFFF` |
+| **Cor da borda (outline)** | Color picker hex                                           | `#000000` |
+| **Cor do destaque**        | Color picker hex                                           | `#9333EA` |
+| **Modo de destaque**       | text / background / both / none                            | text      |
+| **Animação pop**           | Bool (só pra background/both)                              | off       |
+| **Background do corte**    | black / space / gradient                                   | black     |
+
+### 20.2 Bundle de Google Fonts (F6.18)
+
+5 fontes baixadas pra `server/assets/fonts/` (commit `5e04718`):
+
+- `Anton-Regular.ttf`
+- `BebasNeue-Regular.ttf`
+- `Inter-Black.ttf`
+- `Montserrat-Black.ttf`
+- `Oswald-Bold.ttf`
+
+ffmpeg subtitles filter usa `fontsdir=server/assets/fonts` pra encontrar
+elas independentemente do sistema. Impact continua sendo system-default.
+
+### 20.3 Modo "Fundo" (background) — halo via \bord, não retângulo (F6.20)
+
+Tentativa 1: desenhar retângulo real via `\p1` (ASS path drawing) com
+posição calculada por estimativa de largura de palavra. **Falhou** em
+texto multi-linha porque estimativa de largura tem muitas variáveis
+(line wrap, fonte, alinhamento).
+
+Solução final: **halo `\bord<grosso>\3c<cor>`** aplicado na palavra
+ativa dentro do mesmo evento de texto. libass desenha o outline em
+volta da letra automaticamente, posição garantida.
+
+Tradeoff: não é retângulo perfeito (segue contorno das letras), mas
+**100% alinhado** à palavra falada. É o que ZapCap/TikTok usam.
+
+### 20.4 Pop animation (F6.16)
+
+Anima espessura do `\bord` via `\t(0,120,\bord<peak>)\t(120,250,\bord<base>)`:
+começa em 80% do base, sobe pra 115% em 120ms, volta pra 100% em mais 130ms.
+Mesma vibe TikTok/CapCut sem custar precisão de posição.
+
+### 20.5 Backgrounds não-preto (F6.19)
+
+- **space** — starfield estático gerado uma vez via `geq=lum='if(lt(random(0),0.0015),255,12)':cb=128:cr=128,gblur=sigma=0.6` em `color=c=0x06091a`. MP4 cacheado em `server/assets/bg-cache/starfield_<W>x<H>.mp4`. Render usa `-stream_loop -1` pra repetir indefinidamente.
+- **gradient** — `color=c=0x1a0b3a` + `hue=h=t*30:s=1.2` (rotação de matiz lenta).
+- Cache em `server/assets/bg-cache/` (gitignored).
+
+### 20.6 Caveats do starfield
+
+Várias iterações de filtros pra chegar no visual aceitável:
+
+1. ❌ `noise=alls=18:allf=t` (temporal) → cada pixel muda por frame → libx264 não comprime → arquivo de 167MB e ffmpeg trava.
+2. ❌ `noise` estático + `zoompan` → ainda 15s pra gerar 5s.
+3. ❌ `noise=alls=22` + `eq=contrast=10:brightness=-0.45` → cinza grainy uniforme, sem estrelas.
+4. ❌ `geq` com hash linear `mod(X*97+Y*113,4000)` → padrão diagonal regular feio.
+5. ✅ `geq=lum=...random(0)<0.0015,255,12...:cb=128:cr=128,gblur=sigma=0.6` → ~1700 estrelas brancas esparsas em fundo escuro.
+
+Honestamente: sutil demais ainda. Pra "vídeo de espaço real" precisa
+de upload de MP4 customizado (próxima feature).
+
+---
+
+## 21. Fase 7.3-7.5 — Music library
+
+Biblioteca de músicas salvas no servidor pra cliente reusar trilhas
+geradas/upadas em projetos futuros.
+
+### 21.1 Sidecar JSON com metadata (F7.4)
+
+Toda vez que voz/música nova é salva em `/generated/`, escreve um
+`.json` paralelo com `{ source, prompt?, lengthMs?, instrumental?,
+fileName?, sizeBytes, createdAt }`. Permite reconstruir contexto da
+faixa depois (qual prompt, quando, gerada por IA ou uploaded).
+
+### 21.2 Endpoints (F7.3)
+
+- `GET /api/elevenlabs/music/library` — lista todas as faixas em
+  `/generated/` matching `music-*` ou `eleven-music-*`, ordenado por
+  data desc. Inclui metadata do sidecar quando existe.
+- `DELETE /api/elevenlabs/music/:fileName` — apaga MP3 + sidecar com
+  path-traversal guard (só aceita pattern dos prefixos legítimos).
+
+### 21.3 UI biblioteca (F7.5)
+
+Bloco colapsável no topo de `MusicSection` com lista de faixas:
+
+- Ícone por source (✨ IA / ⬆ upload)
+- Prompt original ou nome do arquivo
+- Data relativa (`2h atrás`)
+- Tamanho em bytes
+- Mini audio player
+- Botão "Usar esta" → seleciona como background
+- Botão Lixeira → apaga (com confirm)
+- Auto-refresh após upload/geração nova
+
+### 21.4 Fix bonus
+
+`/upload-music` estava montado em `elevenLabsPremiumRouter` (path
+`/api/elevenlabs-premium/upload-music`) mas o frontend chamava
+`/api/elevenlabs/upload-music`. Upload nunca funcionou. Movido pro
+router correto (`elevenLabsRouter`).
+
+---
+
+## 22. Fase 8 — Dev supervisor (auto-restart)
+
+Wrapper Node simples (`scripts/dev-supervisor.mjs`) que respawna
+`tsx server.ts` se morrer.
+
+### 22.1 Por que
+
+Backend morria silenciosamente em dev por:
+
+- macOS App Nap matando processos ociosos
+- Terminal pai fechando
+- SIGTERM de outras coisas no sistema
+- OOM ocasional em uploads grandes
+
+Cliente via `ERR_CONNECTION_REFUSED` e tinha que pedir restart manual.
+
+### 22.2 Como funciona
+
+- `npm run dev` → `node scripts/dev-supervisor.mjs`
+- Supervisor spawna `tsx server.ts`, herda stdio
+- Detecta exit do child → reinicia em 2s
+- Limita a 5 reinícios em 60s pra não loop infinito quando bug é código
+- Respeita SIGINT/SIGTERM pra encerrar graciosamente
+
+### 22.3 Escapes pra debug
+
+- `npm run dev:bare` → tsx puro sem supervisor (vê stack trace cheia)
+- `npm run dev:watch` → tsx watch (hot reload backend, raramente útil agora)
+
+### 22.4 Detached mode
+
+Pra evitar que o supervisor morra junto com a tab do Claude Code que
+o iniciou, comando padrão de start é:
+
+```
+nohup npm run dev > /tmp/metavise-dev.log 2>&1 & disown
+```
+
+Resultado: processo com PPID 1 (init/launchd), sobrevive a tudo
+exceto kill explícito ou reboot.
+
+---
+
+## 23. Fase 9 — Avatar segmentado HeyGen (WIP — quality issues)
+
+Tentativa de gerar HeyGen apenas nos trechos visíveis em vez do vídeo
+inteiro, pra economizar ~75% do custo HeyGen em vídeos com Cortes/b-rolls.
+
+**Status atual:** pipeline funciona end-to-end mas qualidade ruim.
+Cliente quer pausar aqui e voltar depois.
+
+### 23.1 Como funciona (pipeline completa)
+
+```
+1. Cliente abre modal "💰 Modo Econômico" na AvatarTab
+2. AssemblyAI transcreve o áudio (mesmo padrão de Cortes — auto-detect lang)
+3. Cliente clica "+" nas frases onde quer avatar visível
+4. Frases consecutivas (gap<0.5s) fundidas em 1 segment
+5. Backend cuts audio em N pedaços MP3 (libmp3lame, accurate_seek)
+6. Cada chunk sobe pra Firebase Storage (ou catbox.moe fallback)
+7. POST /v2/video/generate × N em paralelo (max 3)
+8. Polling com fallback v2 → v1 (alguns video_ids só batem em v1)
+9. Cada chunk completo → baixa MP4
+10. ffmpeg stitch: avatar_0 + gap_preto+áudio + avatar_1 + ... → final
+11. Resultado em /generated/segjob_<id>_final.mp4
+```
+
+### 23.2 Endpoints + arquivos
+
+| Arquivo                                                                  | O que faz                                                   |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| `server/utils/audio.ts`                                                  | cutAudioSegment + probe + validate + timeline               |
+| `server/services/heygenSegmentedJob.ts`                                  | Orquestrador do job (cut → upload → submit → poll → stitch) |
+| `server/routes/heygen.routes.ts` POST `/generate-segmented`              | Cria job, deduz créditos pro-rata                           |
+| `server/routes/heygen.routes.ts` GET `/generate-segmented/status/:jobId` | Polling do progresso                                        |
+| `src/components/SegmentedAvatarModal.tsx`                                | UI com transcrição AssemblyAI + lista frases + "+"          |
+| `src/pages/AvatarTab.tsx`                                                | Botão verde "💰 Modo Econômico"                             |
+
+### 23.3 Known issues (motivo do WIP)
+
+**A. Voz muda quando avatar aparece**
+
+HeyGen recebe o chunk de áudio mas parece processar como
+"audio + fallback voice" — voiceover muda no trecho do avatar e
+volta pra original nos gaps. Provavelmente HeyGen não confia no
+audio_url quando chunk é curto/cortado mid-conteúdo.
+
+**B. Avatar congela após 1s**
+
+Avatar anima por ~1s e depois trava no último frame até a duração
+total. HeyGen aceita o job, processa, mas só renderiza 1s de
+movimento. Lip-sync também ruim no 1s que anima.
+
+**Hipóteses pra solução futura:**
+
+1. **Chunks bem maiores** (30s+) — perde a economia mas HeyGen pode
+   confiar mais em clips longos.
+2. **Contatar suporte HeyGen** — pode ter formato/parameter específico
+   que evita esse comportamento.
+3. **Trocar provider** — D-ID, Synthesia, ou Sieve podem lidar melhor
+   com chunks mid-conteúdo.
+4. **Pre-process audio** — adicionar 200ms de silêncio antes/depois
+   do chunk pra dar respiro nos boundaries.
+
+### 23.4 Decisões técnicas relevantes (pra retomar depois)
+
+- **MP3 (libmp3lame) não AAC**: AAC com seek imperfeito (sem
+  `-accurate_seek`) tava gerando chunks de 0 bytes, output cmd code 234.
+  MP3 com `-ss APÓS -i + -accurate_seek` é o pattern testado que funciona.
+- **catbox.moe fallback**: Firebase Storage write requer service
+  account em prod. Em dev local, fallback automático pra catbox.moe
+  (anônimo, sem signup, online há anos). 0x0.st era opção mas
+  desabilitou uploads em 2026 por causa de bot spam.
+- **Polling v1 fallback**: HeyGen `/v2/video/{id}` retorna 404 pra
+  alguns video_ids; precisa fallback pra `/v1/video_status.get?video_id=`.
+  Causou o primeiro bug "job pendurado 15min sem completar mesmo com
+  vídeo pronto no HeyGen". Código existente do `/api/heygen/status/:id`
+  já fazia isso, esqueci de copiar.
+- **Cost model**: cobra créditos pro-rata `max(20, round(100 * totalAvatarSec / 60))`.
+  Min 20 cr cobre overhead.
+- **Job tracking in-memory**: Map<jobId, SegmentedJob> com cleanup 24h.
+  Não persiste — restart de server perde jobs em vôo.
+
+### 23.5 P1 — Auto-detect language no Cortes também
+
+Aplicado mesmo padrão do SegmentedAvatarModal no IntercutModal
+(commit `98b0681`):
+
+- Cortes default era `pt` hardcoded → áudio EN gerava frases inventadas em PT
+- Agora dropdown Auto/PT/EN/ES, default Auto
+- Cache por (videoUrl + lang) pra não servir transcript lixo cacheado
+
+---
+
+## 24. Tags de checkpoint (pra rollback)
+
+| Tag                                  | Estado                                                            |
+| ------------------------------------ | ----------------------------------------------------------------- |
+| `checkpoint-pre-blueprint` (ec471f5) | Antes do Blueprint feature inteira                                |
+| `checkpoint-pre-heygen-segments`     | Antes do work de avatar segmentado (Cortes/Music/Fontes estáveis) |
+| `checkpoint-segmented-avatar-wip`    | Avatar segmentado funcional mas com quality issues                |
+
+Comandos:
+
+```
+git tag -l "checkpoint-*"
+git reset --hard checkpoint-pre-heygen-segments  # volta pra antes do avatar segmentado
+```
+
+---
+
+## 25. Commits index (Sessão pós-Fase 7)
+
+```
+98b0681  feat(intercut) — auto-detect lang + dropdown
+7d3dfad  feat(heygen) — avatar segmentado (WIP)
+5e04718  feat(cortes) — controles fonte/cor/destaque/background
+6bbcb18  feat(music) — biblioteca de músicas + fix upload-music
+c051b0a  feat(dev) — supervisor auto-restart
+2fd2013  docs(blueprint) — Fases 6 e 7 + bug fixes
+33e87a7  feat(credits) — chip clicável + grant
+e3f4d9a  fix(credits) — Firestore credentials catch
+```
+
+---
+
+_Last updated: end of P1 (auto-detect language Cortes). Avatar
+segmentado WIP — voltar quando solução de quality estiver clara.
+Próximas opções: stripe pagamentos, Pexels API pra background
+videos reais, polish (loading skeletons, console noise), seleção
+de áudio file customizado pra Cortes (não só vídeo). Tag de
+rollback: `checkpoint-segmented-avatar-wip`._
