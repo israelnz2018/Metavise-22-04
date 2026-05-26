@@ -380,15 +380,84 @@ Product name: max 2 mentions. Core pain term: max 3 mentions (use synonyms after
 // ─────────────────────────────────────────────
 // 2b. ESCOLHER 9 HOOKS COM BASE EM COPY + NÍVEL
 // ─────────────────────────────────────────────
+/**
+ * Contexto opcional pra enriquecer a seleção de hooks. Quando o user veio
+ * de um brief (Plano de Marketing), passamos o brief + persona + productInfo
+ * pra que o Claude consiga escolher hooks alinhados ao ângulo/emoção/dor
+ * específicos do criativo, não só ao texto cru da copy. UX4.
+ */
+export type HookSelectionContext = {
+  productInfo?: {
+    produto?: string;
+    oferta?: string;
+    dorPrincipal?: string;
+    [key: string]: any;
+  } | null;
+  persona?: {
+    name?: string;
+    age?: string;
+    description?: string;
+    mainPain?: string;
+    dominantFear?: string;
+    hiddenDesire?: string;
+    mainObjection?: string;
+    currentSituation?: string;
+    awarenessReason?: string;
+    [key: string]: any;
+  } | null;
+  brief?: {
+    angle?: string;
+    emotion?: string;
+    style?: string;
+    painPoint?: string;
+    hook?: string; // hook original sugerido pelo brief — boa referência de estilo
+    [key: string]: any;
+  } | null;
+};
+
 export const chooseHooksFromCopy = async (
   approvedCopy: string,
   awarenessLevel: string,
-  candidateHooks: any[]
+  candidateHooks: any[],
+  context?: HookSelectionContext
 ): Promise<{ grupos: any[] } | null> => {
   if (!candidateHooks || candidateHooks.length === 0) return null;
   if (!approvedCopy) return null;
 
-  const systemPrompt = `Você é um especialista em copywriting para Meta Ads. Selecione hooks que combinem com a copy aprovada e o nível de consciência. Responda APENAS em JSON válido sem markdown.`;
+  const systemPrompt = `Você é um especialista em copywriting para Meta Ads. Selecione hooks que combinem com a copy aprovada, o nível de consciência da audiência, e — quando fornecidos — o ângulo do criativo e a dor da persona-alvo. Hooks devem soar como abertura natural da copy, não introdução genérica. Responda APENAS em JSON válido sem markdown.`;
+
+  // Bloco opcional de contexto rico. Só montado quando ao menos 1 campo
+  // não-vazio é fornecido — evita poluir o prompt em fluxos legacy.
+  const contextBlock = (() => {
+    if (!context) return '';
+    const lines: string[] = [];
+    const { productInfo, persona, brief } = context;
+    if (productInfo?.produto || productInfo?.oferta || productInfo?.dorPrincipal) {
+      lines.push('PRODUTO/OFERTA:');
+      if (productInfo.produto) lines.push(`  • Produto: ${productInfo.produto}`);
+      if (productInfo.oferta) lines.push(`  • Oferta: ${productInfo.oferta}`);
+      if (productInfo.dorPrincipal) lines.push(`  • Dor principal: ${productInfo.dorPrincipal}`);
+    }
+    if (persona?.name || persona?.mainPain || persona?.dominantFear) {
+      lines.push('PERSONA-ALVO:');
+      if (persona.name) lines.push(`  • Nome: ${persona.name}`);
+      if (persona.age) lines.push(`  • Idade: ${persona.age}`);
+      if (persona.currentSituation) lines.push(`  • Situação atual: ${persona.currentSituation}`);
+      if (persona.mainPain) lines.push(`  • Dor central: ${persona.mainPain}`);
+      if (persona.dominantFear) lines.push(`  • Medo dominante: ${persona.dominantFear}`);
+      if (persona.hiddenDesire) lines.push(`  • Desejo oculto: ${persona.hiddenDesire}`);
+      if (persona.mainObjection) lines.push(`  • Maior objeção: ${persona.mainObjection}`);
+    }
+    if (brief?.angle || brief?.emotion || brief?.painPoint || brief?.hook) {
+      lines.push('ÂNGULO DO CRIATIVO (escolhido no Plano de Marketing):');
+      if (brief.angle) lines.push(`  • Ângulo: ${brief.angle}`);
+      if (brief.emotion) lines.push(`  • Emoção primária: ${brief.emotion}`);
+      if (brief.style) lines.push(`  • Estilo: ${brief.style}`);
+      if (brief.painPoint) lines.push(`  • Dor abordada: ${brief.painPoint}`);
+      if (brief.hook) lines.push(`  • Hook original sugerido (referência de tom): "${brief.hook}"`);
+    }
+    return lines.length > 0 ? `\n${lines.join('\n')}\n` : '';
+  })();
 
   const userPrompt = `Selecione os 9 melhores hooks para esta copy.
 
@@ -398,7 +467,7 @@ ${approvedCopy}
 """
 
 NÍVEL DE CONSCIÊNCIA: ${awarenessLevel || '3'}
-
+${contextBlock}
 CANDIDATOS (${candidateHooks.length}):
 ${candidateHooks.map((h: any) => `ID ${h.id} [${h.tipo}]: ${h.template}`).join('\n')}
 
@@ -406,8 +475,11 @@ REGRAS:
 1. Selecione EXATAMENTE 3 hooks por tipo (9 total, 3 grupos)
 2. Os tipos vêm dos candidatos
 3. Escolha os mais alinhados com o tom, ângulo e mensagem da copy
-4. Marque 1 ⭐ recomendado por grupo (o melhor)
-5. Não repita IDs
+4. Se contexto de ângulo/persona estiver presente, priorize hooks que
+   ressoam com a dor central, o medo dominante e o ângulo escolhido —
+   não só com o texto cru da copy
+5. Marque 1 ⭐ recomendado por grupo (o melhor)
+6. Não repita IDs
 
 FORMATO (JSON apenas):
 {

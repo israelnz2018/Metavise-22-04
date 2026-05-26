@@ -5900,6 +5900,62 @@ export default function App() {
                   awarenessLevel={config.copy?.answers?.awarenessLevel}
                   approvedCopy={config.copy?.generatedScript || ''}
                   hooksHistorico={config.copy?.hooksHistorico || []}
+                  // UX4: contexto rico pra recomendação de hooks. Resolve
+                  // brief ativo + persona alvo do brief + productInfo, e passa
+                  // tudo pro HookChooser usar no prompt do Claude. Quando o
+                  // user veio de "criar subprojeto" no Plano, esses 3 vêm
+                  // populados; em fluxos legacy (sem brief), cai pro
+                  // comportamento antigo (só copy + awareness).
+                  selectionContext={(() => {
+                    const copyAny = config.copy as any;
+                    const activeBriefId: string | undefined = copyAny?.activeBriefId;
+                    const briefs: CreativeBrief[] = Array.isArray(copyAny?.creativeBriefs)
+                      ? copyAny.creativeBriefs
+                      : [];
+                    const personas: WeightedPersona[] = Array.isArray(copyAny?.personasWithWeights)
+                      ? copyAny.personasWithWeights
+                      : [];
+                    const activeBrief = activeBriefId
+                      ? briefs.find((b) => b.id === activeBriefId)
+                      : undefined;
+                    const targetPersona = activeBrief
+                      ? personas.find((p) => p.id === activeBrief.targetPersonaId)
+                      : undefined;
+                    const personaRaw = (targetPersona as any)?.raw || {};
+                    return {
+                      productInfo: copyAny?.productInfo
+                        ? {
+                            produto: copyAny.productInfo.produto || copyAny.productInfo.name,
+                            oferta: copyAny.productInfo.oferta || copyAny.productInfo.offer,
+                            dorPrincipal:
+                              copyAny.productInfo.dorPrincipal ||
+                              copyAny.productInfo.painPoint ||
+                              copyAny.productInfo.mainPain,
+                          }
+                        : null,
+                      persona: targetPersona
+                        ? {
+                            name: targetPersona.name,
+                            description: targetPersona.description,
+                            age: personaRaw.age,
+                            mainPain: personaRaw.mainPain || targetPersona.painPoints?.[0],
+                            dominantFear: personaRaw.dominantFear,
+                            hiddenDesire: personaRaw.hiddenDesire,
+                            mainObjection: personaRaw.mainObjection,
+                            currentSituation: personaRaw.currentSituation,
+                          }
+                        : null,
+                      brief: activeBrief
+                        ? {
+                            angle: String(activeBrief.angle || ''),
+                            emotion: String(activeBrief.emotion || ''),
+                            style: String(activeBrief.style || ''),
+                            painPoint: activeBrief.promiseFocus,
+                            hook: activeBrief.hook,
+                          }
+                        : null,
+                    };
+                  })()}
                   onDeleteHookFromHistory={(hook) => {
                     const newHistorico = (config.copy?.hooksHistorico || []).filter(
                       (h) => h.hook !== hook

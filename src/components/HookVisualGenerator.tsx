@@ -46,6 +46,36 @@ async function callClaude(
   return data.text;
 }
 
+// UX4: tipo local pra evitar circular import com claudeService. Espelha
+// HookSelectionContext mas só leva os campos que HookChooser realmente usa.
+type HookSelectionCtx = {
+  productInfo?: {
+    produto?: string;
+    oferta?: string;
+    dorPrincipal?: string;
+    [k: string]: any;
+  } | null;
+  persona?: {
+    name?: string;
+    age?: string;
+    description?: string;
+    mainPain?: string;
+    dominantFear?: string;
+    hiddenDesire?: string;
+    mainObjection?: string;
+    currentSituation?: string;
+    [k: string]: any;
+  } | null;
+  brief?: {
+    angle?: string;
+    emotion?: string;
+    style?: string;
+    painPoint?: string;
+    hook?: string;
+    [k: string]: any;
+  } | null;
+};
+
 interface HookVisualGeneratorProps {
   approvedHook: string;
   projectId: string;
@@ -75,6 +105,8 @@ interface HookVisualGeneratorProps {
   // show a "Pular gancho" button that lets them turn the flag off.
   useHookFlow?: boolean;
   onToggleUseHook?: (next: boolean) => void;
+  // UX4: contexto rico pra recomendação de hooks. Repassado pro HookChooser.
+  selectionContext?: HookSelectionCtx;
 }
 
 type StepType =
@@ -174,6 +206,7 @@ export const HookVisualGenerator: React.FC<HookVisualGeneratorProps> = ({
   onGoToAvatar,
   useHookFlow = true,
   onToggleUseHook,
+  selectionContext,
 }) => {
   const [currentStep, setCurrentStep] = useState<StepType>(
     hookVisual?.videoGerado
@@ -707,6 +740,7 @@ Gere the prompt onde o vídeo reforça visualmente a emoção do hook do início
                 awarenessLevel={awarenessLevel}
                 approvedCopy={approvedCopy}
                 hooksHistorico={hooksHistorico}
+                selectionContext={selectionContext}
                 onSaveHook={(hook) => {
                   setSessionHook(hook);
                   onSaveHook?.(hook);

@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import hooksBibleEn from '@/data/hooksBible_en.json';
 import hooksBiblePt from '@/data/hooksBible_pt.json';
-import { chooseHooksFromCopy } from '@/lib/claudeService';
+import { chooseHooksFromCopy, type HookSelectionContext } from '@/lib/claudeService';
 
 interface Props {
   language?: string;
@@ -25,6 +25,11 @@ interface Props {
   hooksHistorico?: { hook: string; createdAt: string }[];
   onSaveHook?: (hook: string) => void;
   onDeleteHookFromHistory?: (hook: string) => void;
+  // UX4: contexto rico vindo de Source/Persona/Plano. Quando presente,
+  // a recomendação da IA usa esses dados pra escolher hooks aderentes
+  // ao ângulo do criativo (não só ao texto da copy). Todos opcionais —
+  // ausência cai no comportamento legacy de "só copy + awareness".
+  selectionContext?: HookSelectionContext;
 }
 
 const HOOK_TYPES_BY_LEVEL: Record<string, string[]> = {
@@ -78,6 +83,7 @@ const HookChooser: React.FC<Props> = ({
   hooksHistorico = [],
   onSaveHook,
   onDeleteHookFromHistory,
+  selectionContext,
 }) => {
   const [search, setSearch] = useState('');
   const [tone, setTone] = useState<'Direto' | 'Pergunta' | 'História' | 'Choque' | 'Todos'>(
@@ -171,7 +177,12 @@ const HookChooser: React.FC<Props> = ({
         return;
       }
 
-      const result = await chooseHooksFromCopy(approvedCopy, String(awarenessLevel), candidates);
+      const result = await chooseHooksFromCopy(
+        approvedCopy,
+        String(awarenessLevel),
+        candidates,
+        selectionContext
+      );
       if (result && result.grupos) {
         const recIds: number[] = [];
         const newGroups: { type: string; hooks: any[] }[] = [];
@@ -284,7 +295,7 @@ const HookChooser: React.FC<Props> = ({
 
       {/* ─── BOTÃO: ANALISAR COPY E GERAR HOOKS ─── */}
       {approvedCopy && (
-        <div className="flex justify-center">
+        <div className="flex flex-col items-center gap-2">
           <button
             onClick={handleAIRecommend}
             disabled={isRecommending}
@@ -297,6 +308,31 @@ const HookChooser: React.FC<Props> = ({
             )}
             {isRecommending ? 'Analisando copy e gerando hooks...' : 'Analisar Copy e Gerar Hooks'}
           </button>
+          {/* UX4: indicador de contexto rico. Quando productInfo/persona/brief
+              chegam aqui (subprojeto criado a partir de um brief no Plano),
+              a IA usa esses dados pra escolher hooks aderentes ao ângulo —
+              não só ao texto cru da copy. Mostramos o que está conectado
+              pro user saber que está enriquecido. */}
+          {selectionContext &&
+            (() => {
+              const tags: string[] = [];
+              if (
+                selectionContext.productInfo?.produto ||
+                selectionContext.productInfo?.dorPrincipal
+              )
+                tags.push('produto');
+              if (selectionContext.persona?.mainPain || selectionContext.persona?.name)
+                tags.push('persona');
+              if (selectionContext.brief?.angle || selectionContext.brief?.emotion)
+                tags.push('ângulo do plano');
+              if (tags.length === 0) return null;
+              return (
+                <p className="text-[10px] font-bold uppercase tracking-widest text-purple-600 dark:text-purple-400 flex items-center gap-1.5">
+                  <Sparkles size={10} />
+                  IA também usando: {tags.join(' · ')}
+                </p>
+              );
+            })()}
         </div>
       )}
 
