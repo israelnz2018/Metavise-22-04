@@ -96,7 +96,10 @@ export function CopyTab({
   updateConfig,
   setConfig,
   setCurrentStep,
-  setVoiceSource,
+  // UX12: setVoiceSource nao e mais usado aqui (botao "Configurar Voz"
+  // foi removido). Mantemos na interface Props pra nao quebrar callers,
+  // mas marcamos com underscore prefix pra dizer "ciente, intencional".
+  setVoiceSource: _setVoiceSource,
   copyDiscoveryMode,
   setCopyDiscoveryMode,
   discoveryStep,
@@ -1498,27 +1501,18 @@ export function CopyTab({
                 )}
 
                 {config.copy.generatedScript && !hasUnsavedCopyChanges && (
+                  // UX12: unificado em um unico botao que leva pra Copy do
+                  // Gancho (proxima aba do wizard). Antes tinha 2 botoes
+                  // ("Configurar Voz" e "Gerar Hook Visual") que pulavam
+                  // etapas do fluxo — user pediu pra seguir a ordem natural.
                   <div className="flex flex-wrap justify-center gap-4 pt-12">
-                    <button
-                      onClick={() => {
-                        setVoiceSource('copy');
-                        setCurrentStep('voz-premium');
-                      }}
-                      className="flex items-center gap-3 px-12 py-6 bg-gray-900 text-white rounded-[32px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-2xl shadow-gray-200 group"
-                    >
-                      Configurar Voz do Anúncio
-                      <ChevronRight
-                        size={24}
-                        className="group-hover:translate-x-1 transition-transform"
-                      />
-                    </button>
                     <button
                       onClick={() => {
                         setCurrentStep('hook-visual');
                       }}
-                      className="flex items-center gap-3 px-12 py-6 bg-white dark:bg-gray-900/80 text-gray-900 dark:text-gray-50 border-2 border-gray-900 rounded-[32px] font-black uppercase tracking-widest hover:bg-gray-100 dark:hover:bg-gray-800 transition-all shadow-2xl shadow-gray-200 group"
+                      className="flex items-center gap-3 px-12 py-6 bg-gray-900 text-white rounded-[32px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-2xl shadow-gray-200 group"
                     >
-                      Gerar Hook Visual
+                      Ir para Copy do Gancho
                       <ChevronRight
                         size={24}
                         className="group-hover:translate-x-1 transition-transform"
