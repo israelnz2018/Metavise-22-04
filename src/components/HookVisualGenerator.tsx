@@ -907,7 +907,7 @@ Gere the prompt onde o vídeo reforça visualmente a emoção do hook do início
                   <textarea
                     value={improvedImagePrompt}
                     onChange={(e) => setImprovedImagePrompt(e.target.value)}
-                    className="w-full p-6 bg-gray-50 dark:bg-gray-800/60 rounded-3xl border-2 border-gray-200 dark:border-gray-800 focus:border-blue-600 focus:bg-white dark:bg-gray-900/80 transition-all text-sm font-medium leading-relaxed min-h-[120px]"
+                    className="w-full p-6 bg-gray-50 dark:bg-gray-800/60 rounded-3xl border-2 border-gray-200 dark:border-gray-800 focus:border-blue-600 focus:bg-white dark:focus:bg-gray-900/80 transition-all text-sm font-medium leading-relaxed min-h-[120px]"
                     placeholder="Descreva a imagem..."
                   />
                 </div>
@@ -1134,7 +1134,7 @@ Gere the prompt onde o vídeo reforça visualmente a emoção do hook do início
                       <textarea
                         value={videoPrompt}
                         onChange={(e) => setVideoPrompt(e.target.value)}
-                        className="w-full p-6 bg-gray-50 dark:bg-gray-800/60 rounded-[32px] border-2 border-gray-200 dark:border-gray-800 focus:border-blue-600 focus:bg-white dark:bg-gray-900/80 transition-all text-sm font-medium leading-relaxed min-h-[160px]"
+                        className="w-full p-6 bg-gray-50 dark:bg-gray-800/60 rounded-[32px] border-2 border-gray-200 dark:border-gray-800 focus:border-blue-600 focus:bg-white dark:focus:bg-gray-900/80 transition-all text-sm font-medium leading-relaxed min-h-[160px]"
                         placeholder="Clique em 'Gerar Prompt' para criar o prompt do vídeo baseado no seu hook..."
                       />
                     </div>

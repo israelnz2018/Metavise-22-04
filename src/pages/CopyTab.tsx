@@ -464,7 +464,7 @@ export function CopyTab({
                       </div>
 
                       <AutoResizeTextarea
-                        className="w-full p-6 bg-gray-50 dark:bg-gray-800/60 rounded-[32px] border-2 border-transparent focus:border-blue-400 focus:bg-white dark:bg-gray-900/80 outline-none text-sm transition-all font-medium"
+                        className="w-full p-6 bg-gray-50 dark:bg-gray-800/60 rounded-[32px] border-2 border-transparent focus:border-blue-400 focus:bg-white dark:focus:bg-gray-900/80 outline-none text-sm transition-all font-medium"
                         placeholder={q.placeholder}
                         value={discoveryAnswers[q.id] || ''}
                         onChange={(e: any) =>
@@ -683,7 +683,7 @@ export function CopyTab({
                         ) : q.type === 'select' ? (
                           <div className="relative">
                             <select
-                              className="w-full p-4 rounded-2xl border-2 border-gray-200 dark:border-gray-800 outline-none transition-all text-sm font-bold appearance-none bg-gray-50 dark:bg-gray-800/60 focus:border-blue-600 focus:bg-white dark:bg-gray-900/80"
+                              className="w-full p-4 rounded-2xl border-2 border-gray-200 dark:border-gray-800 outline-none transition-all text-sm font-bold appearance-none bg-gray-50 dark:bg-gray-800/60 focus:border-blue-600 focus:bg-white dark:focus:bg-gray-900/80"
                               value={(config.copy.answers[q.id] as string) || ''}
                               onChange={(e) =>
                                 updateConfig('copy', 'answers', q.id, e.target.value)
@@ -703,7 +703,7 @@ export function CopyTab({
                           </div>
                         ) : (
                           <AutoResizeTextarea
-                            className="w-full p-4 rounded-2xl border-2 border-gray-200 dark:border-gray-800 focus:border-blue-600 focus:bg-white dark:bg-gray-900/80 outline-none transition-all text-sm font-bold bg-gray-50 dark:bg-gray-800/60"
+                            className="w-full p-4 rounded-2xl border-2 border-gray-200 dark:border-gray-800 focus:border-blue-600 focus:bg-white dark:focus:bg-gray-900/80 outline-none transition-all text-sm font-bold bg-gray-50 dark:bg-gray-800/60"
                             placeholder={q.placeholder}
                             value={config.copy.answers[q.id] || ''}
                             onChange={(e: any) =>
@@ -819,7 +819,13 @@ export function CopyTab({
                     </label>
                     <div className="relative">
                       <select
-                        className="w-full p-4 rounded-2xl border-2 border-gray-200 dark:border-gray-800 outline-none transition-all text-sm font-bold appearance-none bg-gray-50 dark:bg-gray-800/60 focus:border-blue-600 focus:bg-white dark:bg-gray-900/80"
+                        // UX11: faltava text color + o `focus:bg-white` sem
+                        // par `dark:focus:bg-X` deixava o select branco-no-
+                        // branco no dark quando o user selecionava uma opção.
+                        // `dark:bg-gray-900/80` no final do className antigo
+                        // era classe duplicada — colocamos a versão correta:
+                        // bg base + bg focus por tema, e text color em ambos.
+                        className="w-full p-4 rounded-2xl border-2 border-gray-200 dark:border-gray-800 outline-none transition-all text-sm font-bold appearance-none bg-gray-50 dark:bg-gray-800/60 text-gray-900 dark:text-gray-100 focus:border-blue-600 focus:bg-white dark:focus:bg-gray-900/80"
                         value={config.copy.answers.estiloAnuncio || ''}
                         onChange={(e) =>
                           updateConfig('copy', 'answers', 'estiloAnuncio', e.target.value)
@@ -945,7 +951,7 @@ export function CopyTab({
                             {q.type === 'select' ? (
                               <div className="relative">
                                 <select
-                                  className="w-full p-4 rounded-2xl border-2 border-gray-200 dark:border-gray-800 outline-none transition-all text-sm font-bold appearance-none bg-gray-50 dark:bg-gray-800/60 focus:border-blue-600 focus:bg-white dark:bg-gray-900/80"
+                                  className="w-full p-4 rounded-2xl border-2 border-gray-200 dark:border-gray-800 outline-none transition-all text-sm font-bold appearance-none bg-gray-50 dark:bg-gray-800/60 focus:border-blue-600 focus:bg-white dark:focus:bg-gray-900/80"
                                   value={
                                     (config.copy.answers[
                                       q.id as keyof typeof config.copy.answers
@@ -970,7 +976,7 @@ export function CopyTab({
                             ) : q.type === 'date' ? (
                               <input
                                 type="date"
-                                className="w-full p-4 rounded-2xl border-2 border-gray-200 dark:border-gray-800 focus:border-blue-600 focus:bg-white dark:bg-gray-900/80 outline-none transition-all text-sm font-bold bg-gray-50 dark:bg-gray-800/60 uppercase"
+                                className="w-full p-4 rounded-2xl border-2 border-gray-200 dark:border-gray-800 focus:border-blue-600 focus:bg-white dark:focus:bg-gray-900/80 outline-none transition-all text-sm font-bold bg-gray-50 dark:bg-gray-800/60 uppercase"
                                 value={
                                   (config.copy.answers[
                                     q.id as keyof typeof config.copy.answers
@@ -983,7 +989,7 @@ export function CopyTab({
                             ) : q.type === 'number' ? (
                               <input
                                 type="number"
-                                className="w-full p-4 rounded-2xl border-2 border-gray-200 dark:border-gray-800 focus:border-blue-600 focus:bg-white dark:bg-gray-900/80 outline-none transition-all text-sm font-bold bg-gray-50 dark:bg-gray-800/60"
+                                className="w-full p-4 rounded-2xl border-2 border-gray-200 dark:border-gray-800 focus:border-blue-600 focus:bg-white dark:focus:bg-gray-900/80 outline-none transition-all text-sm font-bold bg-gray-50 dark:bg-gray-800/60"
                                 placeholder={q.placeholder}
                                 value={
                                   (config.copy.answers[
@@ -996,7 +1002,7 @@ export function CopyTab({
                               />
                             ) : (
                               <AutoResizeTextarea
-                                className="w-full p-4 rounded-2xl border-2 border-gray-200 dark:border-gray-800 focus:border-blue-600 focus:bg-white dark:bg-gray-900/80 outline-none transition-all text-sm font-bold bg-gray-50 dark:bg-gray-800/60"
+                                className="w-full p-4 rounded-2xl border-2 border-gray-200 dark:border-gray-800 focus:border-blue-600 focus:bg-white dark:focus:bg-gray-900/80 outline-none transition-all text-sm font-bold bg-gray-50 dark:bg-gray-800/60"
                                 placeholder={q.placeholder}
                                 value={
                                   (config.copy.answers[
@@ -1417,7 +1423,7 @@ export function CopyTab({
                       </button>
                     </div>
                     <AutoResizeTextarea
-                      className="w-full p-8 bg-gray-50 dark:bg-gray-800/60 rounded-[32px] border-2 border-transparent focus:border-blue-600 focus:bg-white dark:bg-gray-900/80 outline-none text-gray-700 dark:text-gray-300 leading-relaxed font-mono text-sm transition-all"
+                      className="w-full p-8 bg-gray-50 dark:bg-gray-800/60 rounded-[32px] border-2 border-transparent focus:border-blue-600 focus:bg-white dark:focus:bg-gray-900/80 outline-none text-gray-700 dark:text-gray-300 leading-relaxed font-mono text-sm transition-all"
                       value={config.copy.generatedScript || ''}
                       onChange={(e: any) => {
                         setConfig((prev: any) => ({

@@ -564,13 +564,9 @@ export const COPY_SECTIONS: CopySection[] = [
         placeholder: 'Ex: 20% OFF até amanhã',
         condition: (ans) => ans.businessModel === 'SaaS / assinatura',
       },
-      {
-        id: 'limitedStock',
-        label: 'Estoque limitado?',
-        type: 'select',
-        options: ['Sim', 'Não'],
-        condition: (ans) => ans.businessModel === 'Produto físico',
-      },
+      // UX11: pergunta "Estoque limitado?" removida — quando user escolhe
+      // "Produto físico" é subentendido que tem estoque. limitedStock nao
+      // era lido por nenhum codigo downstream, so poluia o form.
     ],
   },
   {

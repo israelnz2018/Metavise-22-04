@@ -65,7 +65,7 @@ export function ElevenLabsConfigModal({
               value={apiKey}
               onChange={(e) => onApiKeyChange(e.target.value)}
               placeholder="Cole sua API Key aqui..."
-              className="w-full px-5 py-4 bg-gray-50 dark:bg-gray-800/60 border-2 border-gray-200 dark:border-gray-800 rounded-2xl focus:border-blue-500 focus:bg-white dark:bg-gray-900/80 transition-all outline-none font-mono text-sm"
+              className="w-full px-5 py-4 bg-gray-50 dark:bg-gray-800/60 border-2 border-gray-200 dark:border-gray-800 rounded-2xl focus:border-blue-500 focus:bg-white dark:focus:bg-gray-900/80 transition-all outline-none font-mono text-sm"
             />
           </div>
         </div>

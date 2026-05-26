@@ -904,7 +904,7 @@ export function AvatarTab({
                 placeholder="Buscar avatar por nome..."
                 value={avatarSearch || ''}
                 onChange={(e) => setAvatarSearch(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-gray-50 dark:bg-gray-800/60 border-2 border-transparent focus:border-blue-600 focus:bg-white dark:bg-gray-900/80 rounded-2xl outline-none transition-all text-sm font-bold"
+                className="w-full pl-12 pr-4 py-4 bg-gray-50 dark:bg-gray-800/60 border-2 border-transparent focus:border-blue-600 focus:bg-white dark:focus:bg-gray-900/80 rounded-2xl outline-none transition-all text-sm font-bold"
               />
             </div>
 
@@ -921,7 +921,7 @@ export function AvatarTab({
                     gender: e.target.value,
                   }))
                 }
-                className="w-full pl-10 pr-4 py-4 bg-gray-50 dark:bg-gray-800/60 border-2 border-transparent focus:border-blue-600 focus:bg-white dark:bg-gray-900/80 rounded-2xl outline-none transition-all text-sm font-bold text-gray-600 dark:text-gray-400 appearance-none"
+                className="w-full pl-10 pr-4 py-4 bg-gray-50 dark:bg-gray-800/60 border-2 border-transparent focus:border-blue-600 focus:bg-white dark:focus:bg-gray-900/80 rounded-2xl outline-none transition-all text-sm font-bold text-gray-600 dark:text-gray-400 appearance-none"
               >
                 <option value="">Todos Gêneros</option>
                 <option value="male">Masculino</option>
@@ -942,7 +942,7 @@ export function AvatarTab({
                     sort: e.target.value,
                   }))
                 }
-                className="w-full pl-10 pr-4 py-4 bg-gray-50 dark:bg-gray-800/60 border-2 border-transparent focus:border-blue-600 focus:bg-white dark:bg-gray-900/80 rounded-2xl outline-none transition-all text-sm font-bold text-gray-600 dark:text-gray-400 appearance-none"
+                className="w-full pl-10 pr-4 py-4 bg-gray-50 dark:bg-gray-800/60 border-2 border-transparent focus:border-blue-600 focus:bg-white dark:focus:bg-gray-900/80 rounded-2xl outline-none transition-all text-sm font-bold text-gray-600 dark:text-gray-400 appearance-none"
               >
                 <option value="name">A a Z</option>
                 <option value="ads">Melhores para Anúncios</option>
