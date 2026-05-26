@@ -533,19 +533,33 @@ export const optimizeCopyForElevenLabsWithClaude = async (
   };
   const emotionTag = emotionTags[emotion] || '';
 
-  const systemPrompt = `Você é especialista em otimizar scripts para síntese de voz com ElevenLabs v3. Responda APENAS em JSON válido sem markdown.`;
+  const systemPrompt = `Você é especialista em otimizar scripts para síntese de voz com ElevenLabs v3. Sua função é APENAS adicionar tags SSML/áudio e marcadores de ênfase ao roteiro existente — NUNCA reescrever, expandir, resumir ou adicionar conteúdo novo. Você é um transformador formal, não um copywriter. Responda APENAS em JSON válido sem markdown.`;
 
-  const userPrompt = `Transforme o roteiro abaixo para ElevenLabs.
- 
+  const userPrompt = `Adicione tags SSML e ênfases ao ROTEIRO ORIGINAL abaixo.
+
+⚠️ REGRA #1 ABSOLUTA — NÃO ADICIONE PALAVRAS NOVAS:
+- Você só pode ADICIONAR: tags SSML (<break>, <whispers>, etc), letras maiúsculas pra ênfase, traços (—) entre frases.
+- Você NÃO PODE adicionar: frases novas, palavras novas, conectivos, exemplos, elaborações, intensificadores como "ANYONE", "EVER", "AT ANY MOMENT" etc se não estavam no original.
+- Cada palavra do output que NÃO seja uma tag SSML deve EXISTIR no input (ignorando caps).
+- Se o input tem 11 palavras faladas, o output tem 11 palavras faladas. Nem uma a mais.
+
+EXEMPLO DO QUE NÃO FAZER:
+- Input: "Did you know that neuropathy has nothing to do with age?"
+- ❌ ERRADO: "<whispers>Did you know that neuropathy has NOTHING to do with age? <break time='0.6s'/> It can strike ANYONE — at ANY moment."
+  (adicionou "It can strike ANYONE — at ANY moment." que NÃO existe no input)
+- ✅ CERTO: "<whispers>Did you know that neuropathy has NOTHING to do with age?"
+
 ROTEIRO ORIGINAL:
+"""
 ${script}
- 
+"""
+
 CONTEXTO:
 - Idioma: ${language}
 - Estilo: ${style}
 - Emoção: ${emotion}
 - Tag sugerida: ${emotionTag}
- 
+
 REGRAS CRÍTICAS DE PARÊNTESES E INSTRUÇÕES DE PALCO:
 1. Analise cuidadosamente os textos entre parênteses "()":
    - Se for uma INSTRUÇÃO DE ATUAÇÃO / DIREÇÃO DE PALCO (ex: (sighs), (whispering), (pause), (long pause), (nervous), (softly), (slowly), (sorrindo)): NÃO inclua essas palavras no texto falado. Remova-as ou converta para comportamento compatível (ex: (pause) → <break time="1s"/>).
@@ -566,14 +580,15 @@ REGRAS GERAIS DE OTIMIZAÇÃO ELEVENLABS:
    - Use <break time="0.4s"/> a <break time="0.6s"/> nas transições de ideias ou mudanças de frases.
    - Use "—" ou <break time="0.3s"/> para micro-pausas curtas entre frases conectadas.
    - Não use muitas pausas. O áudio deve fluir como uma fala humana natural em ritmo de anúncio.
-7. Aplique ÊNFASE usando letras MAIÚSCULAS para as palavras-chave principais.
-8. NÃO reescreva ou resuma o roteiro em si. A mensagem narrativa deve prevalecer fiel ao original.
- 
+7. Aplique ÊNFASE usando letras MAIÚSCULAS para as palavras-chave principais. (caps mudam visual, não adicionam palavra — então tá ok)
+8. CHECAGEM FINAL antes de responder: conte as palavras do seu output (excluindo tags SSML). O número TEM que ser igual ou menor que o número de palavras do roteiro original. Se for maior, você adicionou texto e violou a regra #1 — refaça.
+
 FORMATO (JSON apenas):
 {"optimizedScript": "script otimizado"}`;
 
   const raw = await callClaude(systemPrompt, userPrompt, 2000);
 
+  let optimized = '';
   try {
     const cleaned = raw
       .replace(/```json\n?/g, '')
@@ -583,19 +598,51 @@ FORMATO (JSON apenas):
     // If it looks like JSON, parse it
     if (cleaned.startsWith('{')) {
       const parsed = JSON.parse(cleaned);
-      return parsed.optimizedScript || parsed.script || cleaned;
+      optimized = parsed.optimizedScript || parsed.script || cleaned;
+    } else {
+      // If Claude returned plain text directly, use as-is
+      optimized = cleaned;
     }
-
-    // If Claude returned plain text directly, use as-is
-    return cleaned;
   } catch {
     // Last resort: strip the JSON wrapper manually
     const match = raw.match(/"optimizedScript"\s*:\s*"([\s\S]*)"/);
     if (match && match[1]) {
-      return match[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+      optimized = match[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+    } else {
+      optimized = raw;
     }
-    return raw;
   }
+
+  // UX9 safety net: se o output tem MAIS de 30% palavras a mais que o
+  // input (excluindo tags SSML), o modelo provavelmente adicionou texto
+  // — viola a regra #1. Loga aviso pro dev mas retorna mesmo assim
+  // (não bloqueia o user; só registra pra a gente conseguir investigar
+  // se voltar a acontecer). 30% de buffer pra acomodar maiusculizacao
+  // sem falsos positivos.
+  try {
+    const stripSsml = (s: string) =>
+      s
+        .replace(/<[^>]+>/g, ' ') // <whispers>, <break .../>, etc
+        .replace(/\s+/g, ' ')
+        .trim();
+    const wordCount = (s: string) =>
+      stripSsml(s)
+        .split(/\s+/)
+        .filter((w) => w.length > 0 && /[a-zA-ZÀ-ÿ]/.test(w)).length;
+    const inputWords = wordCount(script);
+    const outputWords = wordCount(optimized);
+    if (inputWords > 0 && outputWords > inputWords * 1.3) {
+      console.warn(
+        '[optimizeCopyForElevenLabs] output added words:',
+        `input=${inputWords} output=${outputWords}.`,
+        'Modelo pode ter violado a regra de não adicionar texto novo.'
+      );
+    }
+  } catch {
+    // counter is best-effort; never block the response
+  }
+
+  return optimized;
 };
 
 // ─────────────────────────────────────────────
