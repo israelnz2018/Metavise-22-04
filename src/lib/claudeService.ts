@@ -1289,6 +1289,119 @@ export async function generateMarketingBlueprint(input: {
   };
 }
 
+// ─────────────────────────────────────────────
+// UX28-D — MONTHLY PLAN GENERATOR (post-processing layer)
+// ─────────────────────────────────────────────
+/**
+ * Gera plano mensal calibrado. Por baixo dos panos chama o mesmo
+ * generateMarketingBlueprint do backend (que produz N briefs via
+ * persona-aware analysis), mas:
+ *
+ *   1) Passa monthlyTotal como targetCount
+ *   2) Pós-processa cada brief atribuindo weekIndex (1-4) conforme
+ *      cadência calibrada
+ *   3) Atribui scriptLength conforme distribuição calibrada
+ *   4) Marca os primeiros N briefs como modeledFromRefCopyId (round-
+ *      robin entre as refs selecionadas)
+ *
+ * Não precisa de endpoint backend novo — é só uma camada de
+ * organização. O modelo já gera angles diversos; a gente distribui
+ * eles em semanas e marca quais devem clonar referências.
+ */
+export interface MonthlyPlanInputs {
+  productInfo?: any;
+  personas: any[];
+  selectedPersonaIds?: string[];
+  copyAnswers?: any;
+  /** Output do calibrateMonthlyPlan — quantos por semana, dist de tamanho, etc */
+  calibrated: {
+    monthlyTotal: number;
+    lengthDistribution: { short: number; medium: number; long: number };
+    weeklyTargets: { week1: number; week2: number; week3: number; week4: number };
+    modelingIntensity: number;
+  };
+  /** IDs das copies pra modelar (round-robin entre os modeling briefs) */
+  modelReferenceCopyIds: string[];
+}
+
+export async function generateMonthlyPlan(input: MonthlyPlanInputs): Promise<{
+  plan: any;
+  briefs: any[];
+}> {
+  const { calibrated, modelReferenceCopyIds } = input;
+  const N = Math.max(4, calibrated.monthlyTotal);
+
+  // 1) Gera N briefs base via blueprint existente
+  const { plan, briefs: rawBriefs } = await generateMarketingBlueprint({
+    productInfo: input.productInfo,
+    personas: input.personas,
+    selectedPersonaIds: input.selectedPersonaIds,
+    copyAnswers: input.copyAnswers,
+    targetCount: N,
+  });
+
+  // Garante que temos pelo menos N briefs (Claude às vezes devolve menos)
+  const briefs = rawBriefs.slice(0, N);
+
+  // 2) Distribui em semanas conforme weeklyTargets
+  const { week1, week2, week3, week4 } = calibrated.weeklyTargets;
+  let idx = 0;
+  const tagWeek = (count: number, weekIndex: 1 | 2 | 3 | 4) => {
+    for (let k = 0; k < count && idx < briefs.length; k++, idx++) {
+      briefs[idx].weekIndex = weekIndex;
+    }
+  };
+  tagWeek(week1, 1);
+  tagWeek(week2, 2);
+  tagWeek(week3, 3);
+  tagWeek(week4, 4);
+
+  // 3) Distribui scriptLength conforme lengthDistribution (% short/med/long)
+  // Cada semana respeita a mesma proporção pra evitar "todos longos numa semana".
+  const buckets: Array<'short' | 'medium' | 'long'> = [];
+  const total = briefs.length;
+  const sCount = Math.round(total * (calibrated.lengthDistribution.short / 100));
+  const mCount = Math.round(total * (calibrated.lengthDistribution.medium / 100));
+  const lCount = total - sCount - mCount;
+  for (let k = 0; k < sCount; k++) buckets.push('short');
+  for (let k = 0; k < mCount; k++) buckets.push('medium');
+  for (let k = 0; k < lCount; k++) buckets.push('long');
+  // Shuffle pra evitar "todos curtos na S1, todos longos na S4"
+  for (let i = buckets.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = buckets[i]!;
+    buckets[i] = buckets[j]!;
+    buckets[j] = tmp;
+  }
+  briefs.forEach((b, i) => {
+    b.scriptLength = buckets[i] || 'medium';
+  });
+
+  // 4) Marca os primeiros M briefs como modeledFromRefCopyId (round-robin)
+  //    M = round(monthlyTotal * modelingIntensity / 100)
+  if (modelReferenceCopyIds.length > 0 && calibrated.modelingIntensity > 0) {
+    const modelingCount = Math.round((N * calibrated.modelingIntensity) / 100);
+    // Pega briefs de várias semanas (não só S1) — espalha modelagem
+    const modelingIndices: number[] = [];
+    const perWeek = Math.ceil(modelingCount / 4);
+    for (let w = 1; w <= 4; w++) {
+      const weekBriefs = briefs.map((b, i) => ({ b, i })).filter(({ b }) => b.weekIndex === w);
+      for (let k = 0; k < Math.min(perWeek, weekBriefs.length); k++) {
+        const entry = weekBriefs[k];
+        if (!entry) continue;
+        modelingIndices.push(entry.i);
+        if (modelingIndices.length >= modelingCount) break;
+      }
+      if (modelingIndices.length >= modelingCount) break;
+    }
+    modelingIndices.forEach((i, k) => {
+      briefs[i].modeledFromRefCopyId = modelReferenceCopyIds[k % modelReferenceCopyIds.length];
+    });
+  }
+
+  return { plan, briefs };
+}
+
 export async function recommendAvatarAndVoice(input: {
   persona?: any;
   copyAnswers?: any;

@@ -23,9 +23,17 @@ import jsPDF from 'jspdf';
 import {
   generateMarketingPlan,
   generateMarketingBlueprint,
+  generateMonthlyPlan,
   type MarketingPlan,
 } from '@/lib/claudeService';
-import type { WeightedPersona, CreativeBrief } from '@/types/project';
+import type { WeightedPersona, CreativeBrief, MonthlyPlanConfig } from '@/types/project';
+// UX28: setup modal + auth pra carregar biblioteca pessoal
+import MonthlyPlanSetupModal from '@/components/MonthlyPlanSetupModal';
+import type { CalibratedMonthlyPlan } from '@/lib/planCalibration';
+import { loadPersonalLibrary, type PersonalCopyDoc } from '@/lib/personalCopyLibrary';
+import { auth } from '@/lib/firebase';
+import { Calendar } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 interface Props {
   productInfo?: any;
@@ -48,6 +56,10 @@ interface Props {
   onBriefEdit?: (brief: CreativeBrief) => void;
   /** Map of brief id → variant id, for showing "✓ executed" status. */
   briefToVariantMap?: Record<string, string>;
+  /** UX28: cached monthly plan config (persisted on config.copy.monthlyPlan) */
+  cachedMonthlyPlan?: MonthlyPlanConfig | null;
+  /** UX28: callback when monthly plan setup changes */
+  onMonthlyPlanChange?: (config: MonthlyPlanConfig | null) => void;
   onContinue: () => void;
 }
 
@@ -71,6 +83,8 @@ export function PlanTab({
   onBriefClick,
   onBriefEdit,
   briefToVariantMap,
+  cachedMonthlyPlan,
+  onMonthlyPlanChange,
   onContinue,
 }: Props) {
   const [plan, setPlan] = useState<MarketingPlan | null>(cached ?? null);
@@ -94,6 +108,61 @@ export function PlanTab({
   // user clicks "Gerar Plano" explicitly. Tab-to-tab transitions only
   // carry data, never generate things implicitly.
   const isV2 = Array.isArray(personasWithWeights) && personasWithWeights.length > 0;
+
+  // UX28: monthly plan state
+  const [showMonthlyModal, setShowMonthlyModal] = useState(false);
+  const [personalLibrary, setPersonalLibrary] = useState<PersonalCopyDoc[]>([]);
+  const [generatingMonthly, setGeneratingMonthly] = useState(false);
+  const [viewMode, setViewMode] = useState<'flat' | 'weekly'>(
+    cachedMonthlyPlan ? 'weekly' : 'flat'
+  );
+
+  // Carrega biblioteca pessoal pra alimentar o modal
+  useEffect(() => {
+    const u = auth.currentUser;
+    if (!u?.uid) return;
+    loadPersonalLibrary(u.uid)
+      .then(setPersonalLibrary)
+      .catch(() => {});
+  }, []);
+
+  /** UX28: gera plano mensal calibrado com tags de semana + length + modelagem */
+  const handleGenerateMonthlyPlan = async (
+    config: MonthlyPlanConfig,
+    calibrated: CalibratedMonthlyPlan
+  ) => {
+    setShowMonthlyModal(false);
+    setGeneratingMonthly(true);
+    setError(null);
+    try {
+      const { plan: p, briefs: b } = await generateMonthlyPlan({
+        productInfo,
+        personas: (personasWithWeights || []) as any,
+        selectedPersonaIds: Array.from(selectedPersonaIds),
+        copyAnswers,
+        calibrated: {
+          monthlyTotal: calibrated.monthlyTotal,
+          lengthDistribution: calibrated.lengthDistribution,
+          weeklyTargets: calibrated.weeklyTargets,
+          modelingIntensity: calibrated.modelingIntensity,
+        },
+        modelReferenceCopyIds: config.modelReferenceCopyIds,
+      });
+      setPlan(p);
+      setBriefs(b as CreativeBrief[]);
+      onChange(p);
+      onBriefsChange?.(b as CreativeBrief[]);
+      onMonthlyPlanChange?.(config);
+      setViewMode('weekly');
+      toast.success(`Plano mensal gerado · ${b.length} criativos distribuídos em 4 semanas`);
+    } catch (err: any) {
+      const msg = err?.message || 'Erro ao gerar plano mensal.';
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setGeneratingMonthly(false);
+    }
+  };
 
   /** Legacy fetch (no briefs). Used when isV2 === false. */
   const fetchPlan = async () => {
@@ -264,6 +333,16 @@ export function PlanTab({
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
+      {/* UX28: modal de setup do plano mensal */}
+      <MonthlyPlanSetupModal
+        open={showMonthlyModal}
+        onClose={() => setShowMonthlyModal(false)}
+        productInfo={productInfo}
+        initialConfig={cachedMonthlyPlan}
+        personalLibrary={personalLibrary}
+        onSubmit={handleGenerateMonthlyPlan}
+      />
+
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-2">
           <h2 className="text-3xl font-black text-gray-900 dark:text-gray-50 tracking-tight">
@@ -395,29 +474,98 @@ export function PlanTab({
             </span>
           </div>
 
-          {/* Generate button */}
-          <button
-            onClick={fetchBlueprint}
-            disabled={loading || selectedPersonaIds.size === 0}
-            className="w-full py-5 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 active:scale-[0.99] text-white rounded-2xl font-black uppercase tracking-widest text-sm transition-all shadow-xl shadow-blue-200/60 dark:shadow-blue-900/30 ring-1 ring-inset ring-white/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="animate-spin" size={18} />
-                Gerando plano + {targetCount} criativos...
-              </>
-            ) : briefs.length > 0 ? (
-              <>
-                <RefreshCw size={18} />
-                Regerar plano ({targetCount} criativos)
-              </>
-            ) : (
-              <>
-                <Sparkles size={18} />
-                Gerar Plano de Marketing (Andromeda)
-              </>
+          {/* UX28: Plano Mensal Calibrado — substitui o gerador legacy */}
+          <div className="rounded-2xl border-2 border-gradient bg-gradient-to-br from-blue-50 via-purple-50 to-amber-50 dark:from-blue-950/30 dark:via-purple-950/30 dark:to-amber-950/30 p-5 space-y-4 ring-1 ring-blue-200/40 dark:ring-blue-900/40">
+            <div className="flex items-start gap-3">
+              <div className="shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 via-purple-500 to-amber-500 text-white flex items-center justify-center shadow-md">
+                <Calendar size={16} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-widest text-blue-700 dark:text-blue-300">
+                  Novo · Plano Mensal Calibrado
+                </p>
+                <p className="text-sm font-bold text-gray-900 dark:text-gray-50">
+                  4 semanas · cadência adaptada ao seu orçamento e ao perfil do produto
+                </p>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                  Metavise calibra quantos criativos por semana, distribuição de tamanho
+                  (curto/médio/longo), e quais devem modelar suas copies vencedoras — baseado em
+                  comissão, AOV, budget e dados da VSL.
+                </p>
+              </div>
+            </div>
+            {cachedMonthlyPlan?.calibrated && (
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                {[
+                  { label: 'S1 Lançar', val: cachedMonthlyPlan.calibrated.weeklyTargets.week1 },
+                  { label: 'S2 Aprender', val: cachedMonthlyPlan.calibrated.weeklyTargets.week2 },
+                  { label: 'S3 Escalar', val: cachedMonthlyPlan.calibrated.weeklyTargets.week3 },
+                  { label: 'S4 Produzir', val: cachedMonthlyPlan.calibrated.weeklyTargets.week4 },
+                ].map((w) => (
+                  <div
+                    key={w.label}
+                    className="bg-white/70 dark:bg-gray-900/40 rounded-xl p-2 text-center"
+                  >
+                    <p className="text-[10px] font-black uppercase text-gray-400">{w.label}</p>
+                    <p className="text-lg font-black">{w.val}</p>
+                  </div>
+                ))}
+              </div>
             )}
-          </button>
+            <button
+              onClick={() => setShowMonthlyModal(true)}
+              disabled={generatingMonthly || selectedPersonaIds.size === 0}
+              className="w-full py-3 bg-gradient-to-br from-blue-600 via-purple-600 to-amber-600 hover:opacity-90 text-white rounded-xl font-black uppercase tracking-widest text-xs transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {generatingMonthly ? (
+                <>
+                  <Loader2 className="animate-spin" size={14} />
+                  Gerando plano mensal...
+                </>
+              ) : cachedMonthlyPlan ? (
+                <>
+                  <RefreshCw size={14} />
+                  Reconfigurar plano mensal
+                </>
+              ) : (
+                <>
+                  <Sparkles size={14} />
+                  Configurar plano mensal
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Generate button (legacy — gera SEM cadência mensal) */}
+          <details className="rounded-xl border border-gray-200 dark:border-gray-800 p-3">
+            <summary className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-800 dark:hover:text-gray-200">
+              Ou: gerar plano clássico (sem cadência mensal) ↓
+            </summary>
+            <div className="mt-3 space-y-2">
+              <button
+                onClick={fetchBlueprint}
+                disabled={loading || selectedPersonaIds.size === 0}
+                className="w-full py-5 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 active:scale-[0.99] text-white rounded-2xl font-black uppercase tracking-widest text-sm transition-all shadow-xl shadow-blue-200/60 dark:shadow-blue-900/30 ring-1 ring-inset ring-white/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="animate-spin" size={18} />
+                    Gerando plano + {targetCount} criativos...
+                  </>
+                ) : briefs.length > 0 ? (
+                  <>
+                    <RefreshCw size={18} />
+                    Regerar plano ({targetCount} criativos)
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={18} />
+                    Gerar Plano de Marketing (clássico)
+                  </>
+                )}
+              </button>
+            </div>
+          </details>
           {selectedPersonaIds.size === 0 && (
             <p className="text-center text-[10px] text-red-600 dark:text-red-400 font-bold uppercase tracking-widest">
               Selecione pelo menos 1 persona acima
@@ -753,6 +901,31 @@ export function PlanTab({
               </p>
             </div>
             <div className="flex items-center gap-2 text-xs">
+              {/* UX28-E: toggle entre flat e weekly */}
+              {briefs.some((b: any) => b.weekIndex) && (
+                <div className="flex items-center gap-1 mr-2 p-0.5 rounded-lg bg-gray-100 dark:bg-gray-800">
+                  <button
+                    onClick={() => setViewMode('flat')}
+                    className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
+                      viewMode === 'flat'
+                        ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-50 shadow'
+                        : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
+                    }`}
+                  >
+                    Lista
+                  </button>
+                  <button
+                    onClick={() => setViewMode('weekly')}
+                    className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
+                      viewMode === 'weekly'
+                        ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-50 shadow'
+                        : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
+                    }`}
+                  >
+                    Semanas
+                  </button>
+                </div>
+              )}
               {(() => {
                 const executed = briefs.filter((b) => briefToVariantMap?.[b.id]).length;
                 const pct = Math.round((executed / briefs.length) * 100);
@@ -774,118 +947,266 @@ export function PlanTab({
             </div>
           </div>
 
-          {/* Lista vertical — uma linha por brief. Layout flex pra:
-              [tick] [persona color bar] [#] [main info] [chips] [actions] */}
-          <ol className="space-y-2">
-            {briefs.map((brief) => {
-              const color = personaColor.get(brief.targetPersonaId) || 'gray';
-              const isExecuted = !!briefToVariantMap?.[brief.id];
-              // Persona color bar (left edge) — visual grouping sem badge gigante
-              const colorBarClass =
-                color === 'blue'
-                  ? 'bg-blue-500'
-                  : color === 'purple'
-                    ? 'bg-purple-500'
-                    : color === 'amber'
-                      ? 'bg-amber-500'
-                      : 'bg-gray-400';
-              const awarenessNum =
-                brief.awareness === 'unaware'
-                  ? '1'
-                  : brief.awareness === 'problem_aware'
-                    ? '2'
-                    : brief.awareness === 'solution_aware'
-                      ? '3'
-                      : brief.awareness === 'product_aware'
-                        ? '4'
-                        : '5';
-              return (
-                <li
-                  key={brief.id}
-                  className={`group relative flex items-stretch bg-white dark:bg-gray-900/80 ring-1 ring-gray-200/60 dark:ring-gray-800 rounded-2xl overflow-hidden transition-all hover:shadow-md hover:ring-gray-300 dark:hover:ring-gray-700 ${
-                    isExecuted ? 'bg-green-50/30 dark:bg-green-950/10' : ''
-                  }`}
-                >
-                  {/* Color bar — left edge, persona color */}
-                  <div className={`w-1.5 flex-shrink-0 ${colorBarClass}`} />
+          {/* UX28-E: Weekly view — agrupa briefs por semana (S1-S4) */}
+          {viewMode === 'weekly' && briefs.some((b: any) => b.weekIndex) && (
+            <div className="space-y-6">
+              {[1, 2, 3, 4].map((w) => {
+                const weekBriefs = briefs.filter((b: any) => b.weekIndex === w);
+                if (weekBriefs.length === 0) return null;
+                const weekLabels: Record<number, { title: string; desc: string; color: string }> = {
+                  1: {
+                    title: 'Semana 1 — Lançamento',
+                    desc: 'Diversidade máxima · testa todos os ângulos',
+                    color: 'blue',
+                  },
+                  2: {
+                    title: 'Semana 2 — Aprendizado',
+                    desc: 'Mata os piores · variações dos top 2-3',
+                    color: 'purple',
+                  },
+                  3: {
+                    title: 'Semana 3 — Escala',
+                    desc: 'Iterações dos winners · dobra budget se ROAS >2x',
+                    color: 'amber',
+                  },
+                  4: {
+                    title: 'Semana 4 — Produção',
+                    desc: 'Linha de produção do best winner',
+                    color: 'green',
+                  },
+                };
+                const meta = weekLabels[w]!;
+                const colorClasses: Record<string, string> = {
+                  blue: 'from-blue-500 to-blue-600',
+                  purple: 'from-purple-500 to-purple-600',
+                  amber: 'from-amber-500 to-amber-600',
+                  green: 'from-green-500 to-green-600',
+                };
+                const modeledCount = weekBriefs.filter((b: any) => b.modeledFromRefCopyId).length;
+                return (
+                  <section key={w} className="space-y-2">
+                    <header className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`w-9 h-9 rounded-xl bg-gradient-to-br ${colorClasses[meta.color]} text-white flex items-center justify-center font-black text-sm`}
+                        >
+                          S{w}
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-gray-900 dark:text-gray-50">
+                            {meta.title} · {weekBriefs.length} criativos
+                          </p>
+                          <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                            {meta.desc}
+                          </p>
+                        </div>
+                      </div>
+                      {modeledCount > 0 && (
+                        <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-full bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300">
+                          🎯 {modeledCount} modelagem
+                        </span>
+                      )}
+                    </header>
+                    <ol className="space-y-2">
+                      {weekBriefs.map((brief: any) => {
+                        const color = personaColor.get(brief.targetPersonaId) || 'gray';
+                        const isExecuted = !!briefToVariantMap?.[brief.id];
+                        const colorBarClass =
+                          color === 'blue'
+                            ? 'bg-blue-500'
+                            : color === 'purple'
+                              ? 'bg-purple-500'
+                              : color === 'amber'
+                                ? 'bg-amber-500'
+                                : 'bg-gray-400';
+                        const isModeling = !!brief.modeledFromRefCopyId;
+                        const lengthLabel =
+                          brief.scriptLength === 'short'
+                            ? 'curto'
+                            : brief.scriptLength === 'long'
+                              ? 'long'
+                              : 'médio';
+                        return (
+                          <li
+                            key={brief.id}
+                            className={`group relative flex items-stretch bg-white dark:bg-gray-900/80 ring-1 ring-gray-200/60 dark:ring-gray-800 rounded-xl overflow-hidden transition-all hover:shadow-md ${
+                              isExecuted ? 'bg-green-50/30 dark:bg-green-950/10' : ''
+                            } ${isModeling ? 'ring-amber-300/60 dark:ring-amber-700/40' : ''}`}
+                          >
+                            <div className={`w-1.5 flex-shrink-0 ${colorBarClass}`} />
+                            <div className="flex-1 flex items-center gap-3 p-3 min-w-0">
+                              <span className="text-xs font-black text-gray-400 tabular-nums w-8">
+                                #{brief.index}
+                              </span>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-bold text-gray-900 dark:text-gray-50 truncate">
+                                  {brief.hook || brief.angle}
+                                </p>
+                                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                  <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                                    {brief.targetPersonaName} · {brief.angle}
+                                  </span>
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                                    {lengthLabel}
+                                  </span>
+                                  {isModeling && (
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 font-bold">
+                                      🎯 modelagem
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                {onBriefEdit && (
+                                  <button
+                                    onClick={() => onBriefEdit(brief)}
+                                    className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-800"
+                                    title="Editar"
+                                  >
+                                    <Edit3 size={12} />
+                                  </button>
+                                )}
+                                {onBriefClick && !isExecuted && (
+                                  <button
+                                    onClick={() => onBriefClick(brief)}
+                                    className="px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase tracking-widest"
+                                  >
+                                    Criar →
+                                  </button>
+                                )}
+                                {isExecuted && (
+                                  <span className="text-green-600 dark:text-green-400 text-xs font-bold">
+                                    <Check size={14} />
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  </section>
+                );
+              })}
+            </div>
+          )}
 
-                  {/* Content */}
-                  <div className="flex-1 flex items-center gap-3 p-3 min-w-0">
-                    {/* Tick / circle */}
-                    <div
-                      className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center ring-1 ${
-                        isExecuted
-                          ? 'bg-green-100 dark:bg-green-950/40 ring-green-300 dark:ring-green-800 text-green-700 dark:text-green-400'
-                          : 'bg-white dark:bg-gray-900 ring-gray-300 dark:ring-gray-700 text-gray-400 dark:text-gray-600'
+          {viewMode === 'flat' && (
+            <>
+              {/* Lista vertical — uma linha por brief. Layout flex pra:
+              [tick] [persona color bar] [#] [main info] [chips] [actions] */}
+              <ol className="space-y-2">
+                {briefs.map((brief) => {
+                  const color = personaColor.get(brief.targetPersonaId) || 'gray';
+                  const isExecuted = !!briefToVariantMap?.[brief.id];
+                  // Persona color bar (left edge) — visual grouping sem badge gigante
+                  const colorBarClass =
+                    color === 'blue'
+                      ? 'bg-blue-500'
+                      : color === 'purple'
+                        ? 'bg-purple-500'
+                        : color === 'amber'
+                          ? 'bg-amber-500'
+                          : 'bg-gray-400';
+                  const awarenessNum =
+                    brief.awareness === 'unaware'
+                      ? '1'
+                      : brief.awareness === 'problem_aware'
+                        ? '2'
+                        : brief.awareness === 'solution_aware'
+                          ? '3'
+                          : brief.awareness === 'product_aware'
+                            ? '4'
+                            : '5';
+                  return (
+                    <li
+                      key={brief.id}
+                      className={`group relative flex items-stretch bg-white dark:bg-gray-900/80 ring-1 ring-gray-200/60 dark:ring-gray-800 rounded-2xl overflow-hidden transition-all hover:shadow-md hover:ring-gray-300 dark:hover:ring-gray-700 ${
+                        isExecuted ? 'bg-green-50/30 dark:bg-green-950/10' : ''
                       }`}
                     >
-                      {isExecuted ? <Check size={14} strokeWidth={3} /> : <Circle size={10} />}
-                    </div>
+                      {/* Color bar — left edge, persona color */}
+                      <div className={`w-1.5 flex-shrink-0 ${colorBarClass}`} />
 
-                    {/* Index */}
-                    <span className="flex-shrink-0 text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-500 tabular-nums w-12">
-                      Cr.{brief.index}
-                    </span>
+                      {/* Content */}
+                      <div className="flex-1 flex items-center gap-3 p-3 min-w-0">
+                        {/* Tick / circle */}
+                        <div
+                          className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center ring-1 ${
+                            isExecuted
+                              ? 'bg-green-100 dark:bg-green-950/40 ring-green-300 dark:ring-green-800 text-green-700 dark:text-green-400'
+                              : 'bg-white dark:bg-gray-900 ring-gray-300 dark:ring-gray-700 text-gray-400 dark:text-gray-600'
+                          }`}
+                        >
+                          {isExecuted ? <Check size={14} strokeWidth={3} /> : <Circle size={10} />}
+                        </div>
 
-                    {/* Main column: hook + persona + rationale */}
-                    <div className="flex-1 min-w-0 space-y-0.5">
-                      <p className="text-sm font-bold text-gray-900 dark:text-gray-50 leading-tight line-clamp-1">
-                        "{brief.hook}"
-                      </p>
-                      <div className="flex items-center gap-2 text-[10px] text-gray-500 dark:text-gray-400">
-                        <span className="font-bold truncate max-w-[180px]">
-                          {brief.targetPersonaName}
+                        {/* Index */}
+                        <span className="flex-shrink-0 text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-500 tabular-nums w-12">
+                          Cr.{brief.index}
                         </span>
-                        {brief.rationale && (
-                          <>
-                            <span>·</span>
-                            <span className="italic truncate">{brief.rationale}</span>
-                          </>
-                        )}
+
+                        {/* Main column: hook + persona + rationale */}
+                        <div className="flex-1 min-w-0 space-y-0.5">
+                          <p className="text-sm font-bold text-gray-900 dark:text-gray-50 leading-tight line-clamp-1">
+                            "{brief.hook}"
+                          </p>
+                          <div className="flex items-center gap-2 text-[10px] text-gray-500 dark:text-gray-400">
+                            <span className="font-bold truncate max-w-[180px]">
+                              {brief.targetPersonaName}
+                            </span>
+                            {brief.rationale && (
+                              <>
+                                <span>·</span>
+                                <span className="italic truncate">{brief.rationale}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Chips: Consc + Duração + Angle */}
+                        <div className="hidden md:flex flex-shrink-0 items-center gap-1.5 text-[9px]">
+                          <span className="font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 ring-1 ring-indigo-200/60 dark:ring-indigo-800/40">
+                            Consc. {awarenessNum}
+                          </span>
+                          <span className="font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800/60 text-gray-600 dark:text-gray-400">
+                            {brief.durationTarget}s
+                          </span>
+                          <span
+                            className="font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800/60 text-gray-600 dark:text-gray-400 truncate max-w-[100px]"
+                            title={String(brief.angle)}
+                          >
+                            {brief.angle}
+                          </span>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex-shrink-0 flex items-center gap-1">
+                          <button
+                            onClick={() => onBriefEdit?.(brief)}
+                            title="Editar brief"
+                            className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                          >
+                            <Edit3 size={13} />
+                          </button>
+                          <button
+                            onClick={() => onBriefClick?.(brief)}
+                            className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg transition-all whitespace-nowrap ${
+                              isExecuted
+                                ? 'bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/40'
+                                : 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 hover:bg-black dark:hover:bg-white'
+                            }`}
+                          >
+                            {isExecuted ? 'Abrir' : '+ Criar Subprojeto'}
+                          </button>
+                        </div>
                       </div>
-                    </div>
-
-                    {/* Chips: Consc + Duração + Angle */}
-                    <div className="hidden md:flex flex-shrink-0 items-center gap-1.5 text-[9px]">
-                      <span className="font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 ring-1 ring-indigo-200/60 dark:ring-indigo-800/40">
-                        Consc. {awarenessNum}
-                      </span>
-                      <span className="font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800/60 text-gray-600 dark:text-gray-400">
-                        {brief.durationTarget}s
-                      </span>
-                      <span
-                        className="font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800/60 text-gray-600 dark:text-gray-400 truncate max-w-[100px]"
-                        title={String(brief.angle)}
-                      >
-                        {brief.angle}
-                      </span>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex-shrink-0 flex items-center gap-1">
-                      <button
-                        onClick={() => onBriefEdit?.(brief)}
-                        title="Editar brief"
-                        className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                      >
-                        <Edit3 size={13} />
-                      </button>
-                      <button
-                        onClick={() => onBriefClick?.(brief)}
-                        className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg transition-all whitespace-nowrap ${
-                          isExecuted
-                            ? 'bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/40'
-                            : 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 hover:bg-black dark:hover:bg-white'
-                        }`}
-                      >
-                        {isExecuted ? 'Abrir' : '+ Criar Subprojeto'}
-                      </button>
-                    </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ol>
+                    </li>
+                  );
+                })}
+              </ol>
+            </>
+          )}
         </div>
       )}
     </div>

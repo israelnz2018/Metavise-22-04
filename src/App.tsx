@@ -182,6 +182,8 @@ export interface AdConfig {
     // pre-blueprint projects keep working.
     personasWithWeights?: import('@/types/project').WeightedPersona[] | null;
     creativeBriefs?: import('@/types/project').CreativeBrief[] | null;
+    // UX28: monthly plan configuration (setup + calibrated output)
+    monthlyPlan?: import('@/types/project').MonthlyPlanConfig | null;
     // AIRecommendationPanel cache (auto-invalidates when copy/persona
     // hashes change).
     aiRecommendation?: CachedRecommendation | null;
@@ -6094,6 +6096,18 @@ export default function App() {
                     cachedBriefs={
                       ((config.copy as any)?.creativeBriefs as CreativeBrief[] | null) || null
                     }
+                    cachedMonthlyPlan={
+                      ((config.copy as any)?.monthlyPlan as
+                        | import('@/types/project').MonthlyPlanConfig
+                        | null) || null
+                    }
+                    onMonthlyPlanChange={(monthlyPlan) => {
+                      setConfig((prev) => ({
+                        ...prev,
+                        copy: { ...prev.copy, monthlyPlan } as any,
+                      }));
+                      setHasUnsavedCopyChanges(true);
+                    }}
                     onBriefsChange={(briefs) => persistBriefs(briefs)}
                     onBriefEdit={(b) => setEditingBrief(b)}
                     onBriefClick={(b) => handleBriefClick(b)}

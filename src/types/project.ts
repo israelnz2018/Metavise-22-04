@@ -346,6 +346,46 @@ export interface CreativeBrief {
    *  Criativo 5 became Criativo 16), keep the parent's brief id for
    *  traceability. */
   derivedFromBriefId?: string;
+  // --- UX28 monthly plan tags ---
+  /** Week bucket (1-4). Quando ausente, brief é "legacy" sem semana. */
+  weekIndex?: 1 | 2 | 3 | 4;
+  /** Quando esse brief é variação/modelagem de uma copy da biblioteca
+   *  pessoal, o ID da copy referenciada. CopyTab vai pré-marcar essa
+   *  copy como referência + similaridade alta automaticamente. */
+  modeledFromRefCopyId?: string;
+  /** Tamanho-alvo do script (curto/médio/longo) — usado pra distribuir
+   *  conforme lengthDistribution calibrada. Mapeia pra targetWordCount
+   *  quando o brief é executado. */
+  scriptLength?: 'short' | 'medium' | 'long';
+  /** Marcado como winner pelo user — usado pra puxar variações na
+   *  semana seguinte automaticamente. */
+  isWinner?: boolean;
+  /** Marcado como dead/killed — não conta em "ativos". */
+  isKilled?: boolean;
+}
+
+/** UX28 — Monthly Plan persisted on config.copy. */
+export interface MonthlyPlanConfig {
+  /** Inputs do user no setup */
+  commissionPct: number;
+  avgOrderValue: number;
+  dailyBudgetUsd: number;
+  profile: 'newcomer' | 'scaling' | 'serious' | 'agency';
+  /** IDs de copies pra modelar (subset da biblioteca pessoal) */
+  modelReferenceCopyIds: string[];
+  /** Output calibrado — armazenado pra mostrar no UI sem recalcular */
+  calibrated?: {
+    budgetHints: { minimum: number; recommended: number; ideal: number; rationale: string };
+    lengthDistribution: { short: number; medium: number; long: number };
+    weeklyTargets: { week1: number; week2: number; week3: number; week4: number };
+    monthlyTotal: number;
+    modelingIntensity: number;
+    scalingRules: string[];
+    budgetVerdict: string;
+    breakthroughEstimate: string;
+  };
+  /** Timestamp do último cálculo, pra detectar staleness */
+  generatedAt?: number;
 }
 
 /** Bundle returned by /api/claude/marketing-plan — the macro strategy
