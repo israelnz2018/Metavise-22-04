@@ -389,6 +389,26 @@ export function CopyTab({
     }
   };
 
+  // UX22: seleção manual de copies como referência. Persistido em
+  // config.copy.referenceCopyIds — sobrevive reload e troca de aba.
+  const referenceCopyIds: string[] =
+    ((config.copy as any)?.referenceCopyIds as string[] | undefined) || [];
+  const handleToggleReference = (copyId: string) => {
+    setConfig((prev: any) => {
+      const current = (prev.copy?.referenceCopyIds as string[] | undefined) || [];
+      const next = current.includes(copyId)
+        ? current.filter((id) => id !== copyId)
+        : [...current, copyId];
+      return {
+        ...prev,
+        copy: {
+          ...prev.copy,
+          referenceCopyIds: next,
+        },
+      };
+    });
+  };
+
   // UX20: upload manual SIMPLIFICADO — só name + script. IA infere o
   // resto (vertical, awareness, language, angle, whyItWorks) via
   // analyzeCopyForLibrary. Fallback razoável se IA falhar.
@@ -544,6 +564,8 @@ export function CopyTab({
         onToggleStar={handleToggleStar}
         onDelete={handleDeleteLibraryItem}
         onAddManual={handleAddManualCopy}
+        selectedReferenceIds={referenceCopyIds}
+        onToggleReference={handleToggleReference}
       />
 
       {/* Loading Overlay for project opening */}

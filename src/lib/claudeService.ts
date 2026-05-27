@@ -327,13 +327,19 @@ YOU MUST:
     dorPrincipal: answers.painPoints || answers.situation,
     audience: answers.audience,
   });
+  // UX22: quando user marcou copies específicas (referenceCopyIds não vazio),
+  // App.tsx já filtrou a clientLibrary pra conter SÓ essas. Nesse caso
+  // aumentamos o count pra usar todas elas (até um teto razoável).
+  const clientLib = (answers.__clientCopyLibrary as CopyExample[]) || [];
+  const userExplicitlySelected = !!(answers.__manualSelection as boolean);
   const fewShotExamples: CopyExample[] = selectCopyExamples({
     language: targetLang,
     vertical: inferredVertical,
     awareness: currentLevel as AwarenessLevel,
     angleHint: angle,
-    count: 2,
-    clientLibrary: (answers.__clientCopyLibrary as CopyExample[]) || [],
+    // Se user selecionou manualmente, usa todas (até 5). Senão, auto-pick 2.
+    count: userExplicitlySelected ? Math.min(5, clientLib.length) : 2,
+    clientLibrary: clientLib,
   });
 
   const culturalBlock =

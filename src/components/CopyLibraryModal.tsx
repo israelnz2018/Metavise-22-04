@@ -22,6 +22,9 @@ import {
   Plus,
   Save,
   Loader2,
+  CheckSquare,
+  Square,
+  Target,
 } from 'lucide-react';
 import { COPY_LIBRARY, type CopyExample, type CopyVertical } from '@/data/copyLibrary';
 import type { PersonalCopyDoc } from '@/lib/personalCopyLibrary';
@@ -52,6 +55,11 @@ interface Props {
   onDelete: (copyId: string) => void;
   /** UX19: upload manual — cliente preenche form e salva na biblioteca */
   onAddManual: (input: ManualCopyInput) => Promise<void>;
+  /** UX22: IDs das copies selecionadas como referência pra próxima geração.
+   *  Vazio = IA escolhe automaticamente (top 2 por vertical/awareness). */
+  selectedReferenceIds: string[];
+  /** UX22: toggle de seleção de uma copy como referência */
+  onToggleReference: (copyId: string) => void;
 }
 
 export function CopyLibraryModal({
@@ -61,6 +69,8 @@ export function CopyLibraryModal({
   onToggleStar,
   onDelete,
   onAddManual,
+  selectedReferenceIds,
+  onToggleReference,
 }: Props) {
   const [tab, setTab] = useState<'mine' | 'system'>('mine');
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -103,17 +113,39 @@ export function CopyLibraryModal({
     starred?: boolean
   ) => {
     const isExpanded = expandedId === item.id;
+    // UX22: copy marcada como referência manualmente?
+    const isSelected = isPersonal && selectedReferenceIds.includes(item.id);
     return (
       <div
         key={item.id}
         className={`bg-white dark:bg-gray-900/80 rounded-2xl border-2 transition-all ${
-          starred
-            ? 'border-amber-300 dark:border-amber-700 shadow-sm shadow-amber-100/40'
-            : 'border-gray-200 dark:border-gray-800'
+          isSelected
+            ? 'border-blue-500 dark:border-blue-500 shadow-md shadow-blue-100/60 dark:shadow-blue-900/30 ring-1 ring-blue-200/50 dark:ring-blue-700/50'
+            : starred
+              ? 'border-amber-300 dark:border-amber-700 shadow-sm shadow-amber-100/40'
+              : 'border-gray-200 dark:border-gray-800'
         }`}
       >
         <div className="p-4 space-y-2">
           <div className="flex items-start gap-3">
+            {/* UX22: checkbox de seleção como referência. Só nas Minhas. */}
+            {isPersonal && (
+              <button
+                onClick={() => onToggleReference(item.id)}
+                className={`flex-shrink-0 mt-0.5 p-1 rounded-lg transition-all ${
+                  isSelected
+                    ? 'text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/40'
+                    : 'text-gray-400 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-gray-800'
+                }`}
+                title={
+                  isSelected
+                    ? 'Desmarcar como referência'
+                    : 'Usar esta copy como referência na próxima geração'
+                }
+              >
+                {isSelected ? <CheckSquare size={18} /> : <Square size={18} />}
+              </button>
+            )}
             <div className="flex-1 min-w-0 space-y-1">
               <div className="flex items-center gap-1.5 flex-wrap text-[9px] font-black uppercase tracking-widest">
                 <span className="px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300">
@@ -234,6 +266,44 @@ export function CopyLibraryModal({
           >
             <X size={20} />
           </button>
+        </div>
+
+        {/* UX22: status de seleção. Mostra quantas copies estão marcadas
+            como referência pra próxima geração. Quando 0, IA escolhe
+            automaticamente. */}
+        <div className="px-6 pt-4">
+          {selectedReferenceIds.length > 0 ? (
+            <div className="flex items-center justify-between gap-3 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-xl ring-1 ring-blue-200 dark:ring-blue-800/60">
+              <div className="flex items-center gap-2 min-w-0">
+                <Target size={14} className="text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                <p className="text-xs text-blue-900 dark:text-blue-200">
+                  <span className="font-black">
+                    {selectedReferenceIds.length}{' '}
+                    {selectedReferenceIds.length === 1 ? 'copy marcada' : 'copies marcadas'}
+                  </span>{' '}
+                  como referência. IA vai usar SÓ{' '}
+                  {selectedReferenceIds.length === 1 ? 'essa' : 'essas'} na próxima geração.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  // Limpa todas as seleções: chama toggle pra cada uma
+                  selectedReferenceIds.forEach((id) => onToggleReference(id));
+                }}
+                className="flex-shrink-0 text-[10px] font-black uppercase tracking-widest text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-100 hover:underline"
+              >
+                Limpar
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-gray-800/40 rounded-xl ring-1 ring-gray-200 dark:ring-gray-700/60">
+              <Sparkles size={14} className="text-gray-400 dark:text-gray-500 flex-shrink-0" />
+              <p className="text-xs text-gray-600 dark:text-gray-400">
+                <span className="font-bold">Auto-seleção ativa.</span> IA escolhe as melhores 2
+                copies baseado no tema/persona. Marque copies abaixo (☑) pra forçar quais usar.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Tabs */}

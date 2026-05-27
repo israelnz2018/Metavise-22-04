@@ -190,6 +190,11 @@ export interface AdConfig {
     // no content risk banner. Banner não aparece de novo enquanto o texto
     // não mudar. Hash invalida automaticamente quando texto muda.
     contentRiskAcknowledgedHash?: string;
+    // UX22: IDs das copies da biblioteca pessoal que o user marcou como
+    // referência pra próxima geração. Quando vazio/undefined, algoritmo
+    // de auto-select escolhe (vertical/awareness/language). Quando tem
+    // entradas, IA usa SÓ essas — ignora o resto da biblioteca.
+    referenceCopyIds?: string[];
   };
   hookVisual: HookVisualData;
   avatar: {
@@ -3258,14 +3263,30 @@ export default function App() {
       // UX18: carrega biblioteca pessoal do user (se logado) e injeta no
       // answers como __clientCopyLibrary — claudeService.selectCopyExamples
       // prioriza esses sobre os sistema-wide. Falha silenciosa se não der.
+      // UX22: se user marcou copies específicas como referência, filtra a
+      // biblioteca pra ENVIAR APENAS essas. Senão (vazio), manda tudo e
+      // o algoritmo escolhe automaticamente (top 2 por vertical/awareness).
       let clientCopyLibrary: any[] = [];
       try {
         if (user?.uid) {
-          clientCopyLibrary = await loadPersonalLibrary(user.uid);
+          const fullLib = await loadPersonalLibrary(user.uid);
+          const selectedIds =
+            ((config.copy as any)?.referenceCopyIds as string[] | undefined) || [];
+          if (selectedIds.length > 0) {
+            clientCopyLibrary = fullLib.filter((c) => selectedIds.includes(c.id));
+          } else {
+            clientCopyLibrary = fullLib;
+          }
         }
       } catch {
         clientCopyLibrary = [];
       }
+
+      // UX22: flag indicando se a clientCopyLibrary é seleção manual.
+      // Quando true, claudeService usa TODAS as copies como exemplo
+      // (não filtra por vertical/awareness pelo algoritmo).
+      const referenceIds = ((config.copy as any)?.referenceCopyIds as string[] | undefined) || [];
+      const isManualSelection = referenceIds.length > 0;
 
       let streamed = '';
       const result = await generateAdCopyWithClaude(
@@ -3273,6 +3294,7 @@ export default function App() {
           ...config.copy.answers,
           estiloAnuncio: styleWithDesc,
           __clientCopyLibrary: clientCopyLibrary,
+          __manualSelection: isManualSelection,
         },
         config.copy.mode,
         config.angle,

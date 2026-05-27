@@ -120,6 +120,10 @@ export function inferVertical(productInfo: any): CopyVertical | undefined {
  *  2) Cliente library de OUTRAS verticais (preenche resto)
  *  3) Sistema library da mesma vertical
  *  4) Sistema library de outras verticais (preenche resto)
+ *
+ *  UX22: quando clientLibrary representa SELEÇÃO MANUAL do user (passada
+ *  já filtrada pra conter só as marcadas), também filtra por idioma mas
+ *  preserva a ordem original e ignora vertical/awareness — user já curou.
  */
 export function selectCopyExamples(input: SelectionInput): CopyExample[] {
   const { language, vertical, awareness, count = 2, clientLibrary = [] } = input;
