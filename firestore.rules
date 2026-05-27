@@ -33,10 +33,16 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
       // Users can only create their own profile with default credits, or admin can create
-      allow create: if isAuthenticated() && 
+      allow create: if isAuthenticated() &&
                     ((isOwner(userId) && request.resource.data.credits == 1000 && request.resource.data.role == 'user') || isAdmin());
       // Users can't update their own credits directly (must be via server/admin)
       allow update: if isAdmin() || (isOwner(userId) && request.resource.data.credits == resource.data.credits);
+
+      // UX18/UX20: biblioteca pessoal de copies. User tem CRUD total da
+      // própria sub-collection. Admin também pode ler/escrever pra suporte.
+      match /copyLibrary/{copyId} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
     }
 
     match /projects/{projectId} {
