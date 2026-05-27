@@ -89,6 +89,8 @@ import { Terminal, Zap, History } from 'lucide-react';
 // UX25-B2: modal de histórico das últimas 5 gerações
 import CopyHistoryModal from '@/components/CopyHistoryModal';
 import type { CopyHistoryEntry } from '@/components/CopyHistoryModal';
+// UX25-B3: modal de comparação A vs B com diff highlight
+import VariantCompareModal from '@/components/VariantCompareModal';
 
 interface Props {
   config: AdConfig;
@@ -460,6 +462,61 @@ export function CopyTab({
   // UX25-B2: histórico das últimas 5 gerações
   const history: CopyHistoryEntry[] = ((config.copy as any)?.history as CopyHistoryEntry[]) || [];
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+
+  // UX25-B3: modal de comparação A vs B
+  const [showCompareModal, setShowCompareModal] = useState(false);
+
+  // UX25-B4: keyboard shortcuts globais quando CopyTab está ativa
+  //   Cmd/Ctrl + Enter → Gerar (ou Regerar) copy
+  //   Cmd/Ctrl + B    → abrir Biblioteca
+  //   Cmd/Ctrl + H    → abrir Histórico (quando tem)
+  //   Cmd/Ctrl + D    → ver Prompt enviado (debug)
+  //   ?                → mostrar atalhos (toast)
+  React.useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      // Ignora quando está digitando em input/textarea
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
+      ) {
+        // Cmd+Enter ainda funciona dentro de textarea (atalho clássico de "submit")
+        if (!(e.key === 'Enter' && (e.metaKey || e.ctrlKey))) return;
+      }
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && e.key === 'Enter') {
+        e.preventDefault();
+        if (!loading && !isGeneratingVariants && config.copy.mode !== 'as-is') {
+          handleGenerateCopy();
+        }
+        return;
+      }
+      if (mod && (e.key === 'b' || e.key === 'B')) {
+        e.preventDefault();
+        setShowLibraryModal(true);
+        return;
+      }
+      if (mod && (e.key === 'h' || e.key === 'H') && history.length > 0) {
+        e.preventDefault();
+        setShowHistoryModal(true);
+        return;
+      }
+      if (mod && (e.key === 'd' || e.key === 'D') && lastDebug) {
+        e.preventDefault();
+        setShowDebugModal(true);
+        return;
+      }
+      if (e.key === '?' && !mod) {
+        e.preventDefault();
+        toast('⌨️ Atalhos: ⌘+↵ gerar · ⌘+B biblioteca · ⌘+H histórico · ⌘+D debug', {
+          duration: 5000,
+        });
+      }
+    }
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, isGeneratingVariants, config.copy.mode, history.length, !!lastDebug]);
   const handleRestoreHistory = (script: string) => {
     setConfig((prev: any) => ({
       ...prev,
@@ -737,6 +794,18 @@ export function CopyTab({
         onRestore={handleRestoreHistory}
         onClearHistory={handleClearHistory}
       />
+
+      {/* UX25-B3: modal de comparação A vs B com diff */}
+      {variants && variants.length === 2 && (
+        <VariantCompareModal
+          open={showCompareModal}
+          onClose={() => setShowCompareModal(false)}
+          scriptA={variants[0]?.script || ''}
+          scriptB={variants[1]?.script || ''}
+          onPickA={() => handlePickVariant(variants[0]?.script || '')}
+          onPickB={() => handlePickVariant(variants[1]?.script || '')}
+        />
+      )}
 
       {/* Loading Overlay for project opening */}
       {isProjectLoading && (
@@ -2092,7 +2161,16 @@ export function CopyTab({
                   </div>
                 ))}
               </div>
-              <div className="text-center">
+              <div className="flex items-center justify-center gap-4">
+                {/* UX25-B3: botão "Comparar A vs B" com diff highlight */}
+                {variants.length === 2 && (
+                  <button
+                    onClick={() => setShowCompareModal(true)}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-purple-100 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 ring-1 ring-purple-200 dark:ring-purple-800/60 text-[10px] font-black uppercase tracking-widest hover:bg-purple-200 dark:hover:bg-purple-900/40 transition-all"
+                  >
+                    Comparar A vs B (diff)
+                  </button>
+                )}
                 <button
                   onClick={() => setVariants(null)}
                   className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
