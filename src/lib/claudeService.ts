@@ -142,6 +142,101 @@ async function callClaude(
 }
 
 // ─────────────────────────────────────────────
+// UX23-D — STYLE FINGERPRINT
+// ─────────────────────────────────────────────
+/**
+ * Extrai um "fingerprint" de estilo de 1+ copies de referência. Em vez
+ * de simplesmente JOGAR as copies como few-shot e torcer pro modelo
+ * imitar, a gente pede pro Claude PRIMEIRO analisar a voz delas e
+ * gerar diretivas IMPERATIVAS (ex: "frases de 6-12 palavras", "use
+ * 'do nada', 'saca só'") — esses comandos imperativos influenciam
+ * mais do que exemplos passivos.
+ *
+ * Usado quando similarity >= 51 ("strong" ou "clone"). Abaixo disso
+ * o sistema usa apenas few-shot leve (mais barato + mais variação).
+ *
+ * Falha silenciosa → retorna null e o caller cai pro modo few-shot.
+ */
+export async function extractStyleFingerprint(examples: CopyExample[]): Promise<string | null> {
+  if (!examples || examples.length === 0) return null;
+
+  // Limita pra evitar prompt enorme. 3 copies já dão sinal forte.
+  const sample = examples.slice(0, 3);
+  const corpus = sample
+    .map((e, i) => `--- COPY ${i + 1} ---\n${e.script.slice(0, 1800)}`)
+    .join('\n\n');
+
+  const systemPrompt = `You are a forensic copywriter. Given 1-3 reference copies, you reverse-engineer the writer's stylistic fingerprint into IMPERATIVE directives that another AI can follow. Output ONLY JSON, no markdown.`;
+
+  const userPrompt = `Analyze the writing style of the reference copies below. Output a JSON object describing the voice as IMPERATIVE rules the next writer must follow.
+
+REFERENCE COPIES:
+${corpus}
+
+Extract these properties (be SPECIFIC — vague answers are useless):
+
+1. avgSentenceLength: rough word count ("6-10", "12-18", etc)
+2. pacing: "fast" | "medium" | "slow" + 1 sentence why
+3. opening_pattern: how do they typically OPEN? (sensory image / question / counterintuitive claim / direct statement / etc)
+4. vocabulary_register: "formal" | "casual" | "street" | "mixed" + key vocabulary anchors (3-6 specific words/phrases they use)
+5. signature_phrases: 3-6 ACTUAL phrases pulled verbatim from the copies that define the voice (e.g. "do nada", "saca só", "olha aí")
+6. avoid_list: 3-5 things this writer would NEVER say or do (e.g. "no usar 'incrível'", "no usar palavras de 4+ sílabas em sequência")
+7. emotional_temperature: cold/neutral/warm/hot + the EMOTION the writer trades in primarily
+8. closing_style: how they wrap up / CTA approach
+9. cadence_tricks: 2-4 SPECIFIC rhythm devices (ex: "frase curta, frase curta, frase longa", "repete palavra-chave em 3 lugares", "abertura com pergunta + resposta no mesmo parágrafo")
+
+OUTPUT (JSON only):
+{
+  "avgSentenceLength": "...",
+  "pacing": "...",
+  "opening_pattern": "...",
+  "vocabulary_register": "...",
+  "signature_phrases": ["...", "..."],
+  "avoid_list": ["...", "..."],
+  "emotional_temperature": "...",
+  "closing_style": "...",
+  "cadence_tricks": ["...", "..."]
+}`;
+
+  try {
+    const raw = await callClaude(systemPrompt, userPrompt, 800);
+    const cleaned = raw
+      .replace(/```json\n?/g, '')
+      .replace(/```\n?/g, '')
+      .trim();
+    const parsed = JSON.parse(cleaned);
+
+    // Reconstrói como diretivas imperativas. Esse é o texto que vai
+    // pro prompt principal — não JSON, texto-comando.
+    const sig = Array.isArray(parsed.signature_phrases)
+      ? parsed.signature_phrases.slice(0, 6).join(', ')
+      : '';
+    const avoid = Array.isArray(parsed.avoid_list) ? parsed.avoid_list.slice(0, 5).join('; ') : '';
+    const cadence = Array.isArray(parsed.cadence_tricks)
+      ? parsed.cadence_tricks
+          .slice(0, 4)
+          .map((t: string) => `   - ${t}`)
+          .join('\n')
+      : '';
+
+    return `STYLE FINGERPRINT — MATCH THESE RULES EXACTLY:
+- Avg sentence length: ${parsed.avgSentenceLength || 'medium'} words
+- Pacing: ${parsed.pacing || 'medium'}
+- Open with: ${parsed.opening_pattern || 'direct statement'}
+- Vocabulary register: ${parsed.vocabulary_register || 'casual'}
+- Signature phrases TO USE (sprinkle 1-2 naturally): ${sig || '(none)'}
+- NEVER do: ${avoid || '(no restrictions)'}
+- Emotional temperature: ${parsed.emotional_temperature || 'warm'}
+- Closing style: ${parsed.closing_style || 'direct CTA'}
+- Cadence tricks:
+${cadence || '   - (no specific tricks)'}`;
+  } catch (err: any) {
+    console.warn('[extractStyleFingerprint] falhou:', err?.message);
+    return null;
+  }
+}
+
+// ─────────────────────────────────────────────
 // 1. GERAR COPY com beats Schwartz
 // ─────────────────────────────────────────────
 export const generateAdCopyWithClaude = async (
@@ -332,6 +427,27 @@ YOU MUST:
   // aumentamos o count pra usar todas elas (até um teto razoável).
   const clientLib = (answers.__clientCopyLibrary as CopyExample[]) || [];
   const userExplicitlySelected = !!(answers.__manualSelection as boolean);
+  // UX23-F: similarity slider 0-100. Default 65 (medium-strong).
+  const similarityRaw = Number(answers.__referenceSimilarity);
+  const referenceSimilarity =
+    Number.isFinite(similarityRaw) && similarityRaw >= 0 && similarityRaw <= 100
+      ? similarityRaw
+      : 65;
+  // Buckets:
+  //   0-25  → light (study tone, don't copy — original behavior)
+  //   26-50 → medium (mirror the FEEL, position at top)
+  //   51-75 → strong (mirror tight + style fingerprint)
+  //   76-100 → clone (fingerprint + voice indistinguishable)
+  type SimilarityBucket = 'light' | 'medium' | 'strong' | 'clone';
+  const bucket: SimilarityBucket =
+    referenceSimilarity <= 25
+      ? 'light'
+      : referenceSimilarity <= 50
+        ? 'medium'
+        : referenceSimilarity <= 75
+          ? 'strong'
+          : 'clone';
+
   const fewShotExamples: CopyExample[] = selectCopyExamples({
     language: targetLang,
     vertical: inferredVertical,
@@ -341,6 +457,29 @@ YOU MUST:
     count: userExplicitlySelected ? Math.min(5, clientLib.length) : 2,
     clientLibrary: clientLib,
   });
+
+  // UX23-D: extrair fingerprint só quando user marcou manualmente + bucket
+  // for strong/clone. Custa 1 call extra de Claude (~1s) mas eleva muito
+  // a fidelidade da imitação. Para light/medium pulamos pra economizar.
+  let styleFingerprint: string | null = null;
+  if (
+    userExplicitlySelected &&
+    (bucket === 'strong' || bucket === 'clone') &&
+    clientLib.length > 0
+  ) {
+    try {
+      styleFingerprint = await extractStyleFingerprint(clientLib);
+    } catch {
+      styleFingerprint = null;
+    }
+  }
+
+  // Log pra debug — App.tsx também loga, mas aqui temos o estado completo.
+  if (userExplicitlySelected) {
+    console.info(
+      `[copy-gen] manual reference: ${clientLib.length} copies | similarity=${referenceSimilarity}% (${bucket}) | fingerprint=${styleFingerprint ? 'extracted' : 'none'}`
+    );
+  }
 
   const culturalBlock =
     targetLang === 'pt'
@@ -363,13 +502,42 @@ Every word must be in this language. If any input data is in a different languag
 
 Respond ONLY with valid JSON. No markdown, no preamble.`;
 
-  // UX14: bloco de exemplos few-shot. Modelo se ancora no TOM e RITMO
-  // desses, sem copiar texto. Inclui só se temos pelo menos 1 exemplo
-  // relevante (não vai sempre haver — fallback é o comportamento antigo).
+  // UX14/UX23: bloco de exemplos few-shot. Texto e força do bloco escalam
+  // conforme o bucket de similaridade (slider 0-100).
+  //
+  //   light  → "study TONE — don't copy" (comportamento antigo, baixa influência)
+  //   medium → "mirror the FEEL" (mais firme)
+  //   strong → "mirror voice tightly + fingerprint" (alta influência)
+  //   clone  → "voice must be indistinguishable" (máxima)
+  //
+  // O bloco só é construído quando há pelo menos 1 exemplo. Se o user não
+  // selecionou nada manualmente, força bucket='light' (comportamento legado).
+  const effectiveBucket: 'light' | 'medium' | 'strong' | 'clone' = userExplicitlySelected
+    ? bucket
+    : 'light';
+
+  const blockHeaders: Record<typeof effectiveBucket, string> = {
+    light: 'REFERENCE EXAMPLES (study the TONE, RHYTHM, SPECIFICITY — do NOT copy text or claims)',
+    medium:
+      'STYLE REFERENCE — MIRROR THIS FEEL (these are the voice we want; match cadence, sentence length, openings, and energy)',
+    strong:
+      'STYLE ANCHOR (PRIMARY DIRECTIVE) — Mirror the voice tightly. The output should feel like the SAME WRITER wrote both copies. Match: sentence rhythm, vocabulary register, opening style, transitions, and emotional temperature. Do NOT reuse claims/numbers — but DO reuse stylistic patterns.',
+    clone:
+      'VOICE CLONE (HIGHEST DIRECTIVE) — Your output must be INDISTINGUISHABLE in voice from the reference below. Match every stylistic move: sentence cadence, vocabulary, idioms, rhythm tricks, opening pattern, and emotional temperature. The reader should not be able to tell which copy is yours and which is the reference. Only the topic/product/numbers change.',
+  };
+
+  const blockFooter: Record<typeof effectiveBucket, string> = {
+    light: 'Match the FEEL, not the content.',
+    medium: 'Match the cadence and energy. Topic + numbers come from CONTEXT below.',
+    strong:
+      'The CONTEXT section below provides the topic, claims, and numbers. The STYLE comes from above. If they conflict, voice wins.',
+    clone:
+      'Voice imitation is the #1 priority. The CONTEXT below provides facts to substitute in. If a beat instruction conflicts with the voice, soften the beat — never the voice.',
+  };
+
   const referenceBlock =
     fewShotExamples.length > 0
-      ? `\n\n--- REFERENCE EXAMPLES (study the TONE, RHYTHM, SPECIFICITY — do NOT copy text or claims) ---
-These are examples of high-quality copy in the same style we want. Notice the sensory openings, specific numbers, oral cadence, modest promises, and confident close. Match the FEEL, not the content.
+      ? `--- ${blockHeaders[effectiveBucket]} ---
 
 ${fewShotExamples
   .map(
@@ -380,11 +548,22 @@ ${e.script}
 Why this works: ${e.whyItWorks}`
   )
   .join('\n\n')}
+
+${blockFooter[effectiveBucket]}${styleFingerprint ? `\n\n${styleFingerprint}` : ''}
 `
       : '';
 
-  const userPrompt = `Write a Meta Ads video script. Follow every instruction precisely.
+  // UX23-B: reposicionar o bloco de referência. Quando user selecionou
+  // manualmente E bucket >= medium, o bloco vai pro TOPO antes do CONTEXT
+  // (modelo prioriza o que vê primeiro). Pra light, mantém posição
+  // original no meio do prompt (menos disruptivo).
+  const positionReferenceAtTop =
+    userExplicitlySelected && effectiveBucket !== 'light' && referenceBlock.length > 0;
+  const topReferenceBlock = positionReferenceAtTop ? `${referenceBlock}\n` : '';
+  const inlineReferenceBlock = positionReferenceAtTop ? '' : referenceBlock;
 
+  const userPrompt = `Write a Meta Ads video script. Follow every instruction precisely.
+${topReferenceBlock}
 --- CONTEXT ---
 Language: ${answers.language || 'Português (Brasileiro)'}
 Awareness level: ${currentLevel} / 5
@@ -395,7 +574,7 @@ Hidden desire (the deeper want — connect transformation to this, not just surf
 Product: ${answers.productName || ''}
 Promised result: ${answers.productResult || ''}
 Unique mechanism: ${answers.uniqueMechanism || ''}
-${referenceBlock}
+${inlineReferenceBlock}
 --- CREATIVE DIRECTION ---
 Ad style: ${answers.estiloAnuncio || 'Direto ao Ponto'}
 Apply this style to the tone, rhythm, and sentence structure throughout the script.

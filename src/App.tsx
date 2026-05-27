@@ -195,6 +195,24 @@ export interface AdConfig {
     // de auto-select escolhe (vertical/awareness/language). Quando tem
     // entradas, IA usa SÓ essas — ignora o resto da biblioteca.
     referenceCopyIds?: string[];
+    // UX23-F: Slider 0-100 controlando intensidade da influência da
+    // referência. Buckets internos:
+    //   0-25  → "light reference" (prompt antigo: study tone, don't copy)
+    //   26-50 → "medium" (mirror feel + reference no topo)
+    //   51-75 → "strong" (fingerprint extraído + mirror tight)
+    //   76-100 → "clone" (fingerprint + voice indistinguishable)
+    // Default 65 quando user marca a primeira copy.
+    referenceSimilarity?: number;
+    // UX23-E: snapshot das copies que efetivamente entraram na última
+    // geração (id + name/script preview). Permite "Ver referências
+    // usadas" sem depender da biblioteca atual (user pode ter deletado).
+    lastUsedReferences?: Array<{
+      id: string;
+      name?: string;
+      scriptPreview: string; // primeiras ~280 chars
+      vertical?: string;
+      language?: string;
+    }>;
   };
   hookVisual: HookVisualData;
   avatar: {
@@ -3287,6 +3305,24 @@ export default function App() {
       // (não filtra por vertical/awareness pelo algoritmo).
       const referenceIds = ((config.copy as any)?.referenceCopyIds as string[] | undefined) || [];
       const isManualSelection = referenceIds.length > 0;
+      // UX23-F: similarity slider (default 65 quando há seleção manual)
+      const referenceSimilarity =
+        typeof (config.copy as any)?.referenceSimilarity === 'number'
+          ? (config.copy as any).referenceSimilarity
+          : 65;
+
+      // UX23-C: log + persist snapshot das referências efetivamente usadas
+      if (isManualSelection && clientCopyLibrary.length > 0) {
+        console.info(
+          `[handleGenerateCopy] sending ${clientCopyLibrary.length} reference copies | similarity=${referenceSimilarity}%`,
+          clientCopyLibrary.map((c) => ({
+            id: c.id,
+            name: c.name,
+            vertical: c.vertical,
+            language: c.language,
+          }))
+        );
+      }
 
       let streamed = '';
       const result = await generateAdCopyWithClaude(
@@ -3295,6 +3331,7 @@ export default function App() {
           estiloAnuncio: styleWithDesc,
           __clientCopyLibrary: clientCopyLibrary,
           __manualSelection: isManualSelection,
+          __referenceSimilarity: referenceSimilarity,
         },
         config.copy.mode,
         config.angle,
@@ -3316,6 +3353,19 @@ export default function App() {
       );
       if (!result) throw new Error('A IA retornou uma resposta vazia.');
 
+      // UX23-E: snapshot das copies usadas — sobrevive deleção da
+      // biblioteca e permite "Ver referências usadas" depois.
+      const lastUsedReferences =
+        isManualSelection && clientCopyLibrary.length > 0
+          ? clientCopyLibrary.map((c) => ({
+              id: c.id,
+              name: c.name,
+              scriptPreview: (c.script || '').slice(0, 280),
+              vertical: c.vertical,
+              language: c.language,
+            }))
+          : undefined;
+
       // Final, clean replacement (parses the JSON envelope properly).
       setConfig((prev) => ({
         ...prev,
@@ -3323,10 +3373,31 @@ export default function App() {
           ...prev.copy,
           generatedScript: typeof result === 'string' ? result : result.script || '',
           optimizedScript: '',
+          ...(lastUsedReferences ? { lastUsedReferences } : {}),
         },
       }));
       setHasUnsavedCopyChanges(true);
-      toast.success('Copy gerada com sucesso!');
+
+      // UX23-C: toast diferente quando usou referências manuais — confirma
+      // pro user que a seleção dele teve efeito.
+      if (isManualSelection && clientCopyLibrary.length > 0) {
+        const bucket =
+          referenceSimilarity <= 25
+            ? 'leve'
+            : referenceSimilarity <= 50
+              ? 'médio'
+              : referenceSimilarity <= 75
+                ? 'forte'
+                : 'clone';
+        toast.success(
+          `Copy gerada com ${clientCopyLibrary.length} ${
+            clientCopyLibrary.length === 1 ? 'referência' : 'referências'
+          } · similaridade ${referenceSimilarity}% (${bucket})`,
+          { duration: 4500 }
+        );
+      } else {
+        toast.success('Copy gerada com sucesso!');
+      }
     } catch (err: any) {
       console.error('Generation error:', err);
       const msg = err.message || String(err);

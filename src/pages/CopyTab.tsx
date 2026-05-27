@@ -73,6 +73,10 @@ import { CopyLibraryModal } from '@/components/CopyLibraryModal';
 import { inferVertical } from '@/data/copyLibrary';
 import { auth } from '@/lib/firebase';
 import { Library, BookmarkPlus } from 'lucide-react';
+// UX23-E/F: painel de similaridade + modal de "Ver referências usadas"
+import ReferenceSimilarityPanel from '@/components/ReferenceSimilarityPanel';
+import LastUsedReferencesModal from '@/components/LastUsedReferencesModal';
+import type { LastUsedReference } from '@/components/ReferenceSimilarityPanel';
 
 interface Props {
   config: AdConfig;
@@ -404,10 +408,36 @@ export function CopyTab({
         copy: {
           ...prev.copy,
           referenceCopyIds: next,
+          // UX23-F: quando user marca a primeira copy, inicializa similarity
+          // em 65 (medium-strong) se ainda não tiver valor. User pode
+          // ajustar depois.
+          referenceSimilarity:
+            typeof prev.copy?.referenceSimilarity === 'number' ? prev.copy.referenceSimilarity : 65,
         },
       };
     });
   };
+
+  // UX23-F: slider de similaridade. Default 65 quando user já tem
+  // seleção mas o campo ainda não existe (ex: projetos antigos).
+  const referenceSimilarity: number =
+    typeof (config.copy as any)?.referenceSimilarity === 'number'
+      ? (config.copy as any).referenceSimilarity
+      : 65;
+  const handleChangeSimilarity = (next: number) => {
+    setConfig((prev: any) => ({
+      ...prev,
+      copy: {
+        ...prev.copy,
+        referenceSimilarity: Math.max(0, Math.min(100, Math.round(next))),
+      },
+    }));
+  };
+
+  // UX23-E: snapshot das copies usadas na última geração + modal de view
+  const lastUsedReferences: LastUsedReference[] | undefined =
+    ((config.copy as any)?.lastUsedReferences as LastUsedReference[] | undefined) || undefined;
+  const [showLastUsedModal, setShowLastUsedModal] = useState(false);
 
   // UX20: upload manual SIMPLIFICADO — só name + script. IA infere o
   // resto (vertical, awareness, language, angle, whyItWorks) via
@@ -566,6 +596,16 @@ export function CopyTab({
         onAddManual={handleAddManualCopy}
         selectedReferenceIds={referenceCopyIds}
         onToggleReference={handleToggleReference}
+      />
+
+      {/* UX23-E: modal "Ver referências usadas" — mostra snapshot do
+          que efetivamente entrou na última geração, ao lado da copy
+          resultante pra comparação. */}
+      <LastUsedReferencesModal
+        open={showLastUsedModal}
+        onClose={() => setShowLastUsedModal(false)}
+        references={lastUsedReferences}
+        generatedScript={config.copy.generatedScript || ''}
       />
 
       {/* Loading Overlay for project opening */}
@@ -1694,6 +1734,20 @@ export function CopyTab({
 
           {config.copy.mode !== 'as-is' && (
             <div className="flex flex-col items-center mt-12 gap-3">
+              {/* UX23-F: painel de referências + slider de similaridade.
+                  Só aparece quando user marcou pelo menos 1 copy como
+                  referência. Slider persiste em config.copy.referenceSimilarity. */}
+              {referenceCopyIds.length > 0 && (
+                <ReferenceSimilarityPanel
+                  selectedCount={referenceCopyIds.length}
+                  similarity={referenceSimilarity}
+                  onChangeSimilarity={handleChangeSimilarity}
+                  lastUsed={lastUsedReferences}
+                  onOpenLibrary={() => setShowLibraryModal(true)}
+                  onShowLastUsed={() => setShowLastUsedModal(true)}
+                />
+              )}
+
               <div className="flex flex-wrap items-center justify-center gap-3">
                 <button
                   onClick={handleGenerateCopy}
