@@ -602,11 +602,33 @@ Respond with ONLY this JSON:
 - Deadlines not in the brief ("in 30 days", "in 7 days")
 - Unsourced claims ("studies show", "experts say", "research proves")
 - Cliché phrases: "transform your life", "discover the secret", "this will change everything", "revolutionary", "life-changing", "game-changer"
-If no real proof exists → use MECHANISM PROOF or LOGICAL PROOF instead.
+- Default narrative openers like "I was listening to a podcast and...", "the other day I heard...", "a friend told me..." — these are CLICHÉS, not stories. Open with concrete sensory imagery or a counterintuitive claim instead.
+- Vague destination descriptors ("a short video", "a quick presentation", "an audio") UNLESS the user's destination description explicitly says so.
+${
+  (answers.avoidList || '').toString().trim().length > 0
+    ? `\nUSER-SPECIFIED AVOID LIST (these MUST NEVER appear in the output):\n${(
+        answers.avoidList || ''
+      )
+        .toString()
+        .split(/[,\n;]/)
+        .map((s: string) => s.trim())
+        .filter(Boolean)
+        .map((s: string) => `- "${s}"`)
+        .join('\n')}\n`
+    : ''
+}If no real proof exists → use MECHANISM PROOF or LOGICAL PROOF instead.
 
---- CTA ---
-Required phrasing for "${answers.clickDestination || 'Vídeo'}": ${ctaByDestination[answers.clickDestination || 'Vídeo'] || 'watch the video'}
-Use this phrasing or a natural variation in the output language. Do not reference any other format (podcast, webinar, course, book).
+--- CTA / DESTINATION ---
+${
+  (answers.destinationDescription || '').toString().trim().length > 0
+    ? `When the viewer clicks the ad, they land HERE (use this description faithfully — do NOT invent format details, length, or who appears):
+"""
+${(answers.destinationDescription || '').toString().trim()}
+"""
+Refer to the destination using ONLY the language above (or a natural translation/paraphrase). Do not call it a "podcast", "short video", "quick presentation", "audio", "course", "book", or any other format the user did not name. If the user called it an "encontro", "conversa", "live", "webinar" etc — use exactly that vocabulary.`
+    : `Required phrasing for "${answers.clickDestination || 'Vídeo'}": ${ctaByDestination[answers.clickDestination || 'Vídeo'] || 'watch the video'}
+Use this phrasing or a natural variation in the output language.`
+}
 
 --- REPETITION LIMITS ---
 Product name: max 2 mentions. Core pain term: max 3 mentions (use synonyms after).`;
@@ -1876,5 +1898,98 @@ FORMATO (JSON apenas):
       angle: '',
       whyItWorks: '',
     };
+  }
+}
+
+// ─────────────────────────────────────────────
+// UX24-D — DESCRIBE DESTINATION FROM PRODUCT
+// ─────────────────────────────────────────────
+/**
+ * Recebe productInfo (transcrição/descrição da Fonte do Produto) +
+ * categoria de clickDestination + idioma, e usa Claude pra escrever
+ * uma descrição CONCRETA de pra onde o user manda o lead.
+ *
+ * O resultado vai pra o campo destinationDescription da CopyTab, que
+ * é injetado no prompt principal — isso impede o modelo de inventar
+ * frases tipo "ele gravou uma apresentação curta" quando o destino
+ * real é um encontro/webinar/live longo.
+ *
+ * Output: string em PT-BR (ou EN se language='en'). User revisa antes
+ * de gerar a copy.
+ */
+export async function describeDestinationFromProduct(input: {
+  productInfo?: any;
+  clickDestination?: string;
+  language?: string;
+}): Promise<string> {
+  const productInfo = input.productInfo || {};
+  const dest = (input.clickDestination || 'video').toLowerCase();
+  const isPT = isPortuguese(input.language);
+
+  // Monta o corpus mais rico que conseguimos a partir do productInfo.
+  // Diferentes tipos de projeto guardam dados em campos diferentes
+  // (VSL transcrita, descrição livre, ofertas, dor principal, etc).
+  // Misturamos tudo pra dar ao modelo a melhor chance.
+  const bits: string[] = [];
+  const push = (label: string, val: unknown) => {
+    if (val == null) return;
+    const s = String(val).trim();
+    if (!s) return;
+    bits.push(`${label}: ${s}`);
+  };
+  push('Produto', productInfo.produto || productInfo.productName);
+  push('Oferta', productInfo.oferta);
+  push('Dor principal', productInfo.dorPrincipal);
+  push('Promessa', productInfo.promessa || productInfo.productResult);
+  push('Mecanismo único', productInfo.mecanismoUnico || productInfo.uniqueMechanism);
+  push('Descrição livre', productInfo.descricao || productInfo.description);
+  push('VSL / Transcrição', productInfo.transcript || productInfo.transcription);
+  push('História', productInfo.historia);
+  push('Provas / Resultados', productInfo.provas || productInfo.socialProof);
+
+  const corpus = bits.length > 0 ? bits.join('\n') : '(sem informações disponíveis)';
+
+  // Mapeia a categoria pra label legível (apenas pra contexto)
+  const destLabel: Record<string, string> = {
+    video: isPT ? 'um vídeo (VSL, webinar, live, encontro online)' : 'a video (VSL, webinar, live)',
+    article: isPT ? 'um artigo/conteúdo escrito' : 'an article / written content',
+    salespage: isPT ? 'uma página de vendas direta' : 'a sales page',
+    whatsapp: isPT ? 'WhatsApp ou formulário' : 'WhatsApp or contact form',
+    checkout: isPT ? 'checkout direto (compra imediata)' : 'direct checkout',
+    Vídeo: isPT ? 'um vídeo' : 'a video',
+    'Landing Page de Vendas': isPT ? 'uma página de vendas' : 'a sales landing page',
+    'Lead Form': isPT ? 'um formulário de lead' : 'a lead form',
+    WhatsApp: isPT ? 'WhatsApp' : 'WhatsApp',
+    'Página de Captura': isPT ? 'uma página de captura' : 'an opt-in page',
+  };
+
+  const systemPrompt = isPT
+    ? `Você é um copywriter sênior ajudando a documentar o destino do clique de um anúncio. Recebe informações sobre o produto e a categoria do destino, e escreve uma descrição CONCRETA do que o lead encontra ao clicar — pra o gerador de copy não inventar formato. Responda em texto corrido, 3-6 frases curtas, sem markdown. NÃO inicie com "Ao clicar..." nem use prefixos repetitivos — vá direto ao conteúdo.`
+    : `You are a senior copywriter helping document an ad's click destination. Given product info and the destination category, write a CONCRETE description of what the lead finds — to keep the copy generator from inventing format. Plain prose, 3-6 short sentences, no markdown. Do NOT start with "When clicking..." — just describe the content.`;
+
+  const userPrompt = isPT
+    ? `Categoria do destino: ${destLabel[dest] || dest}
+
+Informações do produto:
+${corpus}
+
+ESCREVA uma descrição honesta e específica do que tem no destino — formato (live de 1h, encontro de 3 pessoas, página com vídeo curto, etc), quem aparece, sobre o que falam, qual o tom. Se o produto tem uma história forte (família, criador, descoberta), incorpore. Se faltar info, descreva no nível que conseguir mas SEM inventar — prefira ser vago a confabular.
+
+Inclua no final 1 linha começando com "EVITAR:" listando 2-4 termos que a copy NÃO deveria usar pra descrever esse destino (ex: se é uma live de 1h, evitar "vídeo curto", "apresentação rápida"). Use vírgula entre termos.`
+    : `Destination category: ${destLabel[dest] || dest}
+
+Product info:
+${corpus}
+
+WRITE an honest, specific description of what's at the destination — format (1-hour live, 3-person conversation, short video page, etc), who appears, what they discuss, the tone. If the product has a strong story (family, founder, discovery), weave it in. Where info is missing, describe at the level you can — do NOT confabulate.
+
+Include 1 final line starting with "AVOID:" listing 2-4 terms the copy should NEVER use to describe this destination (e.g. if it's a 1h live, avoid "short video", "quick presentation"). Comma-separated.`;
+
+  try {
+    const raw = await callClaude(systemPrompt, userPrompt, 600);
+    return (raw || '').trim();
+  } catch (err: any) {
+    console.warn('[describeDestinationFromProduct] falhou:', err?.message);
+    throw err;
   }
 }

@@ -49,6 +49,7 @@ import {
   critiqueAndRewriteCopy,
   generateAdCopyVariants,
   analyzeCopyForLibrary,
+  describeDestinationFromProduct,
   type ProductInfo,
 } from '@/lib/claudeService';
 import { getRecomendedEstilo, getRecomendacaoTempo, countWords } from '@/lib/helpers';
@@ -438,6 +439,31 @@ export function CopyTab({
   const lastUsedReferences: LastUsedReference[] | undefined =
     ((config.copy as any)?.lastUsedReferences as LastUsedReference[] | undefined) || undefined;
   const [showLastUsedModal, setShowLastUsedModal] = useState(false);
+
+  // UX24-A: auto-fill da descrição do destino do clique usando productInfo.
+  // Chama Claude (~1s) e popula config.copy.answers.destinationDescription.
+  // User pode revisar/editar antes de gerar a copy.
+  const [isAutoFillingDestination, setIsAutoFillingDestination] = useState(false);
+  const handleAutoFillDestination = async () => {
+    if (!productInfo) {
+      toast.error('Configure a Fonte do Produto antes de auto-preencher.');
+      return;
+    }
+    setIsAutoFillingDestination(true);
+    try {
+      const description = await describeDestinationFromProduct({
+        productInfo,
+        clickDestination: config.copy.answers.clickDestination,
+        language: config.copy.answers.language,
+      });
+      updateConfig('copy', 'answers', 'destinationDescription', description);
+      toast.success('Descrição preenchida — revise antes de gerar.');
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro ao preencher destino.');
+    } finally {
+      setIsAutoFillingDestination(false);
+    }
+  };
 
   // UX20: upload manual SIMPLIFICADO — só name + script. IA infere o
   // resto (vertical, awareness, language, angle, whyItWorks) via
@@ -1491,18 +1517,49 @@ export function CopyTab({
                     })}
                   </div>
 
-                  <div className="mt-3">
-                    <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
-                      Outro destino (opcional)
-                    </label>
+                  {/* UX24-A: campo "Descreva o destino" — substitui o
+                      "Outro destino (opcional)" que era confusamente
+                      posicionado como ALTERNATIVA aos botões. Agora é
+                      uma DESCRIÇÃO do destino escolhido, sempre visível,
+                      pra IA saber o que vai ter lá e não inventar
+                      "apresentação curta", "vídeo rápido", etc. */}
+                  <div className="mt-4 space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <label className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">
+                        Descreva o destino do clique
+                        <span className="ml-2 text-amber-600 dark:text-amber-400 normal-case tracking-normal">
+                          (recomendado — evita IA inventar formato)
+                        </span>
+                      </label>
+                      {productInfo && (
+                        <button
+                          type="button"
+                          onClick={handleAutoFillDestination}
+                          disabled={isAutoFillingDestination}
+                          className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-[10px] font-black uppercase tracking-widest transition-all"
+                          title="Usa a Fonte do Produto pra descrever o destino"
+                        >
+                          {isAutoFillingDestination ? (
+                            <Loader2 size={12} className="animate-spin" />
+                          ) : (
+                            <Sparkles size={12} />
+                          )}
+                          Preencher do projeto
+                        </button>
+                      )}
+                    </div>
                     <AutoResizeTextarea
-                      placeholder="Escreva aqui se quiser um destino diferente..."
-                      value={config.copy.answers.clickDestinationCustom || ''}
+                      placeholder="Ex: Live gratuita de 1h onde um pesquisador conta como criou a vitamina amarela pra ajudar a mãe com neuropatia. Aparecem ele, a mãe e um host. Tom: depoimento de família. NÃO chamar de 'apresentação curta', 'vídeo rápido' ou 'audio'."
+                      value={config.copy.answers.destinationDescription || ''}
                       onChange={(e: any) =>
-                        updateConfig('copy', 'answers', 'clickDestinationCustom', e.target.value)
+                        updateConfig('copy', 'answers', 'destinationDescription', e.target.value)
                       }
-                      className="w-full mt-1 p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-800 text-sm outline-none focus:border-blue-400"
+                      className="w-full p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-800 text-sm outline-none focus:border-blue-400 min-h-[80px]"
                     />
+                    <p className="text-[10px] text-gray-400 dark:text-gray-500 italic">
+                      A IA vai usar essa descrição literalmente pra falar do destino. Diga formato,
+                      quem aparece, sobre o que falam, e o que NÃO chamar.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -1583,6 +1640,42 @@ export function CopyTab({
                       ⚠️ Sem escolha, usaremos os beats baseados no nível de consciência.
                     </p>
                   )}
+                </div>
+              </div>
+
+              {/* UX24-B: SEÇÃO — Evite mencionar (avoid list)
+                  Vai pro PROHIBITED block do prompt principal. Cada termo
+                  (vírgula, nova linha ou ;) vira uma regra "NEVER use X".
+                  Útil pra cortar clichês recorrentes ou termos que o
+                  modelo continua puxando do training data. */}
+              <div className="space-y-4 bg-white dark:bg-gray-900/80 p-8 rounded-[40px] border-2 border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-8 h-8 bg-red-600 text-white rounded-xl flex items-center justify-center text-xs font-black">
+                    !
+                  </div>
+                  <h4 className="font-black text-gray-900 dark:text-gray-50 text-lg tracking-tight uppercase">
+                    Evite mencionar
+                    <span className="ml-2 text-[10px] text-gray-400 dark:text-gray-500 normal-case tracking-normal">
+                      (opcional)
+                    </span>
+                  </h4>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest ml-1">
+                    Palavras / frases / formatos que a IA NUNCA pode usar
+                  </label>
+                  <AutoResizeTextarea
+                    placeholder="Ex: podcast, apresentação curta, vídeo rápido, áudio, ofereço, garantia de devolução"
+                    value={config.copy.answers.avoidList || ''}
+                    onChange={(e: any) =>
+                      updateConfig('copy', 'answers', 'avoidList', e.target.value)
+                    }
+                    className="w-full p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-800 text-sm outline-none focus:border-red-400 min-h-[60px]"
+                  />
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500 italic">
+                    Separe por vírgula. Vira regra dura no prompt — a IA não pode usar nada daqui no
+                    texto final.
+                  </p>
                 </div>
               </div>
 
