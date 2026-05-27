@@ -388,6 +388,38 @@ export function CopyTab({
     }
   };
 
+  // UX19: upload manual via form do modal. Recebe input já validado e
+  // salva direto. CopyLibraryModal limpa o form e recolhe sozinho.
+  const handleAddManualCopy = async (input: {
+    vertical: PersonalCopyDoc['vertical'];
+    awareness: PersonalCopyDoc['awareness'];
+    language: 'pt' | 'en';
+    angle: string;
+    script: string;
+    whyItWorks: string;
+  }) => {
+    if (!currentUid) {
+      toast.error('Você precisa estar logado pra salvar copies.');
+      return;
+    }
+    try {
+      await addToPersonalLibrary(currentUid, {
+        vertical: input.vertical,
+        awareness: input.awareness,
+        language: input.language,
+        angle: input.angle,
+        script: input.script,
+        whyItWorks: input.whyItWorks,
+        starred: false,
+        source: 'manual',
+      });
+      await reloadLibrary();
+      toast.success('Copy adicionada à sua biblioteca!');
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro ao salvar.');
+    }
+  };
+
   const handlePickVariant = (script: string) => {
     setConfig((prev: any) => ({
       ...prev,
@@ -517,6 +549,7 @@ export function CopyTab({
         personalLibrary={personalLibrary}
         onToggleStar={handleToggleStar}
         onDelete={handleDeleteLibraryItem}
+        onAddManual={handleAddManualCopy}
       />
 
       {/* Loading Overlay for project opening */}

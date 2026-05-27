@@ -10,8 +10,25 @@
  */
 
 import { useState } from 'react';
-import { X, Star, Trash2, Library, BookOpen, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
-import { COPY_LIBRARY, type CopyExample, type CopyVertical } from '@/data/copyLibrary';
+import {
+  X,
+  Star,
+  Trash2,
+  Library,
+  BookOpen,
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
+  Plus,
+  Save,
+  Loader2,
+} from 'lucide-react';
+import {
+  COPY_LIBRARY,
+  type CopyExample,
+  type CopyVertical,
+  type AwarenessLevel,
+} from '@/data/copyLibrary';
 import type { PersonalCopyDoc } from '@/lib/personalCopyLibrary';
 
 const VERTICAL_LABEL: Record<CopyVertical, string> = {
@@ -24,12 +41,24 @@ const VERTICAL_LABEL: Record<CopyVertical, string> = {
   espiritual: 'Espiritual',
 };
 
+// UX19: dados do formulário de upload manual
+export interface ManualCopyInput {
+  vertical: CopyVertical;
+  awareness: AwarenessLevel;
+  language: 'pt' | 'en';
+  angle: string;
+  script: string;
+  whyItWorks: string;
+}
+
 interface Props {
   open: boolean;
   onClose: () => void;
   personalLibrary: PersonalCopyDoc[];
   onToggleStar: (copyId: string, starred: boolean) => void;
   onDelete: (copyId: string) => void;
+  /** UX19: upload manual — cliente preenche form e salva na biblioteca */
+  onAddManual: (input: ManualCopyInput) => Promise<void>;
 }
 
 export function CopyLibraryModal({
@@ -38,9 +67,51 @@ export function CopyLibraryModal({
   personalLibrary,
   onToggleStar,
   onDelete,
+  onAddManual,
 }: Props) {
   const [tab, setTab] = useState<'mine' | 'system'>('mine');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // UX19: estado do form de upload manual
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+  const [formVertical, setFormVertical] = useState<CopyVertical>('saude');
+  const [formAwareness, setFormAwareness] = useState<AwarenessLevel>('3');
+  const [formLanguage, setFormLanguage] = useState<'pt' | 'en'>('pt');
+  const [formAngle, setFormAngle] = useState('');
+  const [formScript, setFormScript] = useState('');
+  const [formWhy, setFormWhy] = useState('');
+
+  const resetForm = () => {
+    setFormVertical('saude');
+    setFormAwareness('3');
+    setFormLanguage('pt');
+    setFormAngle('');
+    setFormScript('');
+    setFormWhy('');
+  };
+
+  const handleSubmitForm = async () => {
+    if (!formScript.trim() || formScript.trim().length < 20) {
+      // não deixa salvar copy vazia / muito curta
+      return;
+    }
+    setIsAdding(true);
+    try {
+      await onAddManual({
+        vertical: formVertical,
+        awareness: formAwareness,
+        language: formLanguage,
+        angle: formAngle.trim(),
+        script: formScript.trim(),
+        whyItWorks: formWhy.trim(),
+      });
+      resetForm();
+      setShowAddForm(false);
+    } finally {
+      setIsAdding(false);
+    }
+  };
 
   if (!open) return null;
 
@@ -206,7 +277,152 @@ export function CopyLibraryModal({
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
           {tab === 'mine' && (
-            <>
+            <div className="space-y-4">
+              {/* UX19: form de upload manual */}
+              {!showAddForm ? (
+                <button
+                  onClick={() => setShowAddForm(true)}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow transition-all"
+                >
+                  <Plus size={14} />
+                  Adicionar copy manualmente
+                </button>
+              ) : (
+                <div className="bg-gray-50 dark:bg-gray-800/40 rounded-2xl border-2 border-blue-200 dark:border-blue-900/40 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-black uppercase tracking-widest text-gray-700 dark:text-gray-200">
+                      Nova copy na sua biblioteca
+                    </h3>
+                    <button
+                      onClick={() => {
+                        setShowAddForm(false);
+                        resetForm();
+                      }}
+                      className="p-1 rounded text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                      title="Cancelar"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                    <div>
+                      <label className="text-[9px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 block mb-1">
+                        Vertical
+                      </label>
+                      <select
+                        value={formVertical}
+                        onChange={(e) => setFormVertical(e.target.value as CopyVertical)}
+                        className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-xs font-bold outline-none focus:border-blue-500"
+                      >
+                        {(Object.keys(VERTICAL_LABEL) as CopyVertical[]).map((v) => (
+                          <option key={v} value={v}>
+                            {VERTICAL_LABEL[v]}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 block mb-1">
+                        Consciência
+                      </label>
+                      <select
+                        value={formAwareness}
+                        onChange={(e) => setFormAwareness(e.target.value as AwarenessLevel)}
+                        className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-xs font-bold outline-none focus:border-blue-500"
+                      >
+                        <option value="1">1 - Inconsciente</option>
+                        <option value="2">2 - Consc. problema</option>
+                        <option value="3">3 - Consc. solução</option>
+                        <option value="4">4 - Consc. produto</option>
+                        <option value="5">5 - Muito consc.</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 block mb-1">
+                        Idioma
+                      </label>
+                      <select
+                        value={formLanguage}
+                        onChange={(e) => setFormLanguage(e.target.value as 'pt' | 'en')}
+                        className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-xs font-bold outline-none focus:border-blue-500"
+                      >
+                        <option value="pt">Português</option>
+                        <option value="en">Inglês</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[9px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 block mb-1">
+                      Ângulo / tipo (opcional)
+                    </label>
+                    <input
+                      type="text"
+                      value={formAngle}
+                      onChange={(e) => setFormAngle(e.target.value)}
+                      placeholder='Ex: "Quebra de paradigma", "Depoimento", "Mecanismo único"'
+                      className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-xs outline-none focus:border-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[9px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 block mb-1">
+                      Texto da copy <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      value={formScript}
+                      onChange={(e) => setFormScript(e.target.value)}
+                      placeholder="Cola aqui a copy que você quer que a IA use como referência..."
+                      rows={8}
+                      className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm font-mono leading-relaxed outline-none focus:border-blue-500 resize-y"
+                    />
+                    <p className="text-[9px] text-gray-400 dark:text-gray-500 mt-1 tabular-nums">
+                      {formScript.trim().split(/\s+/).filter(Boolean).length} palavras — mínimo 20
+                      caracteres
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="text-[9px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 block mb-1">
+                      Por que essa copy funciona? (opcional, ajuda a IA)
+                    </label>
+                    <input
+                      type="text"
+                      value={formWhy}
+                      onChange={(e) => setFormWhy(e.target.value)}
+                      placeholder='Ex: "Abertura sensorial específica + comparação contra alternativa"'
+                      className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-xs outline-none focus:border-blue-500"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-2">
+                    <button
+                      onClick={() => {
+                        setShowAddForm(false);
+                        resetForm();
+                      }}
+                      disabled={isAdding}
+                      className="px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 disabled:opacity-50"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={handleSubmitForm}
+                      disabled={isAdding || formScript.trim().length < 20}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-black uppercase tracking-widest shadow disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isAdding ? (
+                        <Loader2 size={12} className="animate-spin" />
+                      ) : (
+                        <Save size={12} />
+                      )}
+                      {isAdding ? 'Salvando...' : 'Salvar na biblioteca'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {personalLibrary.length === 0 ? (
                 <div className="text-center py-12 space-y-3">
                   <BookOpen size={32} className="mx-auto text-gray-300 dark:text-gray-700" />
@@ -214,9 +430,10 @@ export function CopyLibraryModal({
                     Você ainda não tem copies na sua biblioteca.
                   </p>
                   <p className="text-xs text-gray-400 dark:text-gray-500 max-w-md mx-auto">
-                    Quando você gerar uma copy que gostou, clique em "✓ Marcar como copy boa" pra
-                    adicioná-la aqui. A IA vai usar suas favoritas como referência nas próximas
-                    gerações.
+                    Duas formas de adicionar: (1) clica em "+ Adicionar copy manualmente" aqui em
+                    cima pra colar uma copy que você já tem, ou (2) quando gerar uma copy que
+                    gostou, clica em "✓ Marcar como copy boa" lá fora. A IA usa as suas como
+                    referência nas próximas gerações.
                   </p>
                 </div>
               ) : (
@@ -224,15 +441,30 @@ export function CopyLibraryModal({
                   {personalLibrary.map((item) => renderItem(item, true, item.starred))}
                 </div>
               )}
-            </>
+            </div>
           )}
           {tab === 'system' && (
             <div className="space-y-2">
               <p className="text-[10px] text-gray-500 dark:text-gray-400 italic pb-2">
-                Exemplos curados que a IA usa como referência quando você não tem copies próprias da
-                mesma vertical. Não dá pra editar — sua biblioteca pessoal substitui essas.
+                Exemplos curados pela equipe Metavise que a IA usa como referência quando você não
+                tem copies próprias da mesma vertical. Não dá pra editar — sua biblioteca pessoal
+                substitui essas.
               </p>
-              {COPY_LIBRARY.map((item) => renderItem(item, false))}
+              {/* UX19: biblioteca sistema-wide pode estar vazia — empty state */}
+              {COPY_LIBRARY.length === 0 ? (
+                <div className="text-center py-12 space-y-2">
+                  <Sparkles size={28} className="mx-auto text-gray-300 dark:text-gray-700" />
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Biblioteca Metavise em construção.
+                  </p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 max-w-md mx-auto">
+                    Por enquanto sem exemplos curados. A IA usa só sua biblioteca pessoal. Adicione
+                    copies suas em "Minhas" pra começar.
+                  </p>
+                </div>
+              ) : (
+                COPY_LIBRARY.map((item) => renderItem(item, false))
+              )}
             </div>
           )}
         </div>
