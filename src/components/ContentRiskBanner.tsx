@@ -38,12 +38,14 @@ const SEVERITY_BORDER: Record<RiskSeverity, string> = {
   critical: 'border-red-300 dark:border-red-800/60 bg-red-50/80 dark:bg-red-950/30',
   high: 'border-orange-300 dark:border-orange-800/60 bg-orange-50/80 dark:bg-orange-950/30',
   medium: 'border-amber-300 dark:border-amber-800/60 bg-amber-50/80 dark:bg-amber-950/20',
+  low: 'border-gray-300 dark:border-gray-700/60 bg-gray-50/80 dark:bg-gray-900/30',
 };
 
 const SEVERITY_ICON_BG: Record<RiskSeverity, string> = {
   critical: 'bg-red-600 text-white',
   high: 'bg-orange-500 text-white',
   medium: 'bg-amber-500 text-white',
+  low: 'bg-gray-500 text-white',
 };
 
 const SEVERITY_CHIP: Record<RiskSeverity, string> = {
@@ -52,9 +54,10 @@ const SEVERITY_CHIP: Record<RiskSeverity, string> = {
   high: 'bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 ring-orange-200/60 dark:ring-orange-800/60',
   medium:
     'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 ring-amber-200/60 dark:ring-amber-800/60',
+  low: 'bg-gray-100 dark:bg-gray-900/40 text-gray-700 dark:text-gray-300 ring-gray-200/60 dark:ring-gray-700/60',
 };
 
-const SEVERITY_RANK: Record<RiskSeverity, number> = { medium: 1, high: 2, critical: 3 };
+const SEVERITY_RANK: Record<RiskSeverity, number> = { low: 0, medium: 1, high: 2, critical: 3 };
 
 export function ContentRiskBanner({
   hits,

@@ -78,6 +78,9 @@ import { Library, BookmarkPlus } from 'lucide-react';
 import ReferenceSimilarityPanel from '@/components/ReferenceSimilarityPanel';
 import LastUsedReferencesModal from '@/components/LastUsedReferencesModal';
 import type { LastUsedReference } from '@/components/ReferenceSimilarityPanel';
+// UX25-C1: debug modal "Ver prompt enviado ao Claude"
+import DebugPromptModal from '@/components/DebugPromptModal';
+import { Terminal, Zap } from 'lucide-react';
 
 interface Props {
   config: AdConfig;
@@ -440,6 +443,24 @@ export function CopyTab({
     ((config.copy as any)?.lastUsedReferences as LastUsedReference[] | undefined) || undefined;
   const [showLastUsedModal, setShowLastUsedModal] = useState(false);
 
+  // UX25-C1: snapshot do prompt enviado + modal de debug
+  const lastDebug = (config.copy as any)?.lastDebug as
+    | import('@/components/DebugPromptModal').DebugSnapshot
+    | undefined;
+  const [showDebugModal, setShowDebugModal] = useState(false);
+
+  // UX25-A4: toggle modo rascunho (Sonnet) vs final (Opus)
+  const draftMode: boolean = !!(config.copy as any)?.draftMode;
+  const handleToggleDraftMode = () => {
+    setConfig((prev: any) => ({
+      ...prev,
+      copy: {
+        ...prev.copy,
+        draftMode: !prev.copy?.draftMode,
+      },
+    }));
+  };
+
   // UX24-A: auto-fill da descrição do destino do clique usando productInfo.
   // Chama Claude (~1s) e popula config.copy.answers.destinationDescription.
   // User pode revisar/editar antes de gerar a copy.
@@ -632,6 +653,13 @@ export function CopyTab({
         onClose={() => setShowLastUsedModal(false)}
         references={lastUsedReferences}
         generatedScript={config.copy.generatedScript || ''}
+      />
+
+      {/* UX25-C1: modal "Ver prompt enviado" — debug */}
+      <DebugPromptModal
+        open={showDebugModal}
+        onClose={() => setShowDebugModal(false)}
+        debug={lastDebug}
       />
 
       {/* Loading Overlay for project opening */}
@@ -1879,9 +1907,53 @@ export function CopyTab({
                   Biblioteca ({personalLibrary.length})
                 </button>
               </div>
+
+              {/* UX25-A4 + C1 + C2: linha de controles secundários abaixo dos
+                  3 botões principais. Toggle Rascunho/Final + chip de custo
+                  da última geração + botão "Ver prompt enviado". */}
+              <div className="flex flex-wrap items-center justify-center gap-3 mt-2">
+                {/* Toggle modo Rascunho (Sonnet) vs Final (Opus) */}
+                <button
+                  onClick={handleToggleDraftMode}
+                  className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl ring-1 text-[10px] font-black uppercase tracking-widest transition-all ${
+                    draftMode
+                      ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 ring-amber-300 dark:ring-amber-800/60'
+                      : 'bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300 ring-purple-300 dark:ring-purple-800/60'
+                  }`}
+                  title={
+                    draftMode
+                      ? 'Modo Rascunho: Sonnet 4.6 — rápido (~3s), barato. Bom pra iterar.'
+                      : 'Modo Final: Opus 4.7 — premium (~15s), melhor qualidade.'
+                  }
+                >
+                  <Zap size={12} />
+                  {draftMode ? 'Rascunho · Sonnet' : 'Final · Opus'}
+                </button>
+
+                {/* Chip de custo da última geração */}
+                {lastDebug && (
+                  <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-100 dark:bg-gray-800/60 text-gray-700 dark:text-gray-300 text-[10px] font-black uppercase tracking-widest ring-1 ring-gray-200 dark:ring-gray-700">
+                    Última: ~${lastDebug.estimatedCost.toFixed(4)} · {lastDebug.model.toUpperCase()}
+                  </div>
+                )}
+
+                {/* Botão "Ver prompt enviado" — só visível se já houve geração */}
+                {lastDebug && (
+                  <button
+                    onClick={() => setShowDebugModal(true)}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-[10px] font-black uppercase tracking-widest hover:bg-black dark:hover:bg-white transition-all"
+                    title="Mostra o prompt EXATO que foi enviado ao Claude"
+                  >
+                    <Terminal size={12} />
+                    Ver prompt
+                  </button>
+                )}
+              </div>
+
               <p className="text-[10px] text-gray-400 dark:text-gray-500 italic">
                 Tip: "Gerar 2 versões" duplica o custo · "Biblioteca" são copies que a IA usa como
-                referência pra calibrar o estilo
+                referência pra calibrar o estilo · Modo Rascunho usa Sonnet (mais barato) pra iterar
+                antes do Final.
               </p>
             </div>
           )}

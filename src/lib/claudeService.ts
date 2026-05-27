@@ -48,7 +48,9 @@ export async function streamClaude(
   systemPrompt: string,
   userPrompt: string,
   onToken: (delta: string) => void,
-  opts: { maxTokens?: number } = {}
+  /** UX25-A4: opts.model permite forçar Sonnet ("claude-sonnet-4-6")
+   *  pra modo rascunho (mais rápido, mais barato). Server default é Opus. */
+  opts: { maxTokens?: number; model?: string; thinking?: boolean } = {}
 ): Promise<string> {
   const response = await fetch(CLAUDE_STREAM_URL, {
     method: 'POST',
@@ -57,6 +59,8 @@ export async function streamClaude(
       system: systemPrompt,
       user: userPrompt,
       max_tokens: opts.maxTokens ?? 2000,
+      ...(opts.model ? { model: opts.model } : {}),
+      ...(opts.thinking === false ? { thinking: false } : {}),
     }),
   });
 
@@ -119,7 +123,8 @@ export async function streamClaude(
 async function callClaude(
   systemPrompt: string,
   userPrompt: string,
-  maxTokens = 2000
+  maxTokens = 2000,
+  opts: { model?: string; thinking?: boolean } = {}
 ): Promise<string> {
   const response = await fetch(CLAUDE_URL, {
     method: 'POST',
@@ -128,6 +133,8 @@ async function callClaude(
       system: systemPrompt,
       user: userPrompt,
       max_tokens: maxTokens,
+      ...(opts.model ? { model: opts.model } : {}),
+      ...(opts.thinking === false ? { thinking: false } : {}),
     }),
   });
 
@@ -239,6 +246,20 @@ ${cadence || '   - (no specific tricks)'}`;
 // ─────────────────────────────────────────────
 // 1. GERAR COPY com beats Schwartz
 // ─────────────────────────────────────────────
+/**
+ * UX25-C1: callback opcional pra capturar o prompt EXATO enviado pro
+ * Claude + a resposta crua, pra alimentar o "Ver prompt" debug modal.
+ * Disparado uma vez por geração, ANTES da chamada (pra ter o prompt
+ * mesmo quando a chamada falha).
+ */
+export interface CopyDebugInfo {
+  systemPrompt: string;
+  userPrompt: string;
+  model: 'opus' | 'sonnet';
+  estimatedInputTokens: number;
+  timestamp: number;
+}
+
 export const generateAdCopyWithClaude = async (
   answers: Record<string, any>,
   mode: 'improve' | 'as-is' | 'questions',
@@ -249,7 +270,9 @@ export const generateAdCopyWithClaude = async (
   /** Optional streaming callback. When provided, the function uses the
    *  SSE endpoint and pushes each text delta to onToken as it arrives.
    *  When omitted, falls back to the blocking /complete endpoint. */
-  onToken?: (textDelta: string) => void
+  onToken?: (textDelta: string) => void,
+  /** UX25-C1: chamado uma vez com o prompt construído ANTES da request. */
+  onDebug?: (debug: CopyDebugInfo) => void
 ): Promise<{ hooks: any[]; script: string }> => {
   if (mode === 'as-is') {
     return {
@@ -633,10 +656,39 @@ Use this phrasing or a natural variation in the output language.`
 --- REPETITION LIMITS ---
 Product name: max 2 mentions. Core pain term: max 3 mentions (use synonyms after).`;
 
+  // UX25-A4: modo rascunho usa Sonnet 4.6 (mais rápido, ~5x mais barato).
+  // Triggered por flag __draftMode no answers (não persiste).
+  const draftMode = !!answers.__draftMode;
+  const modelName = draftMode ? 'claude-sonnet-4-6' : undefined; // undefined → server default (Opus)
+  const useThinking = !draftMode; // rascunho sem extended thinking pra economia
+
+  // UX25-C1: emite o prompt construído pro caller (debug modal "Ver prompt").
+  if (onDebug) {
+    try {
+      onDebug({
+        systemPrompt,
+        userPrompt,
+        model: draftMode ? 'sonnet' : 'opus',
+        // Estimativa grosseira: ~4 chars por token em PT/EN.
+        estimatedInputTokens: Math.ceil((systemPrompt.length + userPrompt.length) / 4),
+        timestamp: Date.now(),
+      });
+    } catch {
+      // não bloqueia a geração se o callback der erro
+    }
+  }
+
   const maxTokens = Math.max(1500, wordCount * 8);
   const raw = onToken
-    ? await streamClaude(systemPrompt, userPrompt, onToken, { maxTokens })
-    : await callClaude(systemPrompt, userPrompt, maxTokens);
+    ? await streamClaude(systemPrompt, userPrompt, onToken, {
+        maxTokens,
+        model: modelName,
+        thinking: useThinking,
+      })
+    : await callClaude(systemPrompt, userPrompt, maxTokens, {
+        model: modelName,
+        thinking: useThinking,
+      });
 
   let result: any;
   try {
@@ -1992,4 +2044,42 @@ Include 1 final line starting with "AVOID:" listing 2-4 terms the copy should NE
     console.warn('[describeDestinationFromProduct] falhou:', err?.message);
     throw err;
   }
+}
+
+// ─────────────────────────────────────────────
+// UX25-C2 — APPROX COST ESTIMATION
+// ─────────────────────────────────────────────
+/**
+ * Estima custo de uma geração com base em chars de input + output e modelo.
+ * Não é exato (não temos retorno do server com tokens reais), mas dá uma
+ * faixa razoável. Heurística: ~4 chars/token em PT/EN.
+ *
+ * Preços oficiais Anthropic (atualizados em 2025):
+ *   - Opus 4.7: $15/1M input, $75/1M output
+ *   - Sonnet 4.6: $3/1M input, $15/1M output
+ *
+ * Quando há extended thinking (Opus default), o output efetivo é ~1.5x
+ * maior internamente. Aplicamos um multiplicador conservador 1.3x.
+ */
+export function estimateCopyCost(input: {
+  inputTokens: number;
+  outputChars: number;
+  model: 'opus' | 'sonnet';
+  withThinking?: boolean;
+}): { cost: number; outputTokens: number } {
+  const outputTokens = Math.ceil(input.outputChars / 4);
+  const thinkingMultiplier = input.withThinking !== false && input.model === 'opus' ? 1.3 : 1;
+
+  const prices: Record<'opus' | 'sonnet', { input: number; output: number }> = {
+    opus: { input: 15, output: 75 },
+    sonnet: { input: 3, output: 15 },
+  };
+  const p = prices[input.model];
+
+  // Preços por 1M tokens
+  const cost =
+    (input.inputTokens * p.input) / 1_000_000 +
+    (outputTokens * thinkingMultiplier * p.output) / 1_000_000;
+
+  return { cost, outputTokens };
 }

@@ -20,9 +20,10 @@ export type RiskCategory =
   | 'discrimination' // sexismo, racismo, homofobia, capacitismo — ban automático
   | 'comparative_claim' // "ao contrário do X" — comparação nominal direta
   | 'reach_reducing' // shadow ban: cura definitiva, milagre, antes/depois
-  | 'medical_claim'; // alegações médicas não-comprovadas
+  | 'medical_claim' // alegações médicas não-comprovadas
+  | 'cliche_ai'; // UX25-A1: "AI smell" — clichês que denunciam IA / qualidade ruim
 
-export type RiskSeverity = 'critical' | 'high' | 'medium';
+export type RiskSeverity = 'critical' | 'high' | 'medium' | 'low';
 
 export interface RiskTerm {
   /** Padrão de match. String é tratada como substring case-insensitive
@@ -194,6 +195,44 @@ const COMPARATIVE: RiskTerm[] = [
   { pattern: '\\bmelhor que\\s+(rem[ée]dio|medicamento|cirurgia)', isRegex: true, category: 'comparative_claim', severity: 'high', label: 'melhor que remédio', reason: 'Comparação implica equivalência a tratamento médico.' },
 ];
 
+// ─── CLICHÊS / "AI SMELL" ────────────────────────────────────────────
+// UX25-A1: frases-padrão que aparecem em copies geradas por IA e
+// denunciam o texto como "automático". Não bloqueiam ad, mas reduzem
+// conversão porque o leitor reconhece como genérico/superficial. PT + EN.
+const CLICHE_AI: RiskTerm[] = [
+  // Openers narrativos clichê
+  { pattern: 'eu (tava|estava) ouvindo um podcast', isRegex: true, category: 'cliche_ai', severity: 'low', label: 'Opener "ouvindo um podcast"', reason: 'Opener super comum em ads PT-BR — sinaliza copy genérica de IA.' },
+  { pattern: '(outro|outro) dia eu (ouvi|li|vi)', isRegex: true, category: 'cliche_ai', severity: 'low', label: 'Opener "outro dia eu ouvi"', reason: 'Setup narrativo clichê.' },
+  { pattern: 'um (amigo|amiga) (me )?contou', isRegex: true, category: 'cliche_ai', severity: 'low', label: 'Opener "um amigo me contou"', reason: 'Setup narrativo clichê.' },
+  { pattern: 'i was listening to a podcast', isRegex: true, category: 'cliche_ai', severity: 'low', label: 'Opener "listening to a podcast"', reason: 'Common AI cliché opener in EN ads.' },
+  // Frases vazias / hype
+  { pattern: 'transforma (a |sua )?vida', isRegex: true, category: 'cliche_ai', severity: 'low', label: '"Transforma sua vida"', reason: 'Frase vazia clássica de copy ruim.' },
+  { pattern: 'descubra o segredo', category: 'cliche_ai', severity: 'low', label: '"Descubra o segredo"', reason: 'Clichê de IA — abre curiosidade barata.' },
+  { pattern: 'mudar (a |sua )?vida para sempre', isRegex: true, category: 'cliche_ai', severity: 'low', label: '"Mudar sua vida para sempre"', reason: 'Promessa vaga / hype gratuito.' },
+  { pattern: 'revolucionário', category: 'cliche_ai', severity: 'low', label: '"Revolucionário"', reason: 'Adjetivo inflado — IA puxa muito.' },
+  { pattern: 'definitivo', category: 'cliche_ai', severity: 'low', label: '"Definitivo"', reason: 'Promessa absoluta sem nuance.' },
+  { pattern: 'incrível', category: 'cliche_ai', severity: 'low', label: '"Incrível"', reason: 'Adjetivo genérico — IA usa muito.' },
+  { pattern: 'inacreditável', category: 'cliche_ai', severity: 'low', label: '"Inacreditável"', reason: 'Adjetivo genérico.' },
+  { pattern: 'extraordinário', category: 'cliche_ai', severity: 'low', label: '"Extraordinário"', reason: 'Adjetivo inflado.' },
+  { pattern: 'no mundo de hoje', category: 'cliche_ai', severity: 'low', label: '"No mundo de hoje"', reason: 'Opener clichê traduzido do inglês ("in today\'s world").' },
+  { pattern: 'nesta era', category: 'cliche_ai', severity: 'low', label: '"Nesta era"', reason: 'Opener traduzido — sinaliza IA.' },
+  { pattern: 'uma jornada', category: 'cliche_ai', severity: 'low', label: '"Uma jornada"', reason: 'Metáfora batida — IA usa muito.' },
+  { pattern: 'está prestes a', category: 'cliche_ai', severity: 'low', label: '"Está prestes a"', reason: 'Construção traduzida do inglês.' },
+  { pattern: 'descubra como', category: 'cliche_ai', severity: 'low', label: '"Descubra como"', reason: 'Opener genérico.' },
+  // Promessas vagas
+  { pattern: 'segredo (que )?ninguém (te )?conta', isRegex: true, category: 'cliche_ai', severity: 'low', label: 'Segredo que ninguém te conta', reason: 'Frase hyper-batida em ads.' },
+  { pattern: 'imagine (poder|por um momento)', isRegex: true, category: 'cliche_ai', severity: 'low', label: '"Imagine poder…"', reason: 'Opener clichê de IA.' },
+  // EN equivalents
+  { pattern: 'game.?changer', isRegex: true, category: 'cliche_ai', severity: 'low', label: '"Game-changer"', reason: 'Overused EN cliché.' },
+  { pattern: 'life.?changing', isRegex: true, category: 'cliche_ai', severity: 'low', label: '"Life-changing"', reason: 'Overused EN cliché.' },
+  { pattern: 'transform your life', category: 'cliche_ai', severity: 'low', label: '"Transform your life"', reason: 'Overused EN cliché.' },
+  { pattern: 'discover the secret', category: 'cliche_ai', severity: 'low', label: '"Discover the secret"', reason: 'Overused EN cliché.' },
+  { pattern: 'will change everything', category: 'cliche_ai', severity: 'low', label: '"Will change everything"', reason: 'Overused EN cliché.' },
+  // Hedges típicos de IA
+  { pattern: 'na verdade', category: 'cliche_ai', severity: 'low', label: '"Na verdade"', reason: 'Hedge muito usado por IA — pode soar artificial em excesso.' },
+  { pattern: 'a verdade é que', category: 'cliche_ai', severity: 'low', label: '"A verdade é que"', reason: 'Filler comum em copies geradas.' },
+];
+
 export const RISK_TERMS: RiskTerm[] = [
   ...MEDICATIONS,
   ...CELEBRITIES,
@@ -201,6 +240,7 @@ export const RISK_TERMS: RiskTerm[] = [
   ...REACH_REDUCING,
   ...MEDICAL_CLAIMS,
   ...COMPARATIVE,
+  ...CLICHE_AI,
 ];
 
 /** Categoria → label PT pra exibir no banner */
@@ -211,6 +251,7 @@ export const CATEGORY_LABELS: Record<RiskCategory, string> = {
   comparative_claim: 'Comparação direta',
   reach_reducing: 'Reduz alcance no Meta',
   medical_claim: 'Alegação médica',
+  cliche_ai: 'Clichê de IA',
 };
 
 /** Severidade → cor de UI + label */
@@ -221,4 +262,5 @@ export const SEVERITY_META: Record<
   critical: { label: 'CRÍTICO', color: 'red', icon: '🚫' },
   high: { label: 'ALTO', color: 'orange', icon: '⚠️' },
   medium: { label: 'MÉDIO', color: 'amber', icon: 'ℹ️' },
+  low: { label: 'AVISO', color: 'gray', icon: '💭' },
 };

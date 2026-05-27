@@ -49,7 +49,11 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { Toaster, toast } from 'react-hot-toast';
 import { getAuthorizedUrl } from './lib/gemini';
-import { generateAdCopyWithClaude, discoverPersonaWithClaude } from './lib/claudeService';
+import {
+  generateAdCopyWithClaude,
+  discoverPersonaWithClaude,
+  estimateCopyCost,
+} from './lib/claudeService';
 // UX18: carrega biblioteca pessoal do user pra injetar como few-shot
 // na geração de copy. Pega na hora — ~200ms, aceitável.
 import { loadPersonalLibrary } from './lib/personalCopyLibrary';
@@ -213,6 +217,20 @@ export interface AdConfig {
       vertical?: string;
       language?: string;
     }>;
+    // UX25-C1/C2: snapshot do prompt EXATO enviado pro Claude na última
+    // geração + custo estimado. Não persiste em Firestore (heavy).
+    lastDebug?: {
+      systemPrompt: string;
+      userPrompt: string;
+      response: string;
+      model: 'opus' | 'sonnet';
+      estimatedInputTokens: number;
+      estimatedOutputTokens: number;
+      estimatedCost: number;
+      timestamp: number;
+    };
+    // UX25-A4: modo rascunho usa Sonnet (mais rápido/barato). Default false.
+    draftMode?: boolean;
   };
   hookVisual: HookVisualData;
   avatar: {
@@ -2681,6 +2699,12 @@ export default function App() {
             return s;
           });
         }
+        // UX25-C1: lastDebug é um snapshot de até 50KB do prompt + resposta.
+        // Útil em runtime mas estoura o budget do Firestore se persistido.
+        // Remove na hora de salvar — fica só na memória durante a sessão.
+        if (cloned.copy?.lastDebug) {
+          delete cloned.copy.lastDebug;
+        }
         return cloned;
       };
 
@@ -3324,6 +3348,12 @@ export default function App() {
         );
       }
 
+      // UX25-A4: modo rascunho (Sonnet) vs final (Opus)
+      const draftMode = !!(config.copy as any)?.draftMode;
+
+      // UX25-C1: debug snapshot do prompt — capturado via onDebug
+      let capturedDebug: import('./lib/claudeService').CopyDebugInfo | null = null;
+
       let streamed = '';
       const result = await generateAdCopyWithClaude(
         {
@@ -3332,6 +3362,7 @@ export default function App() {
           __clientCopyLibrary: clientCopyLibrary,
           __manualSelection: isManualSelection,
           __referenceSimilarity: referenceSimilarity,
+          __draftMode: draftMode,
         },
         config.copy.mode,
         config.angle,
@@ -3349,6 +3380,10 @@ export default function App() {
               generatedScript: streamed.replace(/```json\n?/g, '').replace(/```\n?/g, ''),
             },
           }));
+        },
+        // UX25-C1: captura o prompt enviado pro modal de debug
+        (debug) => {
+          capturedDebug = debug;
         }
       );
       if (!result) throw new Error('A IA retornou uma resposta vazia.');
@@ -3366,14 +3401,39 @@ export default function App() {
             }))
           : undefined;
 
+      // UX25-C1+C2: snapshot do prompt + custo estimado
+      const finalScript = typeof result === 'string' ? result : result.script || '';
+      const dbg = capturedDebug as import('./lib/claudeService').CopyDebugInfo | null;
+      const costEstimate = dbg
+        ? estimateCopyCost({
+            inputTokens: dbg.estimatedInputTokens,
+            outputChars: finalScript.length,
+            model: dbg.model,
+            withThinking: dbg.model === 'opus',
+          })
+        : null;
+      const lastDebug = dbg
+        ? {
+            systemPrompt: dbg.systemPrompt,
+            userPrompt: dbg.userPrompt,
+            response: finalScript,
+            model: dbg.model,
+            estimatedInputTokens: dbg.estimatedInputTokens,
+            estimatedOutputTokens: costEstimate?.outputTokens || 0,
+            estimatedCost: costEstimate?.cost || 0,
+            timestamp: dbg.timestamp,
+          }
+        : undefined;
+
       // Final, clean replacement (parses the JSON envelope properly).
       setConfig((prev) => ({
         ...prev,
         copy: {
           ...prev.copy,
-          generatedScript: typeof result === 'string' ? result : result.script || '',
+          generatedScript: finalScript,
           optimizedScript: '',
           ...(lastUsedReferences ? { lastUsedReferences } : {}),
+          ...(lastDebug ? { lastDebug } : {}),
         },
       }));
       setHasUnsavedCopyChanges(true);
