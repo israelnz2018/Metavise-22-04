@@ -274,8 +274,10 @@ export default function App() {
   const updateNavScrollState = useCallback(() => {
     const c = wizardNavRef.current;
     if (!c) return;
-    const canLeft = c.scrollLeft > 4;
-    const canRight = c.scrollLeft + c.clientWidth < c.scrollWidth - 4;
+    // UX21: threshold 0 — qualquer scroll > 0 já mostra a seta esquerda.
+    // Antes era 4px que dava sensação de "atraso" pro user.
+    const canLeft = c.scrollLeft > 0;
+    const canRight = c.scrollLeft + c.clientWidth < c.scrollWidth - 1;
     setNavScrollState((prev) =>
       prev.canLeft === canLeft && prev.canRight === canRight ? prev : { canLeft, canRight }
     );
@@ -288,11 +290,23 @@ export default function App() {
     // scrollIntoView com inline:center deixa a aba ativa centralizada na
     // viewport da nav, sem mexer no scroll vertical da página.
     active.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-    // Recalcula visibilidade dos chevrons depois que o scroll-animation
-    // termina. rAF é uma boa aproximação (smooth dura ~300ms; o listener
-    // de scroll já cobre tudo nesse intervalo).
-    const id = requestAnimationFrame(updateNavScrollState);
-    return () => cancelAnimationFrame(id);
+    // UX21: smooth scroll dura ~300ms. O scroll listener nativo cobre na
+    // maioria dos browsers, mas Safari às vezes atrasa. Pra garantir que
+    // o estado final (depois que parou) seja capturado, polling RAF por
+    // ~400ms. Cancelado se step mudar de novo.
+    let cancelled = false;
+    const startedAt = performance.now();
+    const tick = () => {
+      if (cancelled) return;
+      updateNavScrollState();
+      if (performance.now() - startedAt < 400) {
+        requestAnimationFrame(tick);
+      }
+    };
+    requestAnimationFrame(tick);
+    return () => {
+      cancelled = true;
+    };
   }, [currentStep, updateNavScrollState]);
   useEffect(() => {
     const c = wizardNavRef.current;
@@ -5482,13 +5496,15 @@ export default function App() {
               aria-label="Rolar abas para esquerda"
               tabIndex={navScrollState.canLeft ? 0 : -1}
               aria-hidden={!navScrollState.canLeft}
-              className={`flex-shrink-0 flex items-center justify-center w-8 h-9 rounded-xl bg-white/80 dark:bg-gray-800/80 ring-1 ring-gray-200/60 dark:ring-gray-700/60 text-gray-500 hover:text-gray-800 dark:hover:text-gray-100 hover:bg-white dark:hover:bg-gray-700/80 transition-all duration-150 ${
+              // UX21: maior (w-10 h-10), mais contraste (blue tint),
+              // sem transição lenta de opacidade — toggle instantâneo.
+              className={`flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-blue-600 dark:bg-blue-500 text-white ring-1 ring-blue-700/40 dark:ring-blue-400/40 hover:bg-blue-700 dark:hover:bg-blue-600 shadow-sm ${
                 navScrollState.canLeft
                   ? 'opacity-100 pointer-events-auto'
                   : 'opacity-0 pointer-events-none'
               }`}
             >
-              <ChevronLeft size={16} />
+              <ChevronLeft size={20} strokeWidth={2.5} />
             </button>
             <div
               ref={wizardNavRef}
@@ -5551,13 +5567,14 @@ export default function App() {
               aria-label="Rolar abas para direita"
               tabIndex={navScrollState.canRight ? 0 : -1}
               aria-hidden={!navScrollState.canRight}
-              className={`flex-shrink-0 flex items-center justify-center w-8 h-9 rounded-xl bg-white/80 dark:bg-gray-800/80 ring-1 ring-gray-200/60 dark:ring-gray-700/60 text-gray-500 hover:text-gray-800 dark:hover:text-gray-100 hover:bg-white dark:hover:bg-gray-700/80 transition-all duration-150 ${
+              // UX21: mirror da esquerda — maior, mais contraste, instant toggle
+              className={`flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-blue-600 dark:bg-blue-500 text-white ring-1 ring-blue-700/40 dark:ring-blue-400/40 hover:bg-blue-700 dark:hover:bg-blue-600 shadow-sm ${
                 navScrollState.canRight
                   ? 'opacity-100 pointer-events-auto'
                   : 'opacity-0 pointer-events-none'
               }`}
             >
-              <ChevronRight size={16} />
+              <ChevronRight size={20} strokeWidth={2.5} />
             </button>
           </div>
 
