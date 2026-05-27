@@ -30,6 +30,8 @@ import {
 } from '@/lib/vozPremiumService';
 import { optimizeCopyForElevenLabsWithClaude } from '@/lib/claudeService';
 import { AIRecommendationPanel, type CachedRecommendation } from './AIRecommendationPanel';
+// UX25-C3: diff viewer inline (original vs otimizada ElevenLabs)
+import InlineDiffViewer from './InlineDiffViewer';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage, auth } from '@/lib/firebase';
 
@@ -179,6 +181,8 @@ const VozPremium: React.FC<Props> = ({
   const [savedOptimized, setSavedOptimized] = useState<string>(savedOptimizedScript);
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [script, setScript] = useState(savedOptimizedScript || approvedScript);
+  // UX25-C3: toggle pra mostrar diff inline (otimizada vs original)
+  const [showOptimizerDiff, setShowOptimizerDiff] = useState(false);
 
   const isApprovedDirty = editedApproved.trim() !== savedApproved.trim();
   const isOptimizedDirty = optimizedScript.trim() !== savedOptimized.trim();
@@ -773,15 +777,42 @@ const VozPremium: React.FC<Props> = ({
                 <span className="text-xs text-orange-300 font-bold">• Não salvo</span>
               )}
             </div>
-            <button
-              onClick={handleOptimize}
-              disabled={isOptimizing || isApprovedDirty}
-              className="text-xs text-amber-300 hover:text-amber-200 font-bold uppercase tracking-widest disabled:opacity-50"
-              title="Refazer otimização"
-            >
-              {isOptimizing ? <Loader2 className="animate-spin inline" size={12} /> : '↻ Refazer'}
-            </button>
+            <div className="flex items-center gap-2">
+              {/* UX25-C3: toggle diff inline */}
+              <button
+                onClick={() => setShowOptimizerDiff((v) => !v)}
+                className="text-xs text-amber-300 hover:text-amber-200 font-bold uppercase tracking-widest"
+                title="Mostra/oculta diff lado-a-lado entre a copy original e a otimizada"
+              >
+                {showOptimizerDiff ? '👁️ Ocultar diff' : '👁️ Ver diff'}
+              </button>
+              <button
+                onClick={handleOptimize}
+                disabled={isOptimizing || isApprovedDirty}
+                className="text-xs text-amber-300 hover:text-amber-200 font-bold uppercase tracking-widest disabled:opacity-50"
+                title="Refazer otimização"
+              >
+                {isOptimizing ? <Loader2 className="animate-spin inline" size={12} /> : '↻ Refazer'}
+              </button>
+            </div>
           </div>
+
+          {/* UX25-C3: diff viewer inline */}
+          {showOptimizerDiff && (
+            <div className="mb-4">
+              <InlineDiffViewer
+                textA={savedApproved || approvedScript}
+                textB={optimizedScript}
+                labelA="Original"
+                labelB="Otimizada ElevenLabs"
+              />
+              <p className="text-[10px] text-gray-400 italic mt-2">
+                Verde = palavras só no original · Vermelho = palavras só na otimizada (deveriam ser
+                apenas tags ElevenLabs como [pause] / [emphasis])
+              </p>
+            </div>
+          )}
+
           <textarea
             value={optimizedScript}
             onChange={(e) => setOptimizedScript(e.target.value)}

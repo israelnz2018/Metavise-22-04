@@ -16,83 +16,7 @@
 import { useMemo } from 'react';
 import { X, Copy as CopyIcon } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-
-type Op = 'eq' | 'add' | 'del';
-interface DiffToken {
-  text: string;
-  op: Op;
-}
-
-/** Computa LCS entre 2 arrays de tokens e retorna sequência de operações.
- *  Algoritmo padrão Hunt-Szymanski simplificado — O(n*m). */
-function wordDiff(a: string, b: string): { left: DiffToken[]; right: DiffToken[] } {
-  const tokA = a.split(/(\s+)/).filter((t) => t.length > 0);
-  const tokB = b.split(/(\s+)/).filter((t) => t.length > 0);
-  const n = tokA.length;
-  const m = tokB.length;
-
-  // Cap pra prompts grandes (>1000 tokens) — diff ainda é instantâneo
-  // mas evita travar em casos patológicos.
-  if (n * m > 200_000) {
-    return {
-      left: tokA.map((t) => ({ text: t, op: 'eq' as Op })),
-      right: tokB.map((t) => ({ text: t, op: 'eq' as Op })),
-    };
-  }
-
-  // DP de LCS
-  const dp: number[][] = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
-  for (let i = 1; i <= n; i++) {
-    for (let j = 1; j <= m; j++) {
-      if (tokA[i - 1] === tokB[j - 1]) {
-        dp[i]![j] = dp[i - 1]![j - 1]! + 1;
-      } else {
-        dp[i]![j] = Math.max(dp[i - 1]![j]!, dp[i]![j - 1]!);
-      }
-    }
-  }
-
-  // Backtrack: monta sequência de ops
-  const ops: Array<{ op: Op; a?: string; b?: string }> = [];
-  let i = n;
-  let j = m;
-  while (i > 0 && j > 0) {
-    if (tokA[i - 1] === tokB[j - 1]) {
-      ops.unshift({ op: 'eq', a: tokA[i - 1], b: tokB[j - 1] });
-      i--;
-      j--;
-    } else if (dp[i - 1]![j]! >= dp[i]![j - 1]!) {
-      ops.unshift({ op: 'del', a: tokA[i - 1] });
-      i--;
-    } else {
-      ops.unshift({ op: 'add', b: tokB[j - 1] });
-      j--;
-    }
-  }
-  while (i > 0) {
-    ops.unshift({ op: 'del', a: tokA[i - 1] });
-    i--;
-  }
-  while (j > 0) {
-    ops.unshift({ op: 'add', b: tokB[j - 1] });
-    j--;
-  }
-
-  // Reconstrói as 2 colunas com marcação
-  const left: DiffToken[] = [];
-  const right: DiffToken[] = [];
-  for (const o of ops) {
-    if (o.op === 'eq') {
-      left.push({ text: o.a!, op: 'eq' });
-      right.push({ text: o.b!, op: 'eq' });
-    } else if (o.op === 'del') {
-      left.push({ text: o.a!, op: 'del' });
-    } else {
-      right.push({ text: o.b!, op: 'add' });
-    }
-  }
-  return { left, right };
-}
+import { wordDiff, type DiffToken } from '@/lib/wordDiff';
 
 function renderTokens(tokens: DiffToken[], side: 'a' | 'b') {
   const highlightClass =
@@ -133,13 +57,7 @@ export default function VariantCompareModal({
 
   if (!open) return null;
 
-  const diffStats = (() => {
-    let onlyA = 0;
-    let onlyB = 0;
-    for (const t of diff.left) if (t.op === 'del') onlyA++;
-    for (const t of diff.right) if (t.op === 'add') onlyB++;
-    return { onlyA, onlyB };
-  })();
+  const diffStats = { onlyA: diff.onlyLeft, onlyB: diff.onlyRight };
 
   const copy = async (text: string) => {
     try {
