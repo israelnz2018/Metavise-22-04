@@ -231,6 +231,14 @@ export interface AdConfig {
     };
     // UX25-A4: modo rascunho usa Sonnet (mais rápido/barato). Default false.
     draftMode?: boolean;
+    // UX25-B2: últimas 5 gerações pra restauração rápida. Salva script
+    // + metadata leve. Persiste em Firestore (pequeno o suficiente).
+    history?: Array<{
+      script: string;
+      timestamp: number;
+      model: 'opus' | 'sonnet';
+      wordCount: number;
+    }>;
   };
   hookVisual: HookVisualData;
   avatar: {
@@ -3425,17 +3433,38 @@ export default function App() {
           }
         : undefined;
 
+      // UX25-B2: append-to-history — mantém últimas 5 gerações.
+      // Evita duplicar quando user só regenera sem mudar nada.
+      const newHistoryEntry = finalScript
+        ? {
+            script: finalScript,
+            timestamp: Date.now(),
+            model: (dbg?.model || 'opus') as 'opus' | 'sonnet',
+            wordCount: finalScript.split(/\s+/).filter(Boolean).length,
+          }
+        : null;
+
       // Final, clean replacement (parses the JSON envelope properly).
-      setConfig((prev) => ({
-        ...prev,
-        copy: {
-          ...prev.copy,
-          generatedScript: finalScript,
-          optimizedScript: '',
-          ...(lastUsedReferences ? { lastUsedReferences } : {}),
-          ...(lastDebug ? { lastDebug } : {}),
-        },
-      }));
+      setConfig((prev) => {
+        const prevHistory = (prev.copy as any)?.history || [];
+        const dedupedHistory = newHistoryEntry
+          ? [
+              newHistoryEntry,
+              ...prevHistory.filter((h: any) => h.script !== newHistoryEntry.script),
+            ].slice(0, 5)
+          : prevHistory;
+        return {
+          ...prev,
+          copy: {
+            ...prev.copy,
+            generatedScript: finalScript,
+            optimizedScript: '',
+            ...(lastUsedReferences ? { lastUsedReferences } : {}),
+            ...(lastDebug ? { lastDebug } : {}),
+            history: dedupedHistory,
+          },
+        };
+      });
       setHasUnsavedCopyChanges(true);
 
       // UX23-C: toast diferente quando usou referências manuais — confirma

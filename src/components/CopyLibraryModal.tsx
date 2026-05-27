@@ -9,7 +9,7 @@
  * Click expande o card pra ler o script completo.
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   X,
   Star,
@@ -25,6 +25,7 @@ import {
   CheckSquare,
   Square,
   Target,
+  Search,
 } from 'lucide-react';
 import { COPY_LIBRARY, type CopyExample, type CopyVertical } from '@/data/copyLibrary';
 import type { PersonalCopyDoc } from '@/lib/personalCopyLibrary';
@@ -74,6 +75,40 @@ export function CopyLibraryModal({
 }: Props) {
   const [tab, setTab] = useState<'mine' | 'system'>('mine');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // UX25-B1: search + filters
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterVertical, setFilterVertical] = useState<CopyVertical | 'all'>('all');
+  const [filterLanguage, setFilterLanguage] = useState<'all' | 'pt' | 'en'>('all');
+  const [showOnlyStarred, setShowOnlyStarred] = useState(false);
+
+  const filteredPersonal = useMemo(() => {
+    return personalLibrary.filter((c) => {
+      if (showOnlyStarred && !c.starred) return false;
+      if (filterVertical !== 'all' && c.vertical !== filterVertical) return false;
+      if (filterLanguage !== 'all' && c.language !== filterLanguage) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const hay =
+          `${c.name || ''} ${c.angle || ''} ${c.script || ''} ${c.whyItWorks || ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [personalLibrary, searchQuery, filterVertical, filterLanguage, showOnlyStarred]);
+
+  const filteredSystem = useMemo(() => {
+    return COPY_LIBRARY.filter((c) => {
+      if (filterVertical !== 'all' && c.vertical !== filterVertical) return false;
+      if (filterLanguage !== 'all' && c.language !== filterLanguage) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const hay = `${c.angle || ''} ${c.script || ''} ${c.whyItWorks || ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [searchQuery, filterVertical, filterLanguage]);
 
   // UX20: form simplificado — só nome (opcional) + script. IA infere
   // o resto. Estado mínimo.
@@ -332,6 +367,78 @@ export function CopyLibraryModal({
           </button>
         </div>
 
+        {/* UX25-B1: barra de busca + filtros. Visível em ambas as tabs.
+            Só renderiza quando tem ao menos 3 copies (poupa UI quando vazio). */}
+        {(tab === 'mine' ? personalLibrary.length : COPY_LIBRARY.length) >= 3 && (
+          <div className="px-6 pt-4 space-y-3">
+            <div className="relative">
+              <Search
+                size={14}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500"
+              />
+              <input
+                type="text"
+                placeholder="Buscar por nome, ângulo, ou texto da copy..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 rounded-xl bg-gray-50 dark:bg-gray-800/60 ring-1 ring-gray-200 dark:ring-gray-800 text-sm outline-none focus:ring-blue-400 dark:text-gray-100"
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={filterVertical}
+                onChange={(e) => setFilterVertical(e.target.value as any)}
+                className="text-[10px] font-bold uppercase tracking-widest px-2 py-1.5 rounded-lg bg-white dark:bg-gray-900/60 ring-1 ring-gray-200 dark:ring-gray-700 text-gray-700 dark:text-gray-200"
+              >
+                <option value="all">Todas verticais</option>
+                {Object.entries(VERTICAL_LABEL).map(([k, v]) => (
+                  <option key={k} value={k}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={filterLanguage}
+                onChange={(e) => setFilterLanguage(e.target.value as any)}
+                className="text-[10px] font-bold uppercase tracking-widest px-2 py-1.5 rounded-lg bg-white dark:bg-gray-900/60 ring-1 ring-gray-200 dark:ring-gray-700 text-gray-700 dark:text-gray-200"
+              >
+                <option value="all">Todos idiomas</option>
+                <option value="pt">Português</option>
+                <option value="en">Inglês</option>
+              </select>
+              {tab === 'mine' && (
+                <button
+                  onClick={() => setShowOnlyStarred((v) => !v)}
+                  className={`inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest ring-1 transition-all ${
+                    showOnlyStarred
+                      ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 ring-amber-300 dark:ring-amber-800'
+                      : 'bg-white dark:bg-gray-900/60 ring-gray-200 dark:ring-gray-700 text-gray-700 dark:text-gray-200'
+                  }`}
+                >
+                  <Star size={10} />
+                  Favoritos
+                </button>
+              )}
+              {(searchQuery ||
+                filterVertical !== 'all' ||
+                filterLanguage !== 'all' ||
+                showOnlyStarred) && (
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    setFilterVertical('all');
+                    setFilterLanguage('all');
+                    setShowOnlyStarred(false);
+                  }}
+                  className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+                >
+                  Limpar
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
           {tab === 'mine' && (
@@ -440,7 +547,13 @@ export function CopyLibraryModal({
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {personalLibrary.map((item) => renderItem(item, true, item.starred))}
+                  {filteredPersonal.length === 0 ? (
+                    <p className="text-center text-xs text-gray-500 dark:text-gray-400 italic py-8">
+                      Nenhuma copy corresponde aos filtros.
+                    </p>
+                  ) : (
+                    filteredPersonal.map((item) => renderItem(item, true, item.starred))
+                  )}
                 </div>
               )}
             </div>
@@ -464,8 +577,12 @@ export function CopyLibraryModal({
                     copies suas em "Minhas" pra começar.
                   </p>
                 </div>
+              ) : filteredSystem.length === 0 ? (
+                <p className="text-center text-xs text-gray-500 dark:text-gray-400 italic py-8">
+                  Nenhuma copy corresponde aos filtros.
+                </p>
               ) : (
-                COPY_LIBRARY.map((item) => renderItem(item, false))
+                filteredSystem.map((item) => renderItem(item, false))
               )}
             </div>
           )}

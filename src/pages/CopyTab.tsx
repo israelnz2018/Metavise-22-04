@@ -85,7 +85,10 @@ import LastUsedReferencesModal from '@/components/LastUsedReferencesModal';
 import type { LastUsedReference } from '@/components/ReferenceSimilarityPanel';
 // UX25-C1: debug modal "Ver prompt enviado ao Claude"
 import DebugPromptModal from '@/components/DebugPromptModal';
-import { Terminal, Zap } from 'lucide-react';
+import { Terminal, Zap, History } from 'lucide-react';
+// UX25-B2: modal de histórico das últimas 5 gerações
+import CopyHistoryModal from '@/components/CopyHistoryModal';
+import type { CopyHistoryEntry } from '@/components/CopyHistoryModal';
 
 interface Props {
   config: AdConfig;
@@ -454,6 +457,25 @@ export function CopyTab({
     | undefined;
   const [showDebugModal, setShowDebugModal] = useState(false);
 
+  // UX25-B2: histórico das últimas 5 gerações
+  const history: CopyHistoryEntry[] = ((config.copy as any)?.history as CopyHistoryEntry[]) || [];
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const handleRestoreHistory = (script: string) => {
+    setConfig((prev: any) => ({
+      ...prev,
+      copy: {
+        ...prev.copy,
+        generatedScript: script,
+        optimizedScript: '',
+        finalScript: '',
+      },
+    }));
+  };
+  const handleClearHistory = () => {
+    setConfig((prev: any) => ({ ...prev, copy: { ...prev.copy, history: [] } }));
+    toast.success('Histórico limpo.');
+  };
+
   // UX25-A4: toggle modo rascunho (Sonnet) vs final (Opus)
   const draftMode: boolean = !!(config.copy as any)?.draftMode;
   const handleToggleDraftMode = () => {
@@ -704,6 +726,16 @@ export function CopyTab({
         open={showDebugModal}
         onClose={() => setShowDebugModal(false)}
         debug={lastDebug}
+      />
+
+      {/* UX25-B2: modal de histórico */}
+      <CopyHistoryModal
+        open={showHistoryModal}
+        onClose={() => setShowHistoryModal(false)}
+        history={history}
+        currentScript={config.copy.generatedScript || ''}
+        onRestore={handleRestoreHistory}
+        onClearHistory={handleClearHistory}
       />
 
       {/* Loading Overlay for project opening */}
@@ -1999,6 +2031,18 @@ export function CopyTab({
                   >
                     <Terminal size={12} />
                     Ver prompt
+                  </button>
+                )}
+
+                {/* UX25-B2: botão Histórico — visível se há ao menos 1 geração */}
+                {history.length > 0 && (
+                  <button
+                    onClick={() => setShowHistoryModal(true)}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 ring-1 ring-indigo-200 dark:ring-indigo-800/60 text-[10px] font-black uppercase tracking-widest hover:bg-indigo-200 dark:hover:bg-indigo-900/40 transition-all"
+                    title="Últimas 5 versões geradas — pra restaurar versão anterior"
+                  >
+                    <History size={12} />
+                    Histórico ({history.length})
                   </button>
                 )}
               </div>
