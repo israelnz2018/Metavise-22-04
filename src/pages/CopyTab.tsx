@@ -50,8 +50,13 @@ import {
   generateAdCopyVariants,
   analyzeCopyForLibrary,
   describeDestinationFromProduct,
+  preflightCheckCopy,
+  detectHallucinations,
   type ProductInfo,
+  type HallucinationFlag,
 } from '@/lib/claudeService';
+// UX25-A2 + A3: pre-flight check + hallucination banner
+import { PreflightCheckPanel, HallucinationBanner } from '@/components/CopyQualityPanels';
 import { getRecomendedEstilo, getRecomendacaoTempo, countWords } from '@/lib/helpers';
 // UX13: content risk scanner — detecta medicamentos concorrentes, slurs,
 // celebridades, alegações médicas. Banner aparece acima da textarea da
@@ -459,6 +464,45 @@ export function CopyTab({
         draftMode: !prev.copy?.draftMode,
       },
     }));
+  };
+
+  // UX25-A2: pre-flight check — roda local, sem chamar IA. Atualiza
+  // em tempo real quando user edita campos.
+  const preflightIssues = useMemo(
+    () => preflightCheckCopy(config.copy.answers || {}),
+    [config.copy.answers]
+  );
+
+  // UX25-A3: hallucination detector — roda DEPOIS de gerar. Estado local
+  // (não persiste). User pode dispensar.
+  const [hallucinationFlags, setHallucinationFlags] = useState<HallucinationFlag[] | null>(null);
+  const [isCheckingHallucinations, setIsCheckingHallucinations] = useState(false);
+  const handleCheckHallucinations = async () => {
+    if (!config.copy.generatedScript || !productInfo) {
+      toast.error('Gere uma copy + tenha Fonte do Produto configurada.');
+      return;
+    }
+    setIsCheckingHallucinations(true);
+    try {
+      const flags = await detectHallucinations({
+        generatedCopy: config.copy.generatedScript,
+        productInfo,
+        language: config.copy.answers.language,
+      });
+      setHallucinationFlags(flags);
+      if (flags.length === 0) {
+        toast.success('Nenhuma alucinação detectada — copy parece consistente com a fonte.');
+      } else {
+        toast(
+          `${flags.length} trecho${flags.length > 1 ? 's' : ''} suspeito${flags.length > 1 ? 's' : ''} detectado${flags.length > 1 ? 's' : ''}.`,
+          { icon: '⚠️' }
+        );
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro ao checar.');
+    } finally {
+      setIsCheckingHallucinations(false);
+    }
   };
 
   // UX24-A: auto-fill da descrição do destino do clique usando productInfo.
@@ -1855,6 +1899,15 @@ export function CopyTab({
 
           {config.copy.mode !== 'as-is' && (
             <div className="flex flex-col items-center mt-12 gap-3">
+              {/* UX25-A2: pre-flight check — aparece quando há campos
+                  fracos. Não bloqueia, só avisa. */}
+              {preflightIssues.length > 0 && (
+                <PreflightCheckPanel
+                  issues={preflightIssues}
+                  onEnrichWithAI={productInfo ? handleFillFromSource : undefined}
+                />
+              )}
+
               {/* UX23-F: painel de referências + slider de similaridade.
                   Só aparece quando user marcou pelo menos 1 copy como
                   referência. Slider persiste em config.copy.referenceSimilarity. */}
@@ -2024,6 +2077,34 @@ export function CopyTab({
                     onRewrite={handleRewriteSafe}
                     onAcknowledge={handleAcknowledgeRisk}
                   />
+                )}
+
+                {/* UX25-A3: banner de alucinações detectadas via Claude */}
+                {hallucinationFlags && hallucinationFlags.length > 0 && (
+                  <HallucinationBanner
+                    flags={hallucinationFlags}
+                    onDismiss={() => setHallucinationFlags(null)}
+                  />
+                )}
+
+                {/* UX25-A3: botão "Checar alucinações" — só visível quando
+                    tem productInfo (fonte) configurada */}
+                {productInfo && !hallucinationFlags && (
+                  <div className="flex justify-end">
+                    <button
+                      onClick={handleCheckHallucinations}
+                      disabled={isCheckingHallucinations}
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-orange-50 dark:bg-orange-950/30 ring-1 ring-orange-300 dark:ring-orange-800/60 text-orange-700 dark:text-orange-300 text-[10px] font-black uppercase tracking-widest hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-all disabled:opacity-50"
+                      title="Compara a copy gerada com a Fonte do Produto e flagra claims sem suporte"
+                    >
+                      {isCheckingHallucinations ? (
+                        <Loader2 size={12} className="animate-spin" />
+                      ) : (
+                        '🔬'
+                      )}
+                      Checar alucinações
+                    </button>
+                  </div>
                 )}
                 {config.copy.finalScript && (
                   <div className="bg-green-50 dark:bg-green-950/40 p-6 rounded-[32px] border-2 border-green-100 flex items-center justify-between gap-6 animate-in fade-in slide-in-from-top-4 duration-500">

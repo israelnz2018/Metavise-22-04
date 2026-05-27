@@ -2047,6 +2047,264 @@ Include 1 final line starting with "AVOID:" listing 2-4 terms the copy should NE
 }
 
 // ─────────────────────────────────────────────
+// UX25-A2 — PRE-FLIGHT CHECK
+// ─────────────────────────────────────────────
+/**
+ * Valida campos do brief ANTES de chamar Claude. Sinaliza quando o input
+ * é fraco o suficiente pra produzir copy ruim. Não bloqueia — só avisa.
+ *
+ * Heurística local (não chama IA) — barato e instantâneo. Pega 80%
+ * dos casos comuns:
+ *   - campos críticos vazios
+ *   - audience genérico ("pessoas", "todos")
+ *   - painPoint vago ("estresse", "cansaço")
+ *   - productResult sem número/concretude
+ */
+export interface PreflightIssue {
+  field: string;
+  label: string;
+  severity: 'warn' | 'error';
+  reason: string;
+  suggestion: string;
+}
+
+export function preflightCheckCopy(answers: Record<string, any>): PreflightIssue[] {
+  const issues: PreflightIssue[] = [];
+  const get = (k: string): string => (answers[k] || '').toString().trim();
+
+  // Audience
+  const audience = get('audience');
+  if (!audience) {
+    issues.push({
+      field: 'audience',
+      label: 'Público',
+      severity: 'error',
+      reason: 'Sem público definido, IA inventa um genérico.',
+      suggestion: 'Descreva quem vai ver (idade, vida, situação).',
+    });
+  } else if (audience.split(/\s+/).length < 3) {
+    issues.push({
+      field: 'audience',
+      label: 'Público',
+      severity: 'warn',
+      reason: 'Público muito curto — fica genérico.',
+      suggestion: 'Adicione contexto (ex: "Mulheres 40+ com filhos pequenos").',
+    });
+  } else if (/\b(todos|todas|pessoas|qualquer um)\b/i.test(audience)) {
+    issues.push({
+      field: 'audience',
+      label: 'Público',
+      severity: 'warn',
+      reason: 'Público abstrato — IA não tem ângulo concreto.',
+      suggestion: 'Especifique segmento real.',
+    });
+  }
+
+  // PainPoints / situation
+  const pain = get('painPoints') || get('situation');
+  if (!pain) {
+    issues.push({
+      field: 'painPoints',
+      label: 'Problema principal',
+      severity: 'error',
+      reason: 'Sem dor, copy fica sem âncora emocional.',
+      suggestion: 'Descreva o problema visceral que o produto resolve.',
+    });
+  } else if (pain.length < 20) {
+    issues.push({
+      field: 'painPoints',
+      label: 'Problema principal',
+      severity: 'warn',
+      reason: 'Dor descrita muito curta.',
+      suggestion: 'Dê 1-2 frases concretas sobre como a dor aparece no dia.',
+    });
+  }
+
+  // Product result
+  const result = get('productResult');
+  if (!result) {
+    issues.push({
+      field: 'productResult',
+      label: 'Resultado concreto',
+      severity: 'warn',
+      reason: 'Sem promessa concreta, copy fica vaga.',
+      suggestion: 'Diga o que o produto entrega (com número se possível).',
+    });
+  } else if (!/\d/.test(result) && result.length < 30) {
+    issues.push({
+      field: 'productResult',
+      label: 'Resultado concreto',
+      severity: 'warn',
+      reason: 'Resultado sem números ou specifics.',
+      suggestion: 'Adicione "em X dias", "Y kg", "Z%" — quanto + quando.',
+    });
+  }
+
+  // Mechanism
+  if (!get('uniqueMechanism')) {
+    issues.push({
+      field: 'uniqueMechanism',
+      label: 'Mecanismo único',
+      severity: 'warn',
+      reason: 'Sem mecanismo, IA não tem como justificar a promessa.',
+      suggestion: 'Explique POR QUE seu produto funciona (vs. alternativas).',
+    });
+  }
+
+  // Hidden desire
+  if (!get('hiddenDesire')) {
+    issues.push({
+      field: 'hiddenDesire',
+      label: 'Desejo profundo',
+      severity: 'warn',
+      reason: 'Sem desejo profundo, copy fica no resultado superficial.',
+      suggestion: 'Descreva o que a pessoa REALMENTE quer (status, alívio, identidade).',
+    });
+  }
+
+  // Main objection
+  if (!get('mainObjection')) {
+    issues.push({
+      field: 'mainObjection',
+      label: 'Objeção principal',
+      severity: 'warn',
+      reason: 'Sem objeção, copy não antecipa resistência.',
+      suggestion: 'O que faz o lead hesitar? "Já tentei tudo", "Caro", "Não confio"?',
+    });
+  }
+
+  return issues;
+}
+
+// ─────────────────────────────────────────────
+// UX25-A3 — HALLUCINATION DETECTOR
+// ─────────────────────────────────────────────
+/**
+ * Pós-geração: usa Claude pra comparar a copy com productInfo (transcrição
+ * + persona + brief) e flagra trechos não suportados na fonte.
+ *
+ * Retorna array de claims problemáticos com excerpt + razão.
+ * Falha silenciosamente (retorna []) — não bloqueia o fluxo.
+ */
+export interface HallucinationFlag {
+  excerpt: string; // trecho problemático
+  reason: string; // por que é problemático
+  severity: 'low' | 'medium' | 'high';
+}
+
+export async function detectHallucinations(input: {
+  generatedCopy: string;
+  productInfo?: any;
+  language?: string;
+}): Promise<HallucinationFlag[]> {
+  if (!input.generatedCopy || !input.generatedCopy.trim()) return [];
+
+  const isPT = isPortuguese(input.language);
+
+  // Monta corpus da fonte (mesma lógica de describeDestinationFromProduct)
+  const bits: string[] = [];
+  const push = (label: string, val: unknown) => {
+    if (val == null) return;
+    const s = String(val).trim();
+    if (!s) return;
+    bits.push(`${label}: ${s}`);
+  };
+  const p = input.productInfo || {};
+  push('Produto', p.produto || p.productName);
+  push('Oferta', p.oferta);
+  push('Dor principal', p.dorPrincipal);
+  push('Promessa', p.promessa || p.productResult);
+  push('Mecanismo', p.mecanismoUnico || p.uniqueMechanism);
+  push('Descrição', p.descricao || p.description);
+  push('VSL / Transcrição', p.transcript || p.transcription);
+  push('História', p.historia);
+  push('Provas', p.provas || p.socialProof);
+
+  if (bits.length === 0) return []; // sem fonte, não dá pra checar
+
+  const corpus = bits.join('\n');
+
+  const systemPrompt = isPT
+    ? `Você é um fact-checker de copies de anúncio. Recebe uma fonte (informações do produto) e uma copy gerada, e identifica trechos da copy que NÃO TÊM SUPORTE na fonte. Responda APENAS em JSON. Sem markdown.`
+    : `You are a fact-checker for ad copies. Given a source (product info) and a generated copy, identify excerpts in the copy that are NOT SUPPORTED by the source. Respond ONLY in JSON. No markdown.`;
+
+  const userPrompt = isPT
+    ? `FONTE (o que sabemos sobre o produto):
+"""
+${corpus.slice(0, 4000)}
+"""
+
+COPY GERADA:
+"""
+${input.generatedCopy.slice(0, 3000)}
+"""
+
+Identifique TRECHOS da copy gerada que afirmam coisas NÃO presentes na fonte. Exemplos do que flagar:
+- Formatos inventados (ex: "apresentação curta" quando a fonte fala de live de 1h)
+- Personagens fictícios (ex: "uma mulher me contou" quando ninguém disse isso)
+- Números inventados ("47 mil pessoas", "85% melhoraram") sem suporte
+- Promessas mais fortes que a fonte ("cura definitiva" quando a fonte diz "ajudou a melhorar")
+- Detalhes específicos que a fonte não menciona
+
+NÃO flagar:
+- Linguagem persuasiva normal (CTAs, emoção, especificidade saudável)
+- Reframes que mantêm o sentido da fonte
+- Detalhes técnicos do mecanismo que estão na fonte
+
+Output (JSON apenas, máximo 6 items):
+{ "flags": [
+  { "excerpt": "trecho exato da copy", "reason": "por que não tem suporte", "severity": "low" | "medium" | "high" }
+]}`
+    : `SOURCE (what we know about the product):
+"""
+${corpus.slice(0, 4000)}
+"""
+
+GENERATED COPY:
+"""
+${input.generatedCopy.slice(0, 3000)}
+"""
+
+Identify EXCERPTS in the generated copy that claim things NOT in the source. Examples to flag:
+- Invented formats (e.g. "short presentation" when source says 1h live)
+- Fictional characters
+- Made-up numbers without support
+- Promises stronger than the source supports
+- Specific details not in source
+
+DO NOT flag:
+- Normal persuasive language (CTAs, emotion, healthy specificity)
+- Reframes that keep the source's meaning
+- Mechanism details that are in the source
+
+Output (JSON only, max 6 items):
+{ "flags": [
+  { "excerpt": "exact excerpt", "reason": "why unsupported", "severity": "low" | "medium" | "high" }
+]}`;
+
+  try {
+    const raw = await callClaude(systemPrompt, userPrompt, 1000);
+    const cleaned = raw
+      .replace(/```json\n?/g, '')
+      .replace(/```\n?/g, '')
+      .trim();
+    const parsed = JSON.parse(cleaned);
+    const flags = Array.isArray(parsed.flags) ? parsed.flags : [];
+    return flags
+      .filter((f: any) => f && typeof f.excerpt === 'string' && f.excerpt.length > 0)
+      .slice(0, 6)
+      .map((f: any) => ({
+        excerpt: f.excerpt.trim().slice(0, 200),
+        reason: (f.reason || '').toString().trim().slice(0, 200),
+        severity: ['low', 'medium', 'high'].includes(f.severity) ? f.severity : 'medium',
+      }));
+  } catch (err: any) {
+    console.warn('[detectHallucinations] falhou:', err?.message);
+    return [];
+  }
+}
+
+// ─────────────────────────────────────────────
 // UX25-C2 — APPROX COST ESTIMATION
 // ─────────────────────────────────────────────
 /**
