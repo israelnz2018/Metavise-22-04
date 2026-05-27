@@ -1329,3 +1329,183 @@ Próximas opções: stripe pagamentos, Pexels API pra background
 videos reais, polish (loading skeletons, console noise), seleção
 de áudio file customizado pra Cortes (não só vídeo). Tag de
 rollback: `checkpoint-segmented-avatar-wip`._
+
+---
+
+# 26. UX Round (UX1–UX22) — sessão grande de polimento
+
+22 commits trabalhando na qualidade do produto e clareza de UX.
+Cada um isolado, fácil de reverter individual.
+
+## 26.1 Wizard nav, autosave, popups (UX1–UX3)
+
+- **UX1** Setas L/R + scroll roda no wizard nav. Setas escondem nas pontas.
+- **UX2** Removido chip "Salvo há X min". Toast de auto-save silenciado
+  (só dispara em "Salvar" manual).
+- **UX3** Popup falso "Criar subprojeto?" aparecia em variant já existente.
+  Causa: auto-save reescrevia variant sem `brief`. Fix: 3ª condição
+  no lookup + preserva brief/status/name no save.
+
+## 26.2 Brief context downstream (UX4, UX7)
+
+- **UX4** HookChooser consome productInfo+persona+brief — hooks
+  aderentes ao ângulo, não só ao texto.
+- **UX7** Plano de Marketing ganhou checklist vertical (1 linha/brief,
+  tick ✓ pros executados, mini progress bar). Voz/Avatar recebem
+  `brief` — `AIRecommendationPanel` enriquece prompt + mostra
+  "Otimizado pra Criativo X" no header.
+
+## 26.3 Data leak + popup fixes (UX5, UX6, UX8)
+
+- **UX5** "Dados do Projeto" colapsa por padrão. Chips resumo (X personas,
+  Y briefs) no header.
+- **UX6** Audios/videos da variant anterior vazavam no novo subprojeto.
+  Fix: zerar top-level state em handleConfirmBrief/PersonaExec.
+- **UX8** Mesmo bug pra `handleCreateProject`. Reset comprehensive.
+  Bonus: "Preencher com fonte" → "Preencha automaticamente".
+
+## 26.4 Otimizador + Hook (UX9, UX10, UX12, UX17)
+
+- **UX9** Otimizador ElevenLabs estava ADICIONANDO texto. Prompt
+  reforçado + safety net no código.
+- **UX10** Hooks vinham com placeholders `___`. Agora chooseHooksFromCopy
+  retorna template+filled. UI mostra filled como principal.
+- **UX12** Rodapé Copy unificado em 1 botão "Ir para Copy do Gancho".
+- **UX17** **Hook Lab** — gera 9 hooks 100% originais (sem bíblia) via
+  5 fórmulas comprovadas.
+
+## 26.5 UI polish (UX11, UX21)
+
+- **UX11** Select dark mode branco-no-branco. Fix global em 15 inputs
+  (CopyTab, AvatarTab, HookVisualGenerator, ElevenLabsConfigModal).
+  Bonus: pergunta "Estoque limitado?" removida.
+- **UX21** Setas wizard nav apareciam tarde. Threshold 0px + poll
+  durante smooth scroll + bg azul Metavise pra visibilidade.
+
+## 26.6 Content Risk Scanner (UX13)
+
+**Sistema completo** detecção termos arriscados em copy/hook.
+
+- 6 categorias × 3 severidades (critical/high/medium)
+- ~120 termos em `src/data/contentRiskTerms.ts` (medication,
+  celebrity, discrimination, comparative_claim, reach_reducing,
+  medical_claim)
+- Banner: 3 ações ("Reescrever versão segura" / "Manter assim" /
+  "Editar manualmente"). Ack persiste por hash do texto.
+- Integrado em CopyTab + HookChooser.
+
+## 26.7 Self-critique + Variants A/B (UX15)
+
+- **Self-critique:** "Revisar com IA" — Claude pontua 6 dimensões
+  (specificity, hookStrength, oralCadence, emotionalPull,
+  modestCredibility, mechanismClarity). Reescreve se algum < 8.
+- **Variants A/B:** "Gerar 2 versões" roda 2 chamadas em paralelo.
+  Picker side-by-side.
+
+## 26.8 Beat-by-Beat Editor (UX16)
+
+- Script gerado com markers `[BEAT]` parseado em cards editáveis
+- Cada beat tem botão "Regerar este beat" — `regenerateBeat()`
+  preserva flow com adjacentes
+- Toggle "Beat-by-Beat / Texto Único" no UI
+
+## 26.9 Biblioteca de Copies (UX14, UX18, UX19, UX20, UX22)
+
+**A grande feature.** Few-shot prompting com biblioteca pessoal.
+
+- **UX14** Few-shot em generateAdCopyWithClaude:
+  - `src/data/copyLibrary.ts` — algoritmo + `selectCopyExamples`
+  - Cultural PT-BR mode (só ativa quando lingua = português)
+  - `inferVertical` mapeia produto → vertical
+- **UX18** Biblioteca pessoal Firestore:
+  - `users/{uid}/copyLibrary/{copyId}`
+  - `src/lib/personalCopyLibrary.ts` — CRUD wrapping Firestore
+  - `src/components/CopyLibraryModal.tsx` — modal Minhas + Metavise
+  - Botão "✓ Marcar como copy boa" auto-adiciona
+- **UX19** Esvaziada COPY_LIBRARY sistema (eu tinha criado 25
+  sintéticas; user vai curar reais).
+- **UX20** Form SIMPLIFICADO — só `name?` + `script`. IA classifica
+  resto via `analyzeCopyForLibrary` (vertical/awareness/idioma/
+  angle/whyItWorks). Botão movido pra perto do "Gerar Copy".
+- **UX22** **Seleção MANUAL** — checkbox em cada copy. Marca quais
+  IA deve usar de referência. Banner azul com contagem; cinza quando
+  0 (auto-seleção). Persiste em `config.copy.referenceCopyIds[]`.
+  Quando user seleciona, `__manualSelection=true` → usa todas
+  (count = min(5, lib.length)).
+
+## 26.10 Firestore Rules + setup
+
+- `firestore.rules` ganhou bloco `users/{uid}/copyLibrary` (allow
+  read/write se isOwner || isAdmin)
+- **Rules são deployadas MANUALMENTE** (sem firebase CLI)
+- Firebase project: `educacaopelotrabalho2025` (display name "Metavise")
+- Database: **`ai-studio-3e28f82f-52dc-4e0b-a786-5f9a5b893a4f`**
+  (NÃO É default)
+- Console PT-BR: aba "Rules" → **"Segurança"**
+
+## 26.11 Commits UX1–UX22
+
+```
+68f4778  feat(library)   — UX22 seleção manual de referências
+834cffe  fix(ux)         — UX21 setas wizard nav visíveis
+2347169  fix(rules)      — Firestore rules pra copyLibrary
+1c6d2c4  feat(library)   — UX20 upload simplificado + IA classifica
+80f633c  feat(library)   — UX19 esvazia COPY_LIBRARY + form manual
+8a587f1  feat(library)   — UX18 Minha Biblioteca (Firestore CRUD)
+602973c  feat(hook)      — UX17 Hook Lab original
+4ee6833  feat(copy)      — UX16 beat-by-beat editor
+0242094  feat(copy)      — UX15 self-critique + variants A/B
+5ce4649  feat(copy)      — UX14 biblioteca + few-shot + cultural PT
+37ab66d  feat(safety)    — UX13 content risk scanner
+078578c  feat(copy)      — UX12 1 botão "Ir para Copy do Gancho"
+d7bc2bd  fix(copy)       — UX11 select dark + remove estoque
+f1a6fc0  feat(hook)      — UX10 hooks pré-preenchidos
+6bc25ad  fix(voz)        — UX9 otimizador não adiciona texto
+086949a  fix(projeto)    — UX8 reset em handleCreateProject
+ddd8575  feat(plano)     — UX7 checklist + brief em voz/avatar
+0c873f2  fix(subprojeto) — UX6 fix audios/videos leak
+36a605a  feat(projetos)  — UX5 colapsa Dados do Projeto
+9e4f501  feat(hook)      — UX4 Copy do Gancho com persona+brief
+68754c6  feat(ux)        — UX1-3 wizard nav + autosave + subprojeto fix
+```
+
+## 26.12 Status final + próximos passos
+
+**Funcionando bem:**
+
+- Geração de copy com few-shot + cultural PT-BR (UX14)
+- Biblioteca pessoal com seleção manual de refs (UX22)
+- Content risk scanner 6 categorias (UX13)
+- Hook Lab + bíblia preenchida (UX10, UX17)
+- Beat-by-beat editor (UX16)
+- Self-critique e variants A/B (UX15)
+
+**Pendências conhecidas:**
+
+- **COPY_LIBRARY (sistema) está VAZIA** — user vai curar copies reais
+  depois e adicionar manualmente em `src/data/copyLibrary.ts`
+- **Avatar segmentado** continua WIP (voice mismatch + freeze
+  após 1s). Tag rollback existe.
+- **Rules publicadas no Firebase Console** — sem CLI configurado.
+  User já publicou as rules do UX18 (subcollection copyLibrary).
+
+**Setup Firebase atual:**
+
+- Project ID: `educacaopelotrabalho2025`
+- Database: `ai-studio-3e28f82f-52dc-4e0b-a786-5f9a5b893a4f`
+- Plano: Blaze (pago por uso)
+- ~100k reads/100k writes/dia (auto-save é o maior consumidor)
+
+**Próximas features possíveis (em ordem de prioridade sugerida):**
+
+1. **Publicar rules pra confirmar UX18+UX20 funcionando 100%** (user
+   diz que já publicou — verificar adicionando uma copy via form)
+2. **Curar biblioteca sistema** com copies reais quando user tiver
+3. **Stripe pagamentos** (créditos hoje são manual via prompt JS)
+4. **Pexels API** pra backgrounds reais nos Cortes
+5. **Console noise cleanup** (logs de debug)
+6. **Loading skeletons** em mais lugares
+7. **Avatar segmentado** voltar quando provider melhor disponível
+
+_Last updated: UX22 (seleção manual referências). 22 commits, working
+tree limpo. Pronto pra compactar o chat._
