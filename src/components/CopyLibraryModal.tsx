@@ -23,12 +23,7 @@ import {
   Save,
   Loader2,
 } from 'lucide-react';
-import {
-  COPY_LIBRARY,
-  type CopyExample,
-  type CopyVertical,
-  type AwarenessLevel,
-} from '@/data/copyLibrary';
+import { COPY_LIBRARY, type CopyExample, type CopyVertical } from '@/data/copyLibrary';
 import type { PersonalCopyDoc } from '@/lib/personalCopyLibrary';
 
 const VERTICAL_LABEL: Record<CopyVertical, string> = {
@@ -41,14 +36,12 @@ const VERTICAL_LABEL: Record<CopyVertical, string> = {
   espiritual: 'Espiritual',
 };
 
-// UX19: dados do formulário de upload manual
+// UX20: form de upload manual SIMPLIFICADO. Só name + script.
+// IA infere vertical/awareness/language/angle/whyItWorks via
+// analyzeCopyForLibrary (chamado no parent handler).
 export interface ManualCopyInput {
-  vertical: CopyVertical;
-  awareness: AwarenessLevel;
-  language: 'pt' | 'en';
-  angle: string;
+  name?: string;
   script: string;
-  whyItWorks: string;
 }
 
 interface Props {
@@ -72,39 +65,28 @@ export function CopyLibraryModal({
   const [tab, setTab] = useState<'mine' | 'system'>('mine');
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // UX19: estado do form de upload manual
+  // UX20: form simplificado — só nome (opcional) + script. IA infere
+  // o resto. Estado mínimo.
   const [showAddForm, setShowAddForm] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
-  const [formVertical, setFormVertical] = useState<CopyVertical>('saude');
-  const [formAwareness, setFormAwareness] = useState<AwarenessLevel>('3');
-  const [formLanguage, setFormLanguage] = useState<'pt' | 'en'>('pt');
-  const [formAngle, setFormAngle] = useState('');
+  const [formName, setFormName] = useState('');
   const [formScript, setFormScript] = useState('');
-  const [formWhy, setFormWhy] = useState('');
 
   const resetForm = () => {
-    setFormVertical('saude');
-    setFormAwareness('3');
-    setFormLanguage('pt');
-    setFormAngle('');
+    setFormName('');
     setFormScript('');
-    setFormWhy('');
   };
 
   const handleSubmitForm = async () => {
     if (!formScript.trim() || formScript.trim().length < 20) {
-      // não deixa salvar copy vazia / muito curta
       return;
     }
     setIsAdding(true);
     try {
+      // Parent vai chamar analyzeCopyForLibrary e salvar.
       await onAddManual({
-        vertical: formVertical,
-        awareness: formAwareness,
-        language: formLanguage,
-        angle: formAngle.trim(),
+        name: formName.trim() || undefined,
         script: formScript.trim(),
-        whyItWorks: formWhy.trim(),
       });
       resetForm();
       setShowAddForm(false);
@@ -154,6 +136,12 @@ export function CopyLibraryModal({
                   </span>
                 )}
               </div>
+              {/* UX20: nome customizado da copy aparece como título */}
+              {isPersonal && (item as PersonalCopyDoc).name && (
+                <p className="text-sm font-black text-gray-900 dark:text-gray-50">
+                  {(item as PersonalCopyDoc).name}
+                </p>
+              )}
               <p className="text-xs text-gray-700 dark:text-gray-300 line-clamp-2 leading-relaxed">
                 {item.script.substring(0, 200)}
                 {item.script.length > 200 ? '…' : ''}
@@ -305,63 +293,20 @@ export function CopyLibraryModal({
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                    <div>
-                      <label className="text-[9px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 block mb-1">
-                        Vertical
-                      </label>
-                      <select
-                        value={formVertical}
-                        onChange={(e) => setFormVertical(e.target.value as CopyVertical)}
-                        className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-xs font-bold outline-none focus:border-blue-500"
-                      >
-                        {(Object.keys(VERTICAL_LABEL) as CopyVertical[]).map((v) => (
-                          <option key={v} value={v}>
-                            {VERTICAL_LABEL[v]}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-[9px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 block mb-1">
-                        Consciência
-                      </label>
-                      <select
-                        value={formAwareness}
-                        onChange={(e) => setFormAwareness(e.target.value as AwarenessLevel)}
-                        className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-xs font-bold outline-none focus:border-blue-500"
-                      >
-                        <option value="1">1 - Inconsciente</option>
-                        <option value="2">2 - Consc. problema</option>
-                        <option value="3">3 - Consc. solução</option>
-                        <option value="4">4 - Consc. produto</option>
-                        <option value="5">5 - Muito consc.</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-[9px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 block mb-1">
-                        Idioma
-                      </label>
-                      <select
-                        value={formLanguage}
-                        onChange={(e) => setFormLanguage(e.target.value as 'pt' | 'en')}
-                        className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-xs font-bold outline-none focus:border-blue-500"
-                      >
-                        <option value="pt">Português</option>
-                        <option value="en">Inglês</option>
-                      </select>
-                    </div>
-                  </div>
+                  {/* UX20: form simplificado — só name + script. IA infere o resto. */}
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400 italic">
+                    ✨ A IA detecta automaticamente idioma, vertical, nível de consciência e ângulo.
+                  </p>
 
                   <div>
                     <label className="text-[9px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 block mb-1">
-                      Ângulo / tipo (opcional)
+                      Nome da copy (opcional)
                     </label>
                     <input
                       type="text"
-                      value={formAngle}
-                      onChange={(e) => setFormAngle(e.target.value)}
-                      placeholder='Ex: "Quebra de paradigma", "Depoimento", "Mecanismo único"'
+                      value={formName}
+                      onChange={(e) => setFormName(e.target.value)}
+                      placeholder='Ex: "Copy 1", "Vencedora outubro", "Hook do podcast"'
                       className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-xs outline-none focus:border-blue-500"
                     />
                   </div>
@@ -374,7 +319,7 @@ export function CopyLibraryModal({
                       value={formScript}
                       onChange={(e) => setFormScript(e.target.value)}
                       placeholder="Cola aqui a copy que você quer que a IA use como referência..."
-                      rows={8}
+                      rows={10}
                       className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm font-mono leading-relaxed outline-none focus:border-blue-500 resize-y"
                     />
                     <p className="text-[9px] text-gray-400 dark:text-gray-500 mt-1 tabular-nums">
@@ -383,20 +328,7 @@ export function CopyLibraryModal({
                     </p>
                   </div>
 
-                  <div>
-                    <label className="text-[9px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 block mb-1">
-                      Por que essa copy funciona? (opcional, ajuda a IA)
-                    </label>
-                    <input
-                      type="text"
-                      value={formWhy}
-                      onChange={(e) => setFormWhy(e.target.value)}
-                      placeholder='Ex: "Abertura sensorial específica + comparação contra alternativa"'
-                      className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-xs outline-none focus:border-blue-500"
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-end gap-2 pt-2">
+                  <div className="flex items-center justify-end gap-2 pt-1">
                     <button
                       onClick={() => {
                         setShowAddForm(false);
@@ -417,7 +349,7 @@ export function CopyLibraryModal({
                       ) : (
                         <Save size={12} />
                       )}
-                      {isAdding ? 'Salvando...' : 'Salvar na biblioteca'}
+                      {isAdding ? 'Analisando + salvando...' : 'Salvar na biblioteca'}
                     </button>
                   </div>
                 </div>

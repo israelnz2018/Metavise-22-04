@@ -48,6 +48,7 @@ import {
   rewriteSafeCopy,
   critiqueAndRewriteCopy,
   generateAdCopyVariants,
+  analyzeCopyForLibrary,
   type ProductInfo,
 } from '@/lib/claudeService';
 import { getRecomendedEstilo, getRecomendacaoTempo, countWords } from '@/lib/helpers';
@@ -388,33 +389,34 @@ export function CopyTab({
     }
   };
 
-  // UX19: upload manual via form do modal. Recebe input já validado e
-  // salva direto. CopyLibraryModal limpa o form e recolhe sozinho.
-  const handleAddManualCopy = async (input: {
-    vertical: PersonalCopyDoc['vertical'];
-    awareness: PersonalCopyDoc['awareness'];
-    language: 'pt' | 'en';
-    angle: string;
-    script: string;
-    whyItWorks: string;
-  }) => {
+  // UX20: upload manual SIMPLIFICADO — só name + script. IA infere o
+  // resto (vertical, awareness, language, angle, whyItWorks) via
+  // analyzeCopyForLibrary. Fallback razoável se IA falhar.
+  const handleAddManualCopy = async (input: { name?: string; script: string }) => {
     if (!currentUid) {
       toast.error('Você precisa estar logado pra salvar copies.');
       return;
     }
     try {
+      // 1) IA classifica vertical/awareness/language/angle/whyItWorks
+      const analysis = await analyzeCopyForLibrary(input.script);
+      // 2) Salva no Firestore com tudo já preenchido
       await addToPersonalLibrary(currentUid, {
-        vertical: input.vertical,
-        awareness: input.awareness,
-        language: input.language,
-        angle: input.angle,
+        name: input.name,
+        vertical: analysis.vertical,
+        awareness: analysis.awareness,
+        language: analysis.language,
+        angle: analysis.angle,
         script: input.script,
-        whyItWorks: input.whyItWorks,
+        whyItWorks: analysis.whyItWorks,
         starred: false,
         source: 'manual',
       });
       await reloadLibrary();
-      toast.success('Copy adicionada à sua biblioteca!');
+      toast.success(
+        `Copy salva! Detectado: ${analysis.vertical} · Consc.${analysis.awareness} · ${analysis.language.toUpperCase()}`,
+        { duration: 4500 }
+      );
     } catch (err: any) {
       toast.error(err?.message || 'Erro ao salvar.');
     }
@@ -519,18 +521,10 @@ export function CopyTab({
         </div>
       )}
 
-      {/* Sticky fill-from-source button + library button */}
-      <div className="flex justify-end gap-2">
-        {/* UX18: abre modal da biblioteca (sistema + minhas) */}
-        <button
-          onClick={() => setShowLibraryModal(true)}
-          className="px-4 py-2.5 bg-white dark:bg-gray-900/80 ring-1 ring-gray-300 dark:ring-gray-700 text-gray-700 dark:text-gray-200 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800"
-          title="Vê e gerencia a biblioteca de copies que a IA usa como referência"
-        >
-          <Library size={14} />
-          Biblioteca ({personalLibrary.length})
-        </button>
-        {productInfo && (
+      {/* UX20: botão "Biblioteca" foi movido pra perto do "Gerar Copy" lá
+          embaixo. Aqui em cima fica só o "Preencha automaticamente". */}
+      {productInfo && (
+        <div className="flex justify-end">
           <button
             onClick={handleFillFromSource}
             className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow flex items-center gap-2"
@@ -539,8 +533,8 @@ export function CopyTab({
             <Sparkles size={14} />
             Preencha automaticamente
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* UX18: modal da biblioteca */}
       <CopyLibraryModal
@@ -1705,9 +1699,20 @@ export function CopyTab({
                   )}
                   Gerar 2 versões
                 </button>
+                {/* UX20: botão Biblioteca movido pra cá — perto do "Gerar Copy"
+                    em vez de no topo da página */}
+                <button
+                  onClick={() => setShowLibraryModal(true)}
+                  className="px-6 py-6 bg-white dark:bg-gray-900/80 text-gray-900 dark:text-gray-100 border-2 border-gray-300 dark:border-gray-700 rounded-[32px] font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
+                  title="Adiciona/edita copies de referência que a IA usa pra gerar melhor"
+                >
+                  <Library size={18} />
+                  Biblioteca ({personalLibrary.length})
+                </button>
               </div>
               <p className="text-[10px] text-gray-400 dark:text-gray-500 italic">
-                Tip: "Gerar 2 versões" duplica o custo mas dá opção pra escolher a melhor
+                Tip: "Gerar 2 versões" duplica o custo · "Biblioteca" são copies que a IA usa como
+                referência pra calibrar o estilo
               </p>
             </div>
           )}

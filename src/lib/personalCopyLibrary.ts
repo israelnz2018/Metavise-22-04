@@ -33,6 +33,9 @@ import { db } from './firebase';
 import type { CopyExample, CopyVertical, AwarenessLevel } from '@/data/copyLibrary';
 
 export interface PersonalCopyDoc extends CopyExample {
+  /** UX20: nome opcional dado pelo user ("Copy 1", "Hook do podcast", etc).
+   *  Quando ausente, UI mostra "Copy #N" baseado em ordem de criação. */
+  name?: string;
   starred?: boolean;
   source: 'manual' | 'auto-from-generated';
   createdAt: Date | null;
@@ -51,6 +54,7 @@ export async function loadPersonalLibrary(uid: string): Promise<PersonalCopyDoc[
       const data = d.data() as any;
       list.push({
         id: d.id,
+        name: typeof data.name === 'string' ? data.name : undefined,
         vertical: (data.vertical || 'fisico') as CopyVertical,
         awareness: (data.awareness || '3') as AwarenessLevel,
         angle: data.angle || '',
@@ -85,8 +89,13 @@ export async function addToPersonalLibrary(
   if (!uid) throw new Error('user id obrigatório');
   const id = `c_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const ref = doc(db, 'users', uid, COL_NAME, id);
+  // UX20: strip undefined — Firestore rejeita campos undefined
+  const sanitized: Record<string, any> = {};
+  for (const [k, v] of Object.entries(input)) {
+    if (v !== undefined) sanitized[k] = v;
+  }
   await setDoc(ref, {
-    ...input,
+    ...sanitized,
     createdAt: serverTimestamp(),
   });
   return id;

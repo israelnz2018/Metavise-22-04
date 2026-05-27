@@ -1571,3 +1571,125 @@ FORMATO (JSON apenas):
     return [];
   }
 }
+
+// ─────────────────────────────────────────────
+// 10. ANALYZE COPY FOR LIBRARY (UX20)
+// ─────────────────────────────────────────────
+/**
+ * Analisa uma copy de referência colada pelo user e infere os metadados:
+ * vertical, awareness, language, angle, whyItWorks. Usado pra que o
+ * upload manual da biblioteca não exija preencher esses campos
+ * manualmente — só cola o texto, IA descobre o resto.
+ *
+ * Cliente pode editar manualmente depois se quiser, mas o auto-fill
+ * cobre 90% dos casos.
+ */
+export interface CopyAnalysisResult {
+  vertical:
+    | 'saude'
+    | 'emagrecimento'
+    | 'financas'
+    | 'info_produto'
+    | 'beleza'
+    | 'fisico'
+    | 'espiritual';
+  awareness: '1' | '2' | '3' | '4' | '5';
+  language: 'pt' | 'en';
+  angle: string;
+  whyItWorks: string;
+}
+
+export async function analyzeCopyForLibrary(script: string): Promise<CopyAnalysisResult> {
+  if (!script || !script.trim()) {
+    return {
+      vertical: 'fisico',
+      awareness: '3',
+      language: 'pt',
+      angle: '',
+      whyItWorks: '',
+    };
+  }
+
+  const systemPrompt = `Você é um copywriter sênior. Recebe uma copy de anúncio e classifica em 5 dimensões. Responda APENAS em JSON válido sem markdown.`;
+
+  const userPrompt = `Analise esta copy e classifique-a:
+
+COPY:
+"""
+${script.trim().substring(0, 3000)}
+"""
+
+CLASSIFIQUE:
+
+1. vertical (em qual mercado vende):
+   - "saude" — suplementos, dor, sono, ansiedade, nutrição
+   - "emagrecimento" — perda de peso, dieta, fitness
+   - "financas" — renda extra, investimento, side hustle
+   - "info_produto" — curso, mentoria, comunidade, treinamento
+   - "beleza" — skincare, anti-aging, cabelo, cosmético
+   - "fisico" — gadget, ferramenta, casa, lifestyle
+   - "espiritual" — tarot, mapa astral, oração, autoconhecimento
+
+2. awareness (Schwartz, qual nível de consciência do leitor):
+   - "1" = inconsciente (não sabe do problema)
+   - "2" = consciente do problema
+   - "3" = consciente da solução (sabe que existe solução mas não conhece o produto)
+   - "4" = consciente do produto (conhece o produto mas hesita)
+   - "5" = muito consciente (só falta a oferta)
+
+3. language: "pt" (português) ou "en" (inglês). Pra português brasileiro use "pt".
+
+4. angle: 2-5 palavras descrevendo o ângulo principal. Ex: "Quebra de paradigma", "Mecanismo único", "Depoimento transformação", "Diagnóstico único", "Identificação com a dor", "Comparação com alternativa", "Curiosidade", "Autoridade médica".
+
+5. whyItWorks: 1 frase explicando por que essa copy funciona. Pode mencionar técnicas tipo: abertura sensorial, prova social específica, comparação financeira, reframe, etc.
+
+FORMATO (JSON apenas):
+{
+  "vertical": "saude",
+  "awareness": "2",
+  "language": "pt",
+  "angle": "Diagnóstico único",
+  "whyItWorks": "Abertura sensorial em momento específico, reframe diagnóstico, mecanismo crível, prova social com número, CTA suave."
+}`;
+
+  try {
+    const raw = await callClaude(systemPrompt, userPrompt, 800);
+    const cleaned = raw
+      .replace(/```json\n?/g, '')
+      .replace(/```\n?/g, '')
+      .trim();
+    const parsed = JSON.parse(cleaned);
+    // Sanity-check + defaults
+    const validVerticals = [
+      'saude',
+      'emagrecimento',
+      'financas',
+      'info_produto',
+      'beleza',
+      'fisico',
+      'espiritual',
+    ];
+    const validAwareness = ['1', '2', '3', '4', '5'];
+    return {
+      vertical: validVerticals.includes(parsed.vertical)
+        ? parsed.vertical
+        : ('fisico' as CopyAnalysisResult['vertical']),
+      awareness: validAwareness.includes(String(parsed.awareness))
+        ? (String(parsed.awareness) as CopyAnalysisResult['awareness'])
+        : '3',
+      language: parsed.language === 'en' ? 'en' : 'pt',
+      angle: typeof parsed.angle === 'string' ? parsed.angle.trim().slice(0, 60) : '',
+      whyItWorks:
+        typeof parsed.whyItWorks === 'string' ? parsed.whyItWorks.trim().slice(0, 300) : '',
+    };
+  } catch (err: any) {
+    console.warn('[analyzeCopyForLibrary] falhou, usando defaults:', err?.message);
+    return {
+      vertical: 'fisico',
+      awareness: '3',
+      language: /\bthe\b|\band\b|\byou\b|\bis\b/i.test(script) ? 'en' : 'pt',
+      angle: '',
+      whyItWorks: '',
+    };
+  }
+}
