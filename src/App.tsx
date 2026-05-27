@@ -936,7 +936,8 @@ export default function App() {
         parsed.format;
       if (looksValid) {
         setConfig(parsed);
-        toast.success('Rascunho restaurado da sessão anterior.', { icon: '💾' });
+        // UX25-D3: silencia o toast de restauração — autosave deve ser
+        // 100% invisível. Quem quiser confirmação tem o indicador no header.
       } else {
         console.warn('[AutoSave] Saved draft has unexpected shape, dropping it.');
         localStorage.removeItem(AUTOSAVE_KEY);
@@ -4748,7 +4749,9 @@ export default function App() {
         payload.highlightColorThree = zapHl3;
       }
 
-      console.log('[ZAP SIMPLE PAYLOAD]', payload);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[ZAP SIMPLE PAYLOAD]', payload);
+      }
 
       const response = await fetch('/api/zapcap/edit-simple', {
         method: 'POST',
@@ -4821,7 +4824,9 @@ export default function App() {
         const userId = auth.currentUser?.uid || 'anonymous';
         const response = await fetch(`/api/zapcap/status/${videoId}/${taskId}?userId=${userId}`);
         const data = await response.json();
-        console.log(`[ZAP SIMPLE Poll] status=${data.status}`);
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`[ZAP SIMPLE Poll] status=${data.status}`);
+        }
 
         // F6.1 — defense in depth: o inFlight guard já previne concorrência,
         // mas se algo escapar (e.g. setInterval re-armado), esse re-check
@@ -5199,15 +5204,16 @@ export default function App() {
   };
 
   const handleRenderZapCap = async () => {
-    console.log('[RENDER DEBUG] Clicked. State at click time:', {
-      isRendering: isRenderingRef.current,
-      videoUrl: videoUrl?.substring(0, 60),
-      templateId: zapCapRenderConfig.templateId,
-      animation: zapCapRenderConfig.animation,
-      emoji: zapCapRenderConfig.emoji,
-      versionsCount: autoEditState.versions?.length || 0,
-      autoEditStatus: autoEditState.status,
-    });
+    if (process.env.NODE_ENV !== 'production')
+      console.log('[RENDER DEBUG] Clicked. State at click time:', {
+        isRendering: isRenderingRef.current,
+        videoUrl: videoUrl?.substring(0, 60),
+        templateId: zapCapRenderConfig.templateId,
+        animation: zapCapRenderConfig.animation,
+        emoji: zapCapRenderConfig.emoji,
+        versionsCount: autoEditState.versions?.length || 0,
+        autoEditStatus: autoEditState.status,
+      });
     if (isRenderingRef.current) {
       console.warn('[RENDER DEBUG] Blocked: already rendering');
       return;
@@ -5267,8 +5273,10 @@ export default function App() {
         },
       };
 
-      console.log('[RENDER PAYLOAD] campos enviados:', Object.keys(payload));
-      console.log('[RENDER PAYLOAD] config keys:', Object.keys(payload.config));
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[RENDER PAYLOAD] campos enviados:', Object.keys(payload));
+        console.log('[RENDER PAYLOAD] config keys:', Object.keys(payload.config));
+      }
 
       const response = await fetch('/api/zapcap/edit', {
         method: 'POST',

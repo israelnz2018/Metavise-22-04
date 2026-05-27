@@ -54,6 +54,13 @@ export default defineConfig(({ mode }) => {
             lucide: ['lucide-react'],
             motion: ['motion/react'],
             jspdf: ['jspdf'],
+            // UX25-D4: split adicional pra reduzir initial bundle.
+            // react-dom é o maior single dep depois de firebase/jspdf —
+            // separar ele permite cache cross-deploy. html2canvas (~200KB)
+            // só carrega quando user gera PDF — vale chunk próprio.
+            'react-vendor': ['react', 'react-dom'],
+            html2canvas: ['html2canvas'],
+            'react-hot-toast': ['react-hot-toast'],
           },
         },
       },

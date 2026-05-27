@@ -61,6 +61,9 @@ interface Props {
   selectedReferenceIds: string[];
   /** UX22: toggle de seleção de uma copy como referência */
   onToggleReference: (copyId: string) => void;
+  /** UX25-D2: loading state pra mostrar skeleton em vez de empty state
+   *  durante o carregamento inicial do Firestore. */
+  isLoading?: boolean;
 }
 
 export function CopyLibraryModal({
@@ -72,6 +75,7 @@ export function CopyLibraryModal({
   onAddManual,
   selectedReferenceIds,
   onToggleReference,
+  isLoading = false,
 }: Props) {
   const [tab, setTab] = useState<'mine' | 'system'>('mine');
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -532,7 +536,27 @@ export function CopyLibraryModal({
                 </div>
               )}
 
-              {personalLibrary.length === 0 ? (
+              {/* UX25-D2: skeleton durante carregamento inicial */}
+              {isLoading && personalLibrary.length === 0 ? (
+                <div className="space-y-2">
+                  {[1, 2, 3].map((i) => (
+                    <div
+                      key={i}
+                      className="bg-white dark:bg-gray-900/80 rounded-2xl border-2 border-gray-200 dark:border-gray-800 p-4 animate-pulse"
+                    >
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="h-3 w-16 bg-gray-200 dark:bg-gray-800 rounded" />
+                        <div className="h-3 w-20 bg-gray-200 dark:bg-gray-800 rounded" />
+                        <div className="h-3 w-12 bg-gray-200 dark:bg-gray-800 rounded" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <div className="h-3 w-full bg-gray-100 dark:bg-gray-800/60 rounded" />
+                        <div className="h-3 w-3/4 bg-gray-100 dark:bg-gray-800/60 rounded" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : personalLibrary.length === 0 ? (
                 <div className="text-center py-12 space-y-3">
                   <BookOpen size={32} className="mx-auto text-gray-300 dark:text-gray-700" />
                   <p className="text-sm text-gray-500 dark:text-gray-400">

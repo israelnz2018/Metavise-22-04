@@ -326,12 +326,16 @@ export function CopyTab({
   // muda. Modal mostra sistema + minhas, com CRUD nas minhas.
   const [personalLibrary, setPersonalLibrary] = useState<PersonalCopyDoc[]>([]);
   const [showLibraryModal, setShowLibraryModal] = useState(false);
+  // UX25-D2: loading state pra skeleton no modal
+  const [isLoadingLibrary, setIsLoadingLibrary] = useState(false);
   const currentUid = auth.currentUser?.uid || null;
   React.useEffect(() => {
     if (!currentUid) return;
+    setIsLoadingLibrary(true);
     loadPersonalLibrary(currentUid)
       .then(setPersonalLibrary)
-      .catch((err) => console.warn('[loadPersonalLibrary] failed:', err));
+      .catch((err) => console.warn('[loadPersonalLibrary] failed:', err))
+      .finally(() => setIsLoadingLibrary(false));
   }, [currentUid]);
 
   const reloadLibrary = async () => {
@@ -766,6 +770,7 @@ export function CopyTab({
         onAddManual={handleAddManualCopy}
         selectedReferenceIds={referenceCopyIds}
         onToggleReference={handleToggleReference}
+        isLoading={isLoadingLibrary}
       />
 
       {/* UX23-E: modal "Ver referências usadas" — mostra snapshot do
