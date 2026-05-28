@@ -1340,6 +1340,16 @@ export async function generateMonthlyPlan(input: MonthlyPlanInputs): Promise<{
   const { calibrated, modelReferenceCopyIds, strategicContext } = input;
   const N = Math.max(4, calibrated.monthlyTotal);
 
+  // UX29 fix: cap Claude generation a ~25 briefs únicos pra caber no
+  // max_tokens=12000 do backend. Volumes maiores são preenchidos com
+  // VARIAÇÕES dos base briefs (mesmo conceito, hook/CTA diferentes).
+  //
+  // Isso espelha a prática real: top affiliates não geram 139 conceitos
+  // únicos — geram 20-30 conceitos vencedores e produzem 5-10 variações
+  // de cada. Variações são marcadas com derivedFromBriefId pro tracking.
+  const MAX_UNIQUE_BRIEFS = 25;
+  const baseBriefCount = Math.min(N, MAX_UNIQUE_BRIEFS);
+
   // UX29: enriquece copyAnswers com contexto estratégico — backend pode
   // ou não usar, mas mantém o dado fluindo. Se o Claude prompt do
   // /marketing-plan ler estes campos, ele pode adaptar angles/hooks
@@ -1356,17 +1366,42 @@ export async function generateMonthlyPlan(input: MonthlyPlanInputs): Promise<{
       }
     : input.copyAnswers;
 
-  // 1) Gera N briefs base via blueprint existente
+  // 1) Gera baseBriefCount briefs únicos via blueprint
   const { plan, briefs: rawBriefs } = await generateMarketingBlueprint({
     productInfo: input.productInfo,
     personas: input.personas,
     selectedPersonaIds: input.selectedPersonaIds,
     copyAnswers: enrichedCopyAnswers,
-    targetCount: N,
+    targetCount: baseBriefCount,
   });
 
-  // Garante que temos pelo menos N briefs (Claude às vezes devolve menos)
-  const briefs = rawBriefs.slice(0, N);
+  const briefs = rawBriefs.slice(0, baseBriefCount);
+
+  // 2) UX29: se monthlyTotal > base, preenche com variações dos base briefs.
+  //    Cada variação herda persona/awareness/angle/emotion do parent mas
+  //    recebe id próprio + derivedFromBriefId + suffix no índice/rationale.
+  //    O hook fica vazio — usuário (ou IA) preenche quando executar o brief.
+  if (briefs.length > 0 && N > briefs.length) {
+    const needed = N - briefs.length;
+    const variations: any[] = [];
+    for (let i = 0; i < needed; i++) {
+      const parent = briefs[i % briefs.length];
+      if (!parent) continue;
+      const variantNum = Math.floor(i / briefs.length) + 2; // v2, v3, v4...
+      variations.push({
+        ...parent,
+        id: `${parent.id}_var${variantNum}_${i}`,
+        index: briefs.length + i + 1,
+        derivedFromBriefId: parent.id,
+        hook: '', // será regenerado quando executar
+        rationale: `Variação ${variantNum} do #${parent.index} (${parent.angle}). Mesmo ângulo + persona, hook/abertura diferentes pra rotação.`,
+        // Marca como variação no contexto — mantém o resto
+        _isVariation: true,
+        _parentIndex: parent.index,
+      });
+    }
+    briefs.push(...variations);
+  }
 
   // 2) Distribui em semanas conforme weeklyTargets
   const { week1, week2, week3, week4 } = calibrated.weeklyTargets;
