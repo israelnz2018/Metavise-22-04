@@ -1,53 +1,62 @@
 /**
- * UX28 — Smart Monthly Plan Calibration
+ * UX28/29 — Smart Monthly Plan Calibration
  *
  * Pure (no I/O) module que recebe sinais do projeto + inputs do user
  * e devolve um plano mensal calibrado: quantos criativos por semana,
- * distribuição de tamanho, intensidade de modeling, dicas de budget.
+ * distribuição de tamanho, intensidade de modeling, dicas de budget,
+ * REGRAS DE SCALING.
  *
- * Filosofia: o plano de marketing tem que ADAPTAR ao caso (high vs
- * low ticket, VSL longa vs curta, audiência velha vs nova, afiliado
- * vs dono, etc). Antes era one-size-fits-all.
+ * UX29 mudanças importantes:
  *
- * Sinais que tentamos puxar do productInfo (já analisado da VSL):
- *   - vertical (saude/emagrecimento/financas/etc)
- *   - awareness target (1-5)
- *   - demografia hints (idade, perfil)
- *   - vslLengthMinutes (do upload, se houver)
- *   - saturation (heurística pelo vertical)
+ * 1) Volume é IDEAL — não capado por "user é solo". Todo cliente
+ *    recebe o número que o algoritmo Meta 2025 quer pra performar.
+ *    Se você não der conta de produzir, é problema seu pra resolver
+ *    (template, time, ajustar pra baixo manualmente).
  *
- * Inputs do user (4 perguntas):
- *   - commissionPct
- *   - avgOrderValue (ou range)
+ * 2) Inputs trocados: commission/AOV → productPrice/idealCPA.
+ *    User não quer pensar em comissão; quer pensar em "preço do
+ *    produto" e "quanto eu aceito pagar por uma venda".
+ *
+ * 3) Volume Strategy toggle: Conservador (era 2022) / Moderno
+ *    (Advantage+ era) / Agressivo (top operations 250+/mês).
+ *
+ * 4) Profile NÃO reduz volume — só ajusta a CURVA de cadência (W1
+ *    mais pesado pra serious/agency, mais distribuído pra newcomer).
+ *
+ * Sinais auto-extraídos do productInfo:
+ *   - vertical, awareness, demographic, vslLengthMinutes, saturation
+ *
+ * Inputs do user (5 perguntas agora):
+ *   - productPrice (oferta principal ou média)
+ *   - idealCPA (custo aceitável por venda)
  *   - dailyBudgetUsd
  *   - profile (newcomer/scaling/serious/agency)
+ *   - volumeStrategy (conservative/modern/aggressive)
  */
 
 export type AwarenessLevel = '1' | '2' | '3' | '4' | '5';
 export type ProfileLevel = 'newcomer' | 'scaling' | 'serious' | 'agency';
 export type SaturationLevel = 'low' | 'medium' | 'high';
+export type VolumeStrategy = 'conservative' | 'modern' | 'aggressive';
 
 /** Sinais que tentamos extrair automaticamente do projeto. */
 export interface ProjectSignals {
   vertical?: string;
-  /** Schwartz awareness — quanto mais frio (1-2), mais long-form */
   awareness?: AwarenessLevel;
-  /** Hint demográfico ("55+", "mães 30-40", etc) — string livre */
   demographic?: string;
-  /** Duração da VSL em minutos, se aplicável */
   vslLengthMinutes?: number;
-  /** Saturação do vertical — heurística baseada em vertical comum */
   saturation?: SaturationLevel;
 }
 
 /** Inputs do user no formulário do plano mensal. */
 export interface MonthlyPlanInputs {
-  commissionPct: number;
-  /** AOV médio — pode ser média ponderada de múltiplas ofertas */
-  avgOrderValue: number;
+  /** Preço do produto principal (ou média ponderada de múltiplas ofertas) */
+  productPrice: number;
+  /** Custo máximo aceitável por venda (target CPA) */
+  idealCPA: number;
   dailyBudgetUsd: number;
   profile: ProfileLevel;
-  /** IDs de copies da biblioteca pessoal pra usar como modelo */
+  volumeStrategy: VolumeStrategy;
   modelReferenceCopyIds?: string[];
 }
 
@@ -59,77 +68,58 @@ export interface CalibratedMonthlyPlan {
     ideal: number;
     rationale: string;
   };
-  /** Distribuição percentual — soma 100 */
   lengthDistribution: {
     short: number;
     medium: number;
     long: number;
   };
-  /** Targets por semana */
   weeklyTargets: {
     week1: number;
     week2: number;
     week3: number;
     week4: number;
   };
-  /** Total ao longo do mês */
   monthlyTotal: number;
-  /** % de briefs que devem ser modelagem de referência (0 se não há refs) */
   modelingIntensity: number;
-  /** Regras de scaling sugeridas — strings pra mostrar no UI */
   scalingRules: string[];
-  /** Diagnóstico vs sugestão (under-budget, over-budget, etc) */
   budgetVerdict:
     | 'below-minimum'
     | 'below-recommended'
     | 'recommended'
     | 'above-recommended'
     | 'ideal+';
-  /** Estimativa de tempo até breakthrough */
   breakthroughEstimate: string;
+  /** UX29: explica de onde veio o número de criativos pra user entender */
+  volumeRationale: string;
 }
 
 // ────────────────────────────────────────────────────────────────────
 // Heurística de saturação por vertical
 // ────────────────────────────────────────────────────────────────────
-/**
- * Verticais de afiliado tradicionalmente saturados (muitos rodando o
- * mesmo creative) precisam de mais variação/volume pra furar a bolha.
- */
 function inferSaturation(vertical?: string): SaturationLevel {
   if (!vertical) return 'medium';
   const v = vertical.toLowerCase();
-  // Verticais ULTRA saturados em afiliado
   if (/(saude|health|supplement|neuropathy|diabetes|prostate|joint|memory)/.test(v)) return 'high';
   if (/(emagre|weight.?loss|keto|diet|belly|fat)/.test(v)) return 'high';
   if (/(make.?money|wealth|trading|crypto|side.?hustle|renda.?extra)/.test(v)) return 'high';
-  // Verticais médios
   if (/(beauty|beleza|skincare|hair|cabelo)/.test(v)) return 'medium';
   if (/(info.?produto|course|mentoria|workshop)/.test(v)) return 'medium';
-  // Mais low-comp
   if (/(spiritual|esp[ií]ritu|tarot|astrolog)/.test(v)) return 'low';
   if (/(fisico|gadget|tool|saas|b2b)/.test(v)) return 'low';
   return 'medium';
 }
 
-/**
- * Extrai sinais do productInfo (objeto livre vindo da análise da VSL).
- * Best-effort — campos podem estar undefined. Não falha.
- */
 export function inferProjectSignals(productInfo: any): ProjectSignals {
   const out: ProjectSignals = {};
   if (!productInfo) return out;
 
-  // Vertical pode vir explicit ou ser inferida do texto
   out.vertical = productInfo.vertical || productInfo.categoria || productInfo.category || undefined;
 
-  // Awareness pode vir explicit
   const aw = productInfo.awarenessLevel || productInfo.awareness;
   if (typeof aw === 'string' && /^[1-5]/.test(aw)) {
     out.awareness = aw.charAt(0) as AwarenessLevel;
   }
 
-  // Demographic hints — vem do persona ou audience
   out.demographic =
     productInfo.demographic ||
     productInfo.audience ||
@@ -137,42 +127,35 @@ export function inferProjectSignals(productInfo: any): ProjectSignals {
     productInfo.targetAudience ||
     undefined;
 
-  // VSL length — pode vir do upload metadata
   const vlen = productInfo.vslLengthMinutes || productInfo.vslDurationMinutes;
   if (typeof vlen === 'number' && vlen > 0) out.vslLengthMinutes = vlen;
 
-  // Saturação derivada
   out.saturation = inferSaturation(out.vertical);
 
   return out;
 }
 
 // ────────────────────────────────────────────────────────────────────
-// Budget hints — dado AOV + comissão, sugere min/recommended/ideal
+// UX29: Budget hints — baseado em idealCPA (não em commission)
 // ────────────────────────────────────────────────────────────────────
 /**
- * Calcula faixas de orçamento diário recomendadas baseado em AOV
- * comm. A lógica é: cada anúncio precisa de spend suficiente pra
- * ser estatisticamente significante (~$30-50 por creative pra
- * descobrir se é winner ou não).
+ * Sem commission, o que importa é: quanto budget dá pra absorver
+ * a learning phase e gerar volume estatístico?
  *
- * - Minimum: ~30% do commission/sale (testando lento, learning phase
- *   dolorosa, breakthrough em 35-50d)
- * - Recommended: ~60-70% do commission/sale (sweet spot — breakthrough
- *   em 14-21d)
- * - Ideal: ~150%+ do commission/sale (volume real, breakthrough em
- *   7-14d, scale rápido)
+ * - Minimum: 2x idealCPA/dia (você consegue 1 venda a cada 2 dias
+ *   no breakeven — learning phase vai doer mas é possível)
+ * - Recommended: 4x idealCPA/dia (2 vendas/dia esperadas em winner,
+ *   permite testar várias ad sets simultâneas)
+ * - Ideal: 10x idealCPA/dia (volume real, múltiplas campanhas,
+ *   scale agressivo)
  *
- * Mínimos absolutos pra qualquer caso: $30, $60, $150.
+ * Floors absolutos: $30, $60, $150.
  */
 export function calculateBudgetHints(
-  commissionPct: number,
-  avgOrderValue: number,
+  idealCPA: number,
   saturation: SaturationLevel = 'medium'
 ): CalibratedMonthlyPlan['budgetHints'] {
-  const commPerSale = (avgOrderValue * commissionPct) / 100;
-
-  // Multiplier por saturação — verticais saturados precisam mais budget
+  // Multiplier por saturação
   const satMult: Record<SaturationLevel, number> = {
     low: 0.85,
     medium: 1.0,
@@ -180,33 +163,21 @@ export function calculateBudgetHints(
   };
   const k = satMult[saturation];
 
-  const minimum = Math.max(30, Math.round(commPerSale * 0.3 * k));
-  const recommended = Math.max(60, Math.round(commPerSale * 0.65 * k));
-  const ideal = Math.max(150, Math.round(commPerSale * 1.5 * k));
+  const minimum = Math.max(30, Math.round(idealCPA * 2 * k));
+  const recommended = Math.max(60, Math.round(idealCPA * 4 * k));
+  const ideal = Math.max(150, Math.round(idealCPA * 10 * k));
 
-  const rationale = `Comissão média ~$${commPerSale.toFixed(0)}/venda. Saturação ${saturation}.
-- Mínimo: roda devagar, descoberta de winner ~35-50 dias.
-- Recomendado: sweet spot pro seu caso, breakthrough ~14-21d.
-- Ideal: volume real, breakthrough rápido + scale agressivo.`;
+  const rationale = `CPA alvo: $${idealCPA}. Saturação ${saturation}.
+- Mínimo (${minimum}/d): 1 venda a cada 2 dias em winner, learning phase dolorosa.
+- Recomendado (${recommended}/d): 2-3 vendas/dia, testa múltiplos ad sets simultâneos.
+- Ideal (${ideal}/d): volume real, múltiplas campanhas, scale agressivo.`;
 
   return { minimum, recommended, ideal, rationale };
 }
 
 // ────────────────────────────────────────────────────────────────────
-// Length distribution — % curto/médio/longo
+// UX29: Length distribution — mantém lógica anterior (já estava OK)
 // ────────────────────────────────────────────────────────────────────
-/**
- * Distribuição padrão 2025: 25/55/20 (curto/médio/longo).
- *
- * Modifiers:
- *   - awareness 1 (very cold)      → +10% long  (precisa DR depth)
- *   - awareness 5 (hot/aware)      → -10% long, +10% short
- *   - demographic 55+              → +5% long
- *   - demographic 18-34            → +10% short
- *   - vslLengthMinutes > 30        → +5% long
- *   - vslLengthMinutes < 10        → +10% short
- *   - saturation high              → +5% short (volume > depth)
- */
 export function calibrateLengthDistribution(
   signals: ProjectSignals
 ): CalibratedMonthlyPlan['lengthDistribution'] {
@@ -214,7 +185,6 @@ export function calibrateLengthDistribution(
   let medium = 55;
   let long = 20;
 
-  // Awareness
   if (signals.awareness === '1') {
     long += 10;
     medium -= 10;
@@ -223,7 +193,6 @@ export function calibrateLengthDistribution(
     short += 10;
   }
 
-  // Demographic
   if (signals.demographic) {
     const d = signals.demographic.toLowerCase();
     if (/55|60|65|aposent|elder|idos/.test(d)) {
@@ -236,7 +205,6 @@ export function calibrateLengthDistribution(
     }
   }
 
-  // VSL length
   if (signals.vslLengthMinutes) {
     if (signals.vslLengthMinutes > 30) {
       long += 5;
@@ -248,7 +216,6 @@ export function calibrateLengthDistribution(
     }
   }
 
-  // Saturation
   if (signals.saturation === 'high') {
     short += 5;
     long -= 5;
@@ -257,7 +224,6 @@ export function calibrateLengthDistribution(
     medium += 5;
   }
 
-  // Sanity: clamp & re-normalize to 100
   short = Math.max(10, short);
   medium = Math.max(20, medium);
   long = Math.max(5, long);
@@ -270,81 +236,97 @@ export function calibrateLengthDistribution(
 }
 
 // ────────────────────────────────────────────────────────────────────
-// Weekly targets — quantos criativos por semana
+// UX29: Weekly targets — volume puxado de BUDGET + STRATEGY
 // ────────────────────────────────────────────────────────────────────
 /**
- * Targets de produção. Base do perfil + ajuste pelo budget vs hints.
+ * Volume é função primária de:
+ *   1) Daily budget (fonte real do volume)
+ *   2) Volume strategy (Conservador/Moderno/Agressivo) — define
+ *      $/criativo "feeding rate"
  *
- *   newcomer  → 8 base
- *   scaling   → 12 base
- *   serious   → 16 base
- *   agency    → 24 base
+ * Profile NÃO reduz volume — só ajusta a CURVA semanal:
+ *   - Newcomer ramp-up gradual (W1=20%, W4=25%)
+ *   - Agency front-load pesado (W1=40%, W4=15%)
  *
- * Distribuição W1>W3>W2>W4 (launch heavy, learning, scale, production).
+ * Volume Strategy define $/creative (feeding rate do Advantage+):
+ *   - Conservative: $30/criativo (era 2022, valida 1 por 1)
+ *   - Modern: $13/criativo (Advantage+ era, default) ⭐
+ *   - Aggressive: $7/criativo (top operations 250+/mês, batch creative)
+ *
+ * Floor: 16 criativos/mês mínimo (qualquer estratégia). Sem isso o
+ * Meta não tem material pra learning phase decente.
  */
 export function calibrateWeeklyTargets(
   profile: ProfileLevel,
   dailyBudgetUsd: number,
-  hints: CalibratedMonthlyPlan['budgetHints']
+  hints: CalibratedMonthlyPlan['budgetHints'],
+  volumeStrategy: VolumeStrategy = 'modern'
 ): {
   weeklyTargets: CalibratedMonthlyPlan['weeklyTargets'];
   monthlyTotal: number;
   budgetVerdict: CalibratedMonthlyPlan['budgetVerdict'];
+  volumeRationale: string;
 } {
-  const baseByProfile: Record<ProfileLevel, number> = {
-    newcomer: 8,
-    scaling: 12,
-    serious: 16,
-    agency: 24,
+  // $/creative por estratégia
+  const spendPerCreative: Record<VolumeStrategy, number> = {
+    conservative: 30,
+    modern: 13,
+    aggressive: 7,
   };
-  const base = baseByProfile[profile];
+  const strategyLabel: Record<VolumeStrategy, string> = {
+    conservative: 'Conservador (valida 1 por 1)',
+    modern: 'Moderno (Advantage+)',
+    aggressive: 'Agressivo (volume era)',
+  };
 
-  // Budget multiplier
-  let multiplier = 1.0;
+  // Volume base do mês: budget mensal / $/criativo
+  const monthlyBudget = dailyBudgetUsd * 30;
+  let monthlyTotal = Math.round(monthlyBudget / spendPerCreative[volumeStrategy]);
+
+  // Floor de 16 — qualquer estratégia precisa de material mínimo
+  monthlyTotal = Math.max(16, monthlyTotal);
+
+  // Cap superior — 500/mês é além do realista mesmo pra agências top
+  monthlyTotal = Math.min(500, monthlyTotal);
+
+  // Distribuição semanal — depende do PROFILE (não reduz volume, só
+  // ajusta a forma da curva)
+  const curve: Record<ProfileLevel, [number, number, number, number]> = {
+    newcomer: [0.2, 0.25, 0.3, 0.25], // ramp-up gradual
+    scaling: [0.3, 0.25, 0.25, 0.2], // moderado front-load
+    serious: [0.35, 0.25, 0.25, 0.15], // heavy launch
+    agency: [0.4, 0.25, 0.2, 0.15], // massive launch, fast iteration
+  };
+  const [c1, c2, c3, c4] = curve[profile];
+
+  const week1 = Math.max(3, Math.round(monthlyTotal * c1));
+  const week2 = Math.max(2, Math.round(monthlyTotal * c2));
+  const week3 = Math.max(2, Math.round(monthlyTotal * c3));
+  const week4 = Math.max(2, Math.round(monthlyTotal * c4));
+
+  // Ajusta monthlyTotal pra match a soma real
+  const actualTotal = week1 + week2 + week3 + week4;
+
+  // Budget verdict
   let verdict: CalibratedMonthlyPlan['budgetVerdict'] = 'recommended';
+  if (dailyBudgetUsd < hints.minimum) verdict = 'below-minimum';
+  else if (dailyBudgetUsd < hints.recommended) verdict = 'below-recommended';
+  else if (dailyBudgetUsd < hints.ideal) verdict = 'above-recommended';
+  else verdict = 'ideal+';
 
-  if (dailyBudgetUsd < hints.minimum) {
-    multiplier = 0.5;
-    verdict = 'below-minimum';
-  } else if (dailyBudgetUsd < hints.recommended) {
-    const ratio = (dailyBudgetUsd - hints.minimum) / (hints.recommended - hints.minimum);
-    multiplier = 0.6 + ratio * 0.35; // 0.6 to 0.95
-    verdict = 'below-recommended';
-  } else if (dailyBudgetUsd < hints.ideal) {
-    const ratio = (dailyBudgetUsd - hints.recommended) / (hints.ideal - hints.recommended);
-    multiplier = 1.0 + ratio * 0.5; // 1.0 to 1.5
-    verdict = 'above-recommended';
-  } else {
-    multiplier = 1.6;
-    verdict = 'ideal+';
-  }
-
-  const baseAdjusted = base * multiplier;
-
-  // Distribuição entre semanas — W1 lança forte, W2 aprendizado (-30%),
-  // W3 escala (+10% acima do baseline), W4 produção (-20%)
-  const week1 = Math.max(4, Math.round(baseAdjusted * 1.0));
-  const week2 = Math.max(3, Math.round(baseAdjusted * 0.7));
-  const week3 = Math.max(3, Math.round(baseAdjusted * 0.85));
-  const week4 = Math.max(3, Math.round(baseAdjusted * 0.6));
+  const volumeRationale = `Volume: $${dailyBudgetUsd}/dia × 30 = $${monthlyBudget}/mês ÷ $${spendPerCreative[volumeStrategy]}/criativo (${strategyLabel[volumeStrategy]}) = ${actualTotal} criativos/mês. Cadência ${profile} distribui em S1:${Math.round(c1 * 100)}% S2:${Math.round(c2 * 100)}% S3:${Math.round(c3 * 100)}% S4:${Math.round(c4 * 100)}%.`;
 
   return {
     weeklyTargets: { week1, week2, week3, week4 },
-    monthlyTotal: week1 + week2 + week3 + week4,
+    monthlyTotal: actualTotal,
     budgetVerdict: verdict,
+    volumeRationale,
   };
 }
 
 // ────────────────────────────────────────────────────────────────────
-// Modeling intensity — % de briefs que viram modelagem
+// Modeling intensity — mantém lógica
 // ────────────────────────────────────────────────────────────────────
-/**
- * Quando tem ref copies disponíveis, sugere % de briefs que devem ser
- * variações. Saturação alta → mais modelagem (você precisa diferenciar
- * de competição, mas mantendo o que funciona).
- *
- * Retorna 0 quando não há refs.
- */
 export function calibrateModelingIntensity(
   hasReferences: boolean,
   saturation: SaturationLevel = 'medium'
@@ -359,18 +341,18 @@ export function calibrateModelingIntensity(
 }
 
 // ────────────────────────────────────────────────────────────────────
-// Scaling rules — strings informativas pro user seguir
+// Scaling rules — agora puxam idealCPA do user (não 50% commission)
 // ────────────────────────────────────────────────────────────────────
-function buildScalingRules(hints: CalibratedMonthlyPlan['budgetHints']): string[] {
-  const cpaTarget50 = Math.round(hints.recommended * 0.5);
-  const cpaTarget100 = hints.recommended;
+function buildScalingRules(idealCPA: number): string[] {
+  const cpaTarget50 = Math.round(idealCPA * 0.5);
   return [
     `CPA < $${cpaTarget50} E ROAS > 2x após 72h → dobra budget desse ad set`,
-    `CPA $${cpaTarget50}-$${cpaTarget100} → mantém, observa mais 48h`,
-    `CPA > $${cpaTarget100} sem tendência → KILL`,
+    `CPA $${cpaTarget50}-$${idealCPA} → mantém, observa mais 48h`,
+    `CPA > $${idealCPA} sem tendência → KILL (acima do alvo)`,
     `CTR < 0.8% → KILL (hook fraco, não a oferta)`,
     `Frequency > 2.5x sem vendas → KILL (audiência fadigada)`,
-    `Quando winner consolidado: 5 variações em ~24-48h pra escalar barato`,
+    `Quando winner consolidado: 5-10 variações em 24-48h pra escalar barato`,
+    `Refresh criativos novos a cada 3-5 dias mesmo nos winners (fadiga inevitável)`,
   ];
 }
 
@@ -379,9 +361,10 @@ function buildScalingRules(hints: CalibratedMonthlyPlan['budgetHints']): string[
 // ────────────────────────────────────────────────────────────────────
 function estimateBreakthrough(
   verdict: CalibratedMonthlyPlan['budgetVerdict'],
-  saturation: SaturationLevel
+  saturation: SaturationLevel,
+  volumeStrategy: VolumeStrategy
 ): string {
-  const lookup: Record<typeof verdict, string> = {
+  const lookup: Record<CalibratedMonthlyPlan['budgetVerdict'], string> = {
     'below-minimum': 'incerto (45-60+ dias) — learning phase vai doer',
     'below-recommended': '21-35 dias',
     recommended: '14-21 dias',
@@ -390,20 +373,26 @@ function estimateBreakthrough(
   };
   let base = lookup[verdict];
   if (saturation === 'high') base += ' (vertical saturado — pode levar mais)';
+  if (volumeStrategy === 'aggressive') base += ' · volume agressivo acelera';
   return base;
 }
 
 // ────────────────────────────────────────────────────────────────────
-// ENTRY POINT — calibra plano mensal a partir de signals + inputs
+// ENTRY POINT — calibra plano mensal
 // ────────────────────────────────────────────────────────────────────
 export function calibrateMonthlyPlan(
   signals: ProjectSignals,
   inputs: MonthlyPlanInputs
 ): CalibratedMonthlyPlan {
   const sat = signals.saturation || 'medium';
-  const hints = calculateBudgetHints(inputs.commissionPct, inputs.avgOrderValue, sat);
+  const hints = calculateBudgetHints(inputs.idealCPA, sat);
   const lengthDistribution = calibrateLengthDistribution(signals);
-  const weekly = calibrateWeeklyTargets(inputs.profile, inputs.dailyBudgetUsd, hints);
+  const weekly = calibrateWeeklyTargets(
+    inputs.profile,
+    inputs.dailyBudgetUsd,
+    hints,
+    inputs.volumeStrategy
+  );
   const modelingIntensity = calibrateModelingIntensity(
     !!(inputs.modelReferenceCopyIds && inputs.modelReferenceCopyIds.length > 0),
     sat
@@ -416,7 +405,8 @@ export function calibrateMonthlyPlan(
     monthlyTotal: weekly.monthlyTotal,
     budgetVerdict: weekly.budgetVerdict,
     modelingIntensity,
-    scalingRules: buildScalingRules(hints),
-    breakthroughEstimate: estimateBreakthrough(weekly.budgetVerdict, sat),
+    scalingRules: buildScalingRules(inputs.idealCPA),
+    breakthroughEstimate: estimateBreakthrough(weekly.budgetVerdict, sat, inputs.volumeStrategy),
+    volumeRationale: weekly.volumeRationale,
   };
 }

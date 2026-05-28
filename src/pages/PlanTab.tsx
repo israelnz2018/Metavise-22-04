@@ -147,6 +147,14 @@ export function PlanTab({
           modelingIntensity: calibrated.modelingIntensity,
         },
         modelReferenceCopyIds: config.modelReferenceCopyIds,
+        // UX29: passa contexto estratégico pra backend usar nos prompts
+        strategicContext: {
+          productPrice: config.productPrice,
+          idealCPA: config.idealCPA,
+          dailyBudgetUsd: config.dailyBudgetUsd,
+          volumeStrategy: config.volumeStrategy,
+          profile: config.profile,
+        },
       });
       setPlan(p);
       setBriefs(b as CreativeBrief[]);

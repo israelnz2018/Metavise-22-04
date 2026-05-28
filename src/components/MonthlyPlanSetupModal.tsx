@@ -1,24 +1,24 @@
 /**
- * UX28-C — Monthly Plan Setup Modal
+ * UX28-C / UX29 — Monthly Plan Setup Modal
  *
- * Modal que aparece quando user clica "Configurar plano mensal" no
- * PlanTab. 4 inputs (comissão / AOV / budget / perfil) + opcional
- * seleção de copies pra modelar. Mostra dicas dinâmicas de budget
- * (mínimo / recomendado / ideal) calculadas a partir de AOV + comm.
+ * 5 inputs (preço / CPA ideal / budget / perfil / volume strategy)
+ * + opcional seleção de copies pra modelar.
  *
- * Onde os signals do projeto vêm:
- *   - PlanTab passa productInfo (já analisado da VSL)
- *   - inferProjectSignals(productInfo) extrai vertical/awareness/demo/etc
- *   - Usado pra calibrar length distribution etc
+ * UX29 mudanças:
+ *  - Removeu commission% + AOV
+ *  - Adicionou productPrice + idealCPA (mais simples e direto)
+ *  - Adicionou volumeStrategy toggle (Conservador/Moderno/Agressivo)
+ *  - Volume agora reflete ideal real do Meta 2025 (não capa solo)
  */
 
 import { useState, useMemo } from 'react';
-import { X, Sparkles, DollarSign, Users, Library } from 'lucide-react';
+import { X, Sparkles, DollarSign, Users, Library, Target, Zap, Gauge } from 'lucide-react';
 import {
   calculateBudgetHints,
   calibrateMonthlyPlan,
   inferProjectSignals,
   type ProfileLevel,
+  type VolumeStrategy,
   type CalibratedMonthlyPlan,
 } from '@/lib/planCalibration';
 import type { MonthlyPlanConfig } from '@/types/project';
@@ -33,26 +33,46 @@ interface Props {
   onSubmit: (config: MonthlyPlanConfig, calibrated: CalibratedMonthlyPlan) => void;
 }
 
-const PROFILE_LABELS: Record<ProfileLevel, { label: string; desc: string; budgetHint: string }> = {
+const PROFILE_LABELS: Record<ProfileLevel, { label: string; desc: string }> = {
   newcomer: {
     label: 'Iniciante',
-    desc: 'Testando ainda, sem capital ou experiência forte',
-    budgetHint: '$30-60/dia',
+    desc: 'Ramp gradual — semana 1 leve, vai subindo',
   },
   scaling: {
     label: 'Escalando',
-    desc: 'Já roda, descobrindo o que funciona, capital limitado',
-    budgetHint: '$60-150/dia',
+    desc: 'Moderado — lançamento +- forte, depois pico em S3',
   },
   serious: {
     label: 'Sério estabelecido',
-    desc: 'Operação consolidada, otimizando ROAS',
-    budgetHint: '$150-500/dia',
+    desc: 'Heavy launch — S1 pesado, refina rápido',
   },
   agency: {
-    label: 'Agência / Grande operação',
-    desc: 'Múltiplas ofertas / clientes, volume alto',
-    budgetHint: '$500+/dia',
+    label: 'Agência / Time',
+    desc: 'Massive launch — S1 quase metade do mês, iteração rápida',
+  },
+};
+
+const VOLUME_STRATEGY_LABELS: Record<
+  VolumeStrategy,
+  { label: string; desc: string; perCreative: string; era: string }
+> = {
+  conservative: {
+    label: 'Conservador',
+    desc: 'Valida criativo por criativo · pouco volume · era 2022',
+    perCreative: '$30/criativo',
+    era: 'antigo',
+  },
+  modern: {
+    label: 'Moderno (Advantage+)',
+    desc: 'Advantage+ Creative Optimization · volume médio-alto · default 2025',
+    perCreative: '$13/criativo',
+    era: '⭐ default',
+  },
+  aggressive: {
+    label: 'Agressivo (250+/mês)',
+    desc: 'Top operações · batch creative · volume era · times grandes',
+    perCreative: '$7/criativo',
+    era: '🚀 top tier',
   },
 };
 
@@ -64,45 +84,55 @@ export default function MonthlyPlanSetupModal({
   personalLibrary,
   onSubmit,
 }: Props) {
-  // Inputs persistentes
-  const [commissionPct, setCommissionPct] = useState(initialConfig?.commissionPct ?? 65);
-  const [avgOrderValue, setAvgOrderValue] = useState(initialConfig?.avgOrderValue ?? 100);
+  // UX29: novos inputs
+  const [productPrice, setProductPrice] = useState(initialConfig?.productPrice ?? 100);
+  const [idealCPA, setIdealCPA] = useState(initialConfig?.idealCPA ?? 50);
   const [dailyBudgetUsd, setDailyBudgetUsd] = useState(initialConfig?.dailyBudgetUsd ?? 60);
   const [profile, setProfile] = useState<ProfileLevel>(initialConfig?.profile ?? 'scaling');
+  const [volumeStrategy, setVolumeStrategy] = useState<VolumeStrategy>(
+    initialConfig?.volumeStrategy ?? 'modern'
+  );
   const [modelReferenceCopyIds, setModelReferenceCopyIds] = useState<string[]>(
     initialConfig?.modelReferenceCopyIds ?? []
   );
 
-  // Sinais do projeto (read-only)
   const signals = useMemo(() => inferProjectSignals(productInfo), [productInfo]);
 
-  // Budget hints dinâmicos
   const hints = useMemo(
-    () => calculateBudgetHints(commissionPct, avgOrderValue, signals.saturation),
-    [commissionPct, avgOrderValue, signals.saturation]
+    () => calculateBudgetHints(idealCPA, signals.saturation),
+    [idealCPA, signals.saturation]
   );
 
-  // Plano calibrado preview (atualiza em tempo real)
   const preview = useMemo(
     () =>
       calibrateMonthlyPlan(signals, {
-        commissionPct,
-        avgOrderValue,
+        productPrice,
+        idealCPA,
         dailyBudgetUsd,
         profile,
+        volumeStrategy,
         modelReferenceCopyIds,
       }),
-    [signals, commissionPct, avgOrderValue, dailyBudgetUsd, profile, modelReferenceCopyIds]
+    [
+      signals,
+      productPrice,
+      idealCPA,
+      dailyBudgetUsd,
+      profile,
+      volumeStrategy,
+      modelReferenceCopyIds,
+    ]
   );
 
   if (!open) return null;
 
   const handleSubmit = () => {
     const config: MonthlyPlanConfig = {
-      commissionPct,
-      avgOrderValue,
+      productPrice,
+      idealCPA,
       dailyBudgetUsd,
       profile,
+      volumeStrategy,
       modelReferenceCopyIds,
       calibrated: {
         budgetHints: preview.budgetHints,
@@ -113,6 +143,7 @@ export default function MonthlyPlanSetupModal({
         scalingRules: preview.scalingRules,
         budgetVerdict: preview.budgetVerdict,
         breakthroughEstimate: preview.breakthroughEstimate,
+        volumeRationale: preview.volumeRationale,
       },
       generatedAt: Date.now(),
     };
@@ -136,7 +167,7 @@ export default function MonthlyPlanSetupModal({
 
   return (
     <div className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-gray-950 rounded-3xl w-full max-w-5xl max-h-[92vh] overflow-hidden shadow-2xl flex flex-col">
+      <div className="bg-white dark:bg-gray-950 rounded-3xl w-full max-w-6xl max-h-[92vh] overflow-hidden shadow-2xl flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-800 shrink-0">
           <div className="flex items-center gap-3">
@@ -148,7 +179,7 @@ export default function MonthlyPlanSetupModal({
                 Configurar plano mensal
               </h2>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                4 perguntas → Metavise calibra tudo o resto pro seu caso
+                Volume calculado pelo Meta 2025 best practices · sem cap por suposição de solo
               </p>
             </div>
           </div>
@@ -167,7 +198,7 @@ export default function MonthlyPlanSetupModal({
             {/* Project signals (read-only) */}
             <div className="rounded-2xl bg-blue-50 dark:bg-blue-950/30 p-4">
               <p className="text-[10px] font-black uppercase tracking-widest text-blue-700 dark:text-blue-300 mb-2">
-                Sinais do projeto (auto)
+                Sinais do projeto (auto-detectados)
               </p>
               <div className="space-y-1 text-xs">
                 <p>
@@ -190,59 +221,57 @@ export default function MonthlyPlanSetupModal({
               </div>
             </div>
 
-            {/* Comissão */}
+            {/* Preço do produto */}
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">
-                1. Sua comissão por venda (%)
+              <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                <DollarSign size={11} />
+                1. Preço do produto (oferta média)
               </label>
               <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-500">$</span>
                 <input
                   type="number"
                   min={1}
-                  max={100}
-                  value={commissionPct}
-                  onChange={(e) =>
-                    setCommissionPct(Math.max(1, Math.min(100, Number(e.target.value) || 0)))
-                  }
-                  className="w-24 px-3 py-2 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-800 text-sm font-bold focus:border-blue-400 outline-none"
+                  value={productPrice}
+                  onChange={(e) => setProductPrice(Math.max(1, Number(e.target.value) || 0))}
+                  className="w-28 px-3 py-2 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-800 text-sm font-bold focus:border-blue-400 outline-none"
                 />
-                <span className="text-sm text-gray-500">%</span>
+                <span className="text-[10px] text-gray-400 italic">
+                  Se tem múltiplas ofertas (1/3/6), use a média ponderada
+                </span>
               </div>
             </div>
 
-            {/* AOV */}
+            {/* CPA ideal */}
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">
-                2. AOV médio (US$ por venda)
+              <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                <Target size={11} />
+                2. CPA aceitável (quanto pode pagar por venda)
               </label>
               <div className="flex items-center gap-2">
-                <DollarSign size={14} className="text-gray-400" />
+                <span className="text-sm text-gray-500">$</span>
                 <input
                   type="number"
                   min={1}
-                  value={avgOrderValue}
-                  onChange={(e) => setAvgOrderValue(Math.max(1, Number(e.target.value) || 0))}
-                  className="w-24 px-3 py-2 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-800 text-sm font-bold focus:border-blue-400 outline-none"
+                  value={idealCPA}
+                  onChange={(e) => setIdealCPA(Math.max(1, Number(e.target.value) || 0))}
+                  className="w-28 px-3 py-2 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-800 text-sm font-bold focus:border-blue-400 outline-none"
                 />
-                <span className="text-xs text-gray-500">
-                  → ${((avgOrderValue * commissionPct) / 100).toFixed(0)} comissão/venda
+                <span className="text-[10px] text-gray-400 italic">
+                  Vira regra de kill (CPA acima disso → mata o ad set)
                 </span>
               </div>
-              <p className="text-[10px] text-gray-400 italic">
-                Se tem múltiplas ofertas (1/3/6 potes etc), use a média ponderada por % de conversão
-                típica.
-              </p>
             </div>
 
             {/* Budget */}
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">
-                3. Quanto vai rodar por dia (US$)
+                3. Orçamento diário
               </label>
               <div className="rounded-2xl bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30 p-4 space-y-3">
                 <div className="space-y-1 text-xs">
                   <p>
-                    💡 <strong>Pro seu caso:</strong>
+                    💡 <strong>Pro seu CPA $${idealCPA}:</strong>
                   </p>
                   <p>
                     • Mínimo viável: <strong>${hints.minimum}/dia</strong>
@@ -271,10 +300,54 @@ export default function MonthlyPlanSetupModal({
               </div>
             </div>
 
-            {/* Profile */}
+            {/* Volume Strategy — UX29 */}
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">
-                4. Seu perfil
+              <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                <Zap size={11} />
+                4. Estratégia de volume
+              </label>
+              <div className="space-y-2">
+                {(Object.keys(VOLUME_STRATEGY_LABELS) as VolumeStrategy[]).map((vs) => {
+                  const data = VOLUME_STRATEGY_LABELS[vs];
+                  const selected = volumeStrategy === vs;
+                  return (
+                    <button
+                      key={vs}
+                      onClick={() => setVolumeStrategy(vs)}
+                      className={`w-full text-left p-3 rounded-xl border-2 transition-all ${
+                        selected
+                          ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/30'
+                          : 'border-gray-200 dark:border-gray-800 hover:border-purple-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <Gauge size={12} className="text-gray-500" />
+                          <span className="text-sm font-bold">{data.label}</span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-[10px] text-gray-500 font-bold">
+                            {data.perCreative}
+                          </span>
+                          <span className="text-[10px] text-purple-600 dark:text-purple-400">
+                            {data.era}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 ml-5">
+                        {data.desc}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Profile (agora só ajusta cadência, não cap) */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                <Users size={11} />
+                5. Curva de cadência (W1 → W4)
               </label>
               <div className="space-y-2">
                 {(Object.keys(PROFILE_LABELS) as ProfileLevel[]).map((p) => (
@@ -287,21 +360,17 @@ export default function MonthlyPlanSetupModal({
                         : 'border-gray-200 dark:border-gray-800 hover:border-blue-300'
                     }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Users size={12} className="text-gray-500" />
-                        <span className="text-sm font-bold">{PROFILE_LABELS[p].label}</span>
-                      </div>
-                      <span className="text-[10px] text-gray-500">
-                        {PROFILE_LABELS[p].budgetHint}
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 ml-5">
+                    <p className="text-sm font-bold">{PROFILE_LABELS[p].label}</p>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
                       {PROFILE_LABELS[p].desc}
                     </p>
                   </button>
                 ))}
               </div>
+              <p className="text-[10px] text-gray-400 italic">
+                Esta escolha NÃO reduz volume — só ajusta a forma da distribuição entre as 4
+                semanas.
+              </p>
             </div>
 
             {/* Reference copies */}
@@ -347,22 +416,31 @@ export default function MonthlyPlanSetupModal({
             )}
           </div>
 
-          {/* COLUNA DIREITA: Preview ao vivo do plano calibrado */}
+          {/* COLUNA DIREITA: Preview ao vivo */}
           <div className="space-y-4">
             <div className="rounded-2xl bg-gradient-to-br from-blue-50 via-purple-50 to-amber-50 dark:from-blue-950/30 dark:via-purple-950/30 dark:to-amber-950/30 p-5 space-y-4">
               <h3 className="text-sm font-black uppercase tracking-widest text-gray-700 dark:text-gray-200">
-                📊 Plano que vou gerar
+                📊 Plano calibrado
               </h3>
 
-              {/* Total */}
               <div className="flex items-baseline justify-between">
                 <span className="text-xs text-gray-500">Criativos no mês</span>
-                <span className="text-3xl font-black text-gray-900 dark:text-gray-50">
+                <span className="text-4xl font-black text-gray-900 dark:text-gray-50">
                   {preview.monthlyTotal}
                 </span>
               </div>
 
-              {/* Length distribution */}
+              {preview.volumeRationale && (
+                <div className="rounded-xl bg-white/60 dark:bg-gray-900/40 p-3">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">
+                    Por que esse número
+                  </p>
+                  <p className="text-[11px] text-gray-700 dark:text-gray-300 leading-relaxed">
+                    {preview.volumeRationale}
+                  </p>
+                </div>
+              )}
+
               <div>
                 <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">
                   Distribuição de tamanho
@@ -389,7 +467,6 @@ export default function MonthlyPlanSetupModal({
                 </div>
               </div>
 
-              {/* Weekly cadence */}
               <div>
                 <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">
                   Cadência semanal
@@ -406,14 +483,13 @@ export default function MonthlyPlanSetupModal({
                       className="bg-white dark:bg-gray-900/60 rounded-xl p-2 text-center"
                     >
                       <p className="text-[10px] font-black uppercase text-gray-400">{wk.w}</p>
-                      <p className="text-xl font-black">{wk.val}</p>
+                      <p className="text-2xl font-black">{wk.val}</p>
                       <p className="text-[9px] text-gray-500">{wk.label}</p>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Breakthrough */}
               <div className="rounded-xl bg-white dark:bg-gray-900/60 p-3">
                 <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">
                   Tempo até breakthrough esperado
@@ -422,7 +498,6 @@ export default function MonthlyPlanSetupModal({
               </div>
             </div>
 
-            {/* Scaling rules */}
             <div className="rounded-2xl border border-gray-200 dark:border-gray-800 p-4 space-y-2">
               <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">
                 Regras de scaling (siga no Meta)
@@ -445,7 +520,7 @@ export default function MonthlyPlanSetupModal({
         {/* Footer */}
         <div className="px-6 py-3 border-t border-gray-200 dark:border-gray-800 shrink-0 flex justify-between items-center">
           <p className="text-[10px] text-gray-400 italic">
-            Tudo abaixo será gerado / atualizado quando você confirmar.
+            Plano usa Meta 2025 best practices · não capa por team size.
           </p>
           <div className="flex items-center gap-2">
             <button

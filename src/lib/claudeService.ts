@@ -1322,21 +1322,46 @@ export interface MonthlyPlanInputs {
   };
   /** IDs das copies pra modelar (round-robin entre os modeling briefs) */
   modelReferenceCopyIds: string[];
+  /** UX29: contexto estratégico — budget/CPA/preço/strategy. Vai pro copyAnswers
+   *  pra o backend (e o Claude) saber otimizar os angles/hooks pra o caso real. */
+  strategicContext?: {
+    productPrice: number;
+    idealCPA: number;
+    dailyBudgetUsd: number;
+    volumeStrategy: 'conservative' | 'modern' | 'aggressive';
+    profile: 'newcomer' | 'scaling' | 'serious' | 'agency';
+  };
 }
 
 export async function generateMonthlyPlan(input: MonthlyPlanInputs): Promise<{
   plan: any;
   briefs: any[];
 }> {
-  const { calibrated, modelReferenceCopyIds } = input;
+  const { calibrated, modelReferenceCopyIds, strategicContext } = input;
   const N = Math.max(4, calibrated.monthlyTotal);
+
+  // UX29: enriquece copyAnswers com contexto estratégico — backend pode
+  // ou não usar, mas mantém o dado fluindo. Se o Claude prompt do
+  // /marketing-plan ler estes campos, ele pode adaptar angles/hooks
+  // (ex: budget baixo → ângulos seguros; CPA exigente → menos experimentação)
+  const enrichedCopyAnswers = strategicContext
+    ? {
+        ...(input.copyAnswers || {}),
+        __strategicContext: strategicContext,
+        // Surface campos diretamente também — caso o backend filtre __campos
+        budgetDailyUsd: strategicContext.dailyBudgetUsd,
+        targetCpa: strategicContext.idealCPA,
+        productPrice: strategicContext.productPrice,
+        volumeStrategy: strategicContext.volumeStrategy,
+      }
+    : input.copyAnswers;
 
   // 1) Gera N briefs base via blueprint existente
   const { plan, briefs: rawBriefs } = await generateMarketingBlueprint({
     productInfo: input.productInfo,
     personas: input.personas,
     selectedPersonaIds: input.selectedPersonaIds,
-    copyAnswers: input.copyAnswers,
+    copyAnswers: enrichedCopyAnswers,
     targetCount: N,
   });
 

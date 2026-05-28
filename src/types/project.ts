@@ -364,13 +364,15 @@ export interface CreativeBrief {
   isKilled?: boolean;
 }
 
-/** UX28 — Monthly Plan persisted on config.copy. */
+/** UX28/29 — Monthly Plan persisted on config.copy. */
 export interface MonthlyPlanConfig {
-  /** Inputs do user no setup */
-  commissionPct: number;
-  avgOrderValue: number;
+  /** Inputs do user (UX29: trocou commission/AOV por price/CPA) */
+  productPrice: number;
+  idealCPA: number;
   dailyBudgetUsd: number;
   profile: 'newcomer' | 'scaling' | 'serious' | 'agency';
+  /** UX29: estratégia de volume — define $/criativo de feeding rate */
+  volumeStrategy: 'conservative' | 'modern' | 'aggressive';
   /** IDs de copies pra modelar (subset da biblioteca pessoal) */
   modelReferenceCopyIds: string[];
   /** Output calibrado — armazenado pra mostrar no UI sem recalcular */
@@ -383,8 +385,8 @@ export interface MonthlyPlanConfig {
     scalingRules: string[];
     budgetVerdict: string;
     breakthroughEstimate: string;
+    volumeRationale?: string;
   };
-  /** Timestamp do último cálculo, pra detectar staleness */
   generatedAt?: number;
 }
 
