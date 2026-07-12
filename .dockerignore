@@ -1,0 +1,31 @@
+# Não mandar pro build da nuvem: node_modules local (é do macOS — o ffmpeg
+# seria o binário errado; o npm ci no container baixa o do Linux), a pasta
+# pesada de renders, git, e QUALQUER arquivo de segredo (chaves vão por env
+# var no Cloud Run, não dentro da imagem).
+node_modules
+dist
+generated
+.git
+.github
+*.log
+scratchpad
+.DS_Store
+
+# Credencial do Firebase Admin: NÃO vai na imagem. Na nuvem usa a identidade
+# do próprio Cloud Run (ADC) no mesmo projeto.
+service-account.json
+
+# Configs que guardam chaves de API — vão por env var, não na imagem.
+elevenlabs-config.json
+heygen-config.json
+runway-config.json
+gemini-config.json
+assemblyai-config.json
+zapcap-config.json
+claude-config.json
+pexels-config.json
+.env
+.env.*
+
+# firebase-applet-config.json (projectId + bucket, NÃO é segredo) FICA na
+# imagem — o server precisa dele pra saber o bucket do Storage.

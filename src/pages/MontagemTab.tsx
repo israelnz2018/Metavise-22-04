@@ -1,0 +1,2747 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { toast } from 'react-hot-toast';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage, auth } from '@/lib/firebase';
+import { SoundLibraryModal } from '@/components/SoundLibraryModal';
+import { useSoundLibrary } from '@/hooks/useSoundLibrary';
+import { AvatarFramingModal, AvatarFraming, DEFAULT_AVATAR_FRAMING } from '@/components/AvatarFramingModal';
+import { Film, Upload, Loader2, Trash2, ArrowUp, ArrowDown, Check, Music, X, Plus, Maximize, Play, Pause } from 'lucide-react';
+
+interface Clip {
+  url: string;
+  label: string;
+  duration?: number; // duração detectada no upload
+  // Modo SEQUÊNCIA (sem áudio base): trim do clipe.
+  startSec?: number;
+  endSec?: number;
+}
+
+// Lê a duração de um vídeo no navegador. Lida com duration=Infinity/NaN
+// (comum em vídeos gravados): força o cálculo pulando pro fim.
+const readDurationFromUrl = (src: string): Promise<number> =>
+  new Promise((resolve) => {
+    let settled = false;
+    const v = document.createElement('video');
+    v.preload = 'metadata';
+    const finish = (d: number) => {
+      if (settled) return;
+      settled = true;
+      try {
+        v.removeAttribute('src');
+        v.load();
+      } catch {
+        /* ignore */
+      }
+      resolve(Number.isFinite(d) && d > 0 ? d : 0);
+    };
+    v.onloadedmetadata = () => {
+      if (v.duration === Infinity || Number.isNaN(v.duration)) {
+        v.ontimeupdate = () => {
+          v.ontimeupdate = null;
+          finish(v.duration);
+        };
+        try {
+          v.currentTime = 1e7;
+        } catch {
+          finish(0);
+        }
+      } else {
+        finish(v.duration);
+      }
+    };
+    v.onerror = () => finish(0);
+    setTimeout(() => finish(0), 8000); // não trava se algo der errado
+    v.src = src;
+  });
+
+const readDurationFromFile = async (file: File): Promise<number> => {
+  const url = URL.createObjectURL(file);
+  const d = await readDurationFromUrl(url);
+  URL.revokeObjectURL(url);
+  return d;
+};
+
+// Modo TIMELINE: cada item é um trecho POSICIONADO no tempo do áudio.
+interface TLItem {
+  clipIdx: number;
+  /** SPLIT-SCREEN: 2º b-roll (lado direito). Renderiza clipIdx | clipIdx2. */
+  clipIdx2?: number;
+  /** Layout com AVATAR: 'avatar' (tela cheia) | 'pip' (círculo canto) |
+   *  'split-left' | 'split-right'. Vazio/'full' = só o b-roll. Usa o "Avatar
+   *  base" (sincronizado à narração). */
+  layout?: 'full' | 'avatar' | 'pip' | 'split-left' | 'split-right' | 'split-top' | 'split-bottom';
+  atSec: number; // começa em (seg do áudio)
+  endSec: number; // termina em (seg do áudio)
+  showSec?: number; // legado (drafts antigos)
+  // Transição de ENTRADA (início do trecho) e de SAÍDA (fim do trecho).
+  transIn?: string;
+  transInDur?: number;
+  soundIn?: string;
+  transOut?: string;
+  transOutDur?: number;
+  soundOut?: string;
+  /** Efeito sonoro CONTEXTUAL (ex.: Cash Register em "dinheiro"), tocado logo
+   *  após a entrada do trecho. Escolhido pela IA no Auto-editar. */
+  soundMid?: string;
+  /** 'end' → o FIM do efeito alinha com o fim do trecho (ex.: SFX Reversed/riser). */
+  soundMidAlign?: 'end' | '';
+  /** Clipe em preto-e-branco (trechos de "antes"/passado). */
+  bw?: boolean;
+  /** Termo de b-roll usado pelo Auto-editar — reusado ao "trocar" o trecho. */
+  keyword?: string;
+}
+
+// Texto cinético na tela (palavra grande animada, estilo VSL).
+interface TextItem {
+  text: string;
+  atSec: number;
+  endSec: number;
+  color: string; // hex
+  pos: 'middle' | 'top' | 'bottom';
+  /** Efeito sonoro que toca junto com a entrada do texto (ex.: Swoosh Fight). */
+  sound?: string;
+}
+const TEXT_COLORS = ['#39FF14', '#FFFFFF', '#FFE500', '#FF3B3B', '#00E0FF'];
+
+// Slot planejado pelo Auto-editar: um trecho [start,end] com candidatos de
+// b-roll do Pexels; o usuário escolhe o `chosen` (URL) de cada um.
+interface AutoSlot {
+  start: number;
+  end: number;
+  keyword: string;
+  searchTerm: string;
+  candidates: { url: string; thumb: string; duration?: number }[];
+  chosen: string;
+  /** Palavra FALADA mais forte do trecho + timing exato (pro texto na tela). */
+  spokenWord?: string;
+  wordStart?: number;
+  wordEnd?: number;
+  /** Frase impactante (PT) escolhida pela IA pra destacar na tela (ou vazio). */
+  highlight?: string;
+  /** Momento EXATO (s) em que a frase de destaque começa a ser dita. */
+  highlightStart?: number;
+  /** "animation" → busca b-roll em estilo animação/diagrama. */
+  style?: string;
+  /** "past" → trecho de "antes"/passado → clipe em P&B. */
+  tone?: string;
+  /** true → split-screen (2 b-rolls lado a lado neste trecho). */
+  split?: boolean;
+  /** Efeito sonoro contextual sugerido pela IA (nome + URL da biblioteca). */
+  effectName?: string;
+  effectUrl?: string;
+}
+
+// Fim do item (compat com drafts antigos que usavam showSec).
+const itemEnd = (it: TLItem) => it.endSec ?? it.atSec + (it.showSec || 5);
+
+// Tamanho de cada GRUPO de render (~2 min). Timelines mais longas que isso
+// renderizam em grupos e juntam no fim.
+const GROUP_SEC = 120;
+
+// Campo numérico que guarda o TEXTO digitado localmente — evita o bug do
+// type="number" controlado, onde limpar mostra "0" e digitar vira "098.5".
+// Tira zeros à esquerda, deixa vazio enquanto edita, e faz o clamp só no blur.
+function NumInput({
+  value,
+  onCommit,
+  min = 0,
+  className,
+}: {
+  value: number;
+  onCommit: (n: number) => void;
+  min?: number;
+  className?: string;
+}) {
+  const [raw, setRaw] = useState(String(value));
+  const [focused, setFocused] = useState(false);
+  useEffect(() => {
+    if (!focused) setRaw(String(value));
+  }, [value, focused]);
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      value={raw}
+      onFocus={() => setFocused(true)}
+      onChange={(e) => {
+        // só dígitos + 1 ponto; remove zeros à esquerda ("098.5" → "98.5").
+        let s = e.target.value.replace(/[^0-9.]/g, '');
+        const dot = s.indexOf('.');
+        if (dot !== -1) s = s.slice(0, dot + 1) + s.slice(dot + 1).replace(/\./g, '');
+        s = s.replace(/^0+(\d)/, '$1');
+        setRaw(s);
+        if (s !== '' && s !== '.') {
+          const n = Number(s);
+          if (Number.isFinite(n)) onCommit(n);
+        }
+      }}
+      onBlur={() => {
+        setFocused(false);
+        const n = Number(raw);
+        const clamped = Math.max(min, Number.isFinite(n) && raw !== '' ? n : min);
+        onCommit(clamped);
+        setRaw(String(clamped));
+      }}
+      className={className}
+    />
+  );
+}
+
+// Transições disponíveis. `css` = classe da animação no preview (definida no
+// <style> da própria aba); o `id` é o que o backend (ffmpeg) entende.
+const TRANSITIONS: { id: string; label: string; css: string }[] = [
+  { id: 'none', label: 'Nenhuma', css: '' },
+  { id: 'fade', label: 'Fade (preto)', css: 'mv-fade' },
+  { id: 'dissolve', label: 'Crossfade', css: 'mv-fade' },
+  { id: 'slideleft', label: 'Slide ←', css: 'mv-slideleft' },
+  { id: 'slideright', label: 'Slide →', css: 'mv-slideright' },
+  { id: 'slideup', label: 'Slide ↑', css: 'mv-slideup' },
+  { id: 'slidedown', label: 'Slide ↓', css: 'mv-slidedown' },
+  { id: 'zoomin', label: 'Zoom in', css: 'mv-zoomin' },
+  { id: 'zoomout', label: 'Zoom out', css: 'mv-zoomout' },
+  { id: 'whiteflash', label: 'Flash branco', css: 'mv-white' },
+  { id: 'whip', label: 'Whip / Blur', css: 'mv-whip' },
+  { id: 'glitch', label: 'Glitch', css: 'mv-glitch' },
+  { id: 'bw', label: 'Preto & branco', css: 'mv-bw' },
+];
+
+// Som certo por TIPO de transição, mapeado pelos nomes exatos da biblioteca.
+// NUNCA usa Impactos (ex.: Vine Boom) — esses o usuário põe à mão. Tipos sem
+// mapeamento (fade/whiteflash/glitch/bw) ficam SEM som automático.
+const TRANSITION_SOUND: Record<string, string> = {
+  slideleft: 'Swoosh 7',
+  slideright: 'Swoosh 7',
+  slideup: 'Swoosh 7',
+  slidedown: 'Swoosh 7',
+  whip: 'Swoosh 7',
+  dissolve: 'Swoosh 7',
+  zoomin: 'Swoosh 7',
+  zoomout: 'Swoosh 7',
+};
+function soundForTransition(type?: string): string {
+  try {
+    const lib = JSON.parse(localStorage.getItem('metavise-sound-library') || '[]') as any[];
+    const findName = (name: string) =>
+      lib.find((x) => (x?.name || '').trim().toLowerCase() === name.toLowerCase())?.url || '';
+    // Fallback só dentro de "Transições" (nunca Efeitos/Impactos).
+    const fallback = () =>
+      lib.find((x) => x?.category === 'Transições' && /swoosh|whoosh/i.test(x?.name || ''))?.url ||
+      lib.find((x) => x?.category === 'Transições')?.url ||
+      '';
+    if (type) {
+      const wanted = TRANSITION_SOUND[type];
+      if (!wanted) return ''; // tipo sem som mapeado → sem áudio automático
+      return findName(wanted) || fallback();
+    }
+    return fallback();
+  } catch {
+    return '';
+  }
+}
+
+interface Props {
+  config: any;
+  setConfig: (updater: any) => void;
+  user?: { uid?: string } | null;
+  onAddUploadedVideo?: (video: any, isHook: boolean) => void;
+  onGoToEdit?: () => void;
+}
+
+/**
+ * MONTAGEM — usar os PRÓPRIOS vídeos (sem avatar IA).
+ *  • COM áudio base → TIMELINE estilo "Mesclar": dá play no áudio, clica
+ *    "Adicionar aqui" no segundo certo, escolhe o trecho e ajusta início/fim.
+ *    Buracos = tela preta; a voz toca por cima.
+ *  • SEM áudio → SEQUÊNCIA: cola os trechos em ordem.
+ */
+export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoToEdit }: Props) {
+  const draft = (config?.montagem as any) || {};
+  const [clips, setClips] = useState<Clip[]>(() => (Array.isArray(draft.clips) ? draft.clips : []));
+  const [items, setItems] = useState<TLItem[]>(() => (Array.isArray(draft.items) ? draft.items : []));
+  const [texts, setTexts] = useState<TextItem[]>(() =>
+    Array.isArray(draft.texts) ? draft.texts : []
+  );
+  const [uploading, setUploading] = useState(false);
+  const [rendering, setRendering] = useState(false);
+  const [resultUrl, setResultUrl] = useState<string>(draft.resultUrl || '');
+  const [muted, setMuted] = useState<boolean>(!!draft.muted);
+  const [audioUrl, setAudioUrl] = useState<string>(draft.audioUrl || '');
+  const [audioDuration, setAudioDuration] = useState<number>(Number(draft.audioDuration) || 0);
+  const [uploadingAudio, setUploadingAudio] = useState(false);
+  const [playhead, setPlayhead] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [picking, setPicking] = useState<number | null>(null); // atSec aguardando escolha do clipe
+  const [pexQuery, setPexQuery] = useState('');
+  const [pexResults, setPexResults] = useState<any[]>([]);
+  const [pexSearching, setPexSearching] = useState(false);
+  // Render EM GRUPOS (~2 min) — evita 1 passada pesada de ffmpeg num vídeo longo.
+  const [groupRenders, setGroupRenders] = useState<
+    { url?: string; status: 'idle' | 'gen' | 'done' | 'error' }[]
+  >([]);
+  const [joiningGroups, setJoiningGroups] = useState(false);
+  const [previewGroup, setPreviewGroup] = useState<number | null>(null);
+  // Qual som (de qual trecho) está sendo escolhido na biblioteca de efeitos.
+  const [soundPicker, setSoundPicker] = useState<{
+    idx: number;
+    field: 'soundIn' | 'soundOut' | 'soundMid';
+  } | null>(null);
+  // Abre a biblioteca só pra GERENCIAR (enviar/aparar/deletar), sem trecho-alvo.
+  const [soundLibManage, setSoundLibManage] = useState(false);
+  const { sounds: libSounds } = useSoundLibrary();
+  const sfxAudioRef = useRef<HTMLAudioElement | null>(null);
+  const playSfx = (url: string) => {
+    if (!sfxAudioRef.current) sfxAudioRef.current = new Audio();
+    const a = sfxAudioRef.current;
+    a.src = url;
+    a.currentTime = 0;
+    a.play().catch(() => {});
+  };
+  // Nome do efeito (biblioteca) a partir da URL — pra mostrar nos badges.
+  const soundName = (url?: string) =>
+    url ? libSounds.find((s) => s.url === url)?.name || 'efeito' : '';
+  const [autoEditing, setAutoEditing] = useState(false);
+  // Ritmo do Auto-editar: base de duração dos cortes (s). Menor = MAIS trechos.
+  const [cutPace, setCutPace] = useState<number>(4);
+  // Candidate picker: slots planejados pela IA, cada um com candidatos do Pexels.
+  const [autoSlots, setAutoSlots] = useState<AutoSlot[]>([]);
+  const [researchingSlot, setResearchingSlot] = useState<number | null>(null);
+  // Trocar b-roll de um trecho JÁ aplicado na timeline (busca Pexels por item).
+  const [brollSwap, setBrollSwap] = useState<{
+    itemIdx: number;
+    term: string;
+    candidates: { url: string; thumb: string }[];
+    loading: boolean;
+    // 'swap' = troca o b-roll do trecho; 'split' = adiciona 2º b-roll (split).
+    mode?: 'swap' | 'split';
+  } | null>(null);
+  // Player pra ouvir o trecho enquanto escolhe o b-roll.
+  const segAudioRef = useRef<HTMLAudioElement | null>(null);
+  const playSegment = (start: number, end: number) => {
+    if (!audioUrl) return;
+    if (!segAudioRef.current) segAudioRef.current = new Audio();
+    const a = segAudioRef.current as any;
+    if (a.src !== audioUrl) a.src = audioUrl;
+    a.currentTime = Math.max(0, start);
+    a.play().catch(() => {});
+    clearTimeout(a._segTimer);
+    a._segTimer = setTimeout(() => a.pause(), Math.max(300, (end - start) * 1000));
+  };
+  // Formato do vídeo + enquadramento. Padrão: preencher (sem barras pretas).
+  const [aspect, setAspect] = useState<'1:1' | '9:16' | '16:9'>(
+    (draft.aspect as any) || ((config as any)?.format?.aspectRatio as any) || '1:1'
+  );
+  const [fit, setFit] = useState<'cover' | 'contain'>((draft.fit as any) || 'cover');
+  // Vídeo do AVATAR (HeyGen), sincronizado à narração — usado no PiP/split.
+  const [avatarBase, setAvatarBase] = useState<string>((draft.avatarUrl as any) || '');
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  // Início do bloco DENTRO do avatar base (quando a base é a VSL inteira e você
+  // monta um bloco do meio): o seek do avatar em cada trecho vira
+  // avatarStartSec + atSec → usa só a janela do bloco e mantém o lip-sync.
+  const avatarPreviewRef = useRef<HTMLVideoElement | null>(null);
+  const [avatarStartSec, setAvatarStartSec] = useState<number>(Number(draft.avatarStartSec) || 0);
+  // Enquadramento do avatar por URL (calibrado 1× e reaproveitado em TODOS os
+  // trechos daquele avatar): faixa do split (splitFocusX) e círculo do PiP
+  // (pipCX, pipCY, pipSize). Sem calibração → defaults (centro / topo-centro).
+  const [avatarFraming, setAvatarFraming] = useState<Record<string, AvatarFraming>>(() =>
+    draft.avatarFraming && typeof draft.avatarFraming === 'object' ? draft.avatarFraming : {}
+  );
+  const [framingModalOpen, setFramingModalOpen] = useState(false);
+  const framing: AvatarFraming = (avatarBase && avatarFraming[avatarBase]) || DEFAULT_AVATAR_FRAMING;
+  // Avatares JÁ GERADOS neste subprojeto (VSL + corpo) — pra usar de base sem
+  // precisar reupload. Cada um: {url, aspectRatio, createdAt}.
+  const avatarVideoOptions = [
+    ...(((config as any)?.copyVsl?.avatarVideos as any[]) || []).map((v) => ({ ...v, from: 'VSL' })),
+    ...(((config as any)?.videos as any[]) || []).map((v) => ({ ...v, from: 'Corpo' })),
+  ].filter((v) => v?.url);
+
+  const uid = user?.uid || auth.currentUser?.uid;
+  // Vozes já geradas no subprojeto (etapa Voz): corpo, gancho e VSL. Cada uma
+  // vira uma opção de trilha base pra montar por cima.
+  // Blocos da VSL já gerados (config.copyVsl.blockAudios) — cada um vira uma
+  // voz-base própria, pra você montar UM bloco de cada vez (fluxo por bloco).
+  const vslBlockAudios = (((config as any)?.copyVsl?.blockAudios as any[]) || [])
+    .map((b, i) => (b?.url && b?.status === 'done' ? { key: `vslbloco${i}`, label: `VSL — Bloco ${i + 1}`, url: b.url as string } : null))
+    .filter(Boolean) as { key: string; label: string; url: string }[];
+  const vozOptions = [
+    { key: 'corpo', label: 'Voz do Corpo', url: (config?.audioUrl as string) || '' },
+    {
+      key: 'gancho',
+      label: 'Voz do Gancho',
+      url: ((config?.copy as any)?.hookAudioUrl as string) || '',
+    },
+    {
+      key: 'vsl',
+      label: 'Voz da VSL (juntada)',
+      url: ((config as any)?.copyVsl?.audioUrl as string) || '',
+    },
+    ...vslBlockAudios,
+  ].filter((o) => !!o.url);
+  const isTimeline = !!audioUrl;
+  // Double-buffer: dois <video> (A/B). Mantém o atual visível até o próximo
+  // carregar → sem tela preta entre trechos colados.
+  const vARef = useRef<HTMLVideoElement | null>(null);
+  const vBRef = useRef<HTMLVideoElement | null>(null);
+  const aFrontRef = useRef<boolean>(true);
+  const rafRef = useRef<number>(0);
+  const previewWrapRef = useRef<HTMLDivElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const activeIdxRef = useRef<number>(-1);
+  const exitDoneRef = useRef<number>(-1);
+  const playingRef = useRef<boolean>(false);
+
+  const frontEl = () => (aFrontRef.current ? vARef.current : vBRef.current);
+  const backEl = () => (aFrontRef.current ? vBRef.current : vARef.current);
+
+  const goFullscreen = () => {
+    const d = document as any;
+    if (d.fullscreenElement || d.webkitFullscreenElement) {
+      (d.exitFullscreen || d.webkitExitFullscreen)?.call(d);
+      return;
+    }
+    const el = previewWrapRef.current as any;
+    if (!el) return;
+    (el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen)?.call(el);
+  };
+
+  const togglePlay = () => {
+    const a = audioRef.current;
+    if (!a) return;
+    if (a.paused) a.play().catch(() => {});
+    else a.pause();
+  };
+
+  const seekAudio = (e: React.MouseEvent<HTMLDivElement>) => {
+    const a = audioRef.current;
+    if (!a || !audioDuration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    a.currentTime = ratio * audioDuration;
+    syncPreview(a.currentTime, true);
+  };
+
+  useEffect(() => {
+    if (clips.length === 0 && !resultUrl && !audioUrl) return;
+    // groupUrls: URLs dos grupos já renderizados (índice alinhado aos grupos).
+    // A aba Edição lê isso pra editar cada grupo separado e juntar depois.
+    const groupUrls = groupRenders.map((g) => g.url || '');
+    setConfig((prev: any) => ({
+      ...prev,
+      montagem: { clips, items, texts, resultUrl, muted, audioUrl, audioDuration, groupUrls, aspect, fit, avatarUrl: avatarBase, avatarFraming, avatarStartSec },
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clips, items, texts, resultUrl, muted, audioUrl, audioDuration, groupRenders, aspect, fit]);
+
+  // Preenche a duração de trechos que ainda não têm (1 por vez, sem travar).
+  useEffect(() => {
+    const i = clips.findIndex((c) => !c.duration && c.url);
+    if (i === -1) return;
+    let cancelled = false;
+    (async () => {
+      const d = await readDurationFromUrl(clips[i]!.url);
+      if (cancelled || !d) return;
+      setClips((prev) => prev.map((c, k) => (k === i && !c.duration ? { ...c, duration: d } : c)));
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clips]);
+
+  // ── Preview: o áudio dirige o tempo; a tela mostra o item ativo (buraco=preto).
+  // O clipe TOCA naturalmente (suave); só troco/seek quando o item muda OU quando
+  // o usuário arrasta o áudio (force). Sem seek por timeupdate (era o que travava).
+  const syncPreview = (t: number, force = false) => {
+    setPlayhead(t);
+    let active = -1;
+    for (let i = items.length - 1; i >= 0; i--) {
+      const it = items[i]!;
+      if (t >= it.atSec && t < itemEnd(it)) {
+        active = i;
+        break;
+      }
+    }
+    if (active === -1) {
+      if (activeIdxRef.current !== -1) {
+        activeIdxRef.current = -1;
+        [vARef.current, vBRef.current].forEach((v) => {
+          if (v) {
+            v.pause();
+            v.style.opacity = '0';
+          }
+        });
+      }
+      return;
+    }
+    const it = items[active]!;
+    const src = clips[it.clipIdx]?.url;
+    if (!src) return;
+    const desired = t - it.atSec;
+
+    // SAÍDA: anima o trecho atual saindo perto do fim (uma vez).
+    const tOut = it.transOut || 'none';
+    const dOut = Math.max(0.05, it.transOutDur || 0.1);
+    if (tOut !== 'none' && t > itemEnd(it) - dOut && exitDoneRef.current !== active) {
+      exitDoneRef.current = active;
+      const fe = frontEl();
+      if (fe) {
+        fe.style.zIndex = '3';
+        fe.style.transition = `opacity ${dOut}s ease, transform ${dOut}s ease`;
+        if (tOut === 'fade' || tOut === 'dissolve') fe.style.opacity = '0';
+        else if (tOut === 'slideleft') fe.style.transform = 'translateX(-100%)';
+        else if (tOut === 'slideright') fe.style.transform = 'translateX(100%)';
+        else if (tOut === 'slideup') fe.style.transform = 'translateY(-100%)';
+        else if (tOut === 'slidedown') fe.style.transform = 'translateY(100%)';
+      }
+    }
+
+    // Pré-carrega o PRÓXIMO trecho no buffer de trás (mata o gap de load).
+    {
+      let nextSrc: string | undefined;
+      let nextStart = Infinity;
+      for (const it2 of items) {
+        const s2 = clips[it2.clipIdx]?.url;
+        if (s2 && it2.atSec > t && it2.atSec < nextStart) {
+          nextStart = it2.atSec;
+          nextSrc = s2;
+        }
+      }
+      if (nextSrc && nextStart - t < 1.5) {
+        const bb = backEl();
+        if (bb && bb.getAttribute('src') !== nextSrc) {
+          bb.style.opacity = '0';
+          bb.src = nextSrc;
+        }
+      }
+    }
+
+    if (activeIdxRef.current !== active) {
+      activeIdxRef.current = active;
+      const b = backEl();
+      const f = frontEl();
+      if (!b) return;
+      const trans = it.transIn || 'none';
+      const d = Math.max(0.05, it.transInDur || 0.1);
+      const applySwap = () => {
+        try {
+          b.currentTime = desired;
+        } catch {
+          /* ignore */
+        }
+        if (playingRef.current) b.play().catch(() => {});
+        b.style.zIndex = '2';
+        if (f) f.style.zIndex = '1';
+        b.style.transition = 'none';
+        if (trans === 'slideleft') {
+          b.style.transform = 'translateX(100%)';
+          b.style.opacity = '1';
+        } else if (trans === 'slideright') {
+          b.style.transform = 'translateX(-100%)';
+          b.style.opacity = '1';
+        } else if (trans === 'slideup') {
+          b.style.transform = 'translateY(100%)';
+          b.style.opacity = '1';
+        } else if (trans === 'slidedown') {
+          b.style.transform = 'translateY(-100%)';
+          b.style.opacity = '1';
+        } else if (trans === 'none') {
+          b.style.transform = 'none';
+          b.style.opacity = '1';
+        } else {
+          b.style.transform = 'none';
+          b.style.opacity = '0';
+        }
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => {
+            b.style.transition = `opacity ${d}s ease, transform ${d}s ease`;
+            b.style.opacity = '1';
+            b.style.transform = 'none';
+          })
+        );
+        const fEl = f;
+        window.setTimeout(
+          () => {
+            if (fEl) {
+              fEl.style.opacity = '0';
+              fEl.pause();
+            }
+          },
+          trans === 'none' ? 0 : d * 1000
+        );
+        aFrontRef.current = !aFrontRef.current;
+      };
+      // Se o próximo já foi pré-carregado nesse <video>, troca na hora; senão espera carregar.
+      if (b.getAttribute('src') === src && b.readyState >= 2) {
+        applySwap();
+      } else {
+        b.src = src;
+        b.onloadeddata = applySwap;
+      }
+    } else if (force) {
+      const f = frontEl();
+      if (f) {
+        try {
+          f.currentTime = desired;
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  };
+
+  // Loop suave no play (troca no ms certo, não só a cada timeupdate ~4Hz).
+  const startRaf = () => {
+    cancelAnimationFrame(rafRef.current);
+    const tick = () => {
+      const a = audioRef.current;
+      if (a && !a.paused) {
+        syncPreview(a.currentTime);
+        rafRef.current = requestAnimationFrame(tick);
+      }
+    };
+    rafRef.current = requestAnimationFrame(tick);
+  };
+  const stopRaf = () => cancelAnimationFrame(rafRef.current);
+  useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
+
+  const onUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    if (!uid) return toast.error('Faça login pra enviar vídeos.');
+    setUploading(true);
+    const toastId = 'montagem-upload';
+    toast.loading(`Enviando ${files.length} trecho(s)...`, { id: toastId });
+    try {
+      const added: Clip[] = [];
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith('video/')) continue;
+        const duration = await readDurationFromFile(file);
+        const safe = file.name.replace(/[^a-z0-9.-]/gi, '_');
+        const r = ref(storage, `video/${uid}/montagem/${Date.now()}-${safe}`);
+        await uploadBytes(r, file, { contentType: file.type || 'video/mp4' });
+        const url = await getDownloadURL(r);
+        added.push({ url, label: file.name.replace(/\.[^.]+$/, ''), duration });
+      }
+      if (added.length) {
+        setClips((prev) => [...prev, ...added]);
+        toast.success(`${added.length} trecho(s) na biblioteca.`, { id: toastId });
+      } else toast.error('Nenhum vídeo válido.', { id: toastId });
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha no upload.', { id: toastId });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const onUploadAudio = async (file?: File | null) => {
+    if (!file) return;
+    if (!uid) return toast.error('Faça login.');
+    setUploadingAudio(true);
+    try {
+      const safe = file.name.replace(/[^a-z0-9.-]/gi, '_');
+      const r = ref(storage, `audio/${uid}/montagem/${Date.now()}-${safe}`);
+      await uploadBytes(r, file, { contentType: file.type || 'audio/mpeg' });
+      const url = await getDownloadURL(r);
+      setAudioUrl(url);
+      toast.success('Áudio carregado — dê play e adicione os trechos no tempo certo.');
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha no upload do áudio.');
+    } finally {
+      setUploadingAudio(false);
+    }
+  };
+
+  // Sobe o vídeo do AVATAR (HeyGen) que serve de base pro PiP/split. Deve estar
+  // sincronizado à MESMA narração (o render busca o avatar no tempo do trecho).
+  const onUploadAvatar = async (file?: File | null) => {
+    if (!file) return;
+    if (!uid) return toast.error('Faça login.');
+    setUploadingAvatar(true);
+    try {
+      const safe = file.name.replace(/[^a-z0-9.-]/gi, '_');
+      const r = ref(storage, `video/${uid}/montagem-avatar/${Date.now()}-${safe}`);
+      await uploadBytes(r, file, { contentType: file.type || 'video/mp4' });
+      const url = await getDownloadURL(r);
+      setAvatarBase(url);
+      toast.success('Avatar base carregado — escolha o layout (PiP/split) em cada trecho.');
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha no upload do avatar.');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  // Busca no Pexels e adiciona o clipe escolhido à BIBLIOTECA (pool), pra você
+  // posicionar na timeline igual aos seus trechos.
+  const doPexSearch = async () => {
+    const q = pexQuery.trim();
+    if (!q) return;
+    setPexSearching(true);
+    try {
+      const params = new URLSearchParams({ query: q, orientation: 'landscape', perPage: '12' });
+      const r = await fetch(`/api/pexels/search?${params.toString()}`);
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'Falha na busca.');
+      setPexResults(Array.isArray(data.clips) ? data.clips : []);
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro no Pexels.');
+    } finally {
+      setPexSearching(false);
+    }
+  };
+  const addPexClip = (clip: any) => {
+    setClips((prev) => [
+      ...prev,
+      { url: clip.url, label: `Pexels ${prev.length + 1}`, duration: Number(clip.duration) || undefined },
+    ]);
+    toast.success('B-roll adicionado à biblioteca — agora posicione na timeline.');
+  };
+
+  // "Adicionar aqui": marca o segundo do playhead e pede pra escolher o clipe.
+  const addHere = () => {
+    if (clips.length === 0) return toast.error('Suba seus trechos primeiro (botão abaixo).');
+    setPicking(Number(playhead.toFixed(2)));
+  };
+  const pickClip = async (clipIdx: number) => {
+    if (picking == null) return;
+    const at = picking;
+    setPicking(null);
+    let dur = clips[clipIdx]?.duration || 0;
+    if (!dur) {
+      const url = clips[clipIdx]?.url;
+      dur = (url ? await readDurationFromUrl(url) : 0) || 5;
+      // guarda no clipe pra próxima vez
+      if (clips[clipIdx]) setClips((prev) => prev.map((c, k) => (k === clipIdx ? { ...c, duration: dur } : c)));
+    }
+    setItems((prev) => [...prev, { clipIdx, atSec: at, endSec: Number((at + dur).toFixed(2)) }]);
+  };
+  const updateItem = (idx: number, key: 'atSec' | 'endSec', val: string) =>
+    setItems((prev) =>
+      prev.map((it, k) => {
+        if (k !== idx) return it;
+        const n = Math.max(0, Number(val) || 0);
+        if (key === 'atSec') {
+          // mover o início mantém a duração: o fim acompanha.
+          const dur = itemEnd(it) - it.atSec;
+          return { ...it, atSec: n, endSec: Number((n + dur).toFixed(2)) };
+        }
+        return { ...it, endSec: n };
+      })
+    );
+  const removeItem = (idx: number) => setItems((prev) => prev.filter((_, k) => k !== idx));
+  const setItemField = (idx: number, patch: Partial<TLItem>) =>
+    setItems((prev) => prev.map((it, k) => (k === idx ? { ...it, ...patch } : it)));
+
+  // Texto cinético na tela.
+  const addText = () =>
+    setTexts((prev) => [
+      ...prev,
+      {
+        text: 'PALAVRA',
+        atSec: Number(playhead.toFixed(2)),
+        endSec: Number((playhead + 1.5).toFixed(2)),
+        color: '#39FF14',
+        pos: 'middle',
+      },
+    ]);
+  const updateText = (i: number, patch: Partial<TextItem>) =>
+    setTexts((prev) => prev.map((t, k) => (k === i ? { ...t, ...patch } : t)));
+  const removeText = (i: number) => setTexts((prev) => prev.filter((_, k) => k !== i));
+
+  // ── AUTO-EDITAR ───────────────────────────────────────────────────────────
+  // Transcreve a voz base → fatia em slots pelo RITMO da VSL de referência →
+  // busca 1 b-roll no Pexels por trecho (palavra-chave) → aplica transições +
+  // SFX + alguns textos. Preenche a timeline pra você revisar e trocar o que
+  // quiser (o b-roll exato de cada trecho fica fácil de trocar depois).
+  const STOPWORDS = new Set(
+    'the a an and or but of to in on for with is are was were it that this you your i we they he she a o os as e ou que com para um uma do da no na se em por como mais mas se sua seu meu minha isso este esta'.split(
+      ' '
+    )
+  );
+  // Acha o TEMPO (s) em que uma frase começa a ser dita, casando as palavras da
+  // frase com as palavras transcritas do trecho. Retorna null se não achar.
+  const phraseStartSec = (
+    words: { text: string; start: number; end: number }[],
+    phrase: string
+  ): number | null => {
+    const norm = (s: string) =>
+      s
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .replace(/[^a-z0-9]/g, '');
+    const pw = phrase.split(/\s+/).map(norm).filter(Boolean);
+    if (!pw.length) return null;
+    const ww = words.map((w) => norm(w.text));
+    // 1) match EXATO da frase inteira (ideal).
+    for (let i = 0; i + pw.length <= ww.length; i++) {
+      let ok = true;
+      for (let j = 0; j < pw.length; j++)
+        if (ww[i + j] !== pw[j]) {
+          ok = false;
+          break;
+        }
+      if (ok) return words[i]!.start / 1000;
+    }
+    // 2) melhor casamento PARCIAL: a posição onde MAIS palavras da frase batem
+    //    em sequência — pega o início dessa sequência (robusto a 1-2 palavras
+    //    diferentes por paráfrase/pontuação).
+    let bestStart = -1;
+    let bestRun = 0;
+    for (let i = 0; i < ww.length; i++) {
+      let run = 0;
+      for (let j = 0; j < pw.length && i + j < ww.length; j++) {
+        if (ww[i + j] === pw[j]) run++;
+      }
+      if (run > bestRun) {
+        bestRun = run;
+        bestStart = i;
+      }
+    }
+    if (bestRun >= 1 && bestStart >= 0) return words[bestStart]!.start / 1000;
+    // 3) fallback: 1ª palavra "forte" da frase em qualquer lugar.
+    for (const p of pw) {
+      const idx = ww.findIndex((w) => w === p);
+      if (idx >= 0) return words[idx]!.start / 1000;
+    }
+    return null;
+  };
+  const autoEdit = async () => {
+    if (!audioUrl) {
+      toast.error('Escolha a Voz da VSL como base primeiro (botão "Usar Voz da VSL").');
+      return;
+    }
+    setAutoEditing(true);
+    const tid = 'auto-edit';
+    toast.loading('Transcrevendo a VSL… (pode levar alguns minutos)', { id: tid });
+    try {
+      const tr = await fetch('/api/video/transcribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ audioUrl }),
+      });
+      const td = await tr.json();
+      if (!tr.ok) throw new Error(td.error || 'Falha na transcrição.');
+      const words: { text: string; start: number; end: number }[] = td.words || [];
+      if (words.length === 0) throw new Error('A transcrição não retornou palavras.');
+
+      // Ritmo escolhido pelo usuário (base dos cortes). Menor = mais trechos.
+      const avgCutSec = Math.max(2, Math.min(cutPace, 10));
+      // Ritmo VARIADO (não robótico): base ~avgCutSec com jitter + RAJADAS
+      // ocasionais de cortes rápidos (~2s), como numa edição de verdade — troca
+      // a cada 2s por um tempo, depois volta pros cortes normais de 3-6s.
+      const rand = (a: number, b: number) => a + Math.random() * (b - a);
+      let burstLeft = 0;
+      const nextTargetMs = (): number => {
+        if (burstLeft > 0) {
+          burstLeft--;
+          return rand(1.8, 2.6) * 1000; // corte rápido dentro da rajada
+        }
+        if (Math.random() < 0.28) {
+          burstLeft = Math.random() < 0.5 ? 2 : 3; // inicia rajada de 2-3 cortes rápidos
+          return rand(1.8, 2.6) * 1000;
+        }
+        return rand(avgCutSec * 0.75, avgCutSec * 1.5) * 1000; // corte normal variado
+      };
+      let curTargetMs = nextTargetMs();
+
+      // Fatia em slots (snap no fim da palavra), guardando o TEXTO do trecho E
+      // a palavra FALADA mais forte com o TIMING EXATO dela (pro texto na tela
+      // aparecer no momento em que é dita — não o termo de busca em inglês).
+      const slots: {
+        start: number;
+        end: number;
+        text: string;
+        keyword: string;
+        spokenWord: string;
+        wordStart: number;
+        wordEnd: number;
+        words: { text: string; start: number; end: number }[];
+      }[] = [];
+      let s0 = words[0]!.start;
+      let cur: { text: string; start: number; end: number }[] = [];
+      for (let i = 0; i < words.length; i++) {
+        cur.push(words[i]!);
+        const last = i === words.length - 1;
+        if (words[i]!.end - s0 >= curTargetMs || last) {
+          const text = cur.map((w) => w.text).join(' ');
+          const clean = (w: string) => w.replace(/[^a-zA-ZÀ-ÿ]/g, '');
+          const best =
+            cur
+              .filter((w) => {
+                const c = clean(w.text);
+                return c.length > 3 && !STOPWORDS.has(c.toLowerCase());
+              })
+              .sort((a, b) => clean(b.text).length - clean(a.text).length)[0] || cur[0]!;
+          slots.push({
+            start: s0 / 1000,
+            end: words[i]!.end / 1000,
+            text,
+            keyword: clean(best.text) || cur[0]!.text || 'business',
+            spokenWord: clean(best.text),
+            wordStart: best.start / 1000,
+            wordEnd: best.end / 1000,
+            words: [...cur],
+          });
+          s0 = words[i]!.end;
+          cur = [];
+          curTargetMs = nextTargetMs(); // próximo corte com duração variada
+        }
+      }
+
+      // Efeitos sonoros CONTEXTUAIS disponíveis (categoria "Efeitos" da
+      // biblioteca) — NUNCA Impactos (Vine Boom fica só no manual).
+      let libEffects: { name: string; url: string }[] = [];
+      try {
+        const lib = JSON.parse(localStorage.getItem('metavise-sound-library') || '[]') as any[];
+        libEffects = lib
+          .filter((x) => x?.category === 'Efeitos' && x?.name && x?.url)
+          .map((x) => ({ name: String(x.name), url: String(x.url) }));
+      } catch {
+        /* sem efeitos */
+      }
+
+      // IA: gera um termo de busca VISUAL por trecho (entende a frase inteira,
+      // não uma palavra solta) e, se encaixar, um efeito sonoro contextual.
+      // Fallback pra keyword se a IA falhar.
+      toast.loading('IA planejando cada trecho (b-roll, som, estilo, destaque)…', { id: tid });
+      const queries: string[] = slots.map((s) => s.keyword);
+      const effectNames: (string | null)[] = slots.map(() => null);
+      const styles: string[] = slots.map(() => 'real');
+      const tones: string[] = slots.map(() => 'now');
+      const highlights: (string | null)[] = slots.map(() => null);
+      const splits: boolean[] = slots.map(() => false);
+      try {
+        const qr = await fetch('/api/claude/broll-queries', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            segments: slots.map((s) => s.text),
+            effects: libEffects.map((e) => e.name),
+          }),
+        });
+        const qd = await qr.json();
+        if (qd?.success && Array.isArray(qd.queries)) {
+          qd.queries.forEach((q: string, i: number) => {
+            if (q && q.trim()) queries[i] = q.trim();
+          });
+          if (Array.isArray(qd.effects)) {
+            qd.effects.forEach((name: string, i: number) => {
+              if (name && libEffects.some((e) => e.name.trim().toLowerCase() === String(name).trim().toLowerCase()))
+                effectNames[i] = name;
+            });
+          }
+          if (Array.isArray(qd.styles)) qd.styles.forEach((v: string, i: number) => (styles[i] = v));
+          if (Array.isArray(qd.tones)) qd.tones.forEach((v: string, i: number) => (tones[i] = v));
+          if (Array.isArray(qd.highlights))
+            qd.highlights.forEach((v: string, i: number) => (highlights[i] = v || null));
+          if (Array.isArray(qd.splits)) qd.splits.forEach((v: boolean, i: number) => (splits[i] = !!v));
+          window.dispatchEvent(new Event('claude-usage-changed'));
+        }
+      } catch {
+        /* mantém keywords */
+      }
+
+      // Estilo "animação" → busca b-roll de animação/diagrama (bom pra conceitos
+      // científicos: intestino, bactérias, corpo por dentro…).
+      const searchQueries = queries.map((q, i) =>
+        styles[i] === 'animation' ? `${q} animation` : q
+      );
+
+      // Busca CANDIDATOS por query única (cache) — 6 opções por termo.
+      const cache: Record<string, { url: string; thumb: string; duration?: number }[]> = {};
+      const uniq = Array.from(new Set(searchQueries.map((q) => q.toLowerCase())));
+      for (let k = 0; k < uniq.length; k++) {
+        toast.loading(`Buscando b-rolls ${k + 1}/${uniq.length}…`, { id: tid });
+        try {
+          const pr = await fetch(
+            `/api/pexels/search?query=${encodeURIComponent(uniq[k]!)}&orientation=landscape`
+          );
+          const pd = await pr.json();
+          const list = (pd?.clips || pd?.data?.clips || []) as any[];
+          cache[uniq[k]!] = list
+            .slice(0, 6)
+            .map((c) => ({ url: c.url, thumb: c.thumb || c.image || '', duration: c.duration }));
+        } catch {
+          cache[uniq[k]!] = [];
+        }
+      }
+
+      const built: AutoSlot[] = slots.map((s, i) => {
+        const q = searchQueries[i] || s.keyword;
+        const cands = cache[q.toLowerCase()] || [];
+        const effName = effectNames[i];
+        const eff = effName
+          ? libEffects.find((e) => e.name.trim().toLowerCase() === effName.trim().toLowerCase())
+          : undefined;
+        const hlPhrase = highlights[i] || undefined;
+        const hlStart = hlPhrase ? phraseStartSec(s.words, hlPhrase) ?? s.start : undefined;
+        return {
+          start: Number(s.start.toFixed(2)),
+          end: Number(s.end.toFixed(2)),
+          keyword: q,
+          searchTerm: q,
+          candidates: cands,
+          chosen: cands[0]?.url || '',
+          spokenWord: s.spokenWord,
+          wordStart: s.wordStart,
+          wordEnd: s.wordEnd,
+          highlight: hlPhrase,
+          highlightStart: hlStart,
+          style: styles[i],
+          tone: tones[i],
+          split: splits[i],
+          effectName: eff?.name,
+          effectUrl: eff?.url,
+        };
+      });
+      setAutoSlots(built);
+      // Diagnóstico: mostra quantos efeitos/destaques/P&B/animação a IA marcou —
+      // ajuda a ver se o problema é escolha (nenhum marcado) ou render (link ruim).
+      const nFx = built.filter((b) => b.effectUrl).length;
+      const nHl = built.filter((b) => b.highlight).length;
+      const nBw = built.filter((b) => b.tone === 'past').length;
+      const nAnim = built.filter((b) => b.style === 'animation').length;
+      const nSplit = built.filter((b) => b.split).length;
+      toast.success(
+        `${built.length} trechos · ${nFx} efeitos · ${nHl} destaques · ${nBw} P&B · ${nAnim} animação · ${nSplit} split. Escolha os b-rolls e "Aplicar".`,
+        { id: tid, duration: 7000 }
+      );
+      if (libEffects.length === 0)
+        toast('Dica: sua biblioteca não tem efeitos na categoria "Efeitos" — por isso 0 efeitos contextuais.', {
+          duration: 7000,
+          icon: '🔊',
+        });
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro no auto-edit.', { id: tid });
+    } finally {
+      setAutoEditing(false);
+    }
+  };
+
+  const chooseCandidate = (i: number, url: string) =>
+    setAutoSlots((prev) => prev.map((s, k) => (k === i ? { ...s, chosen: url } : s)));
+
+  const researchSlot = async (i: number, term: string) => {
+    if (!term.trim()) return;
+    setResearchingSlot(i);
+    try {
+      const pr = await fetch(
+        `/api/pexels/search?query=${encodeURIComponent(term)}&orientation=landscape`
+      );
+      const pd = await pr.json();
+      const list = (pd?.clips || pd?.data?.clips || []) as any[];
+      const cands = list
+        .slice(0, 6)
+        .map((c) => ({ url: c.url, thumb: c.thumb || c.image || '', duration: c.duration }));
+      setAutoSlots((prev) =>
+        prev.map((s, k) =>
+          k === i ? { ...s, searchTerm: term, candidates: cands, chosen: cands[0]?.url || '' } : s
+        )
+      );
+    } catch {
+      toast.error('Falha na busca.');
+    } finally {
+      setResearchingSlot(null);
+    }
+  };
+
+  // Aplica os slots escolhidos na timeline (clipes + transições + SFX + textos).
+  const applyAutoSlots = () => {
+    const chosenSlots = autoSlots.filter((s) => s.chosen);
+    if (chosenSlots.length === 0) {
+      toast.error('Escolha o b-roll de pelo menos um trecho.');
+      return;
+    }
+    // VARIEDADE de transições, balanceada: slides, crossfade, whip, ZOOM in/out,
+    // GLITCH, flash branco. Tipos "linkáveis" (slide/crossfade/whip) rodam nos
+    // DOIS lados do corte (saída + entrada) pra link smooth; os "solo"
+    // (zoom/glitch/flash) são só na ENTRADA do clipe. Swoosh 7 em TODO corte.
+    const VARIETY = [
+      'slideleft', 'dissolve', 'zoomin', 'whip', 'slideright', 'glitch', 'zoomout', 'dissolve', 'slideup', 'whiteflash',
+    ];
+    const LINKABLE = new Set(['slideleft', 'slideright', 'slideup', 'slidedown', 'dissolve', 'whip']);
+    const whoosh = soundForTransition('slideleft'); // Swoosh 7
+    const base = clips.length;
+    // Monta os clipes; trechos SPLIT ganham um 2º b-roll (lado direito) usando
+    // outro candidato do mesmo termo.
+    const newClips: { url: string; label: string }[] = [];
+    const leftIdx: number[] = [];
+    const rightIdx: (number | undefined)[] = [];
+    chosenSlots.forEach((s, k) => {
+      leftIdx[k] = base + newClips.length;
+      newClips.push({ url: s.chosen, label: `Auto ${k + 1}` });
+      if (s.split) {
+        const right = s.candidates.find((c) => c.url && c.url !== s.chosen)?.url || s.chosen;
+        rightIdx[k] = base + newClips.length;
+        newClips.push({ url: right, label: `Auto ${k + 1}B` });
+      }
+    });
+    const newItems = chosenSlots.map((s, k) => ({
+      clipIdx: leftIdx[k]!,
+      clipIdx2: rightIdx[k],
+      atSec: s.start,
+      endSec: s.end,
+      transIn: k > 0 ? VARIETY[(k - 1) % VARIETY.length]! : 'none',
+      transInDur: 0.15,
+      soundIn: '',
+      transOut: 'none' as string, // preenchido no 2º passo (link com o próximo)
+      transOutDur: 0.15,
+      soundOut: '',
+      // Efeito contextual (Cash Register, Clock Ticking…) escolhido pela IA.
+      soundMid: s.effectUrl || '',
+      // Riser/reversed → o fim do efeito bate no fim do trecho.
+      soundMidAlign: /reversed|riser|reverse/i.test(s.effectName || '') ? ('end' as const) : ('' as const),
+      // P&B nos trechos de "antes"/passado.
+      bw: s.tone === 'past',
+      keyword: s.searchTerm || s.keyword,
+    }));
+    // 2º passo: linka a saída de cada trecho com a entrada do próximo (quando
+    // for tipo linkável) + Swoosh 7 no corte.
+    for (let k = 0; k < newItems.length - 1; k++) {
+      const nextIn = newItems[k + 1]!.transIn;
+      newItems[k]!.transOut = LINKABLE.has(nextIn) ? nextIn : 'none';
+      newItems[k]!.soundOut = whoosh;
+    }
+    // Texto na tela = FRASE IMPACTANTE (PT) escolhida pela IA, no trecho em que
+    // é dita. Seletivo (a IA marca ~1 a cada 3). Sem destaque → sem texto.
+    // Som que acompanha CADA texto (começa junto): "Swoosh Fight" da biblioteca.
+    const fightSfx =
+      libSounds.find((s) => /fight/i.test(s.name) && /swoosh|whoosh/i.test(s.name))?.url ||
+      libSounds.find((s) => /fight/i.test(s.name))?.url ||
+      '';
+    let hlIdx = 0;
+    const newTexts: TextItem[] = chosenSlots
+      .filter((s) => (s.highlight || '').length >= 3)
+      .map((s) => {
+        // Aparece no momento EXATO em que a frase começa a ser dita.
+        const at = s.highlightStart ?? s.start;
+        // Alterna verde e branco.
+        const color = hlIdx++ % 2 === 0 ? '#39FF14' : '#FFFFFF';
+        return {
+          text: (s.highlight || '').toUpperCase(),
+          atSec: Number(at.toFixed(2)),
+          endSec: Number(Math.min(s.end, at + 2.8).toFixed(2)),
+          color,
+          pos: 'middle' as const,
+          sound: fightSfx || undefined,
+        };
+      });
+    setClips((prev) => [...prev, ...newClips]);
+    setItems((prev) => [...prev, ...newItems]);
+    setTexts((prev) => [...prev, ...newTexts]);
+    setAutoSlots([]);
+    toast.success(`${newItems.length} trechos aplicados na timeline. Revise e monte os grupos.`);
+  };
+
+  // Trocar o b-roll de um TRECHO já na timeline (busca Pexels e substitui o clipe).
+  const searchSwap = async (term: string) => {
+    setBrollSwap((prev) => (prev ? { ...prev, term, loading: true } : prev));
+    try {
+      const pr = await fetch(
+        `/api/pexels/search?query=${encodeURIComponent(term || 'nature')}&orientation=landscape`
+      );
+      const pd = await pr.json();
+      const list = (pd?.clips || pd?.data?.clips || []) as any[];
+      setBrollSwap((prev) =>
+        prev
+          ? {
+              ...prev,
+              loading: false,
+              candidates: list.slice(0, 12).map((c) => ({ url: c.url, thumb: c.thumb || c.image || '' })),
+            }
+          : prev
+      );
+    } catch {
+      setBrollSwap((prev) => (prev ? { ...prev, loading: false } : prev));
+    }
+  };
+  const openSwap = (idx: number) => {
+    const term = (items[idx]?.keyword as string) || '';
+    setBrollSwap({ itemIdx: idx, term, candidates: [], loading: !!term, mode: 'swap' });
+    if (term) searchSwap(term);
+  };
+  // "+ split": ESCOLHE sozinho um 2º b-roll (busca pelo termo do trecho e pega
+  // um diferente do atual). Sem modal — o usuário só troca no ⇄ se quiser.
+  const autoAddSplit = async (idx: number) => {
+    const it = items[idx];
+    if (!it) return;
+    const term = ((it.keyword as string) || '').trim() || 'lifestyle';
+    const currentUrl = clips[it.clipIdx]?.url;
+    toast.loading('Escolhendo b-roll pro split…', { id: 'auto-split' });
+    try {
+      const pr = await fetch(
+        `/api/pexels/search?query=${encodeURIComponent(term)}&orientation=landscape`
+      );
+      const pd = await pr.json();
+      const list = (pd?.clips || pd?.data?.clips || []) as any[];
+      const pick = list.find((c) => c.url && c.url !== currentUrl) || list[0];
+      if (!pick?.url) throw new Error('sem b-roll');
+      setClips((prev) => {
+        const newIdx = prev.length;
+        setItemField(idx, { clipIdx2: newIdx });
+        return [...prev, { url: pick.url, label: `Split ${idx + 1}` }];
+      });
+      toast.success('Split criado — troque o 2º b-roll no ⇄ se quiser.', { id: 'auto-split' });
+    } catch {
+      toast.error('Não achei b-roll pro split — troque no ⇄.', { id: 'auto-split' });
+    }
+  };
+  // Abre o picker pra TROCAR o 2º b-roll (split) do trecho.
+  const openAddSplit = (idx: number) => {
+    const term = (items[idx]?.keyword as string) || '';
+    setBrollSwap({ itemIdx: idx, term, candidates: [], loading: !!term, mode: 'split' });
+    if (term) searchSwap(term);
+  };
+  const pickSwap = (url: string) => {
+    if (!brollSwap) return;
+    const it = items[brollSwap.itemIdx];
+    if (!it) {
+      setBrollSwap(null);
+      return;
+    }
+    if (brollSwap.mode === 'split') {
+      if (it.clipIdx2 != null) {
+        // Troca o 2º b-roll que já existe.
+        const idx2 = it.clipIdx2;
+        setClips((prev) => prev.map((c, k) => (k === idx2 ? { ...c, url, duration: undefined } : c)));
+        toast.success('2º b-roll do split trocado.');
+      } else {
+        // (fallback) cria o split apontando pro novo clipe.
+        setClips((prev) => {
+          const newIdx = prev.length;
+          setItemField(brollSwap.itemIdx, { clipIdx2: newIdx });
+          return [...prev, { url, label: `Split ${brollSwap.itemIdx + 1}` }];
+        });
+        toast.success('Split criado.');
+      }
+      setBrollSwap(null);
+      return;
+    }
+    setClips((prev) => prev.map((c, k) => (k === it.clipIdx ? { ...c, url, duration: undefined } : c)));
+    setBrollSwap(null);
+    toast.success('B-roll trocado.');
+  };
+
+  // Excluir um trecho da biblioteca + reindexar os itens da timeline.
+  const deletePoolClip = (ci: number) => {
+    setItems((prev) =>
+      prev
+        .filter((it) => it.clipIdx !== ci)
+        .map((it) => (it.clipIdx > ci ? { ...it, clipIdx: it.clipIdx - 1 } : it))
+    );
+    setClips((prev) => prev.filter((_, k) => k !== ci));
+  };
+
+  // Sequência (sem áudio)
+  const move = (i: number, dir: -1 | 1) =>
+    setClips((prev) => {
+      const j = i + dir;
+      if (j < 0 || j >= prev.length) return prev;
+      const out = [...prev];
+      [out[i], out[j]] = [out[j]!, out[i]!];
+      return out;
+    });
+  const removeClip = (i: number) => setClips((prev) => prev.filter((_, k) => k !== i));
+  const setTrim = (i: number, key: 'startSec' | 'endSec', val: string) => {
+    const n = val === '' ? undefined : Math.max(0, Number(val) || 0);
+    setClips((prev) => prev.map((c, k) => (k === i ? { ...c, [key]: n } : c)));
+  };
+
+  // ── Render EM GRUPOS ──────────────────────────────────────────────────────
+  // Divide a timeline em janelas de ~GROUP_SEC. Cada grupo recebe os clipes que
+  // o cruzam, rebaseados pro tempo da janela (trimStart pula o que já passou em
+  // grupos anteriores; transição/som só entram no grupo onde o clipe começa/termina).
+  const groups = useMemo(() => {
+    const total = audioDuration || 0;
+    if (!total) return [] as { t0: number; t1: number; winDur: number; clips: any[]; texts: any[] }[];
+    const n = Math.max(1, Math.ceil(total / GROUP_SEC));
+    const out: { t0: number; t1: number; winDur: number; clips: any[]; texts: any[] }[] = [];
+    for (let g = 0; g < n; g++) {
+      const t0 = g * GROUP_SEC;
+      const t1 = Math.min(total, (g + 1) * GROUP_SEC);
+      // Textos que caem na janela, rebaseados pro tempo do grupo.
+      const gtexts = texts
+        .filter((t) => t.atSec < t1 && t.endSec > t0)
+        .map((t) => ({
+          ...t,
+          atSec: Math.max(0, t.atSec - t0),
+          endSec: Math.min(t1, t.endSec) - t0,
+        }));
+      const gclips = items
+        .map((it) => {
+          const s = it.atSec;
+          const e = itemEnd(it);
+          if (!(s < t1 && e > t0)) return null;
+          const startsHere = s >= t0;
+          const endsHere = e <= t1;
+          const useAvatar = it.layout && it.layout !== 'full' && !!avatarBase;
+          return {
+            url: clips[it.clipIdx]?.url,
+            url2: it.clipIdx2 != null ? clips[it.clipIdx2]?.url : undefined,
+            // Avatar composto (PiP/split): busca o avatar no tempo ABSOLUTO do trecho.
+            layout: useAvatar ? it.layout : undefined,
+            avatarUrl: useAvatar ? avatarBase : undefined,
+            avatarSeek: useAvatar ? avatarStartSec + it.atSec : undefined,
+            // Enquadramento calibrado do avatar (mesmo pra todos os trechos).
+            splitCX: useAvatar ? framing.splitCX : undefined,
+            splitCY: useAvatar ? framing.splitCY : undefined,
+            splitSize: useAvatar ? framing.splitSize : undefined,
+            pipCX: useAvatar ? framing.pipCX : undefined,
+            pipCY: useAvatar ? framing.pipCY : undefined,
+            pipSize: useAvatar ? framing.pipSize : undefined,
+            cropL: useAvatar ? framing.cropL : undefined,
+            cropR: useAvatar ? framing.cropR : undefined,
+            cropT: useAvatar ? framing.cropT : undefined,
+            cropB: useAvatar ? framing.cropB : undefined,
+            atSec: Math.max(0, s - t0),
+            endSec: Math.min(t1, e) - t0,
+            trimStart: Math.max(0, t0 - s),
+            transIn: startsHere ? it.transIn || 'none' : 'none',
+            transInDur: it.transInDur || 0.1,
+            soundIn: startsHere ? it.soundIn || '' : '',
+            soundMid: startsHere ? it.soundMid || '' : '',
+            soundMidAlign: startsHere ? it.soundMidAlign || '' : '',
+            bw: it.bw || false,
+            transOut: endsHere ? it.transOut || 'none' : 'none',
+            transOutDur: it.transOutDur || 0.1,
+            soundOut: endsHere ? it.soundOut || '' : '',
+          };
+        })
+        .filter((c) => c && c.url && c.endSec > c.atSec);
+      out.push({ t0, t1, winDur: t1 - t0, clips: gclips, texts: gtexts });
+    }
+    return out;
+  }, [audioDuration, items, clips, texts]);
+
+  useEffect(() => {
+    // Restaura os grupos já renderizados (persistidos em config.montagem.groupUrls)
+    // pra sobreviverem à navegação — senão voltavam pra "idle" e a aba Edição
+    // não via os grupos.
+    const saved = ((config as any)?.montagem?.groupUrls as string[] | undefined) || [];
+    setGroupRenders(
+      groups.map((_, i) =>
+        saved[i] ? { url: saved[i], status: 'done' as const } : { status: 'idle' as const }
+      )
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groups.length]);
+
+  const renderGroup = async (gi: number) => {
+    if (!uid) return;
+    const g = groups[gi];
+    if (!g) return;
+    if (g.clips.length === 0) {
+      toast.error(`Grupo ${gi + 1}: sem clipes nesse trecho.`);
+      return;
+    }
+    setGroupRenders((prev) => prev.map((x, i) => (i === gi ? { ...x, status: 'gen' } : x)));
+    try {
+      const r = await fetch('/api/video/timeline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: uid,
+          audioUrl,
+          audioStartSec: g.t0,
+          durationSec: g.winDur,
+          clips: g.clips,
+          texts: g.texts,
+          aspectRatio: aspect,
+          fit,
+        }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'Falha ao montar o grupo.');
+      setGroupRenders((prev) => prev.map((x, i) => (i === gi ? { url: data.url, status: 'done' } : x)));
+    } catch (e: any) {
+      setGroupRenders((prev) => prev.map((x, i) => (i === gi ? { ...x, status: 'error' } : x)));
+      toast.error(`Grupo ${gi + 1}: ${e.message}`);
+    }
+  };
+
+  const renderAllGroups = async () => {
+    const snap = groupRenders;
+    for (let i = 0; i < groups.length; i++) {
+      if (snap[i]?.status === 'done') continue;
+      await renderGroup(i);
+    }
+  };
+
+  const joinGroups = async () => {
+    if (!uid) return;
+    const urls = groupRenders.map((g) => g.url).filter(Boolean) as string[];
+    if (urls.length < groups.length) {
+      toast.error('Renderize TODOS os grupos antes de juntar.');
+      return;
+    }
+    if (urls.length === 1) {
+      setResultUrl(urls[0]!);
+      return;
+    }
+    setJoiningGroups(true);
+    const toastId = 'montagem-join';
+    toast.loading('Juntando os grupos...', { id: toastId });
+    try {
+      const r = await fetch('/api/video/concat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videos: urls, userId: uid }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'Falha ao juntar.');
+      setResultUrl(data.url);
+      onAddUploadedVideo?.(
+        { url: data.url, uploaded: true, aspectRatio: aspect, createdAt: new Date().toISOString() },
+        false
+      );
+      toast.success('Grupos juntados — vídeo final pronto!', { id: toastId });
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao juntar.', { id: toastId });
+    } finally {
+      setJoiningGroups(false);
+    }
+  };
+
+  const allGroupsDone =
+    groups.length > 0 && groupRenders.filter((g) => g.status === 'done').length === groups.length;
+
+  const compose = async () => {
+    if (!uid) return;
+    setRendering(true);
+    const toastId = 'montagem-render';
+    toast.loading(isTimeline ? 'Montando no tempo do áudio...' : 'Montando a sequência...', {
+      id: toastId,
+    });
+    try {
+      let data: any;
+      if (isTimeline) {
+        if (items.length === 0) throw new Error('Adicione pelo menos um trecho na timeline.');
+        const sorted = [...items].sort((a, b) => a.atSec - b.atSec);
+        const r = await fetch('/api/video/timeline', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: uid,
+            audioUrl,
+            durationSec: audioDuration,
+            aspectRatio: aspect,
+            fit,
+            texts,
+            clips: sorted.map((it) => ({
+              url: clips[it.clipIdx]?.url,
+              url2: it.clipIdx2 != null ? clips[it.clipIdx2]?.url : undefined,
+              layout: it.layout && it.layout !== 'full' && avatarBase ? it.layout : undefined,
+              avatarUrl: it.layout && it.layout !== 'full' && avatarBase ? avatarBase : undefined,
+              avatarSeek: it.layout && it.layout !== 'full' && avatarBase ? avatarStartSec + it.atSec : undefined,
+              splitCX: it.layout && it.layout !== 'full' && avatarBase ? framing.splitCX : undefined,
+              splitCY: it.layout && it.layout !== 'full' && avatarBase ? framing.splitCY : undefined,
+              splitSize: it.layout && it.layout !== 'full' && avatarBase ? framing.splitSize : undefined,
+              pipCX: it.layout && it.layout !== 'full' && avatarBase ? framing.pipCX : undefined,
+              pipCY: it.layout && it.layout !== 'full' && avatarBase ? framing.pipCY : undefined,
+              pipSize: it.layout && it.layout !== 'full' && avatarBase ? framing.pipSize : undefined,
+              cropL: it.layout && it.layout !== 'full' && avatarBase ? framing.cropL : undefined,
+              cropR: it.layout && it.layout !== 'full' && avatarBase ? framing.cropR : undefined,
+              cropT: it.layout && it.layout !== 'full' && avatarBase ? framing.cropT : undefined,
+              cropB: it.layout && it.layout !== 'full' && avatarBase ? framing.cropB : undefined,
+              atSec: it.atSec,
+              endSec: itemEnd(it),
+              trimStart: 0,
+              transIn: it.transIn || 'none',
+              transInDur: it.transInDur || 0.1,
+              soundIn: it.soundIn || '',
+              soundMid: it.soundMid || '',
+              soundMidAlign: it.soundMidAlign || '',
+              bw: it.bw || false,
+              transOut: it.transOut || 'none',
+              transOutDur: it.transOutDur || 0.1,
+              soundOut: it.soundOut || '',
+            })),
+          }),
+        });
+        data = await r.json();
+        if (!r.ok) throw new Error(data.error || 'Falha ao montar.');
+      } else {
+        if (clips.length === 0) throw new Error('Suba seus trechos.');
+        const r = await fetch('/api/video/sequence', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: uid,
+            muted,
+            clips: clips.map((c) => ({ url: c.url, startSec: c.startSec, endSec: c.endSec })),
+          }),
+        });
+        data = await r.json();
+        if (!r.ok) throw new Error(data.error || 'Falha ao montar.');
+      }
+      setResultUrl(data.url);
+      onAddUploadedVideo?.(
+        { url: data.url, uploaded: true, aspectRatio: aspect, createdAt: new Date().toISOString() },
+        false
+      );
+      toast.success('Pronto — já está na Edição.', { id: toastId });
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao montar.', { id: toastId });
+    } finally {
+      setRendering(false);
+    }
+  };
+
+  const displayItems = items.map((it, idx) => ({ it, idx })).sort((a, b) => a.it.atSec - b.it.atSec);
+
+  return (
+    <div className="max-w-3xl mx-auto space-y-6">
+      <SoundLibraryModal
+        open={!!soundPicker || soundLibManage}
+        userId={uid}
+        onClose={() => {
+          setSoundPicker(null);
+          setSoundLibManage(false);
+        }}
+        onPick={(url) => {
+          if (!soundPicker) return;
+          const patch: any = { [soundPicker.field]: url };
+          if (soundPicker.field === 'soundMid') {
+            const nm = libSounds.find((s) => s.url === url)?.name || '';
+            patch.soundMidAlign = /reversed|riser|reverse/i.test(nm) ? 'end' : '';
+          }
+          setItemField(soundPicker.idx, patch);
+        }}
+      />
+
+      {/* Enquadrar avatar (split + PiP) — calibrado 1× por avatar */}
+      {framingModalOpen && avatarBase && (
+        <AvatarFramingModal
+          avatarUrl={avatarBase}
+          aspect={aspect}
+          value={framing}
+          onClose={() => setFramingModalOpen(false)}
+          onSave={(f) => {
+            setAvatarFraming((prev) => ({ ...prev, [avatarBase]: f }));
+            setFramingModalOpen(false);
+            toast.success('Enquadramento salvo — vale pra todos os trechos deste avatar.');
+          }}
+        />
+      )}
+
+      {/* Trocar b-roll de um trecho da timeline */}
+      {brollSwap && (
+        <div
+          className="fixed inset-0 z-[121] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+          onClick={() => setBrollSwap(null)}
+        >
+          <div
+            className="w-full max-w-3xl max-h-[85vh] overflow-hidden bg-white dark:bg-gray-900 rounded-3xl border-2 border-gray-200 dark:border-gray-800 shadow-2xl flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 p-4 border-b border-gray-200 dark:border-gray-800">
+              <input
+                autoFocus
+                value={brollSwap.term}
+                onChange={(e) => setBrollSwap((p) => (p ? { ...p, term: e.target.value } : p))}
+                onKeyDown={(e) => e.key === 'Enter' && searchSwap(brollSwap.term)}
+                placeholder="Buscar b-roll no Pexels…"
+                className="flex-1 px-3 py-2 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100 text-sm"
+              />
+              <button
+                onClick={() => searchSwap(brollSwap.term)}
+                disabled={brollSwap.loading}
+                className="text-xs font-black uppercase tracking-widest px-4 py-2 rounded-xl bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 disabled:opacity-50"
+              >
+                {brollSwap.loading ? '…' : 'Buscar'}
+              </button>
+              <button onClick={() => setBrollSwap(null)} className="p-1.5 text-gray-400 hover:text-gray-700">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              {brollSwap.candidates.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-8">
+                  Busque um termo pra ver os b-rolls.
+                </p>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {brollSwap.candidates.map((c) => (
+                    <button
+                      key={c.url}
+                      onClick={() => pickSwap(c.url)}
+                      onMouseEnter={(e) => e.currentTarget.querySelector('video')?.play().catch(() => {})}
+                      onMouseLeave={(e) => e.currentTarget.querySelector('video')?.pause()}
+                      className="relative aspect-video rounded-lg overflow-hidden border-2 border-transparent hover:border-blue-400"
+                    >
+                      <video
+                        src={c.url}
+                        poster={c.thumb || undefined}
+                        muted
+                        loop
+                        playsInline
+                        preload="none"
+                        className="w-full h-full object-cover"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AUTO-EDITAR — picker de b-roll por trecho */}
+      {autoSlots.length > 0 && (
+        <div className="fixed inset-0 z-[120] flex flex-col bg-black/70 backdrop-blur-sm p-3 sm:p-6">
+          <div className="flex-1 min-h-0 w-full max-w-4xl mx-auto bg-white dark:bg-gray-900 rounded-3xl border-2 border-gray-200 dark:border-gray-800 shadow-2xl flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between gap-3 p-4 border-b border-gray-200 dark:border-gray-800">
+              <div>
+                <h3 className="text-lg font-black text-gray-900 dark:text-gray-50">
+                  Escolha o b-roll de cada trecho
+                </h3>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                  {autoSlots.length} trechos planejados no ritmo da referência. Clique no b-roll de
+                  cada um (ou busque outro termo).
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => setAutoSlots([])}
+                  className="text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-lg text-gray-500 hover:text-red-500"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={applyAutoSlots}
+                  className="text-xs font-black uppercase tracking-widest px-4 py-2.5 rounded-xl bg-purple-600 text-white hover:bg-purple-700"
+                >
+                  Aplicar à timeline
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {autoSlots.map((s, i) => (
+                <div
+                  key={i}
+                  className="rounded-2xl border border-gray-200 dark:border-gray-800 p-3 space-y-2"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-black text-gray-700 dark:text-gray-300">
+                      Trecho {i + 1}
+                    </span>
+                    <span className="text-[10px] text-gray-400">
+                      {Math.round(s.start)}–{Math.round(s.end)}s
+                    </span>
+                    <button
+                      onClick={() => playSegment(s.start, s.end)}
+                      className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/40"
+                      title="Ouvir este trecho da narração"
+                    >
+                      <Play size={11} /> Ouvir
+                    </button>
+                    <input
+                      value={s.searchTerm}
+                      onChange={(e) =>
+                        setAutoSlots((prev) =>
+                          prev.map((x, k) => (k === i ? { ...x, searchTerm: e.target.value } : x))
+                        )
+                      }
+                      onKeyDown={(e) => e.key === 'Enter' && researchSlot(i, s.searchTerm)}
+                      className="flex-1 min-w-[120px] px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100 text-xs"
+                    />
+                    <button
+                      onClick={() => researchSlot(i, s.searchTerm)}
+                      disabled={researchingSlot === i}
+                      className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-lg bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 disabled:opacity-50"
+                    >
+                      {researchingSlot === i ? '…' : 'Buscar'}
+                    </button>
+                  </div>
+                  {s.candidates.length === 0 ? (
+                    <p className="text-[11px] text-gray-400">
+                      Nenhum b-roll — busque outro termo acima.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                      {s.candidates.map((c) => (
+                        <button
+                          key={c.url}
+                          onClick={() => chooseCandidate(i, c.url)}
+                          onMouseEnter={(e) => {
+                            const v = e.currentTarget.querySelector('video');
+                            if (v) (v as HTMLVideoElement).play().catch(() => {});
+                          }}
+                          onMouseLeave={(e) => {
+                            const v = e.currentTarget.querySelector('video');
+                            if (v) (v as HTMLVideoElement).pause();
+                          }}
+                          className={`relative aspect-video rounded-lg overflow-hidden border-2 ${
+                            s.chosen === c.url
+                              ? 'border-purple-500 ring-2 ring-purple-300'
+                              : 'border-transparent hover:border-gray-300'
+                          }`}
+                        >
+                          <video
+                            src={c.url}
+                            poster={c.thumb || undefined}
+                            muted
+                            loop
+                            playsInline
+                            preload="none"
+                            className="w-full h-full object-cover"
+                          />
+                          {s.chosen === c.url && (
+                            <span className="absolute top-1 right-1 bg-purple-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px]">
+                              ✓
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {(s.highlight || s.tone === 'past' || s.style === 'animation' || s.split) && (
+                    <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                      {s.highlight && (
+                        <span className="px-2 py-1 rounded-lg bg-green-100 dark:bg-green-950/40 text-green-800 dark:text-green-300 font-black uppercase tracking-widest">
+                          ✍ {s.highlight}
+                        </span>
+                      )}
+                      {s.tone === 'past' && (
+                        <span className="px-2 py-1 rounded-lg bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-300 font-black uppercase tracking-widest">
+                          ◐ P&B
+                        </span>
+                      )}
+                      {s.style === 'animation' && (
+                        <span className="px-2 py-1 rounded-lg bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-black uppercase tracking-widest">
+                          ✦ animação
+                        </span>
+                      )}
+                      {s.split && (
+                        <button
+                          onClick={() =>
+                            setAutoSlots((prev) =>
+                              prev.map((x, k) => (k === i ? { ...x, split: !x.split } : x))
+                            )
+                          }
+                          className="px-2 py-1 rounded-lg bg-cyan-100 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-300 font-black uppercase tracking-widest"
+                          title="Split-screen (2 b-rolls). Clique pra desligar."
+                        >
+                          ⊞ split ✕
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {s.effectName && (
+                    <div className="flex items-center gap-2 text-[11px]">
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-black uppercase tracking-widest">
+                        🔊 {s.effectName}
+                      </span>
+                      <button
+                        onClick={() =>
+                          setAutoSlots((prev) =>
+                            prev.map((x, k) =>
+                              k === i ? { ...x, effectName: undefined, effectUrl: undefined } : x
+                            )
+                          )
+                        }
+                        className="text-gray-400 hover:text-red-500 font-bold"
+                        title="Não usar esse efeito neste trecho"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+      <style>{`
+        @keyframes mvFade { 0%{opacity:0} 60%,100%{opacity:1} }
+        @keyframes mvSL { 0%{transform:translateX(100%)} 60%,100%{transform:translateX(0)} }
+        @keyframes mvSR { 0%{transform:translateX(-100%)} 60%,100%{transform:translateX(0)} }
+        @keyframes mvSU { 0%{transform:translateY(100%)} 60%,100%{transform:translateY(0)} }
+        @keyframes mvSD { 0%{transform:translateY(-100%)} 60%,100%{transform:translateY(0)} }
+        @keyframes mvZI { 0%{transform:scale(1)} 70%,100%{transform:scale(1.18)} }
+        @keyframes mvZO { 0%{transform:scale(1.18)} 70%,100%{transform:scale(1)} }
+        @keyframes mvWF { 0%{filter:brightness(6)} 35%,100%{filter:brightness(1)} }
+        @keyframes mvWH { 0%{transform:translateX(75%);filter:blur(9px)} 45%,100%{transform:translateX(0);filter:blur(0)} }
+        @keyframes mvGL {
+          0%,100%{transform:translateX(0);box-shadow:none;filter:none}
+          18%{transform:translateX(-5px);box-shadow:-4px 0 0 rgba(255,0,255,.6),4px 0 0 rgba(0,255,255,.6)}
+          36%{transform:translateX(5px);box-shadow:4px 0 0 rgba(255,0,255,.6),-4px 0 0 rgba(0,255,255,.6)}
+          54%{transform:translateX(-2px);filter:contrast(1.6) brightness(1.2)}
+          72%{transform:translateX(0);box-shadow:none;filter:none}
+        }
+        /* Preview anima SÓ no hover do card (mv-card). Parado, mostra estático. */
+        .mv-card:hover .mv-fade{animation:mvFade 1.6s ease-in-out infinite}
+        .mv-card:hover .mv-slideleft{animation:mvSL 1.6s ease-in-out infinite}
+        .mv-card:hover .mv-slideright{animation:mvSR 1.6s ease-in-out infinite}
+        .mv-card:hover .mv-slideup{animation:mvSU 1.6s ease-in-out infinite}
+        .mv-card:hover .mv-slidedown{animation:mvSD 1.6s ease-in-out infinite}
+        .mv-card:hover .mv-zoomin{animation:mvZI 1.6s ease-in-out infinite}
+        .mv-card:hover .mv-zoomout{animation:mvZO 1.6s ease-in-out infinite}
+        .mv-card:hover .mv-white{animation:mvWF 1.6s ease-in-out infinite}
+        .mv-card:hover .mv-whip{animation:mvWH 1.6s ease-in-out infinite}
+        .mv-card:hover .mv-glitch{animation:mvGL 1.2s linear infinite}
+        .mv-bw{filter:grayscale(1)}
+      `}</style>
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <Film size={22} className="text-blue-600 dark:text-blue-400" />
+          <h2 className="text-2xl font-black text-gray-900 dark:text-gray-50">Montagem dos seus vídeos</h2>
+        </div>
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          Sem avatar IA. Com um <strong>áudio base</strong> (a voz), dê play e clique{' '}
+          <strong>"Adicionar aqui"</strong> no segundo certo pra encaixar cada trecho. O resultado vai
+          pra Edição.
+        </p>
+      </div>
+
+      {/* ÁUDIO BASE */}
+      <div className="bg-white dark:bg-gray-900/70 p-4 rounded-2xl border-2 border-gray-200 dark:border-gray-800 space-y-3">
+        <div className="flex items-center gap-2">
+          <Music size={16} className="text-blue-600 dark:text-blue-400" />
+          <span className="text-xs font-black uppercase tracking-widest text-gray-700 dark:text-gray-300">
+            Áudio base (linha do tempo)
+          </span>
+        </div>
+        {audioUrl ? (
+          <div className="space-y-3">
+            {/* PREVIEW 1:1 */}
+            <div
+              ref={previewWrapRef}
+              className="relative bg-black rounded-xl overflow-hidden mx-auto aspect-square max-h-[420px] w-full max-w-[420px] [&:fullscreen]:max-h-none [&:fullscreen]:max-w-none [&:fullscreen]:aspect-auto [&:fullscreen]:rounded-none"
+            >
+              <video ref={vARef} className="absolute inset-0 w-full h-full object-contain" style={{ opacity: 0 }} muted playsInline />
+              <video ref={vBRef} className="absolute inset-0 w-full h-full object-contain" style={{ opacity: 0 }} muted playsInline />
+              {/* Barra de controle (fica dentro do container → funciona em tela cheia) */}
+              <div
+                style={{ zIndex: 10 }}
+                className="absolute left-0 right-0 bottom-0 px-3 py-2 flex items-center gap-3 bg-gradient-to-t from-black/70 to-transparent"
+              >
+                <button onClick={togglePlay} className="text-white shrink-0" title={isPlaying ? 'Pausar' : 'Tocar'}>
+                  {isPlaying ? <Pause size={18} /> : <Play size={18} />}
+                </button>
+                <div onClick={seekAudio} className="flex-1 h-2 bg-white/30 rounded cursor-pointer">
+                  <div
+                    className="h-full bg-white rounded"
+                    style={{ width: `${audioDuration ? (playhead / audioDuration) * 100 : 0}%` }}
+                  />
+                </div>
+                <span className="text-[10px] text-white tabular-nums shrink-0">
+                  {playhead.toFixed(0)}/{audioDuration.toFixed(0)}s
+                </span>
+                <button onClick={goFullscreen} className="text-white shrink-0" title="Tela cheia (entra/sai)">
+                  <Maximize size={16} />
+                </button>
+              </div>
+            </div>
+            <button
+              onClick={addHere}
+              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-black uppercase tracking-widest flex items-center justify-center gap-2"
+            >
+              <Plus size={16} /> Adicionar aqui ({playhead.toFixed(1)}s)
+            </button>
+
+            {/* Seletor de clipe ao "adicionar aqui" */}
+            {picking != null && (
+              <div className="p-3 rounded-xl ring-2 ring-blue-400 bg-blue-50/60 dark:bg-blue-950/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-black uppercase tracking-widest text-blue-700 dark:text-blue-300">
+                    Escolha o trecho pra {picking.toFixed(1)}s
+                  </span>
+                  <button onClick={() => setPicking(null)} className="text-gray-400 hover:text-gray-600">
+                    <X size={14} />
+                  </button>
+                </div>
+                {clips.length === 0 ? (
+                  <p className="text-[11px] text-gray-500">Suba trechos primeiro (abaixo).</p>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2">
+                    {clips.map((c, ci) => (
+                      <div
+                        key={c.url + ci}
+                        className="relative rounded-lg overflow-hidden ring-1 ring-gray-200 dark:ring-gray-700 hover:ring-blue-500"
+                      >
+                        <button onClick={() => pickClip(ci)} className="block w-full text-left">
+                          <div className="relative">
+                            <video src={c.url} preload="metadata" className="w-full h-20 object-cover bg-black" />
+                            {c.duration ? (
+                              <span className="absolute bottom-1 right-1 text-[9px] font-black bg-black/70 text-white px-1 rounded">
+                                {c.duration.toFixed(1)}s
+                              </span>
+                            ) : null}
+                          </div>
+                          <span className="block text-[9px] truncate px-1 py-0.5 text-gray-600 dark:text-gray-300">
+                            {c.label}
+                          </span>
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deletePoolClip(ci);
+                          }}
+                          title="Excluir trecho da biblioteca"
+                          className="absolute top-1 right-1 p-1 rounded bg-black/60 text-white hover:bg-red-600"
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <audio
+              ref={audioRef}
+              src={audioUrl}
+              controls
+              onLoadedMetadata={(e) => setAudioDuration((e.target as HTMLAudioElement).duration || 0)}
+              onTimeUpdate={(e) => syncPreview((e.target as HTMLAudioElement).currentTime, false)}
+              onSeeked={(e) => syncPreview((e.target as HTMLAudioElement).currentTime, true)}
+              onPlay={() => {
+                playingRef.current = true;
+                setIsPlaying(true);
+                frontEl()?.play().catch(() => {});
+                startRaf();
+              }}
+              onPause={() => {
+                playingRef.current = false;
+                setIsPlaying(false);
+                frontEl()?.pause();
+                stopRaf();
+              }}
+              className="w-full"
+            />
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-gray-500">
+                Duração: {audioDuration ? `${audioDuration.toFixed(1)}s` : '...'}
+              </span>
+              <button
+                onClick={() => {
+                  setAudioUrl('');
+                  setItems([]);
+                }}
+                className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-red-500"
+              >
+                <X size={12} /> Remover áudio
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {vozOptions.map((o) => (
+              <button
+                key={o.key}
+                onClick={() => setAudioUrl(o.url)}
+                className={`px-3 py-2 rounded-xl text-white text-[10px] font-black uppercase tracking-widest ${
+                  o.key.startsWith('vsl')
+                    ? 'bg-purple-600 hover:bg-purple-700'
+                    : o.key === 'gancho'
+                      ? 'bg-amber-500 hover:bg-amber-600'
+                      : 'bg-blue-600 hover:bg-blue-700'
+                }`}
+              >
+                Usar {o.label}
+              </button>
+            ))}
+            <label className="px-3 py-2 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-300 hover:border-blue-400 cursor-pointer flex items-center gap-1">
+              {uploadingAudio ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+              Enviar áudio
+              <input type="file" accept="audio/*" className="hidden" onChange={(e) => onUploadAudio(e.target.files?.[0])} />
+            </label>
+            <span className="text-[11px] text-gray-400 self-center">(sem áudio = só cola em ordem)</span>
+          </div>
+        )}
+      </div>
+
+      {/* TIMELINE: itens posicionados */}
+      {isTimeline && displayItems.length > 0 && (
+        <div className="bg-white dark:bg-gray-900/70 p-3 rounded-2xl border-2 border-gray-200 dark:border-gray-800 space-y-2">
+          <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">
+            Transições (preview) — escolha em cada trecho abaixo
+          </span>
+          <div className="grid grid-cols-3 sm:grid-cols-7 gap-2">
+            {TRANSITIONS.map((t) => (
+              <div key={t.id} className="space-y-1">
+                <div className="mv-card relative w-full h-14 rounded-lg overflow-hidden ring-1 ring-gray-200 dark:ring-gray-700 cursor-pointer">
+                  <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-500 to-rose-500" />
+                  <div className={`absolute inset-0 bg-gradient-to-br from-blue-500 to-cyan-400 ${t.css}`} />
+                </div>
+                <span className="block text-[9px] text-center text-gray-500">{t.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* BIBLIOTECA DE EFEITOS SONOROS — preview (ouça e aplique nos trechos abaixo) */}
+      {isTimeline && displayItems.length > 0 && (
+        <div className="bg-white dark:bg-gray-900/70 p-3 rounded-2xl border-2 border-gray-200 dark:border-gray-800 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">
+              Efeitos sonoros (biblioteca) — ouça e aplique nos trechos abaixo
+            </span>
+            <button
+              onClick={() => setSoundLibManage(true)}
+              className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-blue-400 flex items-center gap-1 shrink-0"
+              title="Enviar, aparar (trim) ou remover efeitos"
+            >
+              <Music size={12} /> Gerenciar
+            </button>
+          </div>
+          {libSounds.length === 0 ? (
+            <p className="text-[11px] text-gray-400">
+              Biblioteca vazia. Clique em <b>Gerenciar</b> pra enviar seus efeitos (whoosh, cash
+              register, clock ticking…).
+            </p>
+          ) : (
+            ['Transições', 'Efeitos', 'Impactos', 'Outros']
+              .filter((cat) => libSounds.some((s) => (s.category || 'Outros') === cat))
+              .map((cat) => (
+                <div key={cat} className="space-y-1">
+                  <span className="block text-[9px] font-black uppercase tracking-widest text-gray-400">
+                    {cat}
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {libSounds
+                      .filter((s) => (s.category || 'Outros') === cat)
+                      .map((s) => (
+                        <button
+                          key={s.id}
+                          onClick={() => playSfx(s.url)}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-[11px] text-gray-700 dark:text-gray-200 hover:border-purple-400"
+                          title="Ouvir"
+                        >
+                          <Play size={10} /> {s.name}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              ))
+          )}
+        </div>
+      )}
+
+      {/* AVATAR BASE — vídeo do HeyGen (mesma narração) pro PiP/split */}
+      {isTimeline && displayItems.length > 0 && (
+        <div className="bg-white dark:bg-gray-900/70 p-3 rounded-2xl border-2 border-violet-200 dark:border-violet-900/60 space-y-2">
+          <span className="text-[11px] font-black uppercase tracking-widest text-violet-600 dark:text-violet-400">
+            Avatar base (opcional) — pro PiP / split
+          </span>
+          <p className="text-[11px] text-gray-500 dark:text-gray-400">
+            <b>Obrigatório</b> pro avatar aparecer: escolha o vídeo do avatar (o que você gerou na
+            aba Avatar) da <b>mesma narração</b>. Só depois os layouts <b>tela cheia / PiP / split</b>
+            de cada trecho funcionam (o render encaixa o avatar no tempo certo, lip-sync na voz).
+          </p>
+          {avatarBase ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <video
+                  ref={avatarPreviewRef}
+                  src={avatarBase}
+                  controls
+                  className="w-40 h-24 object-cover rounded-lg bg-black"
+                />
+                <span className="text-[10px] font-black uppercase tracking-widest text-green-600 dark:text-green-400">
+                  ✓ avatar base ativo
+                </span>
+                <button
+                  onClick={() => setFramingModalOpen(true)}
+                  className="text-[10px] font-black uppercase tracking-widest text-violet-600 dark:text-violet-400 hover:underline"
+                  title="Escolha 1× onde o split corta e onde o círculo do PiP recorta — vale pra todos os trechos deste avatar"
+                >
+                  ◎ Enquadrar avatar
+                </button>
+                <button
+                  onClick={() => setAvatarBase('')}
+                  className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-red-500"
+                >
+                  Trocar
+                </button>
+              </div>
+              {/* Início do bloco no avatar: se a base é a VSL inteira (10 min) e
+                  você monta um bloco no meio, marque onde ele começa — a montagem
+                  usa só daqui pra frente (pelo tempo do bloco) e o lip-sync bate. */}
+              <div className="flex items-center gap-2 flex-wrap text-[10px]">
+                <span className="font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">
+                  Início do bloco no avatar:
+                </span>
+                <span className="font-mono font-black text-violet-600 dark:text-violet-400">
+                  {`${Math.floor(avatarStartSec / 60)}:${String(Math.floor(avatarStartSec % 60)).padStart(2, '0')}`}
+                </span>
+                <button
+                  onClick={() => {
+                    const t = avatarPreviewRef.current?.currentTime;
+                    if (t == null) return;
+                    setAvatarStartSec(Math.max(0, Math.round(t * 10) / 10));
+                    toast.success('Início marcado — a montagem corta o avatar a partir daqui.');
+                  }}
+                  className="px-2 py-1 rounded-lg border border-violet-300 dark:border-violet-800 font-black uppercase tracking-widest text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-900/30"
+                  title="Pause o preview no ponto onde este bloco começa a falar e clique aqui"
+                >
+                  ✂ Cortar a partir daqui
+                </button>
+                {avatarStartSec > 0 && (
+                  <button
+                    onClick={() => setAvatarStartSec(0)}
+                    className="font-black uppercase tracking-widest text-gray-400 hover:text-red-500"
+                  >
+                    Resetar (0:00)
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {avatarVideoOptions.length > 0 && (
+                <div className="space-y-1">
+                  <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                    Escolha um avatar que você já gerou:
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    {avatarVideoOptions.map((v) => (
+                      <button
+                        key={v.url}
+                        onClick={() => setAvatarBase(v.url)}
+                        className="relative w-28 h-16 rounded-lg overflow-hidden ring-1 ring-violet-300 dark:ring-violet-700 hover:ring-2 hover:ring-violet-500 bg-black"
+                        title={`${v.from} · ${v.aspectRatio || ''}`}
+                      >
+                        <video src={v.url} muted className="w-full h-full object-cover" preload="metadata" />
+                        <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[8px] font-black uppercase tracking-widest px-1 py-0.5">
+                          {v.from} {v.aspectRatio || ''}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <label className="inline-flex items-center gap-1 px-3 py-2 rounded-xl border-2 border-violet-200 dark:border-violet-800 text-[10px] font-black uppercase tracking-widest text-violet-700 dark:text-violet-300 hover:border-violet-400 cursor-pointer">
+                {uploadingAvatar ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+                {avatarVideoOptions.length > 0 ? 'ou enviar outro vídeo' : 'Enviar vídeo do avatar'}
+                <input
+                  type="file"
+                  accept="video/*"
+                  className="hidden"
+                  onChange={(e) => onUploadAvatar(e.target.files?.[0])}
+                />
+              </label>
+            </div>
+          )}
+        </div>
+      )}
+
+      {isTimeline && displayItems.length > 0 && (
+        <div className="space-y-2">
+          <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">
+            Trechos na timeline (começa / termina, em segundos do áudio)
+          </span>
+          {displayItems.map(({ it, idx }) => (
+            <div
+              key={idx}
+              className="p-2 rounded-xl ring-1 ring-gray-200 dark:ring-gray-700 bg-white dark:bg-gray-900/60 space-y-2"
+            >
+              <div className="flex items-center gap-3">
+                <video src={clips[it.clipIdx]?.url} preload="metadata" className="w-24 h-16 object-cover rounded bg-black shrink-0" />
+                <div className="flex-1 min-w-0 flex flex-wrap items-center gap-2 text-[10px] text-gray-500">
+                  <span className="truncate font-bold text-gray-800 dark:text-gray-100 max-w-[100px]">
+                    {clips[it.clipIdx]?.label || 'trecho'}
+                  </span>
+                  <button
+                    onClick={() => openSwap(idx)}
+                    className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/40"
+                    title="Trocar o b-roll deste trecho"
+                  >
+                    ⇄ trocar
+                  </button>
+                  começa em
+                  <NumInput value={it.atSec} min={0} onCommit={(n) => updateItem(idx, 'atSec', String(n))} className="w-16 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100" />
+                  s · termina em
+                  <NumInput value={itemEnd(it)} min={0.5} onCommit={(n) => updateItem(idx, 'endSec', String(n))} className="w-16 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100" />
+                  s
+                </div>
+                <button onClick={() => removeItem(idx)} className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 shrink-0" title="Remover">
+                  <Trash2 size={14} />
+                </button>
+              </div>
+              {/* Controles editáveis do trecho: destaque, P&B, split, efeito */}
+              {(() => {
+                const hlI = texts.findIndex((t) => t.atSec < itemEnd(it) && t.endSec > it.atSec);
+                const hl = hlI >= 0 ? texts[hlI] : null;
+                return (
+                  <div className="flex flex-wrap items-center gap-1.5 text-[10px] pl-1">
+                    {/* Destaque (texto na tela) — editável */}
+                    {hl ? (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-green-100 dark:bg-green-950/40">
+                        <span className="text-green-700 dark:text-green-300">✍</span>
+                        <input
+                          value={hl.text}
+                          onChange={(e) => updateText(hlI, { text: e.target.value })}
+                          className="bg-transparent text-green-800 dark:text-green-200 font-black uppercase tracking-widest w-40 outline-none"
+                        />
+                        <button onClick={() => removeText(hlI)} className="text-green-600 hover:text-red-500" title="Remover destaque">✕</button>
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() =>
+                          setTexts((prev) => [
+                            ...prev,
+                            { text: 'DESTAQUE', atSec: Number(it.atSec.toFixed(2)), endSec: Number(Math.min(itemEnd(it), it.atSec + 2.5).toFixed(2)), color: '#39FF14', pos: 'middle' },
+                          ])
+                        }
+                        className="px-2 py-0.5 rounded-lg border border-green-300 dark:border-green-800 text-green-700 dark:text-green-300 font-black uppercase tracking-widest hover:bg-green-50 dark:hover:bg-green-950/40"
+                      >
+                        + destaque
+                      </button>
+                    )}
+                    {/* P&B — toggle */}
+                    <button
+                      onClick={() => setItemField(idx, { bw: !it.bw })}
+                      className={`px-2 py-0.5 rounded-lg font-black uppercase tracking-widest ${
+                        it.bw
+                          ? 'bg-gray-700 text-white'
+                          : 'border border-gray-300 dark:border-gray-700 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'
+                      }`}
+                      title="Preto e branco neste trecho"
+                    >
+                      ◐ P&B
+                    </button>
+                    {/* Split de B-ROLL (2 b-rolls lado a lado) — add/trocar/remover */}
+                    {it.clipIdx2 != null ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-cyan-100 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-300 font-black uppercase tracking-widest">
+                        ⊞ split
+                        <button onClick={() => openAddSplit(idx)} className="hover:text-blue-600" title="Trocar o 2º b-roll">⇄</button>
+                        <button onClick={() => setItemField(idx, { clipIdx2: undefined })} className="hover:text-red-500" title="Remover split">✕</button>
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => autoAddSplit(idx)}
+                        className="px-2 py-0.5 rounded-lg border border-cyan-300 dark:border-cyan-800 text-cyan-700 dark:text-cyan-300 font-black uppercase tracking-widest hover:bg-cyan-50 dark:hover:bg-cyan-950/40"
+                        title="Split-screen: escolhe um 2º b-roll automaticamente (troque no ⇄ depois)"
+                      >
+                        + split
+                      </button>
+                    )}
+                    {/* Efeito contextual — trocar/remover/ouvir */}
+                    {it.soundMid ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-black uppercase tracking-widest">
+                        🔊 {soundName(it.soundMid)}
+                        <button onClick={() => playSfx(it.soundMid!)} className="hover:text-amber-600" title="Ouvir">▶</button>
+                        <button onClick={() => setSoundPicker({ idx, field: 'soundMid' })} className="hover:text-blue-600" title="Trocar efeito">⇄</button>
+                        <button onClick={() => setItemField(idx, { soundMid: '' })} className="hover:text-red-500" title="Remover efeito">✕</button>
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => setSoundPicker({ idx, field: 'soundMid' })}
+                        className="px-2 py-0.5 rounded-lg border border-amber-300 dark:border-amber-800 text-amber-700 dark:text-amber-300 font-black uppercase tracking-widest hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                      >
+                        + efeito
+                      </button>
+                    )}
+                    {/* Layout com AVATAR — PiP (canto) ou split. Precisa do Avatar base. */}
+                    <select
+                      value={it.layout || 'full'}
+                      onChange={(e) =>
+                        setItemField(idx, { layout: e.target.value as TLItem['layout'] })
+                      }
+                      title={
+                        avatarBase
+                          ? 'Como o avatar aparece neste trecho'
+                          : 'Defina o "Avatar base" acima pra usar PiP/split'
+                      }
+                      className={`px-2 py-1 rounded-lg border font-black uppercase tracking-widest ${
+                        it.layout && it.layout !== 'full'
+                          ? 'bg-violet-600 text-white border-violet-600'
+                          : 'border-violet-300 dark:border-violet-800 text-violet-700 dark:text-violet-300 bg-transparent'
+                      }`}
+                    >
+                      <option value="full">🧑 sem avatar (só b-roll)</option>
+                      <option value="avatar">🎙 avatar tela cheia</option>
+                      <option value="pip">◍ avatar PiP (canto)</option>
+                      <option value="split-left">◧ split avatar ←</option>
+                      <option value="split-right">◨ split avatar →</option>
+                      <option value="split-top">⬒ split avatar ↑ (cima)</option>
+                      <option value="split-bottom">⬓ split avatar ↓ (baixo)</option>
+                    </select>
+                  </div>
+                );
+              })()}
+              {(['In', 'Out'] as const).map((side) => {
+                const typeKey = side === 'In' ? 'transIn' : 'transOut';
+                const durKey = side === 'In' ? 'transInDur' : 'transOutDur';
+                const sndKey = side === 'In' ? 'soundIn' : 'soundOut';
+                const type = (it as any)[typeKey] || 'none';
+                const dur = (it as any)[durKey] ?? 0.1;
+                const snd = (it as any)[sndKey];
+                return (
+                  <div key={side} className="flex flex-wrap items-center gap-2 text-[10px] text-gray-500 pl-1">
+                    <span className="w-12 font-bold">{side === 'In' ? 'entrada' : 'saída'}</span>
+                    <select
+                      value={type}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        const patch: any = { [typeKey]: v };
+                        // Qualquer transição (≠ none) → aplica o som certo pelo
+                        // tipo, se aquele lado ainda não tiver som.
+                        if (v !== 'none' && !(it as any)[sndKey]) {
+                          const snd = soundForTransition(v);
+                          if (snd) patch[sndKey] = snd;
+                        }
+                        setItemField(idx, patch);
+                      }}
+                      className="px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100"
+                    >
+                      {TRANSITIONS.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.label}
+                        </option>
+                      ))}
+                    </select>
+                    {type !== 'none' && (
+                      <>
+                        · dur
+                        <NumInput value={dur} min={0.1} onCommit={(n) => setItemField(idx, { [durKey]: Math.max(0.1, n) })} className="w-14 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100" />
+                        s ·
+                        <button
+                          type="button"
+                          onClick={() => setSoundPicker({ idx, field: sndKey })}
+                          className="cursor-pointer text-blue-700 dark:text-blue-300 font-bold hover:underline"
+                        >
+                          {snd ? '🔊 som ✓' : '+ som'}
+                        </button>
+                        {snd && (
+                          <button
+                            onClick={() => {
+                              const a = new Audio(snd as string);
+                              a.play().catch(() => {});
+                            }}
+                            className="text-purple-600 dark:text-purple-400 hover:text-purple-800"
+                            title="Ouvir o som aplicado"
+                          >
+                            <Play size={11} />
+                          </button>
+                        )}
+                        {snd && (
+                          <button onClick={() => setItemField(idx, { [sndKey]: '' })} className="text-gray-400 hover:text-red-500" title="Tirar som">
+                            <X size={11} />
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* AUTO-EDITAR — monta a timeline sozinho a partir da voz da VSL */}
+      {isTimeline && (
+        <div className="bg-gradient-to-br from-purple-600 to-fuchsia-600 rounded-2xl p-4 flex flex-wrap items-center gap-3">
+          <div className="flex-1 min-w-[180px]">
+            <p className="text-sm font-black text-white">✨ Auto-editar</p>
+            <p className="text-[11px] text-white/80">
+              Transcreve a voz, corta b-roll no ritmo escolhido, aplica transições + som + texto.
+              Depois você revisa e troca o que quiser.
+            </p>
+            {/* Ritmo — quantos trechos (menor base = mais trechos) */}
+            <div className="mt-2 flex items-center gap-1">
+              <span className="text-[10px] font-black uppercase tracking-widest text-white/80 mr-1">
+                Trechos:
+              </span>
+              {[
+                { label: 'Menos', sec: 6 },
+                { label: 'Médio', sec: 4 },
+                { label: 'Mais', sec: 3 },
+                { label: 'Muito', sec: 2.3 },
+              ].map((o) => (
+                <button
+                  key={o.label}
+                  onClick={() => setCutPace(o.sec)}
+                  className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${
+                    cutPace === o.sec
+                      ? 'bg-white text-purple-700'
+                      : 'bg-white/20 text-white hover:bg-white/30'
+                  }`}
+                  title={`~${o.sec}s por corte (base; o ritmo ainda varia)`}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <button
+            onClick={autoEdit}
+            disabled={autoEditing}
+            className="shrink-0 px-4 py-2.5 rounded-xl bg-white text-purple-700 font-black uppercase tracking-widest text-xs hover:bg-purple-50 disabled:opacity-60 flex items-center gap-2"
+          >
+            {autoEditing ? (
+              <>
+                <Loader2 size={14} className="animate-spin" /> Montando…
+              </>
+            ) : (
+              'Auto-editar'
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* TEXTO CINÉTICO NA TELA (estilo VSL) */}
+      {isTimeline && (
+        <div className="bg-white dark:bg-gray-900/70 p-3 rounded-2xl border-2 border-gray-200 dark:border-gray-800 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">
+              Texto na tela (palavras grandes animadas)
+            </span>
+            <button
+              onClick={addText}
+              className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-lg bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900"
+            >
+              + no playhead ({playhead.toFixed(1)}s)
+            </button>
+          </div>
+          {texts.length === 0 ? (
+            <p className="text-[10px] text-gray-400">
+              Adicione palavras-chave que aparecem grandes na tela sincronizadas com a fala (ex.:
+              "DIETAS", "CHÁS", "PROBIÓTICOS").
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {texts.map((t, i) => (
+                <div
+                  key={i}
+                  className="flex flex-wrap items-center gap-2 p-2 rounded-xl border border-gray-200 dark:border-gray-800"
+                >
+                  <input
+                    value={t.text}
+                    onChange={(e) => updateText(i, { text: e.target.value })}
+                    className="flex-1 min-w-[120px] px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100 text-sm font-black uppercase"
+                  />
+                  <span className="text-[10px] text-gray-400">de</span>
+                  <NumInput
+                    value={t.atSec}
+                    min={0}
+                    onCommit={(n) => updateText(i, { atSec: n })}
+                    className="w-14 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100"
+                  />
+                  <span className="text-[10px] text-gray-400">a</span>
+                  <NumInput
+                    value={t.endSec}
+                    min={0.1}
+                    onCommit={(n) => updateText(i, { endSec: n })}
+                    className="w-14 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100"
+                  />
+                  <div className="flex items-center gap-1">
+                    {TEXT_COLORS.map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => updateText(i, { color: c })}
+                        className={`w-5 h-5 rounded-full border-2 ${t.color === c ? 'border-gray-900 dark:border-white' : 'border-transparent'}`}
+                        style={{ background: c }}
+                        title={c}
+                      />
+                    ))}
+                  </div>
+                  <select
+                    value={t.pos}
+                    onChange={(e) => updateText(i, { pos: e.target.value as any })}
+                    className="px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100 text-[11px]"
+                  >
+                    <option value="top">Topo</option>
+                    <option value="middle">Meio</option>
+                    <option value="bottom">Base</option>
+                  </select>
+                  <button
+                    onClick={() => removeText(i)}
+                    className="p-1 rounded text-gray-400 hover:text-red-500"
+                    title="Remover"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* BUSCAR B-ROLL NO PEXELS → adiciona à biblioteca */}
+      <div className="bg-white dark:bg-gray-900/70 p-3 rounded-2xl border-2 border-gray-200 dark:border-gray-800 space-y-2">
+        <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">
+          Buscar b-roll (Pexels) → entra na biblioteca
+        </span>
+        <div className="flex gap-2">
+          <input
+            value={pexQuery}
+            onChange={(e) => setPexQuery(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && doPexSearch()}
+            placeholder="Ex: dry cracked earth, water tap, empty shelves…"
+            className="flex-1 px-3 py-2 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm dark:text-gray-100"
+          />
+          <button onClick={doPexSearch} disabled={pexSearching} className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-widest disabled:opacity-50">
+            {pexSearching ? <Loader2 size={14} className="animate-spin" /> : 'Buscar'}
+          </button>
+        </div>
+        {pexResults.length > 0 && (
+          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+            {pexResults.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => addPexClip(c)}
+                title="Adicionar à biblioteca"
+                className="relative rounded-lg overflow-hidden ring-1 ring-gray-200 dark:ring-gray-700 hover:ring-blue-500"
+              >
+                <video
+                  src={c.url}
+                  poster={c.thumb}
+                  muted
+                  loop
+                  playsInline
+                  preload="none"
+                  onMouseEnter={(e) => (e.currentTarget as HTMLVideoElement).play().catch(() => {})}
+                  onMouseLeave={(e) => {
+                    const v = e.currentTarget as HTMLVideoElement;
+                    v.pause();
+                    v.currentTime = 0;
+                  }}
+                  className="w-full h-24 object-cover bg-black"
+                />
+                <span className="absolute bottom-1 right-1 text-[9px] font-black bg-black/70 text-white px-1 rounded pointer-events-none">
+                  {Number(c.duration).toFixed(0)}s
+                </span>
+                <span className="absolute top-1 left-1 bg-blue-600 text-white rounded-full p-0.5">
+                  <Plus size={11} />
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* BIBLIOTECA de trechos (upload) */}
+      <label className="flex items-center justify-center gap-2 py-4 rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-700 text-sm font-black uppercase tracking-widest text-blue-700 dark:text-blue-300 hover:border-blue-400 cursor-pointer">
+        {uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+        {isTimeline ? 'Subir trechos (biblioteca)' : 'Enviar trechos (pode vários)'}
+        <input type="file" accept="video/*" multiple className="hidden" onChange={(e) => onUpload(e.target.files)} />
+      </label>
+
+      {/* Em modo SEQUÊNCIA, a biblioteca É a ordem dos clipes */}
+      {!isTimeline && clips.length > 0 && (
+        <div className="space-y-3">
+          {clips.map((c, i) => (
+            <div key={c.url + i} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-2xl ring-1 ring-gray-200 dark:ring-gray-700 bg-white dark:bg-gray-900/60">
+              <span className="text-xs font-black text-gray-400 w-6 shrink-0">{i + 1}</span>
+              <video src={c.url} controls preload="metadata" className="w-36 h-24 object-cover rounded-lg bg-black shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-gray-800 dark:text-gray-100 truncate">{c.label}</p>
+                <div className="flex items-center gap-2 mt-1 text-[10px] text-gray-500">
+                  usa de
+                  <input type="number" min={0} step={0.5} placeholder="início" value={c.startSec ?? ''} onChange={(e) => setTrim(i, 'startSec', e.target.value)} className="w-16 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100" />
+                  a
+                  <input type="number" min={0} step={0.5} placeholder="fim" value={c.endSec ?? ''} onChange={(e) => setTrim(i, 'endSec', e.target.value)} className="w-16 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100" />
+                  s (vazio = inteiro)
+                </div>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button onClick={() => move(i, -1)} disabled={i === 0} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30"><ArrowUp size={14} /></button>
+                <button onClick={() => move(i, 1)} disabled={i === clips.length - 1} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30"><ArrowDown size={14} /></button>
+                <button onClick={() => removeClip(i)} className="p-1.5 rounded-lg text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!isTimeline && clips.length > 0 && (
+        <div className="flex flex-col sm:flex-row gap-2">
+          <button onClick={() => setMuted(false)} className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-widest border-2 transition-all ${!muted ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'}`}>🔊 Manter áudio dos trechos</button>
+          <button onClick={() => setMuted(true)} className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-widest border-2 transition-all ${muted ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'}`}>🔇 Mudo (voz + música depois)</button>
+        </div>
+      )}
+
+      {/* Formato + enquadramento do vídeo montado */}
+      <div className="bg-white dark:bg-gray-900/70 p-3 rounded-2xl border-2 border-gray-200 dark:border-gray-800 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">
+            Formato
+          </span>
+          {(['9:16', '1:1', '16:9'] as const).map((ar) => (
+            <button
+              key={ar}
+              onClick={() => setAspect(ar)}
+              className={`px-2.5 py-1.5 rounded-lg text-[11px] font-black border-2 transition-all ${
+                aspect === ar
+                  ? 'border-blue-600 bg-blue-600 text-white'
+                  : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'
+              }`}
+            >
+              {ar === '9:16' ? 'Vertical 9:16' : ar === '1:1' ? 'Quadrado 1:1' : 'Horizontal 16:9'}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">
+            Enquadrar
+          </span>
+          {(
+            [
+              { id: 'cover', label: 'Preencher (corta)' },
+              { id: 'contain', label: 'Encaixar (barras)' },
+            ] as const
+          ).map((f) => (
+            <button
+              key={f.id}
+              onClick={() => setFit(f.id)}
+              className={`px-2.5 py-1.5 rounded-lg text-[11px] font-black border-2 transition-all ${
+                fit === f.id
+                  ? 'border-blue-600 bg-blue-600 text-white'
+                  : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {isTimeline && groups.length > 1 ? (
+        <div className="space-y-3 bg-white dark:bg-gray-900/80 rounded-2xl border-2 border-purple-200/60 dark:border-purple-800/50 p-4">
+          <div className="flex items-center gap-2">
+            <Film size={16} className="text-purple-600 dark:text-purple-400" />
+            <span className="text-sm font-black text-gray-800 dark:text-gray-200">
+              Montar em grupos ({groups.length} × ~2 min)
+            </span>
+          </div>
+          <p className="text-[11px] text-gray-500 dark:text-gray-400">
+            Vídeo longo dividido em partes — se um grupo falhar, regere só ele. No fim, junte tudo.
+          </p>
+          <div className="space-y-2">
+            {groups.map((g, i) => {
+              const st = groupRenders[i]?.status || 'idle';
+              const badge =
+                st === 'done'
+                  ? 'text-green-600 dark:text-green-400'
+                  : st === 'error'
+                    ? 'text-red-600 dark:text-red-400'
+                    : st === 'gen'
+                      ? 'text-purple-600 dark:text-purple-400'
+                      : 'text-gray-400 dark:text-gray-500';
+              return (
+                <div key={i} className="space-y-1">
+                <div className="flex items-center gap-2 p-2.5 rounded-xl border border-gray-200 dark:border-gray-800">
+                  <span className="text-xs font-black text-gray-700 dark:text-gray-300 w-16 shrink-0">
+                    Grupo {i + 1}
+                  </span>
+                  <span className="text-[10px] text-gray-400 dark:text-gray-500 flex-1 min-w-0">
+                    {Math.round(g.t0)}–{Math.round(g.t1)}s · {g.clips.length} clipe(s)
+                  </span>
+                  <span className={`text-[10px] font-bold uppercase tracking-widest ${badge}`}>
+                    {st === 'done' ? '✓ pronto' : st === 'error' ? 'erro' : st === 'gen' ? 'gerando…' : '—'}
+                  </span>
+                  {st === 'done' && groupRenders[i]?.url && (
+                    <button
+                      onClick={() => setPreviewGroup(previewGroup === i ? null : i)}
+                      className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-lg border border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/40 shrink-0"
+                    >
+                      {previewGroup === i ? 'Fechar' : '▶ Ver'}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => renderGroup(i)}
+                    disabled={st === 'gen' || g.clips.length === 0}
+                    className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-lg bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 disabled:opacity-40 shrink-0"
+                  >
+                    {st === 'gen' ? '…' : st === 'done' ? 'Regerar' : 'Montar'}
+                  </button>
+                  {(st === 'done' || st === 'error') && (
+                    <button
+                      onClick={() => {
+                        setGroupRenders((prev) =>
+                          prev.map((x, idx) => (idx === i ? { status: 'idle' } : x))
+                        );
+                        if (previewGroup === i) setPreviewGroup(null);
+                      }}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 shrink-0"
+                      title="Apagar o vídeo deste grupo"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  )}
+                </div>
+                {previewGroup === i && groupRenders[i]?.url && (
+                  <video
+                    src={groupRenders[i]!.url}
+                    controls
+                    autoPlay
+                    className="w-full max-h-[360px] rounded-xl bg-black mt-1"
+                  />
+                )}
+              </div>
+              );
+            })}
+          </div>
+          <div className="flex flex-wrap gap-2 justify-end pt-1">
+            <button
+              onClick={renderAllGroups}
+              className="text-xs font-bold px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-purple-400"
+            >
+              Montar todos os grupos
+            </button>
+            <button
+              onClick={joinGroups}
+              disabled={!allGroupsDone || joiningGroups}
+              className={`flex items-center gap-2 text-sm font-bold px-5 py-2.5 rounded-xl transition ${
+                !allGroupsDone || joiningGroups
+                  ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                  : 'bg-purple-600 text-white hover:bg-purple-700'
+              }`}
+            >
+              {joiningGroups ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" /> Juntando…
+                </>
+              ) : (
+                'Juntar → vídeo final'
+              )}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={compose}
+          disabled={rendering || (isTimeline ? items.length === 0 || !audioDuration : clips.length === 0)}
+          className="w-full py-3.5 bg-blue-700 text-white rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-blue-800 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          {rendering ? (
+            <><Loader2 size={16} className="animate-spin" /> Montando…</>
+          ) : (
+            <><Check size={16} /> {isTimeline ? `Montar no tempo do áudio (${items.length})` : `Montar sequência (${clips.length})`}</>
+          )}
+        </button>
+      )}
+
+      {resultUrl && (
+        <div className="space-y-3 p-4 rounded-2xl ring-1 ring-green-200 dark:ring-green-900 bg-green-50/60 dark:bg-green-950/30">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-black uppercase tracking-widest text-green-700 dark:text-green-300">
+              Pronto (já está na Edição)
+            </p>
+            <button
+              onClick={() => setResultUrl('')}
+              className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-red-500"
+              title="Apagar este vídeo montado"
+            >
+              <Trash2 size={12} /> Apagar vídeo
+            </button>
+          </div>
+          <video src={resultUrl} controls className="w-full max-h-[420px] rounded-xl bg-black" />
+          {onGoToEdit && (
+            <button onClick={onGoToEdit} className="w-full py-3 bg-gray-900 dark:bg-gray-50 text-white dark:text-gray-900 rounded-2xl font-black uppercase tracking-widest text-sm hover:opacity-90">
+              Ir pra Edição →
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

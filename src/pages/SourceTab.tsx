@@ -117,17 +117,32 @@ export function SourceTab({
     }
     setLoading(true);
     try {
+      // Aceita link sem http:// — completa com https:// automaticamente.
+      const withProtocol = (u: string) => (u && !/^https?:\/\//i.test(u) ? `https://${u}` : u);
       const product = await extractProductInfo({
         text: text.trim() || undefined,
-        url: url.trim() || undefined,
-        youtubeUrl: youtubeUrl.trim() || undefined,
+        url: withProtocol(url.trim()) || undefined,
+        youtubeUrl: withProtocol(youtubeUrl.trim()) || undefined,
       });
       setInfo(product);
       const summary = text.trim() || `[YouTube: ${youtubeUrl}]` || `[URL: ${url}]`;
       onExtracted(product, summary);
       toast.success('Informações extraídas!');
+      // Vai direto pra Persona — lá os campos preenchem sozinhos a partir do
+      // material. Sem parar na Fonte mostrando os dados extraídos.
+      onContinueAuto();
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao extrair informações.');
+      const msg = String(err?.message || '');
+      // Falha ao buscar a URL → orienta o usuário (URL completa ou texto) em
+      // vez de mostrar o erro técnico "fetch failed".
+      if (url.trim() && /buscar URL|fetch failed/i.test(msg)) {
+        toast.error(
+          'Não consegui acessar esse link. Cole a URL COMPLETA (ex: https://www.seusite.com/pagina) — ou, se não funcionar, cole o TEXTO/transcrição da página no campo de texto ao lado.',
+          { duration: 8000 }
+        );
+      } else {
+        toast.error(msg || 'Erro ao extrair informações.');
+      }
     } finally {
       setLoading(false);
     }

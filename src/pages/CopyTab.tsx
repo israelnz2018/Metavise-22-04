@@ -13,7 +13,7 @@
 // All state stays in App.tsx; we receive it via props. `config` is
 // typed with the canonical `AdConfig` exported from App.tsx.
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { AdConfig } from '@/App';
 import { toast } from 'react-hot-toast';
 import {
@@ -28,12 +28,12 @@ import {
   Star,
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { AutoResizeTextarea } from '@/components/AutoResizeTextarea';
+import { CopySkillsButton } from '@/components/CopySkillsButton';
 import {
   AD_STYLES,
   DURATION_OPTIONS,
+  VSL_DURATION_OPTIONS,
   PERSONA_CATEGORY_OPTIONS,
   PERSONA_URGENCY_OPTIONS,
   PERSONA_DIFFERENTIAL_OPTIONS,
@@ -52,11 +52,17 @@ import {
   describeDestinationFromProduct,
   preflightCheckCopy,
   detectHallucinations,
+  detectNamedAuthorities,
+  findStatistics,
+  generateNarrator,
+  generateInnovativeName,
   type ProductInfo,
   type HallucinationFlag,
+  type AuthorityAnchor,
+  type StatisticFinding,
 } from '@/lib/claudeService';
 // UX25-A2 + A3: pre-flight check + hallucination banner
-import { PreflightCheckPanel, HallucinationBanner } from '@/components/CopyQualityPanels';
+import { PreflightCheckPanel, HallucinationBanner, AuthorityAnchorBanner } from '@/components/CopyQualityPanels';
 import { getRecomendedEstilo, getRecomendacaoTempo, countWords } from '@/lib/helpers';
 // UX13: content risk scanner — detecta medicamentos concorrentes, slurs,
 // celebridades, alegações médicas. Banner aparece acima da textarea da
@@ -67,6 +73,7 @@ import { CATEGORY_LABELS } from '@/data/contentRiskTerms';
 // UX16: editor beat-by-beat (regenera só 1 beat, não a copy inteira)
 import { ScriptBeatEditor } from '@/components/ScriptBeatEditor';
 import { parseScriptBeats } from '@/lib/claudeService';
+import { CopywriterChat } from '@/components/CopywriterChat';
 // UX18: biblioteca pessoal de copies
 import {
   loadPersonalLibrary,
@@ -92,7 +99,77 @@ import type { CopyHistoryEntry } from '@/components/CopyHistoryModal';
 // UX25-B3: modal de comparação A vs B com diff highlight
 import VariantCompareModal from '@/components/VariantCompareModal';
 
+// Recomendação de ângulo/emoção. Usada em DOIS lugares: (1) auto-preencher
+// esses campos ao abrir a aba e (2) marcar o badge "Recomendado" no form.
+// Mesma fonte pros dois — o valor auto-selecionado sempre bate com o badge.
+function recommendedAnglesFor(level: string): string[] {
+  const c = (level || '').charAt(0);
+  if (c === '1' || c === '2') return ['Não é culpa sua', 'Você está fazendo errado'];
+  if (c === '3') return ['Existe uma forma mais simples', 'O problema não é o que você pensa'];
+  if (c === '4' || c === '5') return ['Resultado imediato', 'A solução definitiva'];
+  return [];
+}
+
+function recommendedEmotionsFor(level: string, estilo: string): string[] {
+  const c = (level || '').charAt(0);
+  const scores: Record<string, number> = {};
+  const addScore = (ems: string[], weight: number) => {
+    ems.forEach((e) => (scores[e] = (scores[e] || 0) + weight));
+  };
+  const baseMap: Record<string, string[]> = {
+    '1': ['Confusão', 'Desmotivação', 'Cansaço'],
+    '2': ['Frustração', 'Vergonha', 'Ansiedade', 'Medo de julgamento'],
+    '3': ['Esperança', 'Cansaço', 'Confusão', 'Desejo de controle'],
+    '4': ['Insegurança', 'Desejo de reconhecimento', 'Ambição'],
+    '5': ['Exclusividade', 'Alívio', 'Ambição'],
+  };
+  if (baseMap[c]) addScore(baseMap[c], 2);
+  const estiloLower = (estilo || '').toLowerCase();
+  if (estiloLower.includes('problema'))
+    addScore(['Frustração', 'Ansiedade', 'Cansaço', 'Confusão'], 3);
+  if (estiloLower.includes('prova social'))
+    addScore(['Esperança', 'Alívio', 'Desejo de reconhecimento', 'Exclusividade'], 3);
+  if (estiloLower.includes('urgência') || estiloLower.includes('escassez'))
+    addScore(['Ansiedade', 'Medo de julgamento', 'Desejo de controle'], 3);
+  if (estiloLower.includes('inspirador')) addScore(['Esperança', 'Ambição', 'Alívio'], 3);
+  if (estiloLower.includes('curiosidade'))
+    addScore(['Confusão', 'Desejo de controle', 'Insegurança'], 3);
+  if (estiloLower.includes('storytelling'))
+    addScore(['Esperança', 'Frustração', 'Ansiedade', 'Alívio'], 3);
+  return Object.entries(scores)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map((entry) => entry[0]);
+}
+
+// Põe estilo/ângulo/emoção no valor RECOMENDADO pelo Metavise para o nível de
+// consciência. Substitui quando o valor atual NÃO está no conjunto recomendado
+// deste nível — cobre três casos: campo vazio, código de brief que não casa com
+// as opções ('depoimento', 'curiosidade'...) e valor válido herdado de OUTRO
+// nível (ex.: emoção do projeto-pai), que aparecia sem a estrelinha por não ser
+// o recomendado daqui. Se o valor já é um dos recomendados, preserva (o cliente
+// pode escolher entre os recomendados sem ser sobrescrito). Muta `ans`.
+function fillRecommendedStrategyFields(ans: Record<string, any>): Record<string, any> {
+  const level = (ans.awarenessLevel as string) || '';
+  if (!level) return ans;
+  const estiloRec = getRecomendedEstilo(level);
+  if (estiloRec.length && !estiloRec.includes(ans.estiloAnuncio)) {
+    ans.estiloAnuncio = estiloRec[0];
+  }
+  const angleRec = recommendedAnglesFor(level);
+  if (angleRec.length && !angleRec.includes(ans.angleIdea)) {
+    ans.angleIdea = angleRec[0];
+  }
+  const emotionRec = recommendedEmotionsFor(level, (ans.estiloAnuncio as string) || '');
+  if (emotionRec.length && !emotionRec.includes(ans.emotion)) {
+    ans.emotion = emotionRec[0];
+  }
+  return ans;
+}
+
 interface Props {
+  /** Modo VSL: mesma aba, mas gera roteiro longo em blocos (aba "Copy da VSL"). */
+  isVsl?: boolean;
   config: AdConfig;
   updateConfig: (section: any, sub: any, field: any, value: any) => void;
   setConfig: React.Dispatch<React.SetStateAction<AdConfig>>;
@@ -127,7 +204,7 @@ interface Props {
   setHasUnsavedCopyChanges: (v: boolean) => void;
   isSaving: boolean;
   currentProjectId: string | null;
-  handleSaveProject: () => Promise<any> | void;
+  handleSaveProject: (overrides?: Partial<AdConfig>) => Promise<any> | void;
 
   // Generate copy.
   loading: boolean;
@@ -135,9 +212,15 @@ interface Props {
 
   // Tab-level UX gates.
   isProjectLoading: boolean;
+
+  // Validação visual: quando o cliente tenta sair da aba sem preencher os
+  // campos obrigatórios, App liga isso → desenha outline vermelho nos campos
+  // obrigatórios ainda vazios. Não bloqueia a navegação.
+  showRequiredErrors?: boolean;
 }
 
 export function CopyTab({
+  isVsl = false,
   config,
   updateConfig,
   setConfig,
@@ -168,6 +251,7 @@ export function CopyTab({
   loading,
   handleGenerateCopy,
   isProjectLoading,
+  showRequiredErrors = false,
 }: Props) {
   // Stand-in for the parent's `handleGeneratePersona` — kept here so the
   // discovery-flow JSX below reads natural without renaming.
@@ -283,6 +367,108 @@ export function CopyTab({
       setIsCritiquing(false);
     }
   };
+
+  // AGENTE COPYWRITER — Chat.
+  const [showCopywriterChat, setShowCopywriterChat] = useState(false);
+  const [isGenNarrator, setIsGenNarrator] = useState(false);
+  const [isGenInnovative, setIsGenInnovative] = useState(false);
+  const autoTriedInnovativeRef = useRef(false);
+  const seenInnovativeRef = useRef<string[]>([]);
+
+  // Gera (ou re-gera) o nome do "produto inovador" / gancho de curiosidade.
+  // Passa os nomes já vistos pra cada re-gerar vir com ângulo DIFERENTE.
+  const runGenInnovative = async (silent = false) => {
+    setIsGenInnovative(true);
+    const toastId = 'gen-innovative';
+    if (!silent) toast.loading('Gerando nome...', { id: toastId });
+    try {
+      const current = (config.copy?.answers?.innovativeProductName || '').toString().trim();
+      if (current && !seenInnovativeRef.current.includes(current))
+        seenInnovativeRef.current.push(current);
+      const sourceText =
+        ((config.copy as any)?.sourceText as string) ||
+        ((config.copy?.productInfo as any)?.transcript as string) ||
+        '';
+      const n = await generateInnovativeName(
+        config.copy?.answers || {},
+        seenInnovativeRef.current.slice(-6),
+        sourceText
+      );
+      if (n) {
+        seenInnovativeRef.current.push(n);
+        updateConfig('copy', 'answers', 'innovativeProductName', n);
+        if (!silent) toast.success('Nome gerado — edite se quiser.', { id: toastId });
+      } else if (!silent) {
+        toast.error('Não consegui gerar agora.', { id: toastId });
+      }
+    } catch (err: any) {
+      if (!silent) toast.error(err?.message || 'Erro ao gerar.', { id: toastId });
+    } finally {
+      setIsGenInnovative(false);
+    }
+  };
+
+  // Auto-preenche 1× quando a aba já tem dados da fonte (produto/mecanismo) e o
+  // campo está vazio. Não sobrescreve o que o usuário digitou; roda só uma vez.
+  useEffect(() => {
+    const a = config.copy?.answers || {};
+    const hasSourceData = !!(a.uniqueMechanism || a.productName || a.productResult);
+    const empty = !(a.innovativeProductName || '').toString().trim();
+    if (hasSourceData && empty && !autoTriedInnovativeRef.current) {
+      autoTriedInnovativeRef.current = true;
+      runGenInnovative(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.copy?.answers?.uniqueMechanism, config.copy?.answers?.productName]);
+
+  const seenNarratorRef = useRef<string[]>([]);
+
+  // Gera (ou re-gera) o narrador. Passa os anteriores pra cada re-gerar vir com
+  // um TIPO de voz diferente. O campo continua editável pra escrever o seu.
+  const handleGenNarrator = async () => {
+    setIsGenNarrator(true);
+    const toastId = 'gen-narrator';
+    toast.loading('Gerando narrador...', { id: toastId });
+    try {
+      const current = (config.copy?.answers?.narrator || '').toString().trim();
+      if (current && !seenNarratorRef.current.includes(current))
+        seenNarratorRef.current.push(current);
+      const answersWithDriver = {
+        ...(config.copy?.answers || {}),
+        emotionalDriver:
+          (config.copy?.answers as any)?.emotionalDriver ||
+          ((config.copy?.productInfo as any)?.emotionalDriver as string) ||
+          '',
+      };
+      const n = await generateNarrator(answersWithDriver, seenNarratorRef.current.slice(-6));
+      if (n) {
+        seenNarratorRef.current.push(n);
+        updateConfig('copy', 'answers', 'narrator', n);
+        toast.success('Narrador gerado — edite se quiser.', { id: toastId });
+      } else {
+        toast.error('Não consegui gerar agora.', { id: toastId });
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro ao gerar narrador.', { id: toastId });
+    } finally {
+      setIsGenNarrator(false);
+    }
+  };
+
+  // Aplica um script novo no campo certo (finalScript editado, senão
+  // generatedScript) e limpa o optimized. Usado pelo Polir e pelo Chat.
+  const applyScriptToCopy = (newText: string) => {
+    setConfig((prev: any) => ({
+      ...prev,
+      copy: {
+        ...prev.copy,
+        ...(prev.copy.finalScript ? { finalScript: newText } : { generatedScript: newText }),
+        optimizedScript: '',
+        contentRiskAcknowledgedHash: undefined,
+      },
+    }));
+  };
+
 
   // UX15: Variants A/B. Gera 2 versões em paralelo. User escolhe.
   const [isGeneratingVariants, setIsGeneratingVariants] = useState(false);
@@ -588,6 +774,124 @@ export function CopyTab({
     }
   };
 
+  // Quick-fix: generalizar autoridades nomeadas (instituição/expert + localização)
+  // achadas na copy → âncora genérica. Nomes que estão na Fonte do Produto não
+  // são flagados (são ancorados/permitidos). Funciona mesmo sem fonte.
+  const [authorityFlags, setAuthorityFlags] = useState<AuthorityAnchor[] | null>(null);
+  const [isCheckingAuthorities, setIsCheckingAuthorities] = useState(false);
+  const handleCheckAuthorities = async () => {
+    if (!config.copy.generatedScript) {
+      toast.error('Gere uma copy primeiro.');
+      return;
+    }
+    setIsCheckingAuthorities(true);
+    try {
+      const anchors = await detectNamedAuthorities({
+        generatedCopy: config.copy.generatedScript,
+        productInfo,
+        language: config.copy.answers.language,
+      });
+      setAuthorityFlags(anchors);
+      if (anchors.length === 0) {
+        toast.success('Nenhum nome específico de instituição/autoridade pra generalizar.');
+      } else {
+        toast(
+          `${anchors.length} ${anchors.length === 1 ? 'nome específico' : 'nomes específicos'} — revise as trocas.`,
+          { icon: '🏛️' }
+        );
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro ao checar.');
+    } finally {
+      setIsCheckingAuthorities(false);
+    }
+  };
+  const handleApplyAnchor = (flag: AuthorityAnchor) => {
+    const current = config.copy.generatedScript || '';
+    if (!current.includes(flag.excerpt)) {
+      toast.error('Trecho não encontrado (talvez já editado).');
+      setAuthorityFlags((prev) => (prev ? prev.filter((f) => f !== flag) : prev));
+      return;
+    }
+    const next = current.split(flag.excerpt).join(flag.suggestion);
+    setConfig((prev: any) => ({
+      ...prev,
+      copy: { ...prev.copy, generatedScript: next, optimizedScript: '' },
+    }));
+    setHasUnsavedCopyChanges(true);
+    setAuthorityFlags((prev) => {
+      const left = prev ? prev.filter((f) => f !== flag) : [];
+      return left.length ? left : null;
+    });
+    toast.success('Trocado por âncora genérica.');
+  };
+  const handleApplyAllAnchors = () => {
+    if (!authorityFlags || authorityFlags.length === 0) return;
+    // Aplica numa só passada (setConfig é async — não dá pra encadear via state)
+    let text = config.copy.generatedScript || '';
+    let applied = 0;
+    const remaining: AuthorityAnchor[] = [];
+    for (const f of authorityFlags) {
+      if (text.includes(f.excerpt)) {
+        text = text.split(f.excerpt).join(f.suggestion);
+        applied++;
+      } else {
+        remaining.push(f);
+      }
+    }
+    if (applied > 0) {
+      setConfig((prev: any) => ({
+        ...prev,
+        copy: { ...prev.copy, generatedScript: text, optimizedScript: '' },
+      }));
+      setHasUnsavedCopyChanges(true);
+      toast.success(`${applied} ${applied === 1 ? 'âncora generalizada' : 'âncoras generalizadas'}.`);
+    }
+    setAuthorityFlags(remaining.length ? remaining : null);
+  };
+
+  // Item 2: buscar estatísticas FACTUAIS com fonte na web (web_search no
+  // servidor) pra quem não tem números próprios. NUNCA auto-injeta — devolve
+  // candidatos com link da fonte e o cliente clica "Adicionar" pra mandar pro
+  // campo de estatísticas. Princípio nunca-bloquear: o cliente revisa e decide.
+  const [statFindings, setStatFindings] = useState<StatisticFinding[] | null>(null);
+  const [isFindingStats, setIsFindingStats] = useState(false);
+  const handleFindStatistics = async () => {
+    if (!productInfo) {
+      toast.error('Configure a Fonte do Produto pra eu saber o nicho da busca.');
+      return;
+    }
+    setIsFindingStats(true);
+    try {
+      const stats = await findStatistics({
+        productInfo,
+        niche: productInfo?.productName || productInfo?.category || '',
+        language: config.copy.answers.language,
+      });
+      setStatFindings(stats);
+      if (stats.length === 0) {
+        toast('Não achei estatísticas com fonte confiável pra esse nicho.', { icon: '🔍' });
+      } else {
+        toast.success(`${stats.length} estatística${stats.length > 1 ? 's' : ''} com fonte — revise e adicione.`);
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro ao buscar estatísticas.');
+    } finally {
+      setIsFindingStats(false);
+    }
+  };
+  const handleAddStat = (s: StatisticFinding) => {
+    const line = `${s.stat} (fonte: ${s.source}${s.year ? ', ' + s.year : ''})`;
+    const current = (config.copy.answers.statistics || '').toString().trim();
+    if (current.includes(s.stat.trim())) {
+      toast('Essa estatística já está no campo.', { icon: 'ℹ️' });
+      return;
+    }
+    updateConfig('copy', 'answers', 'statistics', current ? `${current}\n${line}` : line);
+    setStatFindings((prev) => (prev ? prev.filter((x) => x !== s) : prev));
+    toast.success('Adicionada ao campo de estatísticas.');
+  };
+
   // UX24-A: auto-fill da descrição do destino do clique usando productInfo.
   // Chama Claude (~1s) e popula config.copy.answers.destinationDescription.
   // User pode revisar/editar antes de gerar a copy.
@@ -612,6 +916,67 @@ export function CopyTab({
       setIsAutoFillingDestination(false);
     }
   };
+
+  // Auto-preenche estilo/ângulo/emoção (seções 3/6/7) com o RECOMENDADO pelo
+  // Metavise. É instantâneo e só depende do nível de consciência — por isso NÃO
+  // espera productInfo (separado do auto-fill do destino abaixo, que usa IA).
+  // Chave por SUBPROJETO + NÍVEL: cada subprojeto recalcula a partir da SUA
+  // estratégia, e se o cliente muda o nível de consciência os recomendados são
+  // recalculados. Roda uma vez por (subprojeto, nível): depois disso o cliente
+  // pode trocar livremente entre os recomendados sem ser sobrescrito.
+  const recommendedFilledFor = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    const subprojectKey =
+      (config.copy as any)?.activeBriefId || currentProjectId || '__no-project__';
+    const level = config.copy.answers.awarenessLevel || '';
+
+    // Sem nível de consciência não há base de recomendação. Quando o projeto não
+    // veio de brief nem de persona (caso em que o nível já é herdado), o Metavise
+    // aplica um nível RECOMENDADO automaticamente (escolha do cliente): da persona
+    // descoberta se houver, senão o padrão '3' (Consciente da Solução) — mesmo
+    // fallback já usado no resto do código. O cliente pode trocar na Seção 2.
+    // Ao aplicar, o effect re-roda com o nível setado e preenche 3/6/7 abaixo.
+    if (!level) {
+      if (recommendedFilledFor.current === subprojectKey + '::auto') return;
+      recommendedFilledFor.current = subprojectKey + '::auto';
+      let derived = '';
+      try {
+        derived = JSON.parse(config.copy.answers.discoveredPersona || '{}').awarenessLevel || '';
+      } catch {
+        /* discoveredPersona ausente ou malformado — usa o padrão */
+      }
+      applyAwarenessLevelChange(derived || '3');
+      return;
+    }
+
+    const key = subprojectKey + '::' + level;
+    if (recommendedFilledFor.current === key) return;
+    recommendedFilledFor.current = key;
+
+    setConfig((prev: any) => {
+      const before = prev.copy.answers;
+      const ans = fillRecommendedStrategyFields({ ...before });
+      const changed =
+        ans.estiloAnuncio !== before.estiloAnuncio ||
+        ans.angleIdea !== before.angleIdea ||
+        ans.emotion !== before.emotion;
+      return changed ? { ...prev, copy: { ...prev.copy, answers: ans } } : prev;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentProjectId, (config.copy as any)?.activeBriefId, config.copy.answers.awarenessLevel]);
+
+  // Auto-preenche a descrição do destino do clique via IA (~1s). Só roda quando
+  // há productInfo e o campo está vazio; uma vez por subprojeto.
+  const destFilledFor = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!productInfo) return;
+    const subprojectKey =
+      (config.copy as any)?.activeBriefId || currentProjectId || '__no-project__';
+    if (destFilledFor.current === subprojectKey) return;
+    destFilledFor.current = subprojectKey;
+    if (!config.copy.answers.destinationDescription) void handleAutoFillDestination();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentProjectId, (config.copy as any)?.activeBriefId, productInfo]);
 
   // UX20: upload manual SIMPLIFICADO — só name + script. IA infere o
   // resto (vertical, awareness, language, angle, whyItWorks) via
@@ -687,13 +1052,35 @@ export function CopyTab({
           angles: optionsFor('angleIdea'),
         },
       });
-      setConfig((prev: any) => ({
-        ...prev,
-        copy: {
-          ...prev.copy,
-          answers: { ...prev.copy.answers, ...filled },
-        },
-      }));
+      // "Encaixa" os valores de campos de seleção na opção EXATA. A IA às vezes
+      // devolve com acento/caixa um pouco diferente da opção (ex: "frustracao"
+      // vs "Frustração"), e aí o <select> não marca — parecia que "não
+      // auto-selecionou". Normalizamos pra casar com a opção certa.
+      const norm = (s: string) =>
+        s
+          .normalize('NFD')
+          .replace(/\p{Diacritic}/gu, '')
+          .toLowerCase()
+          .trim();
+      const snapped: any = { ...filled };
+      for (const q of allQuestions) {
+        const opts = (q as any)?.options as string[] | undefined;
+        if (!opts || !opts.length) continue;
+        const val = (filled as any)[q.id];
+        if ((q as any).type === 'multi-select' && Array.isArray(val)) {
+          snapped[q.id] = val.map((v: string) => opts.find((o) => norm(o) === norm(v)) || v);
+        } else if (typeof val === 'string' && val) {
+          const exact = opts.find((o) => norm(o) === norm(val));
+          if (exact) snapped[q.id] = exact;
+        }
+      }
+      setConfig((prev: any) => {
+        // Seções 3/6/7 (Estilo, Emoção, Ângulo): auto-seleciona a opção
+        // RECOMENDADA pro nível de consciência quando o campo está vazio ou
+        // com valor fora da lista. Antes só o estilo era preenchido.
+        const merged = fillRecommendedStrategyFields({ ...prev.copy.answers, ...snapped });
+        return { ...prev, copy: { ...prev.copy, answers: merged } };
+      });
       toast.success('Campos preenchidos!', { id: toastId });
     } catch (err: any) {
       toast.error(err?.message || 'Erro ao preencher.', { id: toastId });
@@ -707,6 +1094,41 @@ export function CopyTab({
   const activeBriefId = (config.copy as any)?.activeBriefId as string | undefined;
   const briefList = ((config.copy as any)?.creativeBriefs as any[] | undefined) || [];
   const activeBrief = activeBriefId ? briefList.find((b: any) => b?.id === activeBriefId) : null;
+
+  // --- Sinalização visual dos campos ---
+  // VERMELHO: campos obrigatórios ainda vazios, mostrado só DEPOIS que o
+  // cliente tentou sair da aba sem terminar (showRequiredErrors). AMBAR: campos
+  // que o cliente precisa escolher mas ainda não tocou — guia o fluxo, some
+  // sozinho quando preenchido. Os dois sinais são mutuamente exclusivos por
+  // campo (vermelho = erro, âmbar = "a fazer").
+  const REQUIRED_FIELD_IDS = [
+    'audience',
+    'situation',
+    'painPoints',
+    'awarenessLevel',
+    'estiloAnuncio',
+    'emotion',
+    'angleIdea',
+  ];
+  const isFieldEmpty = (id: string): boolean => {
+    const v = (config.copy.answers as any)[id];
+    if (Array.isArray(v)) return v.length === 0;
+    return !v || (typeof v === 'string' && !v.trim());
+  };
+  const requiredMissing = (id: string): boolean => {
+    if (!showRequiredErrors || !REQUIRED_FIELD_IDS.includes(id)) return false;
+    // painPoints é escondido no nível 1 (inconsciente) → não exigir lá.
+    if (id === 'painPoints' && (config.copy.answers.awarenessLevel || '').charAt(0) === '1')
+      return false;
+    return isFieldEmpty(id);
+  };
+  const redRing = (id: string) =>
+    requiredMissing(id)
+      ? ' ring-2 ring-red-500 ring-offset-4 dark:ring-offset-gray-900 rounded-2xl'
+      : '';
+  // Âmbar de seção: aplicado no container enquanto `filled` for falso.
+  const amberRing = (filled: boolean) =>
+    !filled ? ' ring-2 ring-amber-400/80 dark:ring-amber-500/70 ring-offset-4 dark:ring-offset-gray-900' : '';
 
   return (
     <div className="space-y-8 max-w-[1600px] mx-auto pb-20 overflow-x-hidden w-full">
@@ -798,6 +1220,16 @@ export function CopyTab({
         currentScript={config.copy.generatedScript || ''}
         onRestore={handleRestoreHistory}
         onClearHistory={handleClearHistory}
+      />
+
+      {/* Agente copywriter — chat conversacional sobre a copy atual */}
+      <CopywriterChat
+        open={showCopywriterChat}
+        onClose={() => setShowCopywriterChat(false)}
+        script={scriptToScan}
+        answers={config.copy?.answers || {}}
+        angle={(config.copy?.answers?.angleIdea as string) || 'Direto'}
+        onApplyScript={applyScriptToCopy}
       />
 
       {/* UX25-B3: modal de comparação A vs B com diff */}
@@ -1237,7 +1669,7 @@ export function CopyTab({
                     if (q.id === 'painPoints' && awarenessLevel === '1') return null;
                     if (q.id === 'triedBefore' && awarenessLevel === '1') return null;
                     return (
-                      <div key={q.id} className="space-y-2">
+                      <div key={q.id} className={'space-y-2' + redRing(q.id)}>
                         <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">
                           {q.label}
                         </label>
@@ -1313,7 +1745,7 @@ export function CopyTab({
                     2. Nível de Consciência
                   </h4>
                 </div>
-                <div className="space-y-3">
+                <div className={'space-y-3' + redRing('awarenessLevel')}>
                   {[
                     {
                       id: '1',
@@ -1411,7 +1843,10 @@ export function CopyTab({
                         // `dark:bg-gray-900/80` no final do className antigo
                         // era classe duplicada — colocamos a versão correta:
                         // bg base + bg focus por tema, e text color em ambos.
-                        className="w-full p-4 rounded-2xl border-2 border-gray-200 dark:border-gray-800 outline-none transition-all text-sm font-bold appearance-none bg-gray-50 dark:bg-gray-800/60 text-gray-900 dark:text-gray-100 focus:border-blue-600 focus:bg-white dark:focus:bg-gray-900/80"
+                        className={
+                          'w-full p-4 rounded-2xl border-2 border-gray-200 dark:border-gray-800 outline-none transition-all text-sm font-bold appearance-none bg-gray-50 dark:bg-gray-800/60 text-gray-900 dark:text-gray-100 focus:border-blue-600 focus:bg-white dark:focus:bg-gray-900/80' +
+                          redRing('estiloAnuncio')
+                        }
                         value={config.copy.answers.estiloAnuncio || ''}
                         onChange={(e) =>
                           updateConfig('copy', 'answers', 'estiloAnuncio', e.target.value)
@@ -1443,65 +1878,10 @@ export function CopyTab({
               {(sections.slice(1) || []).map((section, sIdx) => {
                 const isRecommended = (qId: string, val: string) => {
                   const answers = config.copy.answers;
-                  const level = answers.awarenessLevel;
-                  const levelChar = (level || '').charAt(0);
+                  const level = answers.awarenessLevel || '';
                   const estilo = answers.estiloAnuncio || '';
-
-                  if (qId === 'angleIdea') {
-                    if (levelChar === '1' || levelChar === '2')
-                      return ['Não é culpa sua', 'Você está fazendo errado'].includes(val);
-                    if (levelChar === '3')
-                      return [
-                        'Existe uma forma mais simples',
-                        'O problema não é o que você pensa',
-                      ].includes(val);
-                    if (levelChar === '4' || levelChar === '5')
-                      return ['Resultado imediato', 'A solução definitiva'].includes(val);
-                  }
-
-                  if (qId === 'emotion') {
-                    const scores: Record<string, number> = {};
-                    const addScore = (ems: string[], weight: number) => {
-                      ems.forEach((e) => (scores[e] = (scores[e] || 0) + weight));
-                    };
-
-                    // 1. Nível de Consciência (Base - NOVAS REGRAS)
-                    const baseMap: Record<string, string[]> = {
-                      '1': ['Confusão', 'Desmotivação', 'Cansaço'],
-                      '2': ['Frustração', 'Vergonha', 'Ansiedade', 'Medo de julgamento'],
-                      '3': ['Esperança', 'Cansaço', 'Confusão', 'Desejo de controle'],
-                      '4': ['Insegurança', 'Desejo de reconhecimento', 'Ambição'],
-                      '5': ['Exclusividade', 'Alívio', 'Ambição'],
-                    };
-                    if (baseMap[levelChar]) addScore(baseMap[levelChar], 2);
-
-                    // 2. Estilo do Anúncio (Multiplicador Forte)
-                    const estiloLower = estilo.toLowerCase();
-
-                    if (estiloLower.includes('problema'))
-                      addScore(['Frustração', 'Ansiedade', 'Cansaço', 'Confusão'], 3);
-                    if (estiloLower.includes('prova social'))
-                      addScore(
-                        ['Esperança', 'Alívio', 'Desejo de reconhecimento', 'Exclusividade'],
-                        3
-                      );
-                    if (estiloLower.includes('urgência') || estiloLower.includes('escassez'))
-                      addScore(['Ansiedade', 'Medo de julgamento', 'Desejo de controle'], 3);
-                    if (estiloLower.includes('inspirador'))
-                      addScore(['Esperança', 'Ambição', 'Alívio'], 3);
-                    if (estiloLower.includes('curiosidade'))
-                      addScore(['Confusão', 'Desejo de controle', 'Insegurança'], 3);
-                    if (estiloLower.includes('storytelling'))
-                      addScore(['Esperança', 'Frustração', 'Ansiedade', 'Alívio'], 3);
-
-                    const topEmotions = Object.entries(scores)
-                      .sort((a, b) => b[1] - a[1])
-                      .slice(0, 3) // Limitar a 2-3 emoções
-                      .map((entry) => entry[0]);
-
-                    return topEmotions.includes(val);
-                  }
-
+                  if (qId === 'angleIdea') return recommendedAnglesFor(level).includes(val);
+                  if (qId === 'emotion') return recommendedEmotionsFor(level, estilo).includes(val);
                   return false;
                 };
 
@@ -1523,7 +1903,7 @@ export function CopyTab({
                         if (q.condition && !q.condition(config.copy.answers)) return null;
 
                         return (
-                          <div key={q.id} className="space-y-2">
+                          <div key={q.id} className={'space-y-2' + redRing(q.id)}>
                             <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1 flex items-center justify-between">
                               {q.label}
                               {q.type === 'select' &&
@@ -1620,48 +2000,84 @@ export function CopyTab({
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">
-                    Para onde vai ao clicar?
+                    {isVsl ? 'Para onde leva o CTA da VSL?' : 'Para onde vai ao clicar?'}
                   </label>
-                  <div className="space-y-2">
-                    {[
-                      {
-                        id: 'video',
-                        emoji: '🎥',
-                        label: 'Assistir a um vídeo explicativo',
-                        desc: 'Ideal para público que ainda não te conhece',
-                        levels: ['1', '2', '3'],
-                      },
-                      {
-                        id: 'article',
-                        emoji: '📄',
-                        label: 'Ler um artigo ou conteúdo',
-                        desc: 'Educa o público antes de vender',
-                        levels: ['1', '2', '3'],
-                      },
-                      {
-                        id: 'salespage',
-                        emoji: '🛒',
-                        label: 'Página de vendas direta',
-                        desc: 'Para quem já conhece e está pronto',
-                        levels: ['4', '5'],
-                      },
-                      {
-                        id: 'whatsapp',
-                        emoji: '💬',
-                        label: 'WhatsApp ou formulário',
-                        desc: 'Contato direto para qualificar',
-                        levels: ['4'],
-                      },
-                      {
-                        id: 'checkout',
-                        emoji: '⚡',
-                        label: 'Direto para o checkout',
-                        desc: 'Compra imediata — remarketing',
-                        levels: ['5'],
-                      },
-                    ].map((destino) => {
+                  <div
+                    className={
+                      'space-y-2 rounded-2xl' + amberRing(!!config.copy.answers.clickDestination)
+                    }
+                  >
+                    {(isVsl
+                      ? [
+                          {
+                            id: 'oferta',
+                            emoji: '🛒',
+                            label: 'Botão da oferta',
+                            desc: 'CTA "quero acesso" — leva direto pra compra do produto',
+                            levels: [] as string[],
+                          },
+                          {
+                            id: 'checkout',
+                            emoji: '⚡',
+                            label: 'Checkout direto',
+                            desc: 'Compra imediata, sem página intermediária',
+                            levels: [] as string[],
+                          },
+                          {
+                            id: 'inscricao',
+                            emoji: '📋',
+                            label: 'Inscrição / lista de espera',
+                            desc: 'Quando o carrinho ainda vai abrir',
+                            levels: [] as string[],
+                          },
+                          {
+                            id: 'whatsapp',
+                            emoji: '💬',
+                            label: 'WhatsApp / grupo',
+                            desc: 'Fechar a venda no atendimento',
+                            levels: [] as string[],
+                          },
+                        ]
+                      : [
+                          {
+                            id: 'video',
+                            emoji: '🎥',
+                            label: 'Assistir a um vídeo explicativo',
+                            desc: 'Ideal para público que ainda não te conhece',
+                            levels: ['1', '2', '3'],
+                          },
+                          {
+                            id: 'article',
+                            emoji: '📄',
+                            label: 'Ler um artigo ou conteúdo',
+                            desc: 'Educa o público antes de vender',
+                            levels: ['1', '2', '3'],
+                          },
+                          {
+                            id: 'salespage',
+                            emoji: '🛒',
+                            label: 'Página de vendas direta',
+                            desc: 'Para quem já conhece e está pronto',
+                            levels: ['4', '5'],
+                          },
+                          {
+                            id: 'whatsapp',
+                            emoji: '💬',
+                            label: 'WhatsApp ou formulário',
+                            desc: 'Contato direto para qualificar',
+                            levels: ['4'],
+                          },
+                          {
+                            id: 'checkout',
+                            emoji: '⚡',
+                            label: 'Direto para o checkout',
+                            desc: 'Compra imediata — remarketing',
+                            levels: ['5'],
+                          },
+                        ]
+                    ).map((destino) => {
                       const currentLevel = (config.copy.answers.awarenessLevel || '').charAt(0);
-                      const isRecommended = destino.levels.includes(currentLevel);
+                      const isRecommended = !isVsl && destino.levels.includes(currentLevel);
                       return (
                         <button
                           key={destino.id}
@@ -1700,7 +2116,9 @@ export function CopyTab({
                       posicionado como ALTERNATIVA aos botões. Agora é
                       uma DESCRIÇÃO do destino escolhido, sempre visível,
                       pra IA saber o que vai ter lá e não inventar
-                      "apresentação curta", "vídeo rápido", etc. */}
+                      "apresentação curta", "vídeo rápido", etc.
+                      Escondido na VSL: lá o destino é sempre o botão da oferta. */}
+                  {!isVsl && (
                   <div className="mt-4 space-y-2">
                     <div className="flex items-center justify-between gap-3">
                       <label className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">
@@ -1727,7 +2145,11 @@ export function CopyTab({
                       )}
                     </div>
                     <AutoResizeTextarea
-                      placeholder="Ex: Live gratuita de 1h onde um pesquisador conta como criou a vitamina amarela pra ajudar a mãe com neuropatia. Aparecem ele, a mãe e um host. Tom: depoimento de família. NÃO chamar de 'apresentação curta', 'vídeo rápido' ou 'audio'."
+                      placeholder={
+                        isVsl
+                          ? 'Ex: Botão logo abaixo do vídeo escrito "QUERO ACESSO AO CURSO". Leva pro checkout do produto (curso completo + bônus). CTA da VSL deve mandar a pessoa clicar no botão da oferta e garantir a vaga agora.'
+                          : "Ex: Live gratuita de 1h onde um pesquisador conta como criou a vitamina amarela pra ajudar a mãe com neuropatia. Aparecem ele, a mãe e um host. Tom: depoimento de família. NÃO chamar de 'apresentação curta', 'vídeo rápido' ou 'audio'."
+                      }
                       value={config.copy.answers.destinationDescription || ''}
                       onChange={(e: any) =>
                         updateConfig('copy', 'answers', 'destinationDescription', e.target.value)
@@ -1739,11 +2161,19 @@ export function CopyTab({
                       quem aparece, sobre o que falam, e o que NÃO chamar.
                     </p>
                   </div>
+                  )}
                 </div>
               </div>
 
-              {/* SEÇÃO — Estratégia da Copy */}
-              <div className="space-y-6 bg-white dark:bg-gray-900/80 p-8 rounded-[40px] border-2 border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow">
+              {/* SEÇÃO — Estratégia da Copy. Só no anúncio: a VSL SEMPRE vende o
+                  produto nela mesma, então essa escolha não faz sentido. */}
+              {!isVsl && (
+              <div
+                className={
+                  'space-y-6 bg-white dark:bg-gray-900/80 p-8 rounded-[40px] border-2 border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow' +
+                  amberRing(!!config.copy.answers.copyStrategy)
+                }
+              >
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-8 h-8 bg-blue-600 text-white rounded-xl flex items-center justify-center text-xs font-black">
                     {sections.length + 4}
@@ -1814,19 +2244,25 @@ export function CopyTab({
                     ))}
                   </div>
                   {!config.copy.answers.copyStrategy && (
-                    <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold uppercase tracking-widest mt-2 ml-1">
-                      ⚠️ Sem escolha, usaremos os beats baseados no nível de consciência.
+                    <p className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-widest mt-2 ml-1">
+                      Padrão: Criar curiosidade (tráfego pra VSL). Escolha "Vender no próprio ad" só se o ad leva direto pra página de vendas.
                     </p>
                   )}
                 </div>
               </div>
+              )}
 
               {/* UX24-B: SEÇÃO — Evite mencionar (avoid list)
                   Vai pro PROHIBITED block do prompt principal. Cada termo
                   (vírgula, nova linha ou ;) vira uma regra "NEVER use X".
                   Útil pra cortar clichês recorrentes ou termos que o
                   modelo continua puxando do training data. */}
-              <div className="space-y-4 bg-white dark:bg-gray-900/80 p-8 rounded-[40px] border-2 border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow">
+              <div
+                className={
+                  'space-y-4 bg-white dark:bg-gray-900/80 p-8 rounded-[40px] border-2 border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow' +
+                  amberRing(!!config.copy.answers.avoidList)
+                }
+              >
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-8 h-8 bg-red-600 text-white rounded-xl flex items-center justify-center text-xs font-black">
                     !
@@ -1854,6 +2290,242 @@ export function CopyTab({
                     Separe por vírgula. Vira regra dura no prompt — a IA não pode usar nada daqui no
                     texto final.
                   </p>
+                </div>
+              </div>
+
+              {/* SEÇÃO — Termos obrigatórios + Produto inovador ("truque especial")
+                  mandatoryTerms → REQUIRED TERMS no prompt (oposto do avoidList).
+                  innovativeProductName → nome do "produto inovador"/gancho de
+                  curiosidade (ex: "yellow vitamin", "truque da banana"). Ambos
+                  opcionais; vão pra config.copy.answers e fluem pro gerador. */}
+              <div
+                className={
+                  'space-y-6 bg-white dark:bg-gray-900/80 p-8 rounded-[40px] border-2 border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow' +
+                  amberRing(
+                    !!config.copy.answers.mandatoryTerms ||
+                      !!config.copy.answers.innovativeProductName
+                  )
+                }
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-8 h-8 bg-emerald-600 text-white rounded-xl flex items-center justify-center text-xs font-black">
+                    ★
+                  </div>
+                  <h4 className="font-black text-gray-900 dark:text-gray-50 text-lg tracking-tight uppercase">
+                    Termos obrigatórios &amp; produto inovador
+                    <span className="ml-2 text-[10px] text-gray-400 dark:text-gray-500 normal-case tracking-normal">
+                      (opcional)
+                    </span>
+                  </h4>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest ml-1">
+                    Palavras / termos que a copy TEM que conter
+                  </label>
+                  <AutoResizeTextarea
+                    placeholder='Ex: "yellow vitamin", neuropathy, Dr. Moore, 30 segundos'
+                    value={config.copy.answers.mandatoryTerms || ''}
+                    onChange={(e: any) =>
+                      updateConfig('copy', 'answers', 'mandatoryTerms', e.target.value)
+                    }
+                    className="w-full p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-800 text-sm outline-none focus:border-emerald-400 min-h-[60px]"
+                  />
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500 italic">
+                    Separe por vírgula. Vira regra dura no prompt — a IA é obrigada a usar cada termo
+                    no texto final (encaixados de forma natural).
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest ml-1">
+                      Nome do "produto inovador" / truque especial
+                    </label>
+                    <button
+                      onClick={() => runGenInnovative(false)}
+                      disabled={isGenInnovative}
+                      className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-50 transition-all"
+                      title="A IA cria um gancho de curiosidade (estilo 'yellow vitamin'). Re-gere quantas vezes quiser, ou escreva o seu."
+                    >
+                      {isGenInnovative ? (
+                        <Loader2 size={12} className="animate-spin" />
+                      ) : (
+                        <Sparkles size={12} />
+                      )}
+                      {isGenInnovative
+                        ? 'Gerando...'
+                        : config.copy.answers.innovativeProductName
+                          ? 'Re-gerar'
+                          : 'Gerar'}
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder='Ex: "yellow vitamin", "truque da banana", "5-second ritual"'
+                    value={config.copy.answers.innovativeProductName || ''}
+                    onChange={(e: any) =>
+                      updateConfig('copy', 'answers', 'innovativeProductName', e.target.value)
+                    }
+                    className="w-full p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-800 text-sm outline-none focus:border-emerald-400"
+                  />
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500 italic">
+                    A IA vai usar esse nome como gancho de curiosidade — cita o nome pra intrigar, mas
+                    NUNCA explica o que é (isso fica no vídeo).
+                  </p>
+                </div>
+              </div>
+
+              {/* SEÇÃO — Narrador (quem conta a história em 1ª pessoa)
+                  answers.narrator → bloco no CONTEXT do prompt. Decidido no
+                  planejamento (vem do brief) e auto-preenchido aqui. Faz a copy
+                  segurar UMA voz e não oscilar entre "eu tenho" e "cuidei de
+                  alguém". Editável. */}
+              <div
+                className={
+                  'space-y-4 bg-white dark:bg-gray-900/80 p-8 rounded-[40px] border-2 border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow' +
+                  amberRing(!!config.copy.answers.narrator)
+                }
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-8 h-8 bg-emerald-600 text-white rounded-xl flex items-center justify-center text-xs font-black">
+                    🎙
+                  </div>
+                  <h4 className="font-black text-gray-900 dark:text-gray-50 text-lg tracking-tight uppercase">
+                    Quem conta a história
+                    <span className="ml-2 text-[10px] text-gray-400 dark:text-gray-500 normal-case tracking-normal">
+                      (auto pelo plano · editável)
+                    </span>
+                  </h4>
+                  <button
+                    onClick={handleGenNarrator}
+                    disabled={isGenNarrator}
+                    className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-50 transition-all"
+                    title="A IA escolhe o narrador mais convincente. Pode clicar de novo pra re-gerar, ou escrever o seu no campo."
+                  >
+                    {isGenNarrator ? (
+                      <Loader2 size={12} className="animate-spin" />
+                    ) : (
+                      <Sparkles size={12} />
+                    )}
+                    {isGenNarrator
+                      ? 'Gerando...'
+                      : config.copy.answers.narrator
+                        ? 'Re-gerar'
+                        : 'Gerar narrador'}
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest ml-1">
+                    Quem narra — quem é, idade, relação com o problema (não precisa ser 1ª pessoa)
+                  </label>
+                  <AutoResizeTextarea
+                    placeholder={'Ex: Sofredor de 58 anos que conviveu 6 anos com a dor até achar a resposta\nEx: Filha que cuidou do pai com neuropatia e foi atrás da causa\nEx: Um pesquisador que reúne histórias de quem viveu isso (3ª pessoa)'}
+                    value={config.copy.answers.narrator || ''}
+                    onChange={(e: any) =>
+                      updateConfig('copy', 'answers', 'narrator', e.target.value)
+                    }
+                    className="w-full p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-800 text-sm outline-none focus:border-emerald-400 min-h-[64px]"
+                  />
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500 italic">
+                    Pode ser quem viveu, um cuidador, um profissional, ou alguém contando histórias
+                    de outros (3ª pessoa). É UMA voz só, mantida do início ao fim. Edite ou re-gere
+                    se quiser outra.
+                  </p>
+                </div>
+              </div>
+
+              {/* SEÇÃO — Estatísticas / dados (grounded)
+                  answers.statistics → bloco GROUNDED STATISTICS no prompt.
+                  São os ÚNICOS números que a IA pode afirmar como fato (junto
+                  com os que já estão na fonte do produto). Sem isso, a IA é
+                  proibida de inventar estatística — faz o ponto qualitativo.
+                  (O botão "Buscar no Google" — fonte confiável — vem depois,
+                  precisa de web search no servidor.) */}
+              <div
+                className={
+                  'space-y-4 bg-white dark:bg-gray-900/80 p-8 rounded-[40px] border-2 border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow' +
+                  amberRing(!!config.copy.answers.statistics)
+                }
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-8 h-8 bg-indigo-600 text-white rounded-xl flex items-center justify-center text-xs font-black">
+                    %
+                  </div>
+                  <h4 className="font-black text-gray-900 dark:text-gray-50 text-lg tracking-tight uppercase">
+                    Estatísticas &amp; dados
+                    <span className="ml-2 text-[10px] text-gray-400 dark:text-gray-500 normal-case tracking-normal">
+                      (opcional)
+                    </span>
+                  </h4>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest ml-1">
+                    Números reais que a copy pode usar (com a fonte, se tiver)
+                  </label>
+                  <AutoResizeTextarea
+                    placeholder={'Ex: 90% dos adultos 50+ têm algum grau de degeneração nervosa (fonte: ...)\n48.000 pessoas já usam\nligado a maior risco de demência e doença cardíaca (estudo X)'}
+                    value={config.copy.answers.statistics || ''}
+                    onChange={(e: any) =>
+                      updateConfig('copy', 'answers', 'statistics', e.target.value)
+                    }
+                    className="w-full p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-800 text-sm outline-none focus:border-indigo-400 min-h-[80px]"
+                  />
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500 italic">
+                    Um por linha. A IA só pode afirmar números que estejam aqui ou na fonte do produto
+                    — sem isso, ela não inventa estatística. Ligação com doença sai só como "ligado
+                    a / aumenta o risco", nunca "você tem / vai ter".
+                  </p>
+                </div>
+
+                {/* Não tem números? Busca na web com fonte (item 2). Nunca
+                    auto-injeta — o cliente revisa cada um e clica "Adicionar". */}
+                <div className="space-y-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleFindStatistics}
+                    disabled={isFindingStats}
+                    className="text-xs font-bold px-4 py-2 rounded-xl border-2 border-indigo-200 dark:border-indigo-900 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors disabled:opacity-50"
+                  >
+                    {isFindingStats ? '🔍 Buscando na web...' : '🔍 Não tenho números — buscar com fonte'}
+                  </button>
+
+                  {statFindings && statFindings.length > 0 && (
+                    <div className="space-y-2 bg-indigo-50/60 dark:bg-indigo-950/20 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-900">
+                      <p className="text-[10px] font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-widest">
+                        Estatísticas com fonte — revise antes de usar
+                      </p>
+                      {statFindings.map((s, i) => (
+                        <div
+                          key={i}
+                          className="flex items-start gap-3 bg-white dark:bg-gray-900/60 p-3 rounded-xl border border-indigo-100 dark:border-indigo-900/60"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-gray-800 dark:text-gray-100">{s.stat}</p>
+                            <a
+                              href={s.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline break-all"
+                            >
+                              {s.source || 'fonte'}
+                              {s.year ? ` (${s.year})` : ''} ↗
+                            </a>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleAddStat(s)}
+                            className="shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+                          >
+                            Adicionar
+                          </button>
+                        </div>
+                      ))}
+                      <p className="text-[10px] text-gray-400 dark:text-gray-500 italic">
+                        Confira a fonte antes de adicionar. Só números com fonte real aparecem aqui — nada inventado.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1938,55 +2610,93 @@ export function CopyTab({
               </div>
 
               <div className="space-y-6">
-                {getRecomendacaoTempo(config.copy.answers.awarenessLevel) && (
+                {/* Quando o subprojeto veio de um brief do PLANO, a recomendação
+                    bate com a durationTarget daquele criativo específico (não só
+                    com o awareness). O plano manda. */}
+                {activeBrief?.durationTarget ? (
                   <div className="space-y-3 animate-in fade-in slide-in-from-top-4 duration-500">
                     <div className="flex items-center gap-2 mb-1">
-                      <div className="bg-green-600 text-white rounded-full p-1 shadow-md shadow-green-100">
+                      <div className="bg-purple-600 text-white rounded-full p-1 shadow-md shadow-purple-100">
                         <Star size={10} fill="currentColor" />
                       </div>
-                      <span className="text-[10px] font-black text-green-600 dark:text-green-400 uppercase tracking-widest">
-                        Recomendado para o seu público
+                      <span className="text-[10px] font-black text-purple-600 dark:text-purple-400 uppercase tracking-widest">
+                        Recomendado pelo plano de marketing
                       </span>
                     </div>
-                    <div className="p-6 bg-blue-50/50 dark:bg-blue-950/40 rounded-3xl border-2 border-blue-100 dark:border-blue-900 shadow-sm hover:shadow-md transition-all">
-                      <h5 className="text-2xl font-black text-blue-900 dark:text-blue-200 mb-2">
-                        {getRecomendacaoTempo(config.copy.answers.awarenessLevel)?.faixaSegundos}
+                    <div className="p-6 bg-purple-50/50 dark:bg-purple-950/40 rounded-3xl border-2 border-purple-100 dark:border-purple-900 shadow-sm hover:shadow-md transition-all">
+                      <h5 className="text-2xl font-black text-purple-900 dark:text-purple-200 mb-2">
+                        {activeBrief.durationTarget}s
                       </h5>
-                      <p className="text-sm font-medium text-blue-800 dark:text-blue-300/70 leading-relaxed italic">
-                        "{getRecomendacaoTempo(config.copy.answers.awarenessLevel)?.frase}"
+                      <p className="text-sm font-medium text-purple-800 dark:text-purple-300/70 leading-relaxed italic">
+                        "Este criativo do seu plano foi pensado para {activeBrief.durationTarget}s —
+                        ângulo {activeBrief.angle}. Manter a duração alinha o roteiro com a estratégia."
                       </p>
                     </div>
                   </div>
+                ) : (
+                  getRecomendacaoTempo(config.copy.answers.awarenessLevel) && (
+                    <div className="space-y-3 animate-in fade-in slide-in-from-top-4 duration-500">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="bg-green-600 text-white rounded-full p-1 shadow-md shadow-green-100">
+                          <Star size={10} fill="currentColor" />
+                        </div>
+                        <span className="text-[10px] font-black text-green-600 dark:text-green-400 uppercase tracking-widest">
+                          Recomendado para o seu público
+                        </span>
+                      </div>
+                      <div className="p-6 bg-blue-50/50 dark:bg-blue-950/40 rounded-3xl border-2 border-blue-100 dark:border-blue-900 shadow-sm hover:shadow-md transition-all">
+                        <h5 className="text-2xl font-black text-blue-900 dark:text-blue-200 mb-2">
+                          {getRecomendacaoTempo(config.copy.answers.awarenessLevel)?.faixaSegundos}
+                        </h5>
+                        <p className="text-sm font-medium text-blue-800 dark:text-blue-300/70 leading-relaxed italic">
+                          "{getRecomendacaoTempo(config.copy.answers.awarenessLevel)?.frase}"
+                        </p>
+                      </div>
+                    </div>
+                  )
                 )}
 
                 <div className="space-y-4">
                   <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">
-                    Selecione a Duração Alvo
+                    {isVsl ? 'Duração da VSL' : 'Selecione a Duração Alvo'}
                   </label>
 
-                  <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
-                    {DURATION_OPTIONS.map((opt: any) => (
-                      <button
-                        key={opt.label}
-                        onClick={() => {
-                          setConfig((prev: any) => ({
-                            ...prev,
-                            copy: {
-                              ...prev.copy,
-                              targetWordCount: opt.words,
-                            },
-                          }));
-                          setHasUnsavedCopyChanges(true);
-                        }}
-                        className={`py-3 px-1 rounded-xl border-2 transition-all text-xs font-black uppercase tracking-tighter ${
-                          config.copy.targetWordCount === opt.words
-                            ? 'border-blue-600 bg-blue-600 text-white shadow-lg shadow-blue-100 scale-105'
-                            : 'border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/60 text-gray-600 dark:text-gray-400 hover:border-blue-200 hover:bg-white dark:hover:bg-gray-900/80'
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
+                  <div className={`grid grid-cols-4 ${isVsl ? 'sm:grid-cols-8' : 'sm:grid-cols-9'} gap-2`}>
+                    {(isVsl ? VSL_DURATION_OPTIONS : DURATION_OPTIONS).map((opt: any) => {
+                      // Marca a duração recomendada pelo brief do plano (★). Só no
+                      // modo anúncio — o brief planeja durações de anúncio (em s).
+                      const isPlanRec =
+                        !isVsl &&
+                        !!activeBrief?.durationTarget &&
+                        opt.label === `${activeBrief.durationTarget}s`;
+                      return (
+                        <button
+                          key={opt.label}
+                          onClick={() => {
+                            setConfig((prev: any) => ({
+                              ...prev,
+                              copy: {
+                                ...prev.copy,
+                                targetWordCount: opt.words,
+                              },
+                            }));
+                            setHasUnsavedCopyChanges(true);
+                          }}
+                          className={`relative py-3 px-1 rounded-xl border-2 transition-all text-xs font-black uppercase tracking-tighter ${
+                            config.copy.targetWordCount === opt.words
+                              ? 'border-blue-600 bg-blue-600 text-white shadow-lg shadow-blue-100 scale-105'
+                              : isPlanRec
+                                ? 'border-purple-400 dark:border-purple-600 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300'
+                                : 'border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/60 text-gray-600 dark:text-gray-400 hover:border-blue-200 hover:bg-white dark:hover:bg-gray-900/80'
+                          }`}
+                        >
+                          {isPlanRec && (
+                            <span className="absolute -top-1.5 -right-1.5 text-[9px]">★</span>
+                          )}
+                          {opt.label}
+                        </button>
+                      );
+                    })}
                   </div>
 
                   <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/60 rounded-2xl border border-gray-200 dark:border-gray-800">
@@ -2214,23 +2924,52 @@ export function CopyTab({
                   />
                 )}
 
-                {/* UX25-A3: botão "Checar alucinações" — só visível quando
-                    tem productInfo (fonte) configurada */}
-                {productInfo && !hallucinationFlags && (
-                  <div className="flex justify-end">
-                    <button
-                      onClick={handleCheckHallucinations}
-                      disabled={isCheckingHallucinations}
-                      className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-orange-50 dark:bg-orange-950/30 ring-1 ring-orange-300 dark:ring-orange-800/60 text-orange-700 dark:text-orange-300 text-[10px] font-black uppercase tracking-widest hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-all disabled:opacity-50"
-                      title="Compara a copy gerada com a Fonte do Produto e flagra claims sem suporte"
-                    >
-                      {isCheckingHallucinations ? (
-                        <Loader2 size={12} className="animate-spin" />
-                      ) : (
-                        '🔬'
-                      )}
-                      Checar alucinações
-                    </button>
+                {/* Quick-fix: trocar autoridades nomeadas por âncora genérica */}
+                {authorityFlags && authorityFlags.length > 0 && (
+                  <AuthorityAnchorBanner
+                    flags={authorityFlags}
+                    onApply={handleApplyAnchor}
+                    onApplyAll={handleApplyAllAnchors}
+                    onDismiss={() => setAuthorityFlags(null)}
+                  />
+                )}
+
+                {/* Botões de checagem da copy gerada */}
+                {(!authorityFlags || (productInfo && !hallucinationFlags)) && (
+                  <div className="flex justify-end gap-2 flex-wrap">
+                    {/* Quick-fix: generalizar autoridades nomeadas */}
+                    {!authorityFlags && (
+                      <button
+                        onClick={handleCheckAuthorities}
+                        disabled={isCheckingAuthorities}
+                        className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-50 dark:bg-blue-950/30 ring-1 ring-blue-300 dark:ring-blue-800/60 text-blue-700 dark:text-blue-300 text-[10px] font-black uppercase tracking-widest hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-all disabled:opacity-50"
+                        title="Acha instituições/autoridades nomeadas (ex.: 'Instituto Karolinska na Suécia') e oferece trocar por âncora genérica. Nomes que estão na Fonte do Produto são mantidos."
+                      >
+                        {isCheckingAuthorities ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          '🏛️'
+                        )}
+                        Generalizar autoridades
+                      </button>
+                    )}
+                    {/* UX25-A3: botão "Checar alucinações" — só visível quando
+                        tem productInfo (fonte) configurada */}
+                    {productInfo && !hallucinationFlags && (
+                      <button
+                        onClick={handleCheckHallucinations}
+                        disabled={isCheckingHallucinations}
+                        className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-orange-50 dark:bg-orange-950/30 ring-1 ring-orange-300 dark:ring-orange-800/60 text-orange-700 dark:text-orange-300 text-[10px] font-black uppercase tracking-widest hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-all disabled:opacity-50"
+                        title="Compara a copy gerada com a Fonte do Produto e flagra claims sem suporte"
+                      >
+                        {isCheckingHallucinations ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          '🔬'
+                        )}
+                        Checar alucinações
+                      </button>
+                    )}
                   </div>
                 )}
                 {config.copy.finalScript && (
@@ -2293,6 +3032,22 @@ export function CopyTab({
                             <Sparkles size={12} />
                           )}
                           {isCritiquing ? 'Revisando...' : 'Revisar com IA'}
+                        </button>
+                        {/* Estágio 2 — melhorar a copy aplicando uma skill */}
+                        <CopySkillsButton
+                          script={scriptToScan}
+                          answers={config.copy?.answers}
+                          onApply={applyScriptToCopy}
+                          disabled={!scriptToScan}
+                        />
+                        {/* Agente copywriter: Chat */}
+                        <button
+                          onClick={() => setShowCopywriterChat(true)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 dark:bg-gray-100 dark:text-gray-900 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all"
+                          title="Converse com o copywriter mestre sobre esta copy — ele discute e revisa em diálogo"
+                        >
+                          <Sparkles size={12} />
+                          Falar com o copywriter
                         </button>
                         <button
                           onClick={() =>
@@ -2383,28 +3138,26 @@ export function CopyTab({
                         <button
                           onClick={async () => {
                             try {
-                              const selectedHookText = config.copy.hookSelecionado;
-                              const generatedCopy = config.copy.generatedScript;
-                              const finalScript = generatedCopy; // hook já está incluído pelo Claude
+                              // A copy aprovada (com o hook já incluído pelo Claude)
+                              // é o generatedScript. Grava como finalScript no
+                              // config e deixa o handleSaveProject persistir —
+                              // ele salva no lugar certo (subprojeto/variant),
+                              // diferente do updateDoc antigo que apontava pro
+                              // doc do projeto-pai e falhava ("erro ao salvar").
+                              const finalScript = config.copy.generatedScript;
+                              const updatedCopy = { ...config.copy, finalScript };
 
                               setConfig((prev: any) => ({
                                 ...prev,
-                                copy: {
-                                  ...prev.copy,
-                                  finalScript: finalScript,
-                                },
+                                copy: { ...prev.copy, finalScript },
                               }));
 
-                              // Salvar no Firestore se o projeto existe
-                              if (currentProjectId) {
-                                await updateDoc(doc(db, 'projects', currentProjectId), {
-                                  'config.copy.finalScript': finalScript,
-                                  'config.copy.hookSelecionado': selectedHookText,
-                                  updatedAt: serverTimestamp(),
-                                });
-                                // Also call the standard save logic to keep everything in sync
-                                await handleSaveProject();
-                              }
+                              // Passa o copy atualizado como OVERRIDE pro save —
+                              // setConfig é assíncrono e o handleSaveProject lê o
+                              // config do closure (ainda sem finalScript). Sem o
+                              // override, salvava a versão antiga. O override
+                              // garante que o finalScript vai pro Firestore agora.
+                              await handleSaveProject({ copy: updatedCopy });
 
                               toast.success('Copy salva com sucesso!');
                             } catch (error) {

@@ -17,6 +17,16 @@
 // reboot — fine for dev.
 
 import admin from 'firebase-admin';
+import { getFirestore } from 'firebase-admin/firestore';
+
+// O app usa um banco Firestore NÃO-PADRÃO ('metavise'). O front já aponta pra
+// ele (firestoreDatabaseId); o servidor precisa apontar pro MESMO banco, senão
+// lê/escreve créditos no banco (default) — errado/inexistente. Configurável por
+// env; default 'metavise'.
+const FS_DB_ID = process.env.FIRESTORE_DATABASE_ID || 'metavise';
+function fsdb() {
+  return getFirestore(admin.app(), FS_DB_ID);
+}
 
 // F7.6 — welcome bonus bumped pra 10000 (de 100) porque cada avatar
 // custa 100 créditos. Com 100, uma única geração zerava o saldo do
@@ -40,11 +50,11 @@ let firestoreUnavailable = false;
 function db() {
   if (admin.apps.length === 0) return null;
   if (firestoreUnavailable) return null;
-  return admin.firestore();
+  return fsdb();
 }
 
 function accountRef(uid: string) {
-  return admin.firestore().collection('users').doc(uid).collection('billing').doc('account');
+  return fsdb().collection('users').doc(uid).collection('billing').doc('account');
 }
 
 // F7.5 — catch "Could not load default credentials" + similar. After the

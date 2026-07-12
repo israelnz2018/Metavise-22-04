@@ -36,6 +36,8 @@ interface Props {
   audioUrl: string;
   aspectRatio?: '9:16' | '1:1' | '16:9' | '4:5';
   scale?: number;
+  /** Fundo do avatar ({ type, value }). Ausente = preto sólido no servidor. */
+  background?: { type: 'color' | 'image' | 'video'; value: string };
   /** Língua do áudio. 'auto' = AssemblyAI detecta sozinha (default). */
   languageCode?: 'auto' | 'pt' | 'en' | 'es';
   /** Avisar quando vídeo final estiver pronto. */
@@ -65,6 +67,7 @@ export function SegmentedAvatarModal({
   audioUrl,
   aspectRatio = '9:16',
   scale,
+  background,
   languageCode = 'auto',
   onVideoReady,
   onClose,
@@ -362,6 +365,7 @@ export function SegmentedAvatarModal({
           audioUrl,
           aspectRatio,
           scale,
+          background,
           segments,
           title: `Segmented Avatar - ${new Date().toISOString().slice(0, 16)}`,
         }),

@@ -1,4 +1,4 @@
-export type VozPremiumMode = 'catalog' | 'clone' | 'ready';
+export type VozPremiumMode = 'catalog' | 'library' | 'clone' | 'ready';
 
 export interface ElevenLabsVoice {
   voice_id: string;
@@ -14,6 +14,9 @@ export interface ElevenLabsVoice {
   };
   category?: string;
   cloned_by_count?: number;
+  // Vozes de biblioteca (adicionadas como asset) trazem `sharing` preenchido;
+  // uma PVC/clone próprio da conta vem sem sharing.
+  sharing?: unknown;
 }
 
 export interface CatalogFilters {
@@ -100,6 +103,20 @@ export async function listVoices(filters: CatalogFilters = {}): Promise<VoicesPa
 
 export async function generateAudio(params: GenerateAudioParams & { userId?: string }): Promise<{ audioUrl: string; storagePath: string | null }> {
   return postJson('/api/elevenlabs-premium/generate', params);
+}
+
+/** Resolve UM voice_id pro nome legível (painel de info de criativos antigos
+ *  que só salvaram o id). Retorna null se a voz não está na biblioteca. */
+export async function getVoiceName(voiceId: string): Promise<string | null> {
+  if (!voiceId) return null;
+  try {
+    const data = await getJson<{ name: string | null }>(
+      `/api/elevenlabs-premium/voice/${encodeURIComponent(voiceId)}`
+    );
+    return data?.name || null;
+  } catch {
+    return null;
+  }
 }
 
 export async function cloneVoice(params: CloneVoiceParams): Promise<{ voiceId: string; name: string }> {

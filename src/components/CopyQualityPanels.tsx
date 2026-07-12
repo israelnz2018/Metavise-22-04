@@ -11,8 +11,8 @@
  */
 
 import { useState } from 'react';
-import { AlertCircle, FlaskConical, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
-import type { PreflightIssue, HallucinationFlag } from '@/lib/claudeService';
+import { AlertCircle, FlaskConical, ChevronDown, ChevronUp, Loader2, Landmark } from 'lucide-react';
+import type { PreflightIssue, HallucinationFlag, AuthorityAnchor } from '@/lib/claudeService';
 
 // ─────────────────────────────────────────────
 // Preflight Check Panel
@@ -195,6 +195,87 @@ export function HallucinationBanner({ flags, onDismiss }: HallucinationProps) {
             >
               Dispensar
             </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Authority Anchor Banner (quick-fix)
+// Mostra nomes específicos de instituição/expert+localização achados na copy
+// e oferece trocar por uma âncora genérica (mantém autoridade, tira o nome).
+// ─────────────────────────────────────────────
+interface AuthorityProps {
+  flags: AuthorityAnchor[];
+  onApply: (flag: AuthorityAnchor) => void;
+  onApplyAll: () => void;
+  onDismiss: () => void;
+}
+
+export function AuthorityAnchorBanner({ flags, onApply, onApplyAll, onDismiss }: AuthorityProps) {
+  const [expanded, setExpanded] = useState(true);
+  if (flags.length === 0) return null;
+
+  return (
+    <div className="rounded-2xl ring-1 ring-blue-300 dark:ring-blue-800/60 bg-blue-50/80 dark:bg-blue-950/30 overflow-hidden shadow-sm">
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full flex items-center gap-3 p-4 text-left hover:bg-black/[0.02] dark:hover:bg-white/[0.02]"
+      >
+        <div className="shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center shadow">
+          <Landmark size={16} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-200">
+            Autoridades nomeadas na copy
+          </p>
+          <p className="text-sm font-bold text-gray-900 dark:text-gray-50">
+            {flags.length} {flags.length === 1 ? 'nome específico' : 'nomes específicos'} — trocar por âncora genérica?
+          </p>
+        </div>
+        {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+      </button>
+
+      {expanded && (
+        <div className="px-4 pb-4 space-y-2">
+          {flags.map((f, idx) => (
+            <div
+              key={idx}
+              className="bg-white dark:bg-gray-900/60 rounded-xl p-3 ring-1 ring-gray-200 dark:ring-gray-800 flex items-start gap-3"
+            >
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-gray-500 dark:text-gray-400 line-through italic">"{f.excerpt}"</p>
+                <p className="text-xs font-bold text-gray-900 dark:text-gray-50 mt-0.5">→ "{f.suggestion}"</p>
+                {f.reason && (
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">{f.reason}</p>
+                )}
+              </div>
+              <button
+                onClick={() => onApply(f)}
+                className="shrink-0 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase tracking-widest transition-all"
+              >
+                Trocar
+              </button>
+            </div>
+          ))}
+          <div className="flex items-center justify-between pt-2">
+            <button
+              onClick={onDismiss}
+              className="text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+            >
+              Dispensar
+            </button>
+            {flags.length > 1 && (
+              <button
+                onClick={onApplyAll}
+                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase tracking-widest transition-all"
+              >
+                Trocar todas
+              </button>
+            )}
           </div>
         </div>
       )}

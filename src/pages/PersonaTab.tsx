@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import type { AdConfig } from '@/App';
-import { Users, Sparkles, Loader2, CheckCircle2, AlertTriangle, ArrowRight } from 'lucide-react';
+import { Users, Sparkles, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   PERSONA_CATEGORY_OPTIONS,
@@ -15,10 +15,13 @@ import {
   PERSONA_DIFFERENTIAL_OPTIONS,
   PERSONA_TRIED_BEFORE_OPTIONS,
   PERSONA_PAYING_CAPACITY_OPTIONS,
+  PERSONA_BILLING_OPTIONS,
   PERSONA_HIDDEN_DESIRE_OPTIONS,
+  SALE_CURRENCY_OPTIONS,
+  currencySymbol,
   COPY_SECTIONS,
 } from '@/lib/constants';
-import { personaFromProduct, type ProductInfo } from '@/lib/claudeService';
+import { personaFromProduct, extractProductInfo, type ProductInfo } from '@/lib/claudeService';
 
 interface Props {
   // Single source of truth for the form. Read `config.copy.answers` and
@@ -40,7 +43,6 @@ interface Props {
   loading: boolean;
   onGeneratePersona: (answers: Record<string, any>) => Promise<void> | void;
   onSavePersonas: () => Promise<void> | void;
-  onSelectPersona: (persona: any) => void;
   /** Blueprint Path 2 — when set, shows the "Ir pro Plano de Marketing"
    *  CTA below the 3-persona grid. Receives the personas the user
    *  checked (could be 1-3) so the parent can wire them into the
@@ -58,7 +60,6 @@ export function PersonaTab({
   loading,
   onGeneratePersona,
   onSavePersonas,
-  onSelectPersona,
   onGoToPlan,
 }: Props) {
   // Selected persona indices for the Blueprint Path 2 CTA. We key by
@@ -67,6 +68,50 @@ export function PersonaTab({
   // the personas array changes (regeneration), we reset selection
   // using the "include if confident enough and not a stretch" rule.
   const [selectedIdxSet, setSelectedIdxSet] = useState<Set<number>>(new Set());
+
+  // Material do produto (VSL/link/texto) — fica no topo da aba. Ao extrair,
+  // salva productInfo + sourceText; o auto-preencher (useEffect abaixo) então
+  // preenche as perguntas. 1 clique extrai E preenche.
+  const [matUrl, setMatUrl] = useState('');
+  const [matText, setMatText] = useState('');
+  const [extracting, setExtracting] = useState(false);
+  const handleExtractMaterial = async () => {
+    if (!matText.trim() && !matUrl.trim()) {
+      toast.error('Cole o link ou o texto do produto.');
+      return;
+    }
+    setExtracting(true);
+    try {
+      const withProtocol = (u: string) => (u && !/^https?:\/\//i.test(u) ? `https://${u}` : u);
+      const product = await extractProductInfo({
+        text: matText.trim() || undefined,
+        url: withProtocol(matUrl.trim()) || undefined,
+      });
+      const rawText = matText.trim() || `[URL: ${matUrl}]`;
+      // Salva o material e marca personaAutoFilled:true pra o useEffect NÃO
+      // disparar um 2º preenchimento — quem preenche é a chamada direta abaixo.
+      setConfig((prev: any) => ({
+        ...prev,
+        copy: { ...prev.copy, productInfo: product, sourceText: rawText, personaAutoFilled: true },
+      }));
+      toast.success('Material extraído! Preenchendo as perguntas…');
+      // 1 CLIQUE: preenche já, passando o product recém-extraído (não depende
+      // do config ter atualizado). Resolve o "tive que clicar duas vezes".
+      await handleFillFromSource(product);
+    } catch (err: any) {
+      const msg = String(err?.message || '');
+      if (matUrl.trim() && /buscar URL|fetch failed/i.test(msg)) {
+        toast.error(
+          'Não consegui acessar esse link. Cole a URL COMPLETA (ex: https://www.seusite.com/pagina) — ou cole o TEXTO/transcrição no campo de texto.',
+          { duration: 8000 }
+        );
+      } else {
+        toast.error(msg || 'Erro ao extrair.');
+      }
+    } finally {
+      setExtracting(false);
+    }
+  };
 
   // Pre-select personas with confidence >= 0.5 and not stretched.
   // Falls back to "include all" when the LLM didn't return the new
@@ -204,23 +249,46 @@ export function PersonaTab({
     updateConfig('copy', 'answers', field, next);
   };
 
-  const allRequired =
-    (a.product || '').trim().length > 0 &&
-    (a.category || '').trim().length > 0 &&
-    (a.whatItDoes || '').trim().length > 0 &&
-    (a.transformationFrom || '').trim().length > 0 &&
-    (a.transformationTo || '').trim().length > 0 &&
-    (a.urgency || '').trim().length > 0 &&
-    differentials.length > 0 &&
-    personaTriedBefore.length > 0 &&
-    (a.payingCapacity || '').trim().length > 0 &&
-    hiddenDesires.length > 0;
+  // Campos obrigatórios pra gerar personas — cada um com um rótulo amigável
+  // pra avisar exatamente o que falta quando o usuário tenta gerar.
+  const requiredFields: Array<{ ok: boolean; label: string }> = [
+    { ok: (a.product || '').trim().length > 0, label: 'Produto' },
+    { ok: (a.category || '').trim().length > 0, label: 'Categoria' },
+    { ok: (a.whatItDoes || '').trim().length > 0, label: 'O que o produto faz' },
+    { ok: (a.transformationFrom || '').trim().length > 0, label: 'Situação antes (de)' },
+    { ok: (a.transformationTo || '').trim().length > 0, label: 'Situação depois (para)' },
+    { ok: (a.urgency || '').trim().length > 0, label: 'Urgência' },
+    { ok: differentials.length > 0, label: 'Diferenciais' },
+    { ok: personaTriedBefore.length > 0, label: 'O que já tentou antes' },
+    { ok: Number(a.salePrice) > 0, label: 'Preço de venda' },
+    { ok: hiddenDesires.length > 0, label: 'Desejos ocultos' },
+  ];
+  const missingFields = requiredFields.filter((f) => !f.ok).map((f) => f.label);
+  const allRequired = missingFields.length === 0;
+
+  // Avisa o que falta quando o usuário clica sem completar. Mantemos o botão
+  // SEMPRE clicável (não mais cinza/desabilitado) pra poder mostrar o aviso.
+  const handleGenerateClick = () => {
+    if (loading) return;
+    if (!allRequired) {
+      toast.error(
+        `Complete o questionário antes de gerar. Falta preencher: ${missingFields.join(', ')}.`,
+        { duration: 7000 }
+      );
+      return;
+    }
+    onGeneratePersona(a as any);
+  };
 
   const personas: any[] = generatedPersona?.personas || [];
   const productInfo = config.copy?.productInfo as ProductInfo | null;
 
-  const handleFillFromSource = async () => {
-    if (!productInfo) return;
+  const handleFillFromSource = async (productOverride?: ProductInfo | null) => {
+    // Aceita um product recém-extraído (productOverride) pra não depender do
+    // config já ter atualizado — é o que faz o "Extrair e preencher" rodar em
+    // 1 clique só (sem isso, o productInfo do closure ainda era o antigo).
+    const source = productOverride || productInfo;
+    if (!source) return;
     const toastId = 'fill-from-source';
     toast.loading('Preenchendo campos com IA...', { id: toastId });
     try {
@@ -232,7 +300,7 @@ export function PersonaTab({
         return (q as any)?.options || [];
       };
       const filled = await personaFromProduct({
-        productInfo,
+        productInfo: source,
         options: {
           categories: PERSONA_CATEGORY_OPTIONS,
           urgencies: PERSONA_URGENCY_OPTIONS.map((o) => o.value),
@@ -252,6 +320,7 @@ export function PersonaTab({
         copy: {
           ...prev.copy,
           answers: { ...prev.copy.answers, ...filled },
+          personaAutoFilled: true,
         },
       }));
       toast.success('Campos preenchidos!', { id: toastId });
@@ -275,7 +344,7 @@ export function PersonaTab({
         </div>
         {productInfo && (
           <button
-            onClick={handleFillFromSource}
+            onClick={() => handleFillFromSource()}
             className="shrink-0 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow flex items-center gap-2"
             title="Usa a IA pra preencher os 9 campos automaticamente com base na Fonte do Produto"
           >
@@ -283,6 +352,46 @@ export function PersonaTab({
             Preencha automaticamente
           </button>
         )}
+      </div>
+
+      {/* Material do produto (VSL/link/texto) — preenche as perguntas abaixo */}
+      <div className="bg-purple-50/50 dark:bg-purple-950/20 ring-1 ring-purple-100 dark:ring-purple-900/40 rounded-2xl p-5 space-y-3">
+        <div className="flex items-center gap-2">
+          <Sparkles size={18} className="text-purple-600 dark:text-purple-400" />
+          <h4 className="font-black uppercase text-xs tracking-widest text-gray-900 dark:text-gray-50">
+            Tem material do produto? (opcional)
+          </h4>
+        </div>
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          Cole uma das 2 opções e a IA preenche as perguntas abaixo automaticamente. Sem material? É
+          só responder na mão.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <input
+            type="url"
+            value={matUrl}
+            onChange={(e) => setMatUrl(e.target.value)}
+            placeholder="Link da landing page"
+            disabled={extracting}
+            className="w-full p-2.5 bg-white dark:bg-gray-800/60 ring-1 ring-gray-200 dark:ring-gray-700 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none dark:text-gray-100 dark:placeholder:text-gray-500"
+          />
+          <input
+            type="text"
+            value={matText}
+            onChange={(e) => setMatText(e.target.value)}
+            placeholder="Ou cole o texto/transcrição"
+            disabled={extracting}
+            className="w-full p-2.5 bg-white dark:bg-gray-800/60 ring-1 ring-gray-200 dark:ring-gray-700 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none dark:text-gray-100 dark:placeholder:text-gray-500"
+          />
+        </div>
+        <button
+          onClick={handleExtractMaterial}
+          disabled={extracting}
+          className="w-full md:w-auto px-5 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow flex items-center justify-center gap-2"
+        >
+          {extracting ? <Loader2 className="animate-spin" size={14} /> : <Sparkles size={14} />}
+          Extrair e preencher
+        </button>
       </div>
 
       {/* ETAPA 1 — Produto */}
@@ -502,24 +611,66 @@ export function PersonaTab({
 
         <div className="space-y-2">
           <label className="text-sm font-black text-gray-900 dark:text-gray-50">
-            8. Capacidade de pagar do cliente típico
+            8. Qual o preço de venda do produto?
           </label>
+
+          {/* pontual vs recorrente */}
           <div className="flex flex-wrap gap-2">
-            {PERSONA_PAYING_CAPACITY_OPTIONS.map((p) => (
+            {PERSONA_BILLING_OPTIONS.map((b) => (
               <button
-                key={p}
-                onClick={() => updateConfig('copy', 'answers', 'payingCapacity', p)}
+                key={b}
+                onClick={() => updateConfig('copy', 'answers', 'billingModel', b)}
                 className={cn(
                   'px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all',
-                  a.payingCapacity === p
+                  a.billingModel === b
                     ? 'bg-blue-600 text-white border-blue-600'
                     : 'bg-white dark:bg-gray-900/80 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-blue-300'
                 )}
               >
-                {p}
+                {b}
               </button>
             ))}
           </div>
+
+          {/* moeda do país de venda (dropdown) + valor — a IA puxa da VSL */}
+          <div className="flex items-center gap-3 flex-wrap mt-2">
+            <select
+              value={a.saleCurrency || 'USD'}
+              onChange={(e) => updateConfig('copy', 'answers', 'saleCurrency', e.target.value)}
+              className="px-3 py-3 border-2 border-gray-200 dark:border-gray-800 rounded-2xl focus:border-blue-600 focus:outline-none text-sm font-bold bg-white dark:bg-gray-900/80 dark:text-gray-100 max-w-[260px]"
+            >
+              {SALE_CURRENCY_OPTIONS.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.symbol} · {c.country} ({c.code})
+                </option>
+              ))}
+            </select>
+            <input
+              type="number"
+              min={0}
+              value={a.salePrice ?? ''}
+              onChange={(e) => updateConfig('copy', 'answers', 'salePrice', e.target.value)}
+              placeholder={a.billingModel === 'Recorrente (mensal/assinatura)' ? '9.99' : '297'}
+              className="w-32 px-3 py-3 border-2 border-gray-200 dark:border-gray-800 rounded-2xl focus:border-blue-600 focus:outline-none text-sm font-bold"
+            />
+            <span className="text-xs text-gray-500 dark:text-gray-400 font-bold">
+              {a.billingModel === 'Recorrente (mensal/assinatura)'
+                ? 'por mês'
+                : 'valor da compra (pagamento único)'}
+            </span>
+          </div>
+
+          {/* anualização quando recorrente — na moeda escolhida */}
+          {a.billingModel === 'Recorrente (mensal/assinatura)' && Number(a.salePrice) > 0 && (
+            <p className="text-xs text-blue-700 dark:text-blue-300 font-bold">
+              Valor anualizado: {currencySymbol(a.saleCurrency)}{' '}
+              {(Number(a.salePrice) * 12).toLocaleString('pt-BR')}/ano
+              <span className="font-medium text-gray-500 dark:text-gray-400">
+                {' '}
+                — usamos o valor anual porque é assim que o público realmente compra.
+              </span>
+            </p>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -566,17 +717,73 @@ export function PersonaTab({
             className="mt-2 w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-800 rounded-2xl focus:border-blue-600 focus:outline-none text-sm resize-none"
           />
         </details>
+
+        {/* Método de estratégia — escolhido ANTES de gerar as personas.
+            Calibra as personas, o plano de marketing e o checklist de criativos. */}
+        <div className="space-y-2 pt-2">
+          <h3 className="text-xs font-black uppercase tracking-widest text-gray-700 dark:text-gray-300">
+            Como você quer montar o plano?
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            {[
+              { id: 'baiano', title: 'Método Baiano', desc: '3-7 criativos ótimos, 1 por vez, ~50 conjuntos a baixo custo/dia.' },
+              { id: 'metodo15', title: 'Método 15', desc: '~15 criativos diversos rodando juntos (Advantage+ amplo).' },
+              { id: 'ia', title: 'IA escolhe', desc: 'Não sei — deixa a IA decidir o melhor pelo produto.' },
+            ].map((m) => {
+              const selected = (a.strategyMethod || 'ia') === m.id;
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => updateConfig('copy', 'answers', 'strategyMethod', m.id)}
+                  className={cn(
+                    'p-3 rounded-2xl border-2 transition-all text-left',
+                    selected
+                      ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-600'
+                      : 'bg-white dark:bg-gray-900/80 border-gray-200 dark:border-gray-800 hover:border-blue-200',
+                  )}
+                >
+                  <span className="block text-xs font-black text-gray-900 dark:text-gray-50">{m.title}</span>
+                  <span className="block text-[10px] text-gray-500 dark:text-gray-400 leading-tight mt-1">{m.desc}</span>
+                </button>
+              );
+            })}
+          </div>
+          <details className="text-sm">
+            <summary className="cursor-pointer text-gray-500 dark:text-gray-400 font-bold text-[11px] uppercase tracking-widest">
+              + Prefiro descrever meu próprio plano (avançado)
+            </summary>
+            <textarea
+              value={a.strategyCustom || ''}
+              onChange={(e) => {
+                const v = e.target.value;
+                updateConfig('copy', 'answers', 'strategyCustom', v);
+                updateConfig('copy', 'answers', 'strategyMethod', v.trim() ? 'custom' : 'ia');
+              }}
+              rows={3}
+              placeholder="Ex: 5 criativos, todos VSL longa, foco em prova social, R$30/dia por conjunto..."
+              className="mt-2 w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-800 rounded-2xl focus:border-blue-600 focus:outline-none text-sm resize-none"
+            />
+          </details>
+        </div>
       </div>
 
-      {/* Botão Gerar */}
+      {/* Botão Gerar — sempre clicável; se faltar campo, avisa o que falta. */}
       <button
-        onClick={() => onGeneratePersona(a as any)}
-        disabled={!allRequired || loading}
-        className="w-full py-6 bg-blue-600 text-white rounded-[32px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-2xl shadow-blue-100 disabled:opacity-50 flex items-center justify-center gap-3 text-lg"
+        onClick={handleGenerateClick}
+        disabled={loading}
+        className={`w-full py-6 text-white rounded-[32px] font-black uppercase tracking-widest transition-all shadow-2xl shadow-blue-100 disabled:opacity-50 flex items-center justify-center gap-3 text-lg ${
+          allRequired ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-600/50 hover:bg-blue-600/70'
+        }`}
       >
         {loading ? <Loader2 className="animate-spin" size={24} /> : <Sparkles size={24} />}
         {personas.length > 0 ? 'Regerar 3 Personas' : 'Gerar 3 Personas com IA'}
       </button>
+      {!allRequired && (
+        <p className="text-center text-[11px] text-gray-500 dark:text-gray-400 mt-2">
+          Falta preencher: {missingFields.join(', ')}.
+        </p>
+      )}
       {!allRequired && (
         <p className="text-center text-xs text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest">
           Preencha todas as 9 perguntas obrigatórias para gerar
@@ -788,18 +995,6 @@ export function PersonaTab({
                       </span>
                     </div>
                   </div>
-                  <button
-                    onClick={() => onSelectPersona(p)}
-                    disabled={!personasSaved}
-                    className={cn(
-                      'w-full mt-3 py-3 rounded-2xl font-black uppercase tracking-widest text-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed',
-                      rankColor === 'blue' && 'bg-blue-600 text-white hover:bg-blue-700',
-                      rankColor === 'purple' && 'bg-purple-500 text-white hover:bg-purple-600',
-                      rankColor === 'gray' && 'bg-gray-900 text-white hover:bg-black'
-                    )}
-                  >
-                    {personasSaved ? 'Enviar este Persona pra Copy →' : '🔒 Salve os 3 primeiro'}
-                  </button>
                 </div>
               );
             })}
@@ -819,42 +1014,68 @@ export function PersonaTab({
                 <>💾 Salvar os 3 Personas no Projeto</>
               )}
             </button>
-            {personasSaved && (
-              <p className="text-center text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-widest mt-2">
-                Escolha um persona acima para enviar pra Copy (rápido) — ou gere o plano completo
-                abaixo
-              </p>
-            )}
           </div>
 
-          {/* PATH 2 — Blueprint completo. Visível apenas quando o
-              callback foi wirado pelo App.tsx e as personas foram salvas.
-              Os 3 caminhos coexistem sem conflito:
-                Path 1 (existente): clica "Escolher esta" em um card
-                Path 2 (novo):     gera plano com personas checadas
-              Marketing the multi-persona option as the recommended
-              path — it covers the Andromeda diversity advantage. */}
-          {onGoToPlan && personasSaved && (
-            <div className="pt-2">
-              <button
-                onClick={() => {
-                  const list = (generatedPersona?.personas || []) as any[];
-                  const selected = list.filter((_, idx) => selectedIdxSet.has(idx));
-                  if (selected.length === 0) {
-                    toast.error('Selecione pelo menos 1 persona pra gerar o plano.');
-                    return;
-                  }
-                  onGoToPlan(selected);
-                }}
-                className="w-full py-5 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 active:scale-[0.99] text-white rounded-[28px] font-black uppercase tracking-widest text-sm transition-all shadow-xl shadow-blue-200/60 dark:shadow-blue-900/30 ring-1 ring-inset ring-white/20 flex items-center justify-center gap-3"
-              >
-                <Sparkles size={18} />
-                Ir pro Plano de Marketing ({selectedIdxSet.size}{' '}
-                {selectedIdxSet.size === 1 ? 'persona' : 'personas'})
-                <ArrowRight size={18} />
-              </button>
-              <p className="text-center text-[10px] text-gray-500 dark:text-gray-500 font-bold uppercase tracking-widest mt-2">
-                ⭐ recomendado — gera 15 criativos distribuídos entre as personas selecionadas
+          {/* Resumo pós-salvar: escolher QUAIS personas entram no plano.
+              Marcar/desmarcar re-popula o plano de marketing (embaixo). */}
+          {personasSaved && (
+            <div className="pt-2 space-y-3">
+              <h4 className="text-sm font-black text-gray-900 dark:text-gray-50">
+                Quais personas incluir no plano de marketing?
+              </h4>
+              <div className="space-y-2">
+                {personas.map((p, idx) => {
+                  const checked = selectedIdxSet.has(idx);
+                  return (
+                    <label
+                      key={idx}
+                      className={cn(
+                        'flex items-start gap-3 p-3 rounded-2xl border-2 cursor-pointer transition-all',
+                        checked
+                          ? 'border-blue-600 bg-blue-50/60 dark:bg-blue-950/30'
+                          : 'border-gray-200 dark:border-gray-800 hover:border-blue-200'
+                      )}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) => {
+                          const next = new Set(selectedIdxSet);
+                          if (e.target.checked) next.add(idx);
+                          else next.delete(idx);
+                          if (next.size === 0) next.add(idx);
+                          setSelectedIdxSet(next);
+                          if (onGoToPlan) {
+                            const list = (generatedPersona?.personas || []) as any[];
+                            onGoToPlan(list.filter((_, i) => next.has(i)));
+                          }
+                        }}
+                        className="w-5 h-5 accent-blue-600 mt-0.5 shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-black text-gray-900 dark:text-gray-50">
+                            {p.name}
+                          </span>
+                          <span className="text-[9px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-500">
+                            {p.rank}
+                          </span>
+                          {typeof p?.suggestedWeight === 'number' && (
+                            <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300">
+                              {fmtPct(p.suggestedWeight)}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mt-0.5">
+                          {p.mainPain || p.description}
+                        </p>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="text-center text-[10px] text-gray-500 dark:text-gray-500 font-bold uppercase tracking-widest">
+                O plano de marketing abaixo usa as personas marcadas
               </p>
             </div>
           )}

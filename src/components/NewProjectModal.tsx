@@ -38,10 +38,8 @@ interface Props {
 export function NewProjectModal({
   isOpen,
   name,
-  sourceMode,
   isSaving,
   onNameChange,
-  onSourceModeChange,
   onClose,
   onCreate,
 }: Props) {
@@ -87,48 +85,6 @@ export function NewProjectModal({
             />
           </div>
 
-          {/* Blueprint Fase 4 — escolha sourceMode. Sempre visível agora
-              (Fase 5 removeu os tipos copy/video/edit, então não há mais
-              o condicional "type === 'complete'"). */}
-          <div className="bg-purple-50/60 dark:bg-purple-950/30 rounded-xl p-4 space-y-3 ring-1 ring-purple-100/80 dark:ring-purple-900/40">
-            <p className="text-[10px] font-black text-purple-700 dark:text-purple-300 uppercase tracking-widest">
-              Como você está começando?
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              <button
-                onClick={() => onSourceModeChange('vsl')}
-                className={`p-3 rounded-lg text-left transition-all ring-1 ${
-                  sourceMode === 'vsl'
-                    ? 'bg-white dark:bg-gray-900 ring-purple-500 shadow-sm'
-                    : 'ring-purple-200/60 dark:ring-purple-800/40 hover:bg-white/50 dark:hover:bg-gray-800/40'
-                }`}
-              >
-                <div className="text-lg mb-0.5">📺</div>
-                <p className="text-xs font-bold text-gray-900 dark:text-gray-100 leading-tight">
-                  Tenho VSL ou landing pronta
-                </p>
-                <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium mt-0.5 leading-tight">
-                  A IA extrai persona e oferta direto do material
-                </p>
-              </button>
-              <button
-                onClick={() => onSourceModeChange('product')}
-                className={`p-3 rounded-lg text-left transition-all ring-1 ${
-                  sourceMode === 'product'
-                    ? 'bg-white dark:bg-gray-900 ring-purple-500 shadow-sm'
-                    : 'ring-purple-200/60 dark:ring-purple-800/40 hover:bg-white/50 dark:hover:bg-gray-800/40'
-                }`}
-              >
-                <div className="text-lg mb-0.5">🎁</div>
-                <p className="text-xs font-bold text-gray-900 dark:text-gray-100 leading-tight">
-                  Só tenho o produto pra anunciar
-                </p>
-                <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium mt-0.5 leading-tight">
-                  Te perguntamos sobre o cliente antes de gerar
-                </p>
-              </button>
-            </div>
-          </div>
         </div>
 
         <div className="flex gap-3">
@@ -140,7 +96,7 @@ export function NewProjectModal({
           </button>
           <button
             onClick={onCreate}
-            disabled={isSaving || !name.trim() || !sourceMode}
+            disabled={isSaving || !name.trim()}
             className="flex-1 py-3 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl font-black uppercase text-[10px] tracking-widest hover:from-blue-600 hover:to-blue-700 active:scale-[0.98] transition-all shadow-xl shadow-blue-200/60 dark:shadow-blue-900/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-blue-500 flex items-center justify-center gap-2 ring-1 ring-inset ring-white/20"
           >
             {isSaving ? <Loader2 className="animate-spin" size={16} /> : 'Criar Projeto'}

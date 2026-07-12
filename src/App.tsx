@@ -15,7 +15,7 @@ const SourceTab = React.lazy(() =>
   import('./pages/SourceTab').then((m) => ({ default: m.SourceTab }))
 );
 const PlanTab = React.lazy(() => import('./pages/PlanTab').then((m) => ({ default: m.PlanTab })));
-import type { ProductInfo, MarketingPlan } from './lib/claudeService';
+import type { ProductInfo } from './lib/claudeService';
 import { authedFetch } from './lib/authedFetch';
 import { detectDuration, detectVideoFormat } from './lib/helpers';
 import type {
@@ -31,6 +31,7 @@ import type {
   ZapCapRenderConfig,
   Project,
   ProjectVariant,
+  MusicTrack,
 } from './types/project';
 
 import {
@@ -42,6 +43,7 @@ import {
   Sparkles,
   CheckCircle2,
   Loader2,
+  Save,
   Download,
   LogOut,
   Settings,
@@ -58,6 +60,8 @@ import {
 // na geração de copy. Pega na hora — ~200ms, aceitável.
 import { loadPersonalLibrary } from './lib/personalCopyLibrary';
 import { auth, db, storage } from './lib/firebase';
+import { loadVariants, saveVariant, deleteVariantDoc } from './lib/variantStore';
+import firebaseConfig from '../firebase-applet-config.json';
 import { type CachedRecommendation } from './components/AIRecommendationPanel';
 import { STEPS, AD_STYLES } from './lib/constants';
 import { NewProjectModal } from './components/NewProjectModal';
@@ -95,13 +99,96 @@ const FinalTab = React.lazy(() =>
   import('./pages/FinalTab').then((m) => ({ default: m.FinalTab }))
 );
 const CopyTab = React.lazy(() => import('./pages/CopyTab').then((m) => ({ default: m.CopyTab })));
+const RemotionTab = React.lazy(() =>
+  import('./pages/RemotionTab').then((m) => ({ default: m.RemotionTab }))
+);
 const EditZapTab = React.lazy(() =>
   import('./pages/EditZapTab').then((m) => ({ default: m.EditZapTab }))
+);
+const MergeTab = React.lazy(() =>
+  import('./pages/MergeTab').then((m) => ({ default: m.MergeTab }))
+);
+const MontagemTab = React.lazy(() =>
+  import('./pages/MontagemTab').then((m) => ({ default: m.MontagemTab }))
 );
 const AvatarTab = React.lazy(() =>
   import('./pages/AvatarTab').then((m) => ({ default: m.AvatarTab }))
 );
 import { useZapState } from './hooks/useZapState';
+
+const CREATE_PROJECT_TIMEOUT_MS = 8000;
+
+const toFirestoreValue = (value: any): any => {
+  if (value === null) return { nullValue: null };
+  if (Array.isArray(value)) return { arrayValue: { values: value.map(toFirestoreValue) } };
+  if (typeof value === 'boolean') return { booleanValue: value };
+  if (typeof value === 'number') {
+    return Number.isInteger(value) ? { integerValue: String(value) } : { doubleValue: value };
+  }
+  if (value instanceof Date) return { timestampValue: value.toISOString() };
+  if (typeof value === 'object') {
+    return {
+      mapValue: {
+        fields: Object.fromEntries(
+          Object.entries(value)
+            .filter(([, entryValue]) => entryValue !== undefined)
+            .map(([key, entryValue]) => [key, toFirestoreValue(entryValue)])
+        ),
+      },
+    };
+  }
+  return { stringValue: String(value) };
+};
+
+const toFirestoreFields = (data: Record<string, any>) =>
+  Object.fromEntries(
+    Object.entries(data)
+      .filter(([, value]) => value !== undefined)
+      .map(([key, value]) => [key, toFirestoreValue(value)])
+  );
+
+const createProjectViaRest = async (
+  user: FirebaseUser,
+  documentId: string,
+  projectData: Record<string, any>
+): Promise<string> => {
+  const token = await user.getIdToken();
+  const databaseId = encodeURIComponent(firebaseConfig.firestoreDatabaseId || '(default)');
+  const url = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/${databaseId}/documents/projects?documentId=${documentId}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      fields: toFirestoreFields({
+        ...projectData,
+        createdAt: new Date(),
+      }),
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    if (response.status === 409 && text.includes('ALREADY_EXISTS')) return documentId;
+    try {
+      const payload = JSON.parse(text);
+      const apiError = payload?.error;
+      const detail = [apiError?.status, apiError?.code, apiError?.message]
+        .filter(Boolean)
+        .join(' - ');
+      throw new Error(detail || text || `Firestore REST create failed (${response.status})`);
+    } catch (parseErr) {
+      if (parseErr instanceof SyntaxError) {
+        throw new Error(text || `Firestore REST create failed (${response.status})`);
+      }
+      throw parseErr;
+    }
+  }
+
+  return documentId;
+};
 import {
   ref,
   uploadBytes,
@@ -126,8 +213,8 @@ import {
   onSnapshot,
   serverTimestamp,
   getDocFromServer,
+  getDocs as fbGetDocs,
   collection,
-  addDoc,
   query,
   where,
   orderBy,
@@ -154,6 +241,9 @@ export interface AdConfig {
   angle: string;
   /** Set by setUseHookFlow; missing/`true` means use the hook flow. */
   useHook?: boolean;
+  /** Campo próprio da aba "Copy da VSL" — mesma forma de `copy`, guarda o
+   *  roteiro longo (VSL) separado do anúncio, pra os dois coexistirem. */
+  copyVsl?: AdConfig['copy'];
   copy: {
     mode: 'improve' | 'as-is' | 'questions';
     subMode?: 'zero' | 'improve' | 'ready';
@@ -175,8 +265,8 @@ export interface AdConfig {
     hooksHistorico?: { hook: string; createdAt: string }[];
     // Persisted by SourceTab (auto-extracted ProductInfo via Claude).
     productInfo?: ProductInfo | null;
-    // PlanTab output.
-    marketingPlan?: MarketingPlan | null;
+    // PlanTab output (meta do plano: inputs + leitura de consciência).
+    marketingPlan?: any;
     // PlanTab v2 — weighted personas (replaces the single-persona model)
     // and the 15 creative briefs derived from them. Both optional so
     // pre-blueprint projects keep working.
@@ -250,6 +340,13 @@ export interface AdConfig {
     scale?: number;
     avatarFormat?: 'original' | 'square';
     cropOffset?: number; // -50 to 50
+    // Fundo que o HeyGen compõe atrás do avatar. Ausente = preto sólido
+    // (comportamento legado). `value` é hex (#RRGGBB) p/ cor, ou URL pública
+    // do arquivo (Firebase Storage) p/ imagem/vídeo.
+    background?: {
+      type: 'color' | 'image' | 'video';
+      value: string;
+    };
   };
   subtitles: {
     style: string;
@@ -270,7 +367,10 @@ export interface AdConfig {
     // joined = "Juntar" feature output (hook+body concat).
     zapVersions?: string[];
     zapHookVersions?: string[];
+    zapVslVersions?: string[];
     zapJoinedVersions?: string[];
+    // Músicas geradas/enviadas NESTE subprojeto (independentes de outros).
+    musicTracks?: MusicTrack[];
   };
   audioUrl?: string | null;
   audioStoragePath?: string | null;
@@ -406,9 +506,19 @@ export default function App() {
     c.scrollBy({ left: dir === 'left' ? -offset : offset, behavior: 'smooth' });
   }, []);
   const [deleteProjectConfirmId, setDeleteProjectConfirmId] = useState<string | null>(null);
-  const [voiceSource, setVoiceSource] = useState<'copy' | 'hook'>('copy');
+  const [voiceSource, setVoiceSource] = useState<'copy' | 'hook' | 'vsl'>('copy');
   const [previewAvatar, setPreviewAvatar] = useState<any>(null);
   const [credits, setCredits] = useState<number>(0);
+  // Gasto REAL da API da Claude (o servidor conta o próprio consumo). Poll leve
+  // pra mostrar "quanto foi gasto" em tempo quase-real no header.
+  const [apiSpend, setApiSpend] = useState<{
+    costUSD: number;
+    calls: number;
+    since: string;
+    today: { costUSD: number; calls: number };
+    balanceBase: number | null;
+    availableUSD: number | null;
+  } | null>(null);
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [userRole, setUserRole] = useState<'user' | 'admin'>('user');
   const [isAuthReady, setIsAuthReady] = useState(false);
@@ -515,6 +625,15 @@ export default function App() {
 
   const [_lastSavedAt, setLastSavedAt] = useState<number | null>(null);
 
+  // Mudanças não salvas: liga ao editar qualquer coisa do projeto; desliga ao
+  // salvar ou ao carregar/trocar de projeto-subprojeto. Alimenta o pop-up que
+  // avisa "salve antes de mudar de aba" (auto-save foi removido por lentidão,
+  // então o usuário perdia trabalho sem perceber).
+  const [isDirty, setIsDirty] = useState(false);
+  // Quando o usuário clica numa aba com mudanças pendentes, guardamos o destino
+  // aqui e abrimos o modal em vez de navegar direto.
+  const [pendingStepChange, setPendingStepChange] = useState<Step | null>(null);
+
   const hydrateProjectConfig = (loadedConfig: AdConfig) => {
     // 0. Garantir hookVisual
     if (!loadedConfig.hookVisual) {
@@ -527,6 +646,21 @@ export default function App() {
         duracaoVideo: 4,
         modeloImagem: 'imagen-4.0-generate-001',
         modeloVideo: 'veo-3.1-fast-generate-preview',
+      };
+    }
+
+    // 0.1. Retrocompat: garantir format e avatar. Projetos antigos podem não
+    // ter esses campos — a AvatarTab lê config.format.aspectRatio / config.avatar
+    // sem guarda e quebrava a tela inteira.
+    if (!loadedConfig.format) {
+      (loadedConfig as any).format = { aspectRatio: '9:16', duration: 10 };
+    }
+    if (!loadedConfig.avatar) {
+      (loadedConfig as any).avatar = {
+        faceId: 'f1',
+        customFaceUrl: null,
+        voiceId: '',
+        scale: 1.0,
       };
     }
 
@@ -908,11 +1042,17 @@ export default function App() {
   const AUTOSAVE_KEY = 'metavise-draft-config-v1';
   useEffect(() => {
     try {
-      localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(config));
+      // Carimba o rascunho com o projeto dono. Sem isso o rascunho é global
+      // e vaza o config de um projeto pro próximo (ex: neuropatia aparecendo
+      // num projeto novo). projectId=null = rascunho de projeto ainda não salvo.
+      localStorage.setItem(
+        AUTOSAVE_KEY,
+        JSON.stringify({ projectId: currentProjectId ?? null, config })
+      );
     } catch (err) {
       console.warn('[AutoSave] localStorage write failed:', err);
     }
-  }, [config]);
+  }, [config, currentProjectId]);
 
   // Restore the last-edited config from localStorage on mount, but ONLY if
   // we haven't yet loaded a real project from Firestore. If the user opens
@@ -924,20 +1064,31 @@ export default function App() {
       const stored = localStorage.getItem(AUTOSAVE_KEY);
       if (!stored) return;
       const parsed = JSON.parse(stored);
+      // Novo formato: { projectId, config }. Formato antigo (legado): config
+      // cru. Só restauramos um rascunho que NUNCA pertenceu a um projeto salvo
+      // (projectId == null) — senão o config de um projeto vaza pro próximo.
+      // Rascunho carimbado com id real já vive no Firestore; descartamos aqui.
+      const draftProjectId = parsed?.projectId ?? undefined;
+      const draftConfig = parsed?.config;
+      if (draftProjectId != null || !draftConfig) {
+        // Pertencia a um projeto salvo, ou é legado/cru → não ressuscita.
+        localStorage.removeItem(AUTOSAVE_KEY);
+        return;
+      }
       // Sanity-check the restored object has the nested shapes downstream
       // code reads from. If anything is missing we drop the draft rather
       // than crash the render tree.
       const looksValid =
-        parsed &&
-        typeof parsed === 'object' &&
-        parsed.copy &&
-        typeof parsed.copy === 'object' &&
-        parsed.copy.answers &&
-        parsed.avatar &&
-        parsed.edit &&
-        parsed.format;
+        draftConfig &&
+        typeof draftConfig === 'object' &&
+        draftConfig.copy &&
+        typeof draftConfig.copy === 'object' &&
+        draftConfig.copy.answers &&
+        draftConfig.avatar &&
+        draftConfig.edit &&
+        draftConfig.format;
       if (looksValid) {
-        setConfig(parsed);
+        setConfig(draftConfig);
         // UX25-D3: silencia o toast de restauração — autosave deve ser
         // 100% invisível. Quem quiser confirmação tem o indicador no header.
       } else {
@@ -957,6 +1108,57 @@ export default function App() {
   const [currentVariantId, setCurrentVariantId] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [error, setError] = useState<string | null>(null);
+
+  // ─── Detecção de "mudanças não salvas" ───────────────────────────────────
+  // Por CONTEÚDO (não por referência): só fica "sujo" se o conteúdo persistível
+  // realmente mudou em relação ao último estado salvo/carregado. Isso evita o
+  // falso-positivo de pedir pra salvar ao só trocar de aba (quando algo dá um
+  // setConfig programático sem o usuário ter editado nada). O custo de serializar
+  // já existe hoje (o rascunho em localStorage faz JSON.stringify(config) a cada
+  // mudança). Baseline reinicia ao carregar/trocar de projeto-subprojeto e após
+  // salvar (ver handleSaveProject).
+  const dirtyIdentityRef = useRef<string>(`${currentProjectId}|${currentVariantId}`);
+  const dirtyBaselineRef = useRef<string>('');
+  const dirtyMountRef = useRef(false);
+  useEffect(() => {
+    const identity = `${currentProjectId}|${currentVariantId}`;
+    const snapshot = JSON.stringify({ config, audios, videos, audioUrl, videoUrl });
+    if (!dirtyMountRef.current) {
+      dirtyMountRef.current = true;
+      dirtyIdentityRef.current = identity;
+      dirtyBaselineRef.current = snapshot;
+      return;
+    }
+    if (identity !== dirtyIdentityRef.current) {
+      // Carregou/trocou de projeto ou subprojeto → novo baseline, começa limpo.
+      dirtyIdentityRef.current = identity;
+      dirtyBaselineRef.current = snapshot;
+      setIsDirty(false);
+      return;
+    }
+    // Mesma identidade: só é "sujo" se o conteúdo difere do baseline salvo.
+    setIsDirty(snapshot !== dirtyBaselineRef.current);
+  }, [config, audios, videos, audioUrl, videoUrl, currentProjectId, currentVariantId]);
+
+  // Validação visual da aba Copy. Liga quando o cliente tenta sair da aba
+  // (pela barra de navegação) sem ter preenchido os campos obrigatórios →
+  // CopyTab desenha outline vermelho nos campos vazios. Não bloqueia a saída.
+  const [showCopyRequiredErrors, setShowCopyRequiredErrors] = useState(false);
+
+  // Pedido de troca de aba pela barra de navegação. Se há trabalho não salvo,
+  // abre o modal; senão navega direto. Transições programáticas (após salvar,
+  // carregar, gerar) seguem usando setCurrentStep e NÃO passam por aqui.
+  const requestStepChange = (target: Step) => {
+    if (target === currentStep) return;
+    // Saindo da Copy → sinaliza os obrigatórios ainda vazios (uma vez basta;
+    // depois disso o vermelho some sozinho conforme o cliente preenche).
+    if (currentStep === 'copy' && target !== 'copy') setShowCopyRequiredErrors(true);
+    if (isDirty && currentProjectId) {
+      setPendingStepChange(target);
+    } else {
+      setCurrentStep(target);
+    }
+  };
 
   const updateProjectHookVisual = (projectId: string, data: Partial<HookVisualData>) => {
     setProjects((prev) =>
@@ -1099,21 +1301,25 @@ export default function App() {
   const [personasSaved, setPersonasSaved] = useState(false);
 
   useEffect(() => {
-    // Quando carrega projeto que já tem personas salvos, marca como salvo
-    if (config.copy?.answers?.savedPersonas) {
+    // Sincroniza as personas mostradas com o PROJETO ATUAL. Sem isso, as
+    // personas de um projeto vazavam pra outro ao trocar de projeto (estado
+    // global que não zerava). Por isso restauramos SEMPRE do projeto (sem a
+    // trava antiga `!generatedPersona?.personas`) e LIMPAMOS quando o projeto
+    // não tem personas salvas.
+    const raw = config.copy?.answers?.savedPersonas;
+    if (raw) {
       try {
-        const saved = JSON.parse(config.copy.answers.savedPersonas);
+        const saved = JSON.parse(raw);
         if (Array.isArray(saved) && saved.length > 0) {
           setPersonasSaved(true);
-          // Se ainda não tem generatedPersona em memória, restaura dos saved
-          if (!generatedPersona?.personas) {
-            setGeneratedPersona({ personas: saved });
-          }
+          setGeneratedPersona({ personas: saved });
+          return;
         }
       } catch (e) {}
-    } else {
-      setPersonasSaved(false);
     }
+    // Projeto sem personas salvas → limpa o que sobrou de outro projeto.
+    setPersonasSaved(false);
+    setGeneratedPersona(null);
   }, [config.copy?.answers?.savedPersonas]);
   const [showAwarenessChangeModal, setShowAwarenessChangeModal] = useState(false);
   const [pendingAwarenessLevel, setPendingAwarenessLevel] = useState<string | null>(null);
@@ -1280,8 +1486,8 @@ export default function App() {
   // The toggle lives at the top of the Avatar tab; the ref lets the HeyGen
   // polling callback know which slot to write to when generation finishes
   // (the closure may outlive the user toggling back).
-  const [avatarMode, setAvatarMode] = useState<'body' | 'hook'>('body');
-  const avatarModeRef = useRef<'body' | 'hook'>('body');
+  const [avatarMode, setAvatarMode] = useState<'body' | 'hook' | 'vsl'>('body');
+  const avatarModeRef = useRef<'body' | 'hook' | 'vsl'>('body');
   useEffect(() => {
     avatarModeRef.current = avatarMode;
   }, [avatarMode]);
@@ -1298,6 +1504,7 @@ export default function App() {
     zapVideoUrl,
     zapTemplateId,
     zapBrollPercent,
+    zapBrollStartSec,
     zapEmoji,
     zapAnimation,
     zapEmphasizeKeywords,
@@ -1355,7 +1562,7 @@ export default function App() {
   const useHookFlow = (config as any).useHook !== false;
   const setUseHookFlow = (next: boolean) => {
     setConfig((prev) => ({ ...(prev as any), useHook: next }) as any);
-    handleSaveProject({ useHook: next } as any);
+    // (auto-save removido — salvar manualmente)
     if (!next) {
       // Snap any active hook modes back to body so nothing references the
       // hidden side after the flag flips.
@@ -1464,9 +1671,7 @@ export default function App() {
       ...prev,
       copy: { ...prev.copy, aiRecommendation: cached } as any,
     }));
-    handleSaveProject({
-      copy: { ...config.copy, aiRecommendation: cached } as any,
-    } as any);
+    // (auto-save removido — salvar manualmente)
   };
 
   useEffect(() => {
@@ -1478,6 +1683,10 @@ export default function App() {
   }, [avatarFilters]);
 
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  // % de b-roll REALMENTE usado na tentativa em andamento (pode ser menor que o
+  // slider por causa da degradação suave). O loop de polling lê daqui pra saber
+  // pra quanto reduzir no próximo retry e o que mostrar na mensagem de sucesso.
+  const zapEffectiveBrollRef = useRef<number>(0);
 
   const [isExpanded] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -1534,6 +1743,17 @@ export default function App() {
     }
   };
   const videoRef = React.useRef<HTMLVideoElement>(null);
+
+  // Se o modo de voz ficou em 'vsl' mas não há VSL (ex.: projeto sem VSL, ou
+  // VSL apagada), volta pra 'copy' pra não travar num script vazio sem toggle.
+  useEffect(() => {
+    if (voiceSource === 'vsl') {
+      const vc = (config as any).copyVsl;
+      const hasVsl = !!(vc && (vc.finalScript || vc.generatedScript));
+      if (!hasVsl) setVoiceSource('copy');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [voiceSource, currentStep, (config as any).copyVsl]);
 
   useEffect(() => {
     const fetchVoices = async () => {
@@ -1717,45 +1937,65 @@ export default function App() {
     };
   }, []);
 
+  // Projects loader — ONE-TIME getDocs em vez de onSnapshot em tempo real.
+  // O onSnapshot re-baixava TODOS os projetos (configs inteiros, MBs cada) a
+  // CADA escrita (criar/salvar/deletar) — travava a UI (criar projeto rodava
+  // sem fim). Agora carrega 1x ao logar; as mutações atualizam a lista local
+  // (setProjects) na hora, sem re-baixar tudo.
   useEffect(() => {
     if (!user) {
       setProjects([]);
       return;
     }
-
-    const q = query(
-      collection(db, 'projects'),
-      where('userId', '==', user.uid),
-      orderBy('createdAt', 'desc')
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const projectsData = snapshot.docs.map((doc) => {
-        const data = doc.data() as any;
-
-        // Migration: ensure hookVisual exists in config
-        if (data.config && !data.config.hookVisual) {
-          data.config.hookVisual = {
-            promptImagem: '',
-            imagensGeradas: [],
-            imagemEscolhida: '',
-            promptVideo: '',
-            videoGerado: '',
-            duracaoVideo: 4,
-            modeloImagem: 'imagen-4.0-generate-001',
-            modeloVideo: 'veo-3.1-fast-generate-preview',
-          };
-        }
-
-        return {
-          id: doc.id,
-          ...data,
-        } as Project<AdConfig>;
-      });
-      setProjects(projectsData);
-    });
-
-    return () => unsubscribe();
+    let cancelled = false;
+    (async () => {
+      try {
+        const q = query(
+          collection(db, 'projects'),
+          where('userId', '==', user.uid),
+          orderBy('createdAt', 'desc')
+        );
+        const snapshot = await fbGetDocs(q);
+        if (cancelled) return;
+        const projectsData = snapshot.docs.map((d) => {
+          const data = d.data() as any;
+          if (data.config && !data.config.hookVisual) {
+            data.config.hookVisual = {
+              promptImagem: '',
+              imagensGeradas: [],
+              imagemEscolhida: '',
+              promptVideo: '',
+              videoGerado: '',
+              duracaoVideo: 4,
+              modeloImagem: 'imagen-4.0-generate-001',
+              modeloVideo: 'veo-3.1-fast-generate-preview',
+            };
+          }
+          return { id: d.id, ...data } as Project<AdConfig>;
+        });
+        // Subprojetos moram numa subcoleção (cada um com seu próprio teto de
+        // 1 MiB). Carrega-os por projeto e popula `project.variants` em memória,
+        // de modo que o resto do app (que lê o array) não muda. Fallback pro
+        // array inline cobre projetos ainda não migrados.
+        const withVariants = await Promise.all(
+          projectsData.map(async (p) => {
+            try {
+              const sub = await loadVariants(p.id);
+              return { ...p, variants: sub.length ? sub : p.variants || [] };
+            } catch {
+              return { ...p, variants: p.variants || [] };
+            }
+          })
+        );
+        if (cancelled) return;
+        setProjects(withVariants);
+      } catch (error) {
+        if (!cancelled) console.error('Error loading projects:', error);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
   useEffect(() => {
@@ -1834,55 +2074,128 @@ export default function App() {
     return () => window.removeEventListener('credits-updated', handleCreditsUpdate);
   }, []);
 
+  // Gasto REAL da API da Claude: poll a cada 10s + refetch imediato quando uma
+  // geração termina (evento 'claude-usage-changed').
+  useEffect(() => {
+    let alive = true;
+    const fetchSpend = async () => {
+      try {
+        const r = await fetch('/api/claude/usage');
+        const d = await r.json();
+        if (alive && d?.success && d.usage) setApiSpend(d.usage);
+      } catch {
+        /* servidor offline — ignora */
+      }
+    };
+    fetchSpend();
+    const id = setInterval(fetchSpend, 10000);
+    const onChange = () => fetchSpend();
+    window.addEventListener('claude-usage-changed', onChange);
+    return () => {
+      alive = false;
+      clearInterval(id);
+      window.removeEventListener('claude-usage-changed', onChange);
+    };
+  }, []);
+
+  // Informa o saldo atual da conta Anthropic (a API não expõe saldo por chave).
+  // O app desconta o gasto medido a partir daí pra mostrar o disponível.
+  const promptSetApiBalance = async () => {
+    const atual = apiSpend?.availableUSD;
+    const input = window.prompt(
+      'Qual o saldo ATUAL da conta Anthropic em US$?\n(veja em console.anthropic.com → Plans & Billing).\nO app desconta o gasto medido daqui pra frente.',
+      atual != null ? atual.toFixed(2) : ''
+    );
+    if (input == null) return;
+    const amount = Number(input.replace(',', '.').replace(/[^0-9.]/g, ''));
+    if (!Number.isFinite(amount) || amount < 0) {
+      toast.error('Valor inválido.');
+      return;
+    }
+    try {
+      const r = await fetch('/api/claude/usage/balance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount }),
+      });
+      const d = await r.json();
+      if (d?.success && d.usage) {
+        setApiSpend(d.usage);
+        toast.success(`Saldo definido: US$ ${amount.toFixed(2)}`);
+      }
+    } catch {
+      toast.error('Falha ao salvar o saldo.');
+    }
+  };
+
   const handleCreateProject = async () => {
     if (!user || !newProjectName.trim()) return;
 
     setIsSaving(true);
     try {
+      const projectConfig = {
+        angle: 'podcast',
+        copy: {
+          mode: 'questions',
+          subMode: copySubMode,
+          // Blueprint Fase 4 — só persiste pra projetos 'complete'. Pros
+          // outros tipos fica undefined (e.g. video-only não precisa).
+          answers: {},
+          generatedScript: '',
+          generatedHooks: [],
+        },
+        avatar: { faceId: '', customFaceUrl: null, voiceId: '' },
+        subtitles: { style: 'simple' },
+        format: { aspectRatio: '9:16', duration: 15 },
+        hookVisual: {
+          promptImagem: '',
+          imagensGeradas: [],
+          imagemEscolhida: '',
+          promptVideo: '',
+          videoGerado: '',
+          duracaoVideo: 4,
+          modeloImagem: 'imagen-4.0-generate-001',
+          modeloVideo: 'veo-3.1-fast-generate-preview',
+        },
+        edit: {
+          transition: 'none',
+          backgroundMusic: 'none',
+          timelineEdits: [],
+        },
+        audios: [],
+      };
+
       const projectData = {
         userId: user.uid,
         name: newProjectName,
         type: newProjectType,
-        config: {
-          angle: 'podcast',
-          copy: {
-            mode: 'questions',
-            subMode: copySubMode,
-            // Blueprint Fase 4 — só persiste pra projetos 'complete'. Pros
-            // outros tipos fica undefined (e.g. video-only não precisa).
-            ...(newProjectType === 'complete' && newSourceMode
-              ? { sourceMode: newSourceMode }
-              : {}),
-            answers: {},
-            generatedScript: '',
-            generatedHooks: [],
-          },
-          avatar: { faceId: '', customFaceUrl: null, voiceId: '' },
-          subtitles: { style: 'simple' },
-          format: { aspectRatio: '9:16', duration: 15 },
-          hookVisual: {
-            promptImagem: '',
-            imagensGeradas: [],
-            imagemEscolhida: '',
-            promptVideo: '',
-            videoGerado: '',
-            duracaoVideo: 4,
-            modeloImagem: 'imagen-4.0-generate-001',
-            modeloVideo: 'veo-3.1-fast-generate-preview',
-          },
-          edit: {
-            transition: 'none',
-            backgroundMusic: 'none',
-            timelineEdits: [],
-          },
-          audios: [],
-        },
         createdAt: serverTimestamp(),
       };
 
-      const docRef = await addDoc(collection(db, 'projects'), projectData);
-      setCurrentProjectId(docRef.id);
-      setConfig(projectData.config as AdConfig);
+      // Cria primeiro um "shell" minimo do projeto. O config completo fica
+      // no estado local imediatamente e vai para o Firestore no primeiro save
+      // normal do projeto. Isso evita spinner infinito na criacao quando
+      // algum campo mais novo do config prende a escrita inicial.
+      const docRef = doc(collection(db, 'projects'));
+      const createWithSdk = setDoc(docRef, projectData);
+      let projectId = docRef.id;
+      try {
+        await Promise.race([
+          createWithSdk,
+          new Promise((_, reject) =>
+            setTimeout(
+              () => reject(new Error('Firestore SDK create timed out')),
+              CREATE_PROJECT_TIMEOUT_MS
+            )
+          ),
+        ]);
+      } catch (err) {
+        console.warn('[ProjectCreate] SDK write did not finish, trying REST fallback.', err);
+        projectId = await createProjectViaRest(user, docRef.id, projectData);
+      }
+
+      setCurrentProjectId(projectId);
+      setConfig(projectConfig as AdConfig);
       // UX8: reset comprehensive — antes só config era trocado. Top-level
       // state (audios, videos, audioUrl, etc) + currentVariantId continuavam
       // apontando pro projeto ANTERIOR. Auto-save 2s depois persistia esses
@@ -1898,44 +2211,38 @@ export default function App() {
       setVideos([]);
       setLastVideoMetadata(null);
       setGenerationStage('idle');
+      // Limpa personas de QUALQUER projeto anterior (mesmo geradas e não
+      // salvas) pra não vazar pro projeto novo.
+      setGeneratedPersona(null);
+      setPersonasSaved(false);
       setHasUnsavedCopyChanges(false);
       setShowNewProjectModal(false);
       setNewProjectName('');
       // Reset Blueprint Fase 4 escolha pra não vazar pra próximo projeto.
       setNewSourceMode(null);
-      // Blueprint Fase 4 — vendedor (sourceMode='product') pula a Source
-      // (não tem material pra extrair) e cai direto no PersonaPathModal
-      // pra escolher "já sei vs me ajuda a descobrir". Reusa o pendingNewSubproject
-      // que o modal já consome — a variant em si só nasce depois via popup
-      // de brief/persona, então aqui só é setup do projeto recém-criado.
-      if (newProjectType === 'complete' && newSourceMode === 'product') {
-        const newProjectObj: Project<AdConfig> = {
-          id: docRef.id,
-          userId: user.uid,
-          name: newProjectName,
-          type: newProjectType,
-          config: projectData.config as AdConfig,
-          variants: [],
-          createdAt: new Date(),
+      if (newProjectType === 'complete') {
+        setCurrentVariantId(null);
+        setCopyDiscoveryMode('known');
+        setCurrentStep('persona');
+      } else {
+        // Tipos legacy (não criados mais pelo modal).
+        const firstStepByType: Record<string, any> = {
+          copy: 'persona',
+          video: 'voz-premium',
+          editing: 'edit-zap',
         };
-        setPendingNewSubproject(newProjectObj);
-        // Não muda currentStep — fica na ProjectsTab com o modal aberto
-        // por cima. Quando user escolher, proceedNewSubproject roteia.
-        return;
+        setCurrentStep(firstStepByType[newProjectType] || 'persona');
       }
-
-      // Afiliado ('vsl'), legacy ou tipos não-complete: roteamento normal.
-      // Afiliado cai na SourceTab (que já abre em modo auto via initialMode).
-      // Specialty types (video/editing) pulam direto pra suas abas.
-      const firstStepByType: Record<string, any> = {
-        complete: 'source',
-        copy: 'source',
-        video: 'voz-premium',
-        editing: 'edit2',
-      };
-      setCurrentStep(firstStepByType[newProjectType] || 'source');
+      setProjects((prev) => [
+        { id: projectId, ...projectData, config: projectConfig, createdAt: new Date() } as any,
+        ...prev,
+      ]);
     } catch (err) {
-      console.error('Error creating project:', err);
+      const message = getErrorMessage(err);
+      console.error('Error creating project:', message, err);
+      toast.error(`Nao consegui gravar o projeto: ${message}`, {
+        duration: 12000,
+      });
       setError('Falha ao criar projeto.');
     } finally {
       setIsSaving(false);
@@ -1972,6 +2279,15 @@ export default function App() {
     updateConfig('copy', 'answers', 'savedPersonas', personasJson);
     setPersonasSaved(true);
 
+    // Alimenta o plano (logo abaixo na mesma aba): os 3 personas viram
+    // WeightedPersona[] pra a seção de Plano de Marketing aparecer. O
+    // usuário escolhe quais incluir lá nos checkboxes do próprio plano.
+    const weighted = buildWeightedPersonas(generatedPersona.personas);
+    setConfig((prev) => ({
+      ...prev,
+      copy: { ...prev.copy, personasWithWeights: weighted as any },
+    }));
+
     // Persiste no Firestore via handleSaveProject com override explícito
     try {
       const overrideConfig = {
@@ -1982,47 +2298,15 @@ export default function App() {
             ...config.copy.answers,
             savedPersonas: personasJson,
           },
+          personasWithWeights: weighted as any,
         },
       };
       await handleSaveProject(overrideConfig);
-      toast.success('3 Personas salvos no projeto! Agora escolha um para enviar à Copy.');
+      toast.success('3 Personas salvos! Role pra baixo pra gerar o plano de marketing.');
     } catch (e) {
       console.error('Erro ao persistir personas:', e);
       toast.error('Personas salvos localmente, mas houve erro ao gravar no servidor.');
     }
-  };
-
-  const handleSelectPersona = (persona: any) => {
-    const personaForAutoPopulate = {
-      persona: `${persona.name}. ${persona.description}`,
-      age: persona.age,
-      gender: persona.gender,
-      awarenessLevel: persona.awarenessLevel,
-      awarenessReason: persona.awarenessReason,
-      mainPain: persona.mainPain,
-      triedBefore: persona.currentSituation,
-      desiredTransformation: persona.strongestPromise,
-      productName: config.copy.answers.product || '',
-      productProblem: config.copy.answers.whatItDoes || '',
-      productResult: persona.strongestPromise,
-    };
-    updateConfig('copy', 'answers', 'discoveredPersona', JSON.stringify(personaForAutoPopulate));
-    updateConfig('copy', 'answers', 'selectedPersonaFull', JSON.stringify(persona));
-    // Pula o pop-up "unknown" e vai direto pros campos da Copy
-    setCopyDiscoveryMode('done');
-    setConfig((prev) => ({
-      ...prev,
-      copy: {
-        ...prev.copy,
-        discoveryMode: 'done',
-      },
-    }));
-    // Reset o flag de campos aplicados — usuário precisa clicar "Atualizar Campos" pra preencher
-    setCopyFieldsApplied(false);
-    toast.success(
-      `Persona "${persona.name}" enviado! Clique em "Atualizar Campos da Copy" para preencher.`
-    );
-    setCurrentStep('copy');
   };
 
   /**
@@ -2045,15 +2329,11 @@ export default function App() {
    * Does NOT generate the plan here — that's an explicit click in
    * PlanTab. Tab-to-tab transitions just carry data.
    */
-  const handleGoToPlan = (selectedPersonas: any[]) => {
-    if (!selectedPersonas || selectedPersonas.length === 0) {
-      toast.error('Selecione pelo menos 1 persona pra gerar o plano.');
-      return;
-    }
-    // Map raw LLM output → WeightedPersona[] (back-compat defaults
-    // when fields are missing). Stable IDs use rank-based slugs so
-    // they're predictable across re-generations.
-    const mapped = selectedPersonas.map((p: any, idx: number) => {
+  // Map raw LLM personas → WeightedPersona[] (back-compat defaults when
+  // fields are missing). Stable IDs use rank-based slugs so they're
+  // predictable across re-generations. Weights re-normalise to sum 1.0.
+  const buildWeightedPersonas = (personas: any[]) => {
+    const mapped = personas.map((p: any, idx: number) => {
       const rank = (p.rank || '').toString().toLowerCase();
       const id = rank
         ? `persona_${rank}`
@@ -2089,21 +2369,51 @@ export default function App() {
       };
     });
 
-    // Re-normalise weights so SELECTED subset sums to 1.0.
     const total = mapped.reduce((acc, p) => acc + (p.suggestedWeight || 0), 0);
-    const normalised =
-      total > 0
-        ? mapped.map((p) => ({ ...p, suggestedWeight: p.suggestedWeight / total }))
-        : mapped;
+    return total > 0
+      ? mapped.map((p) => ({ ...p, suggestedWeight: p.suggestedWeight / total }))
+      : mapped;
+  };
 
+  const handleGoToPlan = (selectedPersonas: any[]) => {
+    if (!Array.isArray(selectedPersonas) || selectedPersonas.length === 0) {
+      toast.error('Selecione pelo menos 1 persona para montar o planejamento.');
+      return;
+    }
+
+    const weighted = buildWeightedPersonas(selectedPersonas);
     setConfig((prev) => ({
       ...prev,
-      copy: { ...prev.copy, personasWithWeights: normalised as any },
+      copy: { ...prev.copy, personasWithWeights: weighted as any },
     }));
-    handleSaveProject({
-      copy: { ...config.copy, personasWithWeights: normalised as any },
-    } as any);
-    setCurrentStep('plan');
+
+    requestAnimationFrame(() => {
+      document.getElementById('plan-section')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    });
+  };
+
+  // Backfill: projetos antigos têm `savedPersonas` mas não
+  // `personasWithWeights` (esse campo só era setado pelo botão "Ir pro Plano",
+  // já removido). Sem ele, a seção de Plano de Marketing (isV2) não aparece.
+  // Deriva os pesos a partir dos personas salvos quando faltam. Muta e
+  // retorna o próprio config.
+  const ensurePersonaWeights = (cfg: any) => {
+    const existing = cfg?.copy?.personasWithWeights;
+    if (Array.isArray(existing) && existing.length > 0) return cfg;
+    const savedRaw = cfg?.copy?.answers?.savedPersonas;
+    if (!savedRaw) return cfg;
+    try {
+      const parsed = JSON.parse(savedRaw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        cfg.copy.personasWithWeights = buildWeightedPersonas(parsed) as any;
+      }
+    } catch {
+      /* savedPersonas malformado — ignora, segue sem plano */
+    }
+    return cfg;
   };
 
   // ─── Blueprint brief handlers ────────────────────────────────────
@@ -2130,9 +2440,7 @@ export default function App() {
       ...prev,
       copy: { ...prev.copy, creativeBriefs: updated } as any,
     }));
-    handleSaveProject({
-      copy: { ...config.copy, creativeBriefs: updated } as any,
-    } as any);
+    // (auto-save removido — salvar manualmente)
   };
 
   /** Save an edited brief back into the list, keyed by id. */
@@ -2167,10 +2475,15 @@ export default function App() {
    *  no ProjectsTab. Antes só tinha 2, então quando o auto-save descartava
    *  o campo `brief` do variant (vide handleSaveProject), o popup falso de
    *  "Criar este subprojeto?" reaparecia mesmo pra subprojeto já criado. */
-  const handleBriefClick = (brief: CreativeBrief) => {
-    // If the brief already spawned a variant, just open it.
+  const handleBriefClick = (brief: CreativeBrief, projectId?: string) => {
+    // projectId explícito evita depender do currentProjectId (que pode estar
+    // desatualizado logo após um handleLoadProject — corrida de estado na
+    // navegação "Porta B"). Sem ele, usa o projeto atual.
+    const targetProjectId = projectId || currentProjectId;
+    // If the brief already spawned a variant, just open it. Busca SEMPRE
+    // dentro do projeto-alvo — os ids de brief colidem entre projetos.
     const existing = projects
-      .find((p) => p.id === currentProjectId)
+      .find((p) => p.id === targetProjectId)
       ?.variants?.find(
         (v: any) =>
           v.brief?.id === brief.id ||
@@ -2182,7 +2495,7 @@ export default function App() {
       // Use the existing handler to load the variant config into the UI.
       const v = existing as any;
       const targetStep: Step = v.config?.copy?.generatedScript ? 'copy' : 'copy';
-      handleLoadVariant(v, targetStep);
+      handleLoadVariant(v, targetStep, targetProjectId || undefined);
       return;
     }
     // Otherwise show the "create subprojeto" popup.
@@ -2232,6 +2545,14 @@ export default function App() {
       // Style + emotion notes for the writer prompt.
       estiloAnuncio: typeof brief.style === 'string' ? brief.style : '',
       primaryEmotion: typeof brief.emotion === 'string' ? brief.emotion : '',
+      // Campo `emotion` (Seção 6 da Copy). O brief traz um CÓDIGO ('curiosidade',
+      // 'medo'...) que não casa com as opções do select — a CopyTab normaliza
+      // pra opção recomendada deste subprojeto. Setamos aqui (em vez de herdar)
+      // pra que a emoção seja recalculada por subprojeto, não copiada do anterior.
+      emotion: typeof brief.emotion === 'string' ? brief.emotion : '',
+      // Narrador (quem conta a história em 1ª pessoa) decidido no plano —
+      // auto-preenche a aba Copy pra a copy segurar UMA voz.
+      narrator: brief.narrator || config.copy.answers.narrator || '',
     };
     // Derive a target word count from the duration (≈ 2.5 words/sec).
     const targetWordCount = Math.round(brief.durationTarget * 2.5);
@@ -2241,6 +2562,9 @@ export default function App() {
       copy: {
         ...config.copy,
         answers: overlayAnswers,
+        // A persona/nível/ângulo já vieram do plano — o subprojeto NÃO deve cair
+        // no gate "quem é o cliente". Entra direto no editor de copy.
+        discoveryMode: 'known',
         // Hook from the brief is the starting point — user can regenerate.
         hookSelecionado: brief.hook,
         // Reset generated outputs so the variant starts fresh.
@@ -2251,11 +2575,24 @@ export default function App() {
         targetWordCount,
         // Track which brief spawned this variant for the "abrir" path.
         activeBriefId: brief.id,
+        // Cada subprojeto é INDEPENDENTE: zera TODO o material do gancho, senão
+        // o novo criativo herda os vídeos/áudios de gancho do anterior.
+        hookOptimizedScript: '',
+        hookVideos: [],
+        hookVideoUrl: '',
+        hookVideoStoragePath: null,
+        hookAudios: [],
+        hookAudioUrl: '',
+        hookAudioStoragePath: null,
       } as any,
       // Reset render outputs (same as MM — A/B variant pattern).
       videoUrl: null,
       videoStoragePath: null,
       videos: [],
+      // Áudio do corpo também NÃO herda do subprojeto anterior.
+      audioUrl: null,
+      audioStoragePath: null,
+      audios: [],
       lastVideoMetadata: null,
       generationStage: 'idle',
       edit: {
@@ -2264,6 +2601,8 @@ export default function App() {
         zapHookVersions: [],
         zapJoinedVersions: [],
       },
+      // Cada subprojeto tem sua PRÓPRIA VSL — não herda a do subprojeto anterior.
+      copyVsl: undefined,
     };
 
     // Use the brief's id as the variant id (deterministic mapping).
@@ -2277,19 +2616,21 @@ export default function App() {
     };
 
     try {
-      const projectRef = doc(db, 'projects', currentProjectId);
-      const projectSnap = await getDoc(projectRef);
-      if (!projectSnap.exists()) {
-        toast.error('Projeto não encontrado.');
-        return;
-      }
-      const data = projectSnap.data();
-      const existingVariants = (data.variants || []) as any[];
-      // Replace if exists (idempotent), else append.
-      const updated = existingVariants.some((v: any) => v.id === brief.id)
-        ? existingVariants.map((v: any) => (v.id === brief.id ? newVariant : v))
-        : [...existingVariants, newVariant];
-      await setDoc(projectRef, { variants: updated }, { merge: true });
+      // Idempotente: cria/sobrescreve o subprojeto na subcoleção
+      // `projects/{id}/variants` (cada variant = 1 doc, sem o teto de 1 MiB do
+      // doc do projeto).
+      await saveVariant(currentProjectId, newVariant);
+      // Atualiza a lista local (sem onSnapshot, não recarrega sozinha).
+      setProjects((prev) =>
+        prev.map((p) => {
+          if (p.id !== currentProjectId) return p;
+          const next = ((p.variants as any[]) || []).slice();
+          const idx = next.findIndex((v) => v.id === newVariant.id);
+          if (idx !== -1) next[idx] = newVariant;
+          else next.push(newVariant);
+          return { ...p, variants: next } as any;
+        })
+      );
 
       // Also persist the executedVariantId back onto the brief so the
       // PlanTab "✓ executado" badge appears on next render.
@@ -2330,8 +2671,9 @@ export default function App() {
       // Carrega o projeto sem trocar de aba (step='projects' = fica aqui).
       await handleLoadProject(project, 'projects');
     }
-    // Pequeno delay pro state propagar antes do popup ler currentProjectId.
-    setTimeout(() => handleBriefClick(brief), 0);
+    // Passa project.id EXPLÍCITO — não depende do currentProjectId ter
+    // propagado (evita carregar o subprojeto do projeto errado).
+    setTimeout(() => handleBriefClick(brief, project.id), 0);
   };
 
   /** Blueprint Fase 4 — Porta A: cliente clica em 1 persona da seção
@@ -2381,6 +2723,16 @@ export default function App() {
         generatedScript: '',
         generatedHooks: [],
         optimizedScript: '',
+        finalScript: '',
+        // Cada subprojeto é INDEPENDENTE: zera TODO o material do gancho.
+        hookSelecionado: '',
+        hookOptimizedScript: '',
+        hookVideos: [],
+        hookVideoUrl: '',
+        hookVideoStoragePath: null,
+        hookAudios: [],
+        hookAudioUrl: '',
+        hookAudioStoragePath: null,
         // Marca qual persona originou (debug + futura UI).
         activePersonaId: persona.id,
       } as any,
@@ -2390,6 +2742,15 @@ export default function App() {
       audioStoragePath: null,
       audios: [],
       videos: [],
+      lastVideoMetadata: null,
+      generationStage: 'idle',
+      // Edições Zap também não herdam (corpo, gancho e juntados zerados).
+      edit: {
+        ...config.edit,
+        zapVersions: [],
+        zapHookVersions: [],
+        zapJoinedVersions: [],
+      },
     };
 
     const newVariant = {
@@ -2402,12 +2763,16 @@ export default function App() {
     };
 
     try {
-      const projectRef = doc(db, 'projects', currentProjectId);
-      const snap = await getDoc(projectRef);
-      const data = snap.data() || {};
-      const existingVariants = (data.variants || []) as any[];
-      const updated = [...existingVariants, newVariant];
-      await setDoc(projectRef, { variants: updated }, { merge: true });
+      // Novo subprojeto na subcoleção (cada variant = 1 doc próprio).
+      await saveVariant(currentProjectId, newVariant);
+      // Atualiza a lista local (sem onSnapshot, não recarrega sozinha).
+      setProjects((prev) =>
+        prev.map((p) =>
+          p.id === currentProjectId
+            ? ({ ...p, variants: [...((p.variants as any[]) || []), newVariant] } as any)
+            : p
+        )
+      );
 
       setCurrentVariantId(variantId);
       setConfig(variantConfig);
@@ -2684,17 +3049,13 @@ export default function App() {
       );
 
       const projectRef = doc(db, 'projects', currentProjectId);
-      const projectSnap = await getDoc(projectRef);
-      let variants = [];
-      let existingVariant = null;
-
-      if (projectSnap.exists()) {
-        const data = projectSnap.data();
-        variants = data.variants || [];
-        if (currentVariantId) {
-          existingVariant = variants.find((v: any) => v.id === currentVariantId);
-        }
-      }
+      // Subprojeto existente vem do estado em memória — a subcoleção
+      // `projects/{id}/variants` já foi carregada no loader. Não relê o doc do
+      // projeto: ele não guarda mais o array de variants.
+      const currentProj = projects.find((p) => p.id === currentProjectId);
+      const existingVariant = currentVariantId
+        ? ((currentProj?.variants as any[]) || []).find((v) => v.id === currentVariantId) || null
+        : null;
 
       // Cleanup and Pruning to solve the 1MB Firestore limit (3.8MB reported)
       const cleanConfigForStorage = (cfg: any) => {
@@ -2715,6 +3076,14 @@ export default function App() {
         // Remove na hora de salvar — fica só na memória durante a sessão.
         if (cloned.copy?.lastDebug) {
           delete cloned.copy.lastDebug;
+        }
+        // aiRecommendation é cache da recomendação de avatar (~34KB por
+        // subprojeto). É regenerável — se refaz sozinho via inputsKey quando
+        // o painel reabre. Multiplicado por todos os variants num único doc,
+        // era o maior responsável por estourar o limite de 1MB do Firestore.
+        // Mesmo critério do lastDebug: fica em runtime, não é persistido.
+        if (cloned.copy?.aiRecommendation) {
+          delete cloned.copy.aiRecommendation;
         }
         return cloned;
       };
@@ -2737,46 +3106,90 @@ export default function App() {
         ...(existingAny?.status ? { status: existingAny.status } : {}),
       } as ProjectVariant;
 
-      if (currentVariantId) {
-        const index = variants.findIndex((v: any) => v.id === currentVariantId);
-        if (index !== -1) {
-          variants[index] = newVariant;
-        } else {
-          variants.push(newVariant);
-        }
-      } else {
-        variants.push(newVariant);
-        setCurrentVariantId(variantId);
-      }
+      // Fase de ESTRATÉGIA (sem subprojeto ativo): NÃO cria subprojeto. O
+      // subprojeto/criativo só nasce ao "Produzir" um brief/persona; aqui sem
+      // currentVariantId salvamos só o config do projeto.
+      const cleanedVariant: ProjectVariant | null = currentVariantId
+        ? ({ ...newVariant, config: cleanConfigForStorage(newVariant.config) } as ProjectVariant)
+        : null;
 
-      // Keep only last 5 variants to save space
-      const prunedVariants = variants.slice(-5).map((v: ProjectVariant) => ({
-        ...v,
-        config: cleanConfigForStorage(v.config),
-      }));
+      // Timeout de segurança: o Firestore às vezes fica em retry SILENCIOSO
+      // (conexão ruim) e o setDoc nunca resolve nem rejeita — o botão "Salvar"
+      // girava pra sempre. Se passar de 15s, lança erro pra o finally resetar o
+      // botão e avisar. O rascunho local (metavise-draft-config-v1) preserva o
+      // conteúdo de qualquer forma.
+      const withTimeout = (p: Promise<unknown>) =>
+        Promise.race([
+          p,
+          new Promise((_, reject) =>
+            setTimeout(
+              () => reject(new Error('Firestore não respondeu em 15s (timeout de save).')),
+              15000
+            )
+          ),
+        ]);
 
-      await setDoc(
-        projectRef,
-        {
-          config: cleanConfigForStorage(configToSave),
-          variants: prunedVariants,
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
+      // Doc do projeto SEM o array de variants (eles vivem na subcoleção, cada
+      // um com seu próprio teto de 1 MiB) + o subprojeto ativo na subcoleção.
+      await withTimeout(
+        Promise.all([
+          setDoc(
+            projectRef,
+            { config: cleanConfigForStorage(configToSave), updatedAt: serverTimestamp() },
+            { merge: true }
+          ),
+          ...(cleanedVariant ? [saveVariant(currentProjectId, cleanedVariant)] : []),
+        ])
       );
 
       addLog('PROJETO_SALVO');
       if (process.env.NODE_ENV !== 'production') console.log('VOICE_SAVE_COMPLETED');
+      // Salvou com sucesso → não há mais trabalho pendente. Atualiza o baseline
+      // pro estado atual virar o "limpo" (senão o detector reabriria o pop-up).
+      dirtyBaselineRef.current = JSON.stringify({ config, audios, videos, audioUrl, videoUrl });
+      setIsDirty(false);
+
+      // Atualiza a lista local pra refletir o que foi salvo (sem onSnapshot,
+      // o array `projects` não se atualiza sozinho). Mantém "Dados do Projeto",
+      // contagem de subprojetos e badges de brief executado em sincronia.
+      setProjects((prev) =>
+        prev.map((p) => {
+          if (p.id !== currentProjectId) return p;
+          const nextVariants = ((p.variants as any[]) || []).slice();
+          if (cleanedVariant) {
+            const idx = nextVariants.findIndex((v) => v.id === cleanedVariant.id);
+            if (idx !== -1) nextVariants[idx] = cleanedVariant;
+            else nextVariants.push(cleanedVariant);
+          }
+          return { ...p, config: configToSave, variants: nextVariants } as any;
+        })
+      );
+
       if (!silent) {
         toast.success(
           currentVariantId
             ? `Versão "${awarenessLevel}" atualizada com sucesso!`
-            : `Versão "${awarenessLevel}" arquivada com sucesso!`
+            : 'Projeto salvo com sucesso!'
         );
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error saving project:', err);
       setError('Falha ao salvar projeto.');
+      // Aviso visível quando NÃO é auto-save (botão manual). Sem isso, o
+      // timeout só resetava o botão sem explicar — parecia que sumiu.
+      if (!silent) {
+        const msg = String(err?.message || '');
+        if (msg.includes('timeout')) {
+          toast.error(
+            'O salvar demorou demais (Firestore não respondeu). Seu rascunho está guardado localmente — tente salvar de novo.',
+            { duration: 7000 }
+          );
+        } else {
+          toast.error('Falha ao salvar. Seu rascunho local está guardado — tente de novo.', {
+            duration: 6000,
+          });
+        }
+      }
     } finally {
       setIsSaving(false);
       setHasUnsavedCopyChanges(false);
@@ -2786,13 +3199,40 @@ export default function App() {
     }
   };
 
-  const handleLoadVariant = async (variant: ProjectVariant, step: Step = 'source') => {
+  // Dado um config de variante, descobre a aba MAIS avançada que já tem
+  // conteúdo gerado — pra "Carregar Versão" cair direto onde o usuário parou,
+  // não na primeira etapa. Ordem do mais fundo pro mais raso.
+  const resolveDeepestStep = (cfg: any): Step => {
+    const edit = cfg?.edit || {};
+    const hasZap = Array.isArray(edit.zapVersions) && edit.zapVersions.length > 0;
+    const hasVideo = !!cfg?.videoUrl || (Array.isArray(cfg?.videos) && cfg.videos.length > 0);
+    const hasAudio = !!cfg?.audioUrl || (Array.isArray(cfg?.audios) && cfg.audios.length > 0);
+    const hasHooks =
+      Array.isArray(cfg?.copy?.generatedHooks) && cfg.copy.generatedHooks.length > 0;
+    const hasScript = !!cfg?.copy?.generatedScript;
+
+    if (hasZap) return 'edit-zap';
+    if (hasVideo) return 'avatar';
+    if (hasAudio) return 'voz-premium';
+    if (hasHooks) return 'hook-visual';
+    if (hasScript) return 'copy';
+    return 'persona';
+  };
+
+  const handleLoadVariant = async (variant: ProjectVariant, step?: Step, projectId?: string) => {
     if (process.env.NODE_ENV !== 'production') console.log('[Debug] Loading Variant:', variant.id);
     setIsProjectLoading(true);
 
     try {
-      // Set project context
-      const parentProject = projects.find((p) => p.variants?.some((v) => v.id === variant.id));
+      // Set project context. CRÍTICO: resolver o projeto-pai pelo projectId
+      // EXPLÍCITO de quem chamou — NUNCA por `variants.some(v => v.id === variant.id)`,
+      // porque os ids de subprojeto (brief_1, brief_2…) SE REPETEM entre projetos,
+      // e a busca por id pegava o primeiro projeto da lista (errado), corrompendo
+      // currentProjectId e contaminando o config entre projetos. Ver memória
+      // bug-colisao-id-variant. Fallback por id só se nenhum projectId vier.
+      const parentProject =
+        (projectId ? projects.find((p) => p.id === projectId) : null) ||
+        projects.find((p) => p.variants?.some((v) => v.id === variant.id));
       if (parentProject) {
         setCurrentProjectId(parentProject.id);
       }
@@ -2807,7 +3247,7 @@ export default function App() {
       setGenerationStage('idle');
 
       // Hydrate and set config
-      const loadedConfig = hydrateProjectConfig({ ...variant.config });
+      const loadedConfig = ensurePersonaWeights(hydrateProjectConfig({ ...variant.config }));
 
       if (process.env.NODE_ENV !== 'production') {
         console.log('[Debug] Variant Config Hydrated:', {
@@ -2815,6 +3255,26 @@ export default function App() {
           hasAnswers: Object.keys(loadedConfig.copy.answers || {}).length,
           hasScript: !!loadedConfig.copy.generatedScript,
         });
+      }
+
+      // Um subprojeto vindo do plano já tem persona/answers — nunca deve cair no
+      // gate "quem é o cliente". Se ficou 'unknown' mas há conteúdo, sobe pra
+      // 'done' (tem script) ou 'known' (tem answers/brief). Corrige os variants
+      // antigos, criados antes do fix na criação.
+      const ans = loadedConfig.copy.answers || {};
+      const hasContent =
+        !!loadedConfig.copy.finalScript ||
+        !!loadedConfig.copy.generatedScript ||
+        !!(loadedConfig.copy as any).activeBriefId ||
+        !!ans.audience ||
+        !!ans.productName ||
+        !!ans.awarenessLevel;
+      if (
+        (!loadedConfig.copy.discoveryMode || loadedConfig.copy.discoveryMode === 'unknown') &&
+        hasContent
+      ) {
+        loadedConfig.copy.discoveryMode =
+          loadedConfig.copy.finalScript || loadedConfig.copy.generatedScript ? 'done' : 'known';
       }
 
       setConfig(loadedConfig);
@@ -2850,7 +3310,9 @@ export default function App() {
 
       setCurrentVariantId(variant.id);
       setHasUnsavedCopyChanges(false);
-      setCurrentStep(step);
+      // step explícito (botões "Voz", "Avatar", etc.) tem prioridade; sem ele
+      // ("Carregar Versão"), cai na aba mais avançada com conteúdo.
+      setCurrentStep(step || resolveDeepestStep(loadedConfig));
       toast.success(`Versão "${variant.name}" carregada!`);
     } catch (err) {
       console.error('[Debug] Error loading variant:', err);
@@ -2879,15 +3341,8 @@ export default function App() {
       return;
     }
     try {
-      const projectRef = doc(db, 'projects', currentProjectId);
-      const projectSnap = await getDoc(projectRef);
-      if (!projectSnap.exists()) {
-        toast.error('Projeto não encontrado.');
-        return;
-      }
-
-      const data = projectSnap.data();
-      const existingVariants = (data.variants || []) as any[];
+      const existingVariants =
+        ((projects.find((p) => p.id === currentProjectId)?.variants as any[]) || []);
       const variantNumber = existingVariants.length + 1;
 
       // Strip generated outputs — the whole point is to re-render
@@ -2917,8 +3372,14 @@ export default function App() {
         createdAt: new Date().toISOString(),
       };
 
-      const updatedVariants = [...existingVariants, newVariant];
-      await setDoc(projectRef, { variants: updatedVariants }, { merge: true });
+      await saveVariant(currentProjectId, newVariant);
+      setProjects((prev) =>
+        prev.map((p) =>
+          p.id === currentProjectId
+            ? ({ ...p, variants: [...((p.variants as any[]) || []), newVariant] } as any)
+            : p
+        )
+      );
 
       // Activate the new variant in the UI and navigate to the Avatar
       // tab — that's where the A/B differentiation lives.
@@ -2939,19 +3400,50 @@ export default function App() {
       return;
     }
     try {
-      const projectRef = doc(db, 'projects', projectId);
-      const projectSnap = await getDoc(projectRef);
-      if (projectSnap.exists()) {
-        const data = projectSnap.data();
-        const variants = (data.variants || []).map((v: any) =>
-          v.id === variantId ? { ...v, name: newName.trim() } : v
-        );
-        await setDoc(projectRef, { variants }, { merge: true });
-        toast.success('Subprojeto renomeado!');
+      // Renomeia direto no doc do subprojeto (subcoleção). Acha o variant na
+      // memória pra reescrever só ele com o nome novo.
+      const proj = projects.find((p) => p.id === projectId);
+      const target = ((proj?.variants as any[]) || []).find((v) => v.id === variantId);
+      if (!target) {
+        toast.error('Subprojeto não encontrado.');
+        return;
       }
+      const renamed = { ...target, name: newName.trim() };
+      await saveVariant(projectId, renamed);
+      setProjects((prev) =>
+        prev.map((p) =>
+          p.id === projectId
+            ? ({
+                ...p,
+                variants: ((p.variants as any[]) || []).map((v) =>
+                  v.id === variantId ? renamed : v
+                ),
+              } as any)
+            : p
+        )
+      );
+      toast.success('Subprojeto renomeado!');
     } catch (err) {
       console.error('Error renaming variant:', err);
       toast.error('Falha ao renomear subprojeto.');
+    }
+  };
+
+  const handleRenameProject = async (projectId: string, newName: string) => {
+    if (!newName.trim()) {
+      toast.error('Nome não pode ser vazio.');
+      return;
+    }
+    try {
+      const projectRef = doc(db, 'projects', projectId);
+      await setDoc(projectRef, { name: newName.trim() }, { merge: true });
+      setProjects((prev) =>
+        prev.map((p) => (p.id === projectId ? ({ ...p, name: newName.trim() } as any) : p))
+      );
+      toast.success('Projeto renomeado!');
+    } catch (err) {
+      console.error('Error renaming project:', err);
+      toast.error('Falha ao renomear projeto.');
     }
   };
 
@@ -2971,17 +3463,24 @@ export default function App() {
               onClick={async () => {
                 toast.dismiss(t.id);
                 try {
-                  const projectRef = doc(db, 'projects', projectId);
-                  const projectSnap = await getDoc(projectRef);
-                  if (projectSnap.exists()) {
-                    const data = projectSnap.data();
-                    const variants = (data.variants || []).filter((v: any) => v.id !== variantId);
-                    await setDoc(projectRef, { variants }, { merge: true });
-                    if (currentVariantId === variantId) {
-                      setCurrentVariantId(null);
-                    }
-                    toast.success('Versão excluída!');
+                  // Remove o doc do subprojeto na subcoleção + atualiza memória.
+                  await deleteVariantDoc(projectId, variantId);
+                  setProjects((prev) =>
+                    prev.map((p) =>
+                      p.id === projectId
+                        ? ({
+                            ...p,
+                            variants: ((p.variants as any[]) || []).filter(
+                              (v) => v.id !== variantId
+                            ),
+                          } as any)
+                        : p
+                    )
+                  );
+                  if (currentVariantId === variantId) {
+                    setCurrentVariantId(null);
                   }
+                  toast.success('Versão excluída!');
                 } catch (err) {
                   console.error('Error deleting variant:', err);
                   setError('Falha ao excluir versão.');
@@ -2998,29 +3497,54 @@ export default function App() {
     );
   };
 
-  // --- Auto-save layer 2: Firestore debounced auto-save ---
-  // Once a project is loaded (currentProjectId is set), every change to
-  // config schedules a Firestore save 2 seconds later. If config changes
-  // again before the timer fires, the previous save is cancelled and a
-  // new one is scheduled — so we batch fast typing into one write.
-  useEffect(() => {
-    if (!currentProjectId || !user || isProjectLoading) return;
-    const t = setTimeout(() => {
-      handleSaveProject().catch((err) => {
-        console.warn('[AutoSave] Firestore save failed:', err);
-      });
-    }, 2000);
-    return () => clearTimeout(t);
-    // handleSaveProject is intentionally NOT in deps — it changes every
-    // render (no useCallback), and we don't want to reset the timer just
-    // because of an unrelated re-render. config + currentProjectId + user
-    // are what should trigger a save.
+  // --- AUTO-SAVE REMOVIDO (pedido do usuário) ---
+  // Antes havia um auto-save debounced que gravava no Firestore a cada 2s em
+  // QUALQUER mudança de config/videos/audios. Isso deixava o app inteiro lento
+  // (escritas grandes empilhadas o tempo todo) e gravava sem o usuário pedir.
+  // Agora NADA vai pro Firestore automaticamente — só ao clicar "Salvar".
+  // Rede de segurança: o rascunho em localStorage (metavise-draft-config-v1)
+  // continua, é leve e não toca o Firestore. Deletes seguem gravando na hora.
 
-    // videos / audios / videoUrl / audioUrl are top-level state arrays that
-    // handleSaveProject reads via closure; include them here so the timer
-    // also re-arms when only those change (e.g. ZapCap finishes and pushes
-    // the edited video into the videos array without touching config).
-  }, [config, videos, audios, videoUrl, audioUrl, currentProjectId, user, isProjectLoading]);
+  // --- Sessão: lembrar projeto + aba ativos pra sobreviver ao reload ---
+  // Os dados já são salvos no Firestore (acima), mas ao dar F5 o app perdia
+  // QUAL projeto/aba estava aberto e caía na lista — dando a sensação de
+  // "começar do zero". Aqui guardamos o ponteiro (id + step) e reabrimos
+  // automaticamente quando os projetos terminam de carregar.
+  const LAST_SESSION_KEY = 'metavise-last-session-v1';
+  useEffect(() => {
+    if (!currentProjectId) return;
+    try {
+      localStorage.setItem(
+        LAST_SESSION_KEY,
+        JSON.stringify({ projectId: currentProjectId, step: currentStep })
+      );
+    } catch {
+      /* ignore */
+    }
+  }, [currentProjectId, currentStep]);
+
+  const sessionRestoredRef = useRef(false);
+  useEffect(() => {
+    if (sessionRestoredRef.current) return;
+    if (!user || currentProjectId || projects.length === 0) return;
+    let saved: { projectId?: string; step?: Step } | null = null;
+    try {
+      const raw = localStorage.getItem(LAST_SESSION_KEY);
+      saved = raw ? JSON.parse(raw) : null;
+    } catch {
+      saved = null;
+    }
+    if (!saved?.projectId) return;
+    const proj = projects.find((p) => p.id === saved!.projectId);
+    if (!proj) return;
+    sessionRestoredRef.current = true;
+    // Reabre o projeto; depois força a aba que estava aberta (handleLoadProject
+    // cairia na aba "mais avançada", mas o usuário quer voltar onde parou).
+    void Promise.resolve(handleLoadProject(proj, saved.step as Step)).then(() => {
+      if (saved?.step) setCurrentStep(saved.step as Step);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, projects, currentProjectId]);
 
   const handleDeleteProject = (projectId: string) => {
     setDeleteProjectConfirmId(projectId);
@@ -3049,8 +3573,15 @@ export default function App() {
         } as AdConfig,
         createdAt: serverTimestamp(),
       };
-      const docRef = await addDoc(collection(db, 'projects'), dup);
-      setCurrentProjectId(docRef.id);
+      // Espera a gravação confirmar antes de abrir — garante que a cópia
+      // REALMENTE existe no Firestore (não some ao recarregar).
+      const newId = doc(collection(db, 'projects')).id;
+      await setDoc(doc(db, 'projects', newId), dup);
+      setProjects((prev) => [
+        { id: newId, ...dup, createdAt: new Date() } as any,
+        ...prev,
+      ]);
+      setCurrentProjectId(newId);
       setConfig(dup.config);
       setCurrentStep('copy');
       toast.success(`"${source.name}" duplicado!`);
@@ -3065,6 +3596,8 @@ export default function App() {
     setDeleteProjectConfirmId(null);
     try {
       await deleteDoc(doc(db, 'projects', projectId));
+      // Remove da lista local (sem onSnapshot, o estado não some sozinho).
+      setProjects((prev) => prev.filter((p) => p.id !== projectId));
       if (currentProjectId === projectId) {
         setCurrentProjectId(null);
       }
@@ -3088,7 +3621,19 @@ export default function App() {
     try {
       setCurrentProjectId(project.id);
 
-      const loadedConfig = hydrateProjectConfig({ ...project.config });
+      const loadedConfig = ensurePersonaWeights(hydrateProjectConfig({ ...project.config }));
+
+      // Sincroniza as personas com ESTE projeto (evita vazar de outro).
+      const savedRaw = loadedConfig.copy?.answers?.savedPersonas;
+      let loadedPersonas: any[] = [];
+      if (savedRaw) {
+        try {
+          const parsed = JSON.parse(savedRaw);
+          if (Array.isArray(parsed)) loadedPersonas = parsed;
+        } catch (e) {}
+      }
+      setGeneratedPersona(loadedPersonas.length ? { personas: loadedPersonas } : null);
+      setPersonasSaved(loadedPersonas.length > 0);
 
       // Tentar encontrar uma variante que coincida com o config atual do projeto (Bug 1)
       const matchingVariant = (project.variants || []).find(
@@ -3129,16 +3674,15 @@ export default function App() {
 
       setHasUnsavedCopyChanges(false);
 
-      // Loading an existing project always lands on Source so the user can
-      // review/re-extract material before stepping forward. Specialty
-      // project types (video/editing-only) jump deeper into the flow.
+      // Carregar projeto cai na aba Produto e Persona (que agora tem o
+      // material/VSL no topo). Tipos especiais pulam mais fundo no fluxo.
       const firstStepByType: Record<string, string> = {
-        complete: 'source',
-        copy: 'source',
+        complete: 'persona',
+        copy: 'persona',
         video: 'voz-premium',
-        editing: 'edit2',
+        editing: 'edit-zap',
       };
-      const resolvedStep = step || firstStepByType[project.type] || 'source';
+      const resolvedStep = step || firstStepByType[project.type] || 'persona';
       setCurrentStep(resolvedStep as Step);
       toast.success(`Projeto "${project.name}" carregado!`);
     } catch (err) {
@@ -3150,11 +3694,13 @@ export default function App() {
   };
 
   const handleNewSubproject = (project: Project) => {
-    // Em vez de criar o subprojeto direto, abre o modal pra perguntar sobre persona primeiro
-    setPendingNewSubproject(project);
+    // Fluxo ÚNICO de "novo criativo": reaproveita material/VSL + personas +
+    // plano que já existem e abre o editor de UM brief. Não regera persona
+    // nem o plano dos demais — cria só este criativo e segue pra Copy.
+    handleStartBigVariation(project);
   };
 
-  const proceedNewSubproject = (project: Project, personaPath: 'known' | 'discover') => {
+  const proceedNewSubproject = (project: Project, _personaPath: 'known' | 'discover') => {
     setCurrentProjectId(project.id);
     setCurrentVariantId(null);
     const newConfig = JSON.parse(JSON.stringify(project.config));
@@ -3178,38 +3724,32 @@ export default function App() {
       delete newConfig.copy.answers.awarenessLevel;
     }
 
-    // Blueprint Fase 4 — vendedor (sourceMode='product') sempre passa pelo
-    // Blueprint (Persona → Plan → 15 briefs). As 2 opções do popup mudam
-    // só ONDE ele começa, não O QUE acontece depois:
-    //   'known'    → PersonaTab com 9 campos vazios pra ele preencher
-    //                confiante. discoveryMode='known' marca que ele optou
-    //                por preencher sem ajuda.
-    //   'discover' → CopyTab com discoveryMode='discovering' que ativa as
-    //                5 perguntas soft sequenciais (código órfão lin 386-509
-    //                do CopyTab). No fim, IA gera personas.
-    //
-    // Fluxo legacy (sem sourceMode ou sourceMode='vsl') mantém comportamento
-    // antigo: 'known' → Copy direto, 'discover' → Persona. Não quebra
-    // projetos já existentes.
-    const isVendedorFirstTime = newConfig.copy?.sourceMode === 'product';
-    let finalDiscoveryMode: 'known' | 'unknown' | 'discovering';
-    let nextStep: 'persona' | 'copy';
-
-    if (isVendedorFirstTime) {
-      if (personaPath === 'discover') {
-        finalDiscoveryMode = 'discovering';
-        nextStep = 'copy'; // 'discovering' UI vive na CopyTab
-      } else {
-        finalDiscoveryMode = 'known';
-        nextStep = 'persona'; // 9 campos pra preencher
-      }
-    } else {
-      finalDiscoveryMode = personaPath === 'known' ? 'known' : 'unknown';
-      nextStep = personaPath === 'discover' ? 'persona' : 'copy';
-    }
+    // Fluxo unificado — todo novo subprojeto cai na aba Planejamento, que
+    // tem o material/VSL no topo, as perguntas de persona e o plano embaixo.
+    // discoveryMode='known' evita disparar o fluxo órfão de descoberta na Copy.
+    const finalDiscoveryMode: 'known' | 'unknown' | 'discovering' = 'known';
 
     setCopyDiscoveryMode(finalDiscoveryMode);
     newConfig.copy.discoveryMode = finalDiscoveryMode;
+
+    // Estratégia (personas/plano) é do projeto e herda pros subprojetos —
+    // garante os pesos pra seção de Plano aparecer já no Planejamento.
+    ensurePersonaWeights(newConfig);
+
+    // Restaura os 3 personas herdados pra os cards aparecerem no Planejamento
+    // (PlanTab lê personasWithWeights do config; a grade de personas usa state).
+    let inheritedPersonas: any[] = [];
+    try {
+      const raw = newConfig.copy?.answers?.savedPersonas;
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) inheritedPersonas = parsed;
+      }
+    } catch {
+      /* ignora savedPersonas malformado */
+    }
+    setGeneratedPersona(inheritedPersonas.length ? { personas: inheritedPersonas } : null);
+    setPersonasSaved(inheritedPersonas.length > 0);
 
     setConfig(newConfig);
     setVideoUrl(null);
@@ -3222,20 +3762,8 @@ export default function App() {
     setPendingNewSubproject(null);
     setCopyFieldsApplied(false);
 
-    setCurrentStep(nextStep);
-    if (isVendedorFirstTime) {
-      toast.success(
-        personaPath === 'discover'
-          ? 'Vamos descobrir seu cliente em 5 perguntas rápidas!'
-          : 'Preencha o formulário pra IA gerar 3 personas.'
-      );
-    } else {
-      toast.success(
-        personaPath === 'discover'
-          ? 'Iniciando novo subprojeto! Vamos identificar o persona primeiro.'
-          : 'Iniciando novo subprojeto!'
-      );
-    }
+    setCurrentStep('persona');
+    toast.success('Novo subprojeto! Defina a persona e gere o plano abaixo.');
   };
 
   const handleOpenKeySelector = async () => {
@@ -3301,12 +3829,17 @@ export default function App() {
     setError(null);
     setProviderError(null);
     try {
+      // Fatia ativa: a aba 'Copy da VSL' lê/escreve config.copyVsl (campo
+      // próprio), a aba 'Copy' usa config.copy. Assim anúncio e VSL coexistem.
+      const copyKey: 'copy' | 'copyVsl' = currentStep === 'copy-vsl' ? 'copyVsl' : 'copy';
+      const activeCopy: any = (config as any)[copyKey] || config.copy;
+
       const selectedStyle = AD_STYLES.find(
-        (s: any) => s.label === config.copy.answers.estiloAnuncio
+        (s: any) => s.label === activeCopy.answers.estiloAnuncio
       );
       const styleWithDesc = selectedStyle
         ? `${selectedStyle.label} — ${selectedStyle.desc}`
-        : config.copy.answers.estiloAnuncio;
+        : activeCopy.answers.estiloAnuncio;
 
       // Stream tokens into the script field as they arrive — the user
       // sees text appearing live instead of waiting 15s for a blob.
@@ -3323,8 +3856,7 @@ export default function App() {
       try {
         if (user?.uid) {
           const fullLib = await loadPersonalLibrary(user.uid);
-          const selectedIds =
-            ((config.copy as any)?.referenceCopyIds as string[] | undefined) || [];
+          const selectedIds = (activeCopy?.referenceCopyIds as string[] | undefined) || [];
           if (selectedIds.length > 0) {
             clientCopyLibrary = fullLib.filter((c) => selectedIds.includes(c.id));
           } else {
@@ -3338,13 +3870,11 @@ export default function App() {
       // UX22: flag indicando se a clientCopyLibrary é seleção manual.
       // Quando true, claudeService usa TODAS as copies como exemplo
       // (não filtra por vertical/awareness pelo algoritmo).
-      const referenceIds = ((config.copy as any)?.referenceCopyIds as string[] | undefined) || [];
+      const referenceIds = (activeCopy?.referenceCopyIds as string[] | undefined) || [];
       const isManualSelection = referenceIds.length > 0;
       // UX23-F: similarity slider (default 65 quando há seleção manual)
       const referenceSimilarity =
-        typeof (config.copy as any)?.referenceSimilarity === 'number'
-          ? (config.copy as any).referenceSimilarity
-          : 65;
+        typeof activeCopy?.referenceSimilarity === 'number' ? activeCopy.referenceSimilarity : 65;
 
       // UX23-C: log + persist snapshot das referências efetivamente usadas
       if (isManualSelection && clientCopyLibrary.length > 0) {
@@ -3360,7 +3890,7 @@ export default function App() {
       }
 
       // UX25-A4: modo rascunho (Sonnet) vs final (Opus)
-      const draftMode = !!(config.copy as any)?.draftMode;
+      const draftMode = !!activeCopy?.draftMode;
 
       // UX25-C1: debug snapshot do prompt — capturado via onDebug
       let capturedDebug: import('./lib/claudeService').CopyDebugInfo | null = null;
@@ -3368,24 +3898,33 @@ export default function App() {
       let streamed = '';
       const result = await generateAdCopyWithClaude(
         {
-          ...config.copy.answers,
+          ...activeCopy.answers,
+          // Driver emocional real lido da VSL (só preenche se o usuário não tiver
+          // posto o seu nas respostas).
+          emotionalDriver:
+            (activeCopy.answers as any)?.emotionalDriver ||
+            (activeCopy?.productInfo as ProductInfo | null)?.emotionalDriver ||
+            '',
           estiloAnuncio: styleWithDesc,
           __clientCopyLibrary: clientCopyLibrary,
           __manualSelection: isManualSelection,
           __referenceSimilarity: referenceSimilarity,
           __draftMode: draftMode,
+          // O tipo é definido pela ABA: 'Copy da VSL' gera roteiro longo; 'Copy'
+          // gera anúncio curto. Sem toggle — a aba manda.
+          __creativeType: currentStep === 'copy-vsl' ? 'vsl' : 'ad',
         },
-        config.copy.mode,
+        activeCopy.mode,
         config.angle,
-        config.copy.scriptLength,
-        config.copy.targetWordCount,
-        config.copy.hookSelecionado || '',
+        activeCopy.scriptLength,
+        activeCopy.targetWordCount,
+        activeCopy.hookSelecionado || '',
         (chunk) => {
           streamed += chunk;
           setConfig((prev) => ({
             ...prev,
-            copy: {
-              ...prev.copy,
+            [copyKey]: {
+              ...(prev as any)[copyKey],
               // Show the live token stream. Strip code-fence markers so
               // the user sees natural text instead of ```json prefix.
               generatedScript: streamed.replace(/```json\n?/g, '').replace(/```\n?/g, ''),
@@ -3414,6 +3953,8 @@ export default function App() {
 
       // UX25-C1+C2: snapshot do prompt + custo estimado
       const finalScript = typeof result === 'string' ? result : result.script || '';
+      // Atualiza o medidor de gasto real da API na hora (além do poll de 10s).
+      window.dispatchEvent(new Event('claude-usage-changed'));
       const dbg = capturedDebug as import('./lib/claudeService').CopyDebugInfo | null;
       const costEstimate = dbg
         ? estimateCopyCost({
@@ -3449,7 +3990,8 @@ export default function App() {
 
       // Final, clean replacement (parses the JSON envelope properly).
       setConfig((prev) => {
-        const prevHistory = (prev.copy as any)?.history || [];
+        const prevSlice = (prev as any)[copyKey] || prev.copy;
+        const prevHistory = (prevSlice as any)?.history || [];
         const dedupedHistory = newHistoryEntry
           ? [
               newHistoryEntry,
@@ -3458,9 +4000,15 @@ export default function App() {
           : prevHistory;
         return {
           ...prev,
-          copy: {
-            ...prev.copy,
+          [copyKey]: {
+            ...prevSlice,
             generatedScript: finalScript,
+            // Limpa o finalScript de uma copy aprovada anterior. Sem isso, o
+            // scan de risco (CopyTab lê finalScript || generatedScript) varria
+            // o texto VELHO e não avisava sobre termos novos (ex.: gabapentina)
+            // na copy recém-gerada. Também some o ack de risco antigo.
+            finalScript: '',
+            contentRiskAcknowledgedHash: undefined,
             optimizedScript: '',
             ...(lastUsedReferences ? { lastUsedReferences } : {}),
             ...(lastDebug ? { lastDebug } : {}),
@@ -3614,9 +4162,18 @@ export default function App() {
 
           if (currentStatus === prev.lastStatus) {
             const timeInStatus = (now - prev.lastStatusChangeTime) / 1000;
-            if (timeInStatus > 360) {
+            // O HeyGen fica em 'processing'/'rendering' o RENDER INTEIRO sem
+            // mudar de status — e vídeos longos (3-4 min de fala) levam ~20 min.
+            // Por isso o threshold antigo de 6 min dava falso alarme em todo
+            // vídeo longo. Render ativo ganha 25 min; outros estados, 6 min.
+            const isActiveRender =
+              currentStatus === 'processing' || currentStatus === 'rendering';
+            const stuckThreshold = isActiveRender ? 1500 : 360;
+            if (timeInStatus > stuckThreshold) {
               isStuck = true;
-              stuckReason = 'No status change detected for >6m';
+              stuckReason = isActiveRender
+                ? 'Sem concluir há >25min — provavelmente travou no HeyGen'
+                : 'No status change detected for >6m';
             }
           } else {
             lastStatusChangeTime = now;
@@ -3723,7 +4280,22 @@ export default function App() {
                     scale: config.avatar.scale || 1.0,
                     timelineEdits: [],
                   };
-                  if (avatarModeRef.current === 'hook') {
+                  if (avatarModeRef.current === 'vsl') {
+                    setConfig((prev) => {
+                      const prevVslVideos =
+                        ((prev as any)?.copyVsl?.avatarVideos as (typeof newVideo)[] | undefined) ||
+                        [];
+                      return {
+                        ...prev,
+                        copyVsl: {
+                          ...((prev as any).copyVsl || {}),
+                          avatarVideoUrl: statusData.video_url,
+                          avatarVideoStoragePath: null,
+                          avatarVideos: [...prevVslVideos, newVideo],
+                        } as any,
+                      } as any;
+                    });
+                  } else if (avatarModeRef.current === 'hook') {
                     setConfig((prev) => {
                       const prevHookVideos =
                         ((prev.copy as any)?.hookVideos as (typeof newVideo)[] | undefined) || [];
@@ -3761,7 +4333,22 @@ export default function App() {
                 // In hook mode, persist to config.copy.hookVideos and the
                 // hookVideoUrl/StoragePath fields — keeps the body slots
                 // untouched so the two videos remain independent.
-                if (avatarModeRef.current === 'hook') {
+                if (avatarModeRef.current === 'vsl') {
+                  setConfig((prev) => {
+                    const prevVslVideos =
+                      ((prev as any)?.copyVsl?.avatarVideos as (typeof newVideo)[] | undefined) || [];
+                    return {
+                      ...prev,
+                      copyVsl: {
+                        ...((prev as any).copyVsl || {}),
+                        avatarVideoUrl: result.url,
+                        avatarVideoStoragePath: result.path,
+                        avatarVideos: [...prevVslVideos, newVideo],
+                      } as any,
+                      generationStage: 'video_ready',
+                    } as any;
+                  });
+                } else if (avatarModeRef.current === 'hook') {
                   setConfig((prev) => {
                     const prevHookVideos =
                       ((prev.copy as any)?.hookVideos as (typeof newVideo)[] | undefined) || [];
@@ -3805,20 +4392,7 @@ export default function App() {
                   tag: 'metavise-render',
                 });
 
-                // Auto-save after video generation
-                handleSaveProject({
-                  videoUrl: result.url,
-                  videoStoragePath: result.path,
-                  videos: [...(videos || []), newVideo],
-                  lastVideoMetadata: lastVideoMetadata
-                    ? {
-                        ...lastVideoMetadata,
-                        url: result.url,
-                        status: 'completed',
-                      }
-                    : undefined,
-                  generationStage: 'video_ready',
-                });
+                // (auto-save removido — clique "Salvar" pra guardar o vídeo)
               });
             } else {
               setVideoUrl(statusData.video_url);
@@ -3902,14 +4476,29 @@ export default function App() {
       return;
     }
 
-    if (audioUrl && audioUrl.startsWith('blob:')) {
+    // Hook mode pulls its audio from config.copy.hookAudioUrl, not the
+    // top-level (body) audioUrl. Compute the effective source up front so the
+    // guards below validate the audio that will actually be sent to HeyGen —
+    // otherwise generating a hook video silently no-ops when no body audio
+    // exists yet.
+    const isHookGen = avatarModeRef.current === 'hook';
+    const isVslGen = avatarModeRef.current === 'vsl';
+    const hookAudioUrl = ((config.copy as any)?.hookAudioUrl as string | undefined) || '';
+    const vslAudioUrl = ((config as any)?.copyVsl?.audioUrl as string | undefined) || '';
+    const effectiveAudioUrl = isVslGen
+      ? vslAudioUrl || audioUrl
+      : isHookGen
+        ? hookAudioUrl || audioUrl
+        : audioUrl;
+
+    if (effectiveAudioUrl && effectiveAudioUrl.startsWith('blob:')) {
       setError(
         'O áudio ainda está sendo processado ou falhou no upload. Tente gerar o áudio novamente.'
       );
       return;
     }
 
-    if (!audioUrl && !isTestMode) {
+    if (!effectiveAudioUrl && !isTestMode) {
       setError('Áudio não encontrado. Por favor, gere o áudio no passo anterior.');
       return;
     }
@@ -3982,24 +4571,30 @@ export default function App() {
       ensureNotificationPermission();
       console.log(`[Video Generation] Starting with Aspect Ratio: ${config.format.aspectRatio}`);
 
-      // If we are in 'square' mode, we generate at native aspect ratio and then crop locally
-      // to support the manual cropOffset.
+      // Proporção enviada pro HeyGen. HeyGen NÃO fornece aspect_ratio confiável
+      // → o NATIVO do avatar é HORIZONTAL (16:9) por padrão (igual ao modal e ao
+      // branch 'square'); só 9:16 quando marcado como vertical. Antes o 'original'
+      // usava config.format.aspectRatio, que a seleção gravava errado (9:16) → o
+      // avatar horizontal saía vertical com bordas.
       let requestedRatioForHeyGen = config.format.aspectRatio;
+      const avatarObj = heygenAvatars.find((a) => a.avatar_id === config.avatar.faceId);
+      const nativeIsVertical =
+        avatarObj?.aspect_ratio === '9:16' ||
+        !!avatarObj?.avatar_id?.toLowerCase().includes('vertical') ||
+        !!avatarObj?.avatar_id?.toLowerCase().includes('portrait');
       if (config.avatar.avatarFormat === 'square') {
-        // Determine native ratio - we default to Horizontal 16:9 as HeyGen metadata is unreliable
-        const avatarObj = heygenAvatars.find((a) => a.avatar_id === config.avatar.faceId);
-        const isHorizontal = avatarObj?.aspect_ratio !== '9:16';
-        requestedRatioForHeyGen = isHorizontal ? '16:9' : '9:16';
+        // Gera no nativo e recorta pra 1:1 localmente (cropOffset).
+        requestedRatioForHeyGen = nativeIsVertical ? '9:16' : '16:9';
+      } else {
+        // 'original' = proporção NATIVA do avatar (não o config, que pode estar velho).
+        requestedRatioForHeyGen = nativeIsVertical ? '9:16' : '16:9';
       }
 
       const startTime = Date.now();
-      // In hook mode, the audio source must be the hook audio (the one the
-      // user generated in the Voz tab with the toggle on "Gancho").
-      // We also override the script with hookSelecionado so HeyGen's native
-      // TTS fallback path produces hook content if the audio is missing.
-      const isHookGen = avatarModeRef.current === 'hook';
-      const hookAudioUrl = ((config.copy as any)?.hookAudioUrl as string | undefined) || '';
-      const effectiveAudioUrl = isHookGen ? hookAudioUrl || audioUrl : audioUrl;
+      // In hook mode we also override the script with hookSelecionado so
+      // HeyGen's native TTS fallback path produces hook content if the audio
+      // is missing. (isHookGen / effectiveAudioUrl were computed up front,
+      // next to the audio guards.)
       const effectiveScript = isHookGen
         ? config.copy?.hookSelecionado || avatarScript
         : avatarScript;
@@ -4011,6 +4606,9 @@ export default function App() {
         aspectRatio: requestedRatioForHeyGen,
         scale: config.avatar.scale || 1.0,
         useNativeFallback: useNativeFallback,
+        // Fundo escolhido na aba Avatar (cor/imagem/vídeo). Ausente → servidor
+        // usa preto sólido (comportamento legado).
+        background: config.avatar.background,
         title: isTestMode
           ? `Test Clip - ${Date.now()}`
           : isHookGen
@@ -4065,11 +4663,7 @@ export default function App() {
 
       setLastVideoMetadata(initialMetadata);
 
-      // Auto-save immediately to persist videoId
-      handleSaveProject({
-        lastVideoMetadata: initialMetadata,
-        generationStage: 'video',
-      });
+      // (auto-save removido — salvar manualmente)
 
       const initialOp = {
         id: videoId,
@@ -4139,6 +4733,9 @@ export default function App() {
     for (let i = currentIndex + 1; i < STEPS.length; i++) {
       const candidate = STEPS[i]!.id;
       if (!useHookFlow && candidate === 'hook-visual') continue;
+      if (candidate === 'copy-vsl') continue; // aba neutra: fluxo do anúncio pula a VSL
+      if (candidate === 'merge') continue; // aba neutra: fora do fluxo Próximo/Anterior
+      if (candidate === 'montagem') continue; // aba neutra (alcançada pelo botão do Avatar)
       if (canNavigateTo(candidate)) {
         setCurrentStep(candidate);
       }
@@ -4151,10 +4748,81 @@ export default function App() {
     for (let i = currentIndex - 1; i >= 0; i--) {
       const candidate = STEPS[i]!.id;
       if (!useHookFlow && candidate === 'hook-visual') continue;
+      if (candidate === 'copy-vsl') continue; // aba neutra: fluxo do anúncio pula a VSL
+      if (candidate === 'merge') continue; // aba neutra: fora do fluxo Próximo/Anterior
+      if (candidate === 'montagem') continue; // aba neutra (alcançada pelo botão do Avatar)
       setCurrentStep(candidate);
       return;
     }
   };
+
+  // ─── Aba "Copy da VSL": campo próprio (config.copyVsl) ────────────────────
+  // A CopyTab é reaproveitada em modo VSL. Pra não sobrescrever o anúncio, ela
+  // recebe config.copyVsl NO LUGAR de config.copy, e os setters roteiam de
+  // volta pra copyVsl. Semeamos copyVsl a partir do config.copy (herda persona/
+  // contexto), zerando só os OUTPUTS (roteiro/histórico) — os dois coexistem.
+  const seedVslCopy = (base: AdConfig['copy']): AdConfig['copy'] =>
+    ({
+      ...base,
+      generatedScript: '',
+      optimizedScript: '',
+      finalScript: '',
+      generatedHooks: [],
+      history: [],
+      lastDebug: undefined,
+      targetWordCount: undefined,
+      creativeType: 'vsl',
+      contentRiskAcknowledgedHash: undefined,
+    }) as any;
+
+  const vslCopy: AdConfig['copy'] = (config as any).copyVsl || seedVslCopy(config.copy);
+  const vslView: AdConfig = { ...config, copy: vslCopy };
+
+  // setConfig proxied: aplica o update sobre a VIEW (copy=copyVsl) e grava o
+  // resultado de volta em copyVsl, preservando o config.copy (anúncio) intacto.
+  const setConfigVsl: React.Dispatch<React.SetStateAction<AdConfig>> = (update) => {
+    setConfig((real) => {
+      const currentVsl = (real as any).copyVsl || seedVslCopy(real.copy);
+      const view = { ...real, copy: currentVsl } as AdConfig;
+      const nextView: any = typeof update === 'function' ? (update as any)(view) : update;
+      const { copy: nextVsl, copyVsl: _drop, ...restNonCopy } = nextView;
+      return { ...real, ...restNonCopy, copy: real.copy, copyVsl: nextVsl } as AdConfig;
+    });
+  };
+
+  // updateConfig granular: quando a seção é 'copy', redireciona pra 'copyVsl'.
+  const updateConfigVsl = (section: keyof AdConfig, sub: string, field: string, value: any) => {
+    if (section !== 'copy') {
+      updateConfig(section, sub, field, value);
+      return;
+    }
+    setConfig((prev) => {
+      const currentVsl: any = (prev as any).copyVsl || seedVslCopy(prev.copy);
+      const currentSub = currentVsl[sub] || {};
+      return {
+        ...prev,
+        copyVsl: { ...currentVsl, [sub]: { ...currentSub, [field]: value } },
+      } as AdConfig;
+    });
+  };
+
+  const setDiscoveryVsl = (m: any) =>
+    setConfig((prev) => {
+      const currentVsl: any = (prev as any).copyVsl || seedVslCopy(prev.copy);
+      return { ...prev, copyVsl: { ...currentVsl, discoveryMode: m } } as AdConfig;
+    });
+
+  // Semeia config.copyVsl na 1ª vez que entra na aba (persiste o campo).
+  useEffect(() => {
+    if (currentStep === 'copy-vsl' && !(config as any).copyVsl) {
+      setConfig((prev) =>
+        (prev as any).copyVsl
+          ? prev
+          : ({ ...prev, copyVsl: seedVslCopy(prev.copy) } as AdConfig)
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep]);
 
   // --- Step Renderers ---
 
@@ -4625,13 +5293,23 @@ export default function App() {
 
   const getErrorMessage = (err: any) => {
     if (!err) return 'Erro desconhecido';
-    const msg = typeof err === 'string' ? err : err.message || JSON.stringify(err);
+    const msg =
+      typeof err === 'string'
+        ? err
+        : err.message && err.message !== '[object Object]'
+          ? err.message
+          : err.error || err.code || err.status || JSON.stringify(err, Object.getOwnPropertyNames(err));
     if (typeof msg === 'string' && msg.trim().startsWith('{')) {
       try {
         const parsed = JSON.parse(msg);
         return (
+          parsed.error?.message ||
+          parsed.error?.status ||
+          parsed.error?.code ||
           parsed.error ||
           parsed.message ||
+          parsed.code ||
+          parsed.status ||
           (typeof parsed === 'string' ? parsed : JSON.stringify(parsed))
         );
       } catch (e) {
@@ -4641,11 +5319,185 @@ export default function App() {
     return msg;
   };
 
+  // ─── Fluxo "b-roll começa em Xs" (corpo) ────────────────────────────────
+  // Monta o body do /edit-simple reusando TODAS as configs de legenda atuais,
+  // variando só videoUrl + brollPercent. Usado pelas duas partes do split.
+  const buildZapEditPayload = (videoUrl: string, brollPercent: number) => {
+    const selectedSourceVideo = (videos || []).find((v: any) => v.url === zapVideoUrl);
+    const sourceAspect = selectedSourceVideo?.aspectRatio || '9:16';
+    const payload: any = {
+      videoUrl,
+      templateId: zapTemplateId,
+      brollPercent,
+      language: zapLanguage,
+      emoji: zapEmoji,
+      animation: zapAnimation,
+      emphasizeKeywords: zapEmphasizeKeywords,
+      silenceRemoval: zapSilenceRemoval > 0 ? zapSilenceRemoval : undefined,
+      subtitleTop: zapSubtitleTop,
+      fontUppercase: zapFontUppercase,
+      fontSize: zapFontSize,
+      displayWords: zapDisplayWords,
+      sourceAspectRatio: sourceAspect,
+    };
+    if (/^#[0-9a-fA-F]{6}$/.test(zapFontColor)) payload.fontColor = zapFontColor;
+    if (/^#[0-9a-fA-F]{6}$/.test(zapStrokeColor)) payload.strokeColor = zapStrokeColor;
+    if (zapUseCustomHighlight) {
+      payload.highlightColorOne = zapHl1;
+      payload.highlightColorTwo = zapHl2;
+      payload.highlightColorThree = zapHl3;
+    }
+    return payload;
+  };
+
+  // Dispara um edit-simple e ESPERA (promise) o ZapCap concluir, devolvendo a
+  // downloadUrl. Loop de polling próprio, separado do poll da UI.
+  const renderZapAndWait = async (payload: any): Promise<string> => {
+    const res = await fetch('/api/zapcap/edit-simple', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}));
+      throw new Error(e.error || 'Falha ao iniciar o ZapCap.');
+    }
+    const { videoId, taskId } = await res.json();
+    const uid = user?.uid;
+    // até ~25 min (375 × 4s)
+    for (let i = 0; i < 375; i++) {
+      await new Promise((r) => setTimeout(r, 4000));
+      let s: Response;
+      try {
+        s = await fetch(
+          `/api/zapcap/status/${videoId}/${taskId}${uid ? `?userId=${uid}` : ''}`
+        );
+      } catch {
+        continue;
+      }
+      if (!s.ok) continue;
+      const d = await s.json();
+      if (d.status === 'completed' && d.downloadUrl) return d.downloadUrl as string;
+      if (d.status === 'failed' || d.status === 'error') {
+        throw new Error(d.error || 'O ZapCap falhou nessa parte.');
+      }
+    }
+    throw new Error('Tempo esgotado esperando o ZapCap.');
+  };
+
+  // Orquestra o corpo com b-roll atrasado: corta em X → ZapCap parte 1 (sem
+  // b-roll) + parte 2 (com b-roll) → junta → adiciona na galeria do corpo.
+  const handleRenderZapSplit = async () => {
+    if (!zapVideoUrl || !zapTemplateId) {
+      toast.error('Selecione um vídeo e um template antes de gerar.');
+      return;
+    }
+    if (!user?.uid) {
+      toast.error('Faça login antes de gerar.');
+      return;
+    }
+    if (isZapRenderingRef.current) return;
+    isZapRenderingRef.current = true;
+    setLoading(true);
+    const tid = 'zap-simple-render';
+    setZapState((prev) => ({
+      ...prev,
+      status: 'rendering',
+      step: 'Cortando o vídeo...',
+      progress: 5,
+      originalVideoUrl: zapVideoUrl,
+    }));
+    toast.loading('Cortando o vídeo...', { id: tid });
+    try {
+      const splitRes = await fetch('/api/video/split', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoUrl: zapVideoUrl, atSec: zapBrollStartSec }),
+      });
+      const splitData = await splitRes.json();
+      if (!splitRes.ok) throw new Error(splitData.error || 'Falha ao cortar o vídeo.');
+      const { part1Url, part2Url } = splitData;
+
+      setZapState((prev) => ({ ...prev, step: 'Legendando a intro (sem b-roll)...', progress: 25 }));
+      toast.loading('Legendando a intro (sem b-roll)...', { id: tid });
+      const p1 = await renderZapAndWait(buildZapEditPayload(part1Url, 0));
+
+      // Parte 2 (corpo com b-roll) com DEGRADAÇÃO: se o render do ZapCap falhar
+      // com b-roll alto (problema recorrente deles), baixa o % aos poucos
+      // (30→20→0) até funcionar, em vez de derrubar o split inteiro.
+      let p2: string | null = null;
+      let p2pct = zapBrollPercent;
+      while (p2 === null) {
+        try {
+          setZapState((prev) => ({
+            ...prev,
+            step: `Gerando b-rolls no corpo (${p2pct}%)...`,
+            progress: 60,
+          }));
+          toast.loading(`Gerando b-rolls no corpo (${p2pct}%)...`, { id: tid });
+          p2 = await renderZapAndWait(buildZapEditPayload(part2Url, p2pct));
+        } catch (e) {
+          if (p2pct > 0) {
+            const next = p2pct > 20 ? Math.max(20, p2pct - 20) : 0;
+            toast.loading(
+              next > 0
+                ? `B-roll ${p2pct}% pesado demais pro ZapCap — tentando ${next}%...`
+                : 'B-rolls não couberam — gerando o corpo só com legendas...',
+              { id: tid, duration: 8000 }
+            );
+            p2pct = next;
+          } else {
+            throw e; // nem o corpo só com legenda passou
+          }
+        }
+      }
+
+      setZapState((prev) => ({ ...prev, step: 'Juntando as partes...', progress: 90 }));
+      toast.loading('Juntando as partes...', { id: tid });
+      const concatRes = await fetch('/api/video/concat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videos: [p1, p2], userId: user.uid }),
+      });
+      const concatData = await concatRes.json();
+      if (!concatRes.ok) throw new Error(concatData.error || 'Falha ao juntar as partes.');
+      const finalUrl = concatData.url as string;
+
+      const wasVslEdit = editZapModeRef.current === 'vsl';
+      setZapState((prev) => ({
+        ...prev,
+        status: 'completed',
+        step: 'Edição finalizada!',
+        progress: 100,
+        finalVideoUrl: finalUrl,
+        versions: wasVslEdit ? prev.versions : [...(prev.versions || []), finalUrl],
+      }));
+      setConfig((prev: any) => {
+        const key = wasVslEdit ? 'zapVslVersions' : 'zapVersions';
+        const current = ((prev.edit as any)[key] as string[] | undefined) || [];
+        return { ...prev, edit: { ...prev.edit, [key]: [...current, finalUrl] } };
+      });
+      toast.success(`Vídeo pronto — b-roll a partir de ${zapBrollStartSec}s!`, {
+        id: tid,
+        duration: 6000,
+      });
+    } catch (err: any) {
+      setZapState((prev) => ({ ...prev, status: 'error', step: err.message }));
+      toast.error(`Falha: ${err.message}`, { id: tid, duration: 8000 });
+    } finally {
+      isZapRenderingRef.current = false;
+      setLoading(false);
+    }
+  };
+
   const handleRenderZapSimple = async (overrideBrollPercent?: number) => {
     // Allow callers (notably the auto-retry on failure) to force a
     // different b-roll % than the slider currently shows.
     const effectiveBrollPercent =
       typeof overrideBrollPercent === 'number' ? overrideBrollPercent : zapBrollPercent;
+    // Espelha o % efetivo num ref pro loop de polling (escopo separado) saber
+    // pra quanto reduzir no retry e refletir na mensagem.
+    zapEffectiveBrollRef.current = effectiveBrollPercent;
     console.log('[ZAP SIMPLE] Clicked', {
       isRendering: isZapRenderingRef.current,
       videoUrl: zapVideoUrl?.substring(0, 60),
@@ -4669,6 +5521,7 @@ export default function App() {
     // captions first.
     if (zapTemplateId === '__none__') {
       const wasHookEdit = editZapModeRef.current === 'hook';
+      const wasVslEdit = editZapModeRef.current === 'vsl';
       setZapState((prev) => ({
         ...prev,
         status: 'completed',
@@ -4676,10 +5529,11 @@ export default function App() {
         progress: 100,
         originalVideoUrl: zapState.originalVideoUrl || zapVideoUrl,
         finalVideoUrl: zapVideoUrl,
-        versions: wasHookEdit ? prev.versions : [...(prev.versions || []), zapVideoUrl],
+        versions:
+          wasHookEdit || wasVslEdit ? prev.versions : [...(prev.versions || []), zapVideoUrl],
       }));
       setConfig((prev) => {
-        const key = wasHookEdit ? 'zapHookVersions' : 'zapVersions';
+        const key = wasVslEdit ? 'zapVslVersions' : wasHookEdit ? 'zapHookVersions' : 'zapVersions';
         const current = ((prev.edit as any)[key] as string[] | undefined) || [];
         return {
           ...prev,
@@ -4857,12 +5711,14 @@ export default function App() {
           });
 
           const wasHookEdit = editZapModeRef.current === 'hook';
+          const wasVslEdit = editZapModeRef.current === 'vsl';
           setZapState((prev) => {
             // Only body versions live in zapState.versions (the in-memory
-            // gallery state). Hook versions are read from config directly.
-            const newVersions = wasHookEdit
-              ? prev.versions
-              : [...(prev.versions || []), data.downloadUrl];
+            // gallery state). Hook/VSL versions are read from config directly.
+            const newVersions =
+              wasHookEdit || wasVslEdit
+                ? prev.versions
+                : [...(prev.versions || []), data.downloadUrl];
             return {
               ...prev,
               status: 'completed',
@@ -4876,7 +5732,7 @@ export default function App() {
           // Mirror to config under the slot matching the mode that started
           // this render. Auto-save persists it across reloads.
           setConfig((prev) => {
-            const key = wasHookEdit ? 'zapHookVersions' : 'zapVersions';
+            const key = wasVslEdit ? 'zapVslVersions' : wasHookEdit ? 'zapHookVersions' : 'zapVersions';
             const current = ((prev.edit as any)[key] as string[] | undefined) || [];
             return {
               ...prev,
@@ -4889,12 +5745,16 @@ export default function App() {
 
           // Reset the auto-retry guard so the NEXT user-initiated render
           // can also auto-retry if it hits the same b-roll failure.
-          const wasAutoRetry = zapAutoRetryRef.current;
           zapAutoRetryRef.current = false;
+          const userPct = zapBrollPercent ?? 0;
+          const usedPct = zapEffectiveBrollRef.current;
+          const reduced = usedPct < userPct;
           toast.success(
-            wasAutoRetry
-              ? 'Vídeo editado (sem b-rolls — primeira tentativa falhou).'
-              : 'Vídeo editado com sucesso!',
+            usedPct === 0 && userPct > 0
+              ? 'Vídeo editado (só legendas — o ZapCap não conseguiu inserir b-rolls neste vídeo).'
+              : reduced
+                ? `Vídeo editado com ${usedPct}% de b-roll (reduzi de ${userPct}% pro render do ZapCap aguentar).`
+                : 'Vídeo editado com sucesso!',
             { id: 'zap-simple-render' }
           );
           setLoading(false);
@@ -4903,23 +5763,27 @@ export default function App() {
           clearInterval(zapPollRef.current!);
           zapPollRef.current = null;
 
-          // Auto-retry once with b-rolls disabled — we confirmed empirically
-          // that ZapCap's render step fails on long videos when many b-rolls
-          // are stitched in. The retry without b-rolls produces a usable
-          // (legend-only) video so the user isn't left empty-handed.
-          const usedBroll = (zapBrollPercent ?? 0) > 0;
-          if (usedBroll && !zapAutoRetryRef.current) {
+          // Degradação suave: o render do ZapCap falha quando há muitos b-rolls
+          // num vídeo longo. Em vez de cair DIRETO pra zero b-roll (o que te
+          // deixava "sem edição"), baixamos o % aos poucos (80→60→40→20) e
+          // ficamos com o MÁXIMO de b-rolls que o render aguenta. Só vai a 0
+          // (só legendas) se nem 20% passar — assim você nunca fica sem vídeo.
+          const failedPct = zapEffectiveBrollRef.current;
+          if (failedPct > 0) {
+            const next = failedPct > 20 ? Math.max(20, failedPct - 20) : 0;
             zapAutoRetryRef.current = true;
             console.warn(
-              '[ZAP SIMPLE] Render falhou com b-rolls. Tentando novamente sem b-rolls automaticamente...'
+              `[ZAP SIMPLE] Render falhou com b-roll ${failedPct}%. Tentando com ${next}%...`
             );
-            toast.loading('B-roll causou falha — tentando de novo sem b-rolls...', {
-              id: 'zap-simple-render',
-              duration: 8000,
-            });
-            // Re-enter the same flow with brollPercent=0. handleRenderZapSimple
-            // sets isZapRenderingRef back to true and re-arms the poll loop.
-            handleRenderZapSimple(0);
+            toast.loading(
+              next > 0
+                ? `B-roll ${failedPct}% pesado demais pro ZapCap — tentando com ${next}%...`
+                : 'B-rolls não couberam neste vídeo — gerando só com legendas...',
+              { id: 'zap-simple-render', duration: 8000 }
+            );
+            // Re-entra no mesmo fluxo com o % reduzido. handleRenderZapSimple
+            // re-arma o poll e o isZapRenderingRef.
+            handleRenderZapSimple(next);
             return;
           }
 
@@ -5111,7 +5975,7 @@ export default function App() {
       uppercase?: boolean;
       textColor?: string;
       highlightColor?: string;
-      highlightMode?: 'text' | 'background' | 'both' | 'none';
+      highlightMode?: 'text' | 'background' | 'rectangle' | 'both' | 'none';
       popAnimation?: boolean;
       outlineColor?: string;
       fontFamily?: string;
@@ -5713,7 +6577,7 @@ export default function App() {
                       data-step-id={step.id}
                       onClick={() => {
                         if (canNavigateTo(step.id)) {
-                          setCurrentStep(step.id);
+                          requestStepChange(step.id);
                         }
                       }}
                       onMouseEnter={() => {
@@ -5806,6 +6670,47 @@ export default function App() {
                 Créditos
               </span>
             </button>
+            {apiSpend &&
+              (() => {
+                const hasBalance = apiSpend.balanceBase != null && apiSpend.availableUSD != null;
+                const avail = apiSpend.availableUSD ?? 0;
+                // Cor por faixa de saldo: verde ok, âmbar baixo, vermelho crítico.
+                const tone = !hasBalance
+                  ? 'gray'
+                  : avail <= 1
+                    ? 'red'
+                    : avail <= 5
+                      ? 'amber'
+                      : 'emerald';
+                const toneCls: Record<string, string> = {
+                  emerald:
+                    'from-emerald-50 to-emerald-100/60 dark:from-emerald-950/40 dark:to-emerald-900/30 ring-emerald-200/60 dark:ring-emerald-800/60 text-emerald-700 dark:text-emerald-300',
+                  amber:
+                    'from-amber-50 to-amber-100/60 dark:from-amber-950/40 dark:to-amber-900/30 ring-amber-200/60 dark:ring-amber-800/60 text-amber-700 dark:text-amber-300',
+                  red: 'from-red-50 to-red-100/60 dark:from-red-950/40 dark:to-red-900/30 ring-red-200/60 dark:ring-red-800/60 text-red-700 dark:text-red-300',
+                  gray: 'from-gray-50 to-gray-100/60 dark:from-gray-900/40 dark:to-gray-800/30 ring-gray-200/60 dark:ring-gray-800/60 text-gray-600 dark:text-gray-300',
+                };
+                return (
+                  <button
+                    onClick={promptSetApiBalance}
+                    className={`hidden sm:flex items-center gap-2 px-3.5 py-2 bg-gradient-to-br rounded-xl ring-1 shadow-sm hover:brightness-105 transition-all ${toneCls[tone]}`}
+                    title={
+                      hasBalance
+                        ? `Saldo estimado da conta Anthropic.\nSaldo informado: US$ ${apiSpend.balanceBase!.toFixed(2)}\nGasto desde então: US$ ${(apiSpend.balanceBase! - avail).toFixed(4)}\nGasto total medido: US$ ${apiSpend.costUSD.toFixed(4)}\n\nA Anthropic não expõe o saldo — clique pra atualizar após adicionar fundos.`
+                        : 'A Anthropic não expõe o saldo por chave. Clique e informe seu saldo atual (console.anthropic.com) — o app desconta o gasto daí pra frente.'
+                    }
+                  >
+                    <span className="text-sm font-black tabular-nums">
+                      {hasBalance ? `US$ ${avail.toFixed(2)}` : 'Definir saldo'}
+                    </span>
+                    {hasBalance && (
+                      <span className="text-[10px] font-bold opacity-70 uppercase tracking-widest">
+                        Saldo API
+                      </span>
+                    )}
+                  </button>
+                );
+              })()}
             <RecentProjectsButton
               projects={projects}
               currentProjectId={currentProjectId}
@@ -6000,6 +6905,7 @@ export default function App() {
                   onLoadVariant={handleLoadVariant}
                   onDeleteVariant={handleDeleteVariant}
                   onRenameVariant={handleRenameVariant}
+                  onRenameProject={handleRenameProject}
                   onDeleteAudio={(audio) => {
                     setAudioToDelete(audio);
                     setShowDeleteModal(true);
@@ -6008,7 +6914,7 @@ export default function App() {
                   onDuplicateProject={handleDuplicateProject}
                   onSelectBriefFromProject={handleSelectBriefFromProject}
                   onSelectPersonaFromProject={handleSelectPersonaFromProject}
-                  onStartBigVariation={handleStartBigVariation}
+                  heygenAvatars={heygenAvatars}
                 />
               )}
               {currentStep === 'source' && (
@@ -6050,13 +6956,7 @@ export default function App() {
                           },
                         } as any,
                       }));
-                      handleSaveProject({
-                        copy: {
-                          ...config.copy,
-                          productInfo: info,
-                          sourceText: rawText,
-                        } as any,
-                      } as any);
+                      // (auto-save removido — salvar manualmente)
                     }}
                     onContinueManual={() => setCurrentStep('persona')}
                     onContinueAuto={() => setCurrentStep('persona')}
@@ -6074,20 +6974,32 @@ export default function App() {
                     loading={loading}
                     onGeneratePersona={handleGeneratePersona}
                     onSavePersonas={handleSavePersonas}
-                    onSelectPersona={handleSelectPersona}
                     onGoToPlan={handleGoToPlan}
                   />
                 </LazyTab>
               )}
-              {currentStep === 'plan' && (
+              {currentStep === 'persona' &&
+                Array.isArray((config.copy as any)?.personasWithWeights) &&
+                (config.copy as any).personasWithWeights.length > 0 && (
+                <div id="plan-section" className="mt-12">
                 <LazyTab>
                   <PlanTab
+                    projectName={
+                      projects.find((p) => p.id === currentProjectId)?.name || undefined
+                    }
                     productInfo={
                       ((config.copy as any)?.productInfo as ProductInfo | null) || undefined
                     }
                     persona={config.copy?.answers || {}}
                     copyAnswers={config.copy?.answers || {}}
-                    cached={((config.copy as any)?.marketingPlan as MarketingPlan | null) || null}
+                    sourceMode={((config.copy as any)?.sourceMode as 'vsl' | 'product' | null) || null}
+                    onSourceModeChange={(next) => {
+                      setConfig((prev) => ({
+                        ...prev,
+                        copy: { ...prev.copy, sourceMode: next } as any,
+                      }));
+                    }}
+                    cached={((config.copy as any)?.marketingPlan as any) || null}
                     // Blueprint v2 wiring
                     personasWithWeights={
                       ((config.copy as any)?.personasWithWeights as WeightedPersona[] | null) ||
@@ -6096,21 +7008,24 @@ export default function App() {
                     cachedBriefs={
                       ((config.copy as any)?.creativeBriefs as CreativeBrief[] | null) || null
                     }
-                    cachedMonthlyPlan={
-                      ((config.copy as any)?.monthlyPlan as
-                        | import('@/types/project').MonthlyPlanConfig
-                        | null) || null
-                    }
-                    onMonthlyPlanChange={(monthlyPlan) => {
-                      setConfig((prev) => ({
-                        ...prev,
-                        copy: { ...prev.copy, monthlyPlan } as any,
-                      }));
-                      setHasUnsavedCopyChanges(true);
-                    }}
                     onBriefsChange={(briefs) => persistBriefs(briefs)}
                     onBriefEdit={(b) => setEditingBrief(b)}
                     onBriefClick={(b) => handleBriefClick(b)}
+                    onCreateVsl={(recommendedWords) => {
+                      // Abre a aba "Copy da VSL". Preserva uma VSL já começada;
+                      // só semeia/preenche a duração recomendada se ainda vazia.
+                      setConfig((prev) => {
+                        const base: any = (prev as any).copyVsl || seedVslCopy(prev.copy);
+                        return {
+                          ...prev,
+                          copyVsl: {
+                            ...base,
+                            targetWordCount: base.targetWordCount || recommendedWords,
+                          },
+                        } as AdConfig;
+                      });
+                      setCurrentStep('copy-vsl');
+                    }}
                     briefToVariantMap={(() => {
                       // Build the brief→variant map from the project's variants:
                       // any variant whose id matches a brief id (or whose `brief.id`
@@ -6128,24 +7043,30 @@ export default function App() {
                         ...prev,
                         copy: { ...prev.copy, marketingPlan: plan } as any,
                       }));
-                      handleSaveProject({
-                        copy: { ...config.copy, marketingPlan: plan } as any,
-                      } as any);
+                      // (auto-save removido — salvar manualmente)
                     }}
                     onContinue={() => setCurrentStep('copy')}
                   />
                 </LazyTab>
+                </div>
               )}
-              {currentStep === 'copy' && (
+              {(currentStep === 'copy' || currentStep === 'copy-vsl') && (
                 <LazyTab>
                   <CopyTab
-                    config={config}
-                    updateConfig={updateConfig}
-                    setConfig={setConfig}
+                    isVsl={currentStep === 'copy-vsl'}
+                    config={currentStep === 'copy-vsl' ? vslView : config}
+                    updateConfig={currentStep === 'copy-vsl' ? updateConfigVsl : updateConfig}
+                    setConfig={currentStep === 'copy-vsl' ? setConfigVsl : setConfig}
                     setCurrentStep={setCurrentStep}
                     setVoiceSource={setVoiceSource}
-                    copyDiscoveryMode={copyDiscoveryMode}
-                    setCopyDiscoveryMode={setCopyDiscoveryMode}
+                    copyDiscoveryMode={
+                      currentStep === 'copy-vsl'
+                        ? (vslCopy.discoveryMode as any) || 'unknown'
+                        : copyDiscoveryMode
+                    }
+                    setCopyDiscoveryMode={
+                      currentStep === 'copy-vsl' ? setDiscoveryVsl : setCopyDiscoveryMode
+                    }
                     discoveryStep={discoveryStep}
                     setDiscoveryStep={setDiscoveryStep}
                     discoveryAnswers={discoveryAnswers}
@@ -6166,6 +7087,7 @@ export default function App() {
                     loading={loading}
                     handleGenerateCopy={handleGenerateCopy}
                     isProjectLoading={isProjectLoading}
+                    showRequiredErrors={showCopyRequiredErrors}
                   />
                 </LazyTab>
               )}
@@ -6179,7 +7101,12 @@ export default function App() {
                   onSave={(data) => updateProjectHookVisual(currentProjectId || '', data)}
                   language={config.copy?.answers?.language}
                   awarenessLevel={config.copy?.answers?.awarenessLevel}
-                  approvedCopy={config.copy?.generatedScript || ''}
+                  approvedCopy={
+                    config.copy?.finalScript ||
+                    config.copy?.optimizedScript ||
+                    config.copy?.generatedScript ||
+                    ''
+                  }
                   hooksHistorico={config.copy?.hooksHistorico || []}
                   // UX4: contexto rico pra recomendação de hooks. Resolve
                   // brief ativo + persona alvo do brief + productInfo, e passa
@@ -6268,13 +7195,7 @@ export default function App() {
                         hooksHistorico: newHistorico,
                       },
                     }));
-                    handleSaveProject({
-                      copy: {
-                        ...config.copy,
-                        hookSelecionado: hook,
-                        hooksHistorico: newHistorico,
-                      },
-                    } as any);
+                    // (auto-save removido — salvar manualmente)
                   }}
                   onProceedToVoice={() => {
                     const generatedCopy =
@@ -6301,7 +7222,7 @@ export default function App() {
                         ...prev,
                         copy: { ...prev.copy, finalScript: finalScriptToSave },
                       }));
-                      setTimeout(() => handleSaveProject(), 50);
+                      // (auto-save removido — salvar manualmente)
                     }
                     setVoiceSource('hook');
                     setCurrentStep('voz-premium');
@@ -6311,42 +7232,58 @@ export default function App() {
               {currentStep === 'voz-premium' &&
                 (() => {
                   const isHook = voiceSource === 'hook';
+                  const isVslVoice = voiceSource === 'vsl';
+                  const vslCopyCfg = (config as any).copyVsl as AdConfig['copy'] | undefined;
+                  const hasVslVoice = !!(
+                    vslCopyCfg &&
+                    (vslCopyCfg.finalScript || vslCopyCfg.generatedScript)
+                  );
                   const bodyAudios = config.audios || [];
                   const hookAudios =
                     ((config.copy as any)?.hookAudios as typeof bodyAudios | undefined) || [];
+                  const vslAudios =
+                    ((vslCopyCfg as any)?.audios as typeof bodyAudios | undefined) || [];
                   const lastBodyVoice =
                     bodyAudios.length > 0 ? bodyAudios[bodyAudios.length - 1]!.voiceId : '';
                   const lastHookVoice =
                     hookAudios.length > 0 ? hookAudios[hookAudios.length - 1]!.voiceId : '';
+                  const lastVslVoice =
+                    vslAudios.length > 0 ? vslAudios[vslAudios.length - 1]!.voiceId : '';
                   // Auto-preselect: prefer the mode's own last voice; fall back
                   // to the OTHER mode's last voice so the user doesn't have to
                   // reselect every time. Then they can override in the UI.
-                  const defaultVoiceId = isHook
-                    ? lastHookVoice || lastBodyVoice || config.avatar?.voiceId || ''
-                    : lastBodyVoice || lastHookVoice || config.avatar?.voiceId || '';
+                  const defaultVoiceId = isVslVoice
+                    ? lastVslVoice || lastBodyVoice || config.avatar?.voiceId || ''
+                    : isHook
+                      ? lastHookVoice || lastBodyVoice || config.avatar?.voiceId || ''
+                      : lastBodyVoice || lastHookVoice || config.avatar?.voiceId || '';
 
-                  const activeAudioUrl = isHook
-                    ? ((config.copy as any)?.hookAudioUrl as string | undefined) || ''
-                    : config.audioUrl || '';
-                  const activeAudios = isHook ? hookAudios : bodyAudios;
-                  const activeScript = isHook
-                    ? config.copy?.hookSelecionado ||
-                      config.copy?.finalScript ||
-                      config.copy?.generatedScript ||
-                      ''
-                    : config.copy?.finalScript || config.copy?.generatedScript || '';
+                  const activeAudioUrl = isVslVoice
+                    ? ((vslCopyCfg as any)?.audioUrl as string | undefined) || ''
+                    : isHook
+                      ? ((config.copy as any)?.hookAudioUrl as string | undefined) || ''
+                      : config.audioUrl || '';
+                  const activeAudios = isVslVoice ? vslAudios : isHook ? hookAudios : bodyAudios;
+                  const activeScript = isVslVoice
+                    ? vslCopyCfg?.finalScript || vslCopyCfg?.generatedScript || ''
+                    : isHook
+                      ? config.copy?.hookSelecionado ||
+                        config.copy?.finalScript ||
+                        config.copy?.generatedScript ||
+                        ''
+                      : config.copy?.finalScript || config.copy?.generatedScript || '';
 
                   return (
                     <>
-                      {/* Toggle: which audio are we working on? Hidden when the
-                      project doesn't use a separate hook. */}
-                      {useHookFlow && (
+                      {/* Toggle: which audio are we working on? Aparece quando o
+                      projeto usa gancho separado OU quando existe uma VSL. */}
+                      {(useHookFlow || hasVslVoice) && (
                         <div className="max-w-4xl mx-auto px-6 pt-6">
                           <div className="bg-white dark:bg-gray-900/80 p-2 rounded-2xl border-2 border-gray-100 dark:border-gray-800 shadow-sm flex gap-1">
                             <button
                               onClick={() => setVoiceSource('copy')}
                               className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-                                !isHook
+                                !isHook && !isVslVoice
                                   ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 shadow-md'
                                   : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60'
                               }`}
@@ -6358,37 +7295,70 @@ export default function App() {
                                 </span>
                               )}
                             </button>
-                            <button
-                              onClick={() => setVoiceSource('hook')}
-                              className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-                                isHook
-                                  ? 'bg-amber-500 text-white shadow-md'
-                                  : 'text-gray-500 hover:bg-amber-50'
-                              }`}
-                            >
-                              Voz do Gancho
-                              {hookAudios.length > 0 && (
-                                <span className="ml-2 text-[9px] opacity-70">
-                                  ({hookAudios.length})
-                                </span>
-                              )}
-                            </button>
+                            {useHookFlow && (
+                              <button
+                                onClick={() => setVoiceSource('hook')}
+                                className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                                  isHook
+                                    ? 'bg-amber-500 text-white shadow-md'
+                                    : 'text-gray-500 hover:bg-amber-50'
+                                }`}
+                              >
+                                Voz do Gancho
+                                {hookAudios.length > 0 && (
+                                  <span className="ml-2 text-[9px] opacity-70">
+                                    ({hookAudios.length})
+                                  </span>
+                                )}
+                              </button>
+                            )}
+                            {hasVslVoice && (
+                              <button
+                                onClick={() => setVoiceSource('vsl')}
+                                className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                                  isVslVoice
+                                    ? 'bg-purple-600 text-white shadow-md'
+                                    : 'text-gray-500 hover:bg-purple-50'
+                                }`}
+                              >
+                                Voz da VSL
+                                {vslAudios.length > 0 && (
+                                  <span className="ml-2 text-[9px] opacity-70">
+                                    ({vslAudios.length})
+                                  </span>
+                                )}
+                              </button>
+                            )}
                           </div>
                           <p className="text-[10px] text-gray-500 mt-2 px-2">
-                            {isHook
-                              ? 'Você está gerando o áudio do gancho (parte inicial curta).'
-                              : 'Você está gerando o áudio do corpo do vídeo (script principal).'}
+                            {isVslVoice
+                              ? 'Você está gerando o áudio da VSL (roteiro longo em blocos).'
+                              : isHook
+                                ? 'Você está gerando o áudio do gancho (parte inicial curta).'
+                                : 'Você está gerando o áudio do corpo do vídeo (script principal).'}
                           </p>
                         </div>
                       )}
 
                       <VozPremium
-                        key={isHook ? 'voz-hook' : 'voz-body'}
+                        key={isVslVoice ? 'voz-vsl' : isHook ? 'voz-hook' : 'voz-body'}
                         approvedScript={activeScript}
                         personaGender={config.copy?.answers?.personaGender || ''}
                         personaAge={config.copy?.answers?.personaAgePrimary || ''}
                         savedAudioUrl={activeAudioUrl || undefined}
                         savedAudios={activeAudios}
+                        savedBlockAudios={
+                          isVslVoice ? ((vslCopyCfg as any)?.blockAudios as any) : undefined
+                        }
+                        onBlockAudiosChange={
+                          isVslVoice
+                            ? (arr) =>
+                                setConfig((prev) => ({
+                                  ...prev,
+                                  copyVsl: { ...(prev as any).copyVsl, blockAudios: arr } as any,
+                                }))
+                            : undefined
+                        }
                         copyAnswers={config.copy?.answers || {}}
                         cachedRecommendation={avatarRecommendation}
                         onRecommendationChange={setAvatarRecommendation}
@@ -6420,37 +7390,46 @@ export default function App() {
                           };
                         })()}
                         savedOptimizedScript={
-                          isHook
-                            ? ((config.copy as any)?.hookOptimizedScript as string | undefined) ||
-                              ''
-                            : config.copy?.optimizedScript || ''
+                          isVslVoice
+                            ? (vslCopyCfg?.optimizedScript as string | undefined) || ''
+                            : isHook
+                              ? ((config.copy as any)?.hookOptimizedScript as
+                                  | string
+                                  | undefined) || ''
+                              : config.copy?.optimizedScript || ''
                         }
                         defaultVoiceId={defaultVoiceId || undefined}
                         onApprovedScriptEdit={(edited) => {
                           // The "approved script" is the editable source text shown
                           // in VozPremium. Body edits go to finalScript (existing).
                           // Hook edits go to hookSelecionado so the next render in
-                          // hook mode picks them up too.
-                          if (isHook) {
+                          // hook mode picks them up too. VSL edits go to copyVsl.
+                          if (isVslVoice) {
+                            setConfig((prev) => ({
+                              ...prev,
+                              copyVsl: { ...(prev as any).copyVsl, finalScript: edited },
+                            }));
+                          } else if (isHook) {
                             setConfig((prev) => ({
                               ...prev,
                               copy: { ...prev.copy, hookSelecionado: edited },
                             }));
-                            handleSaveProject({
-                              copy: { ...config.copy, hookSelecionado: edited },
-                            } as any);
+                            // (auto-save removido — salvar manualmente)
                           } else {
                             setConfig((prev) => ({
                               ...prev,
                               copy: { ...prev.copy, finalScript: edited },
                             }));
-                            handleSaveProject({
-                              copy: { ...config.copy, finalScript: edited },
-                            } as any);
+                            // (auto-save removido — salvar manualmente)
                           }
                         }}
                         onOptimizedScript={(optimized) => {
-                          if (isHook) {
+                          if (isVslVoice) {
+                            setConfig((prev) => ({
+                              ...prev,
+                              copyVsl: { ...(prev as any).copyVsl, optimizedScript: optimized },
+                            }));
+                          } else if (isHook) {
                             setConfig((prev) => ({
                               ...prev,
                               copy: {
@@ -6458,23 +7437,30 @@ export default function App() {
                                 hookOptimizedScript: optimized,
                               } as any,
                             }));
-                            handleSaveProject({
-                              copy: { ...config.copy, hookOptimizedScript: optimized },
-                            } as any);
+                            // (auto-save removido — salvar manualmente)
                           } else {
                             setConfig((prev) => ({
                               ...prev,
                               copy: { ...prev.copy, optimizedScript: optimized },
                             }));
-                            handleSaveProject({
-                              copy: { ...config.copy, optimizedScript: optimized },
-                            } as any);
+                            // (auto-save removido — salvar manualmente)
                           }
                         }}
                         onGoToVideo={() => setCurrentStep('avatar')}
-                        onAudioReady={(audioUrl, voiceId, storagePath) => {
+                        onAudioReady={(audioUrl, voiceId, storagePath, voiceName) => {
                           // Clearing the active audio.
                           if (!audioUrl) {
+                            if (isVslVoice) {
+                              setConfig((prev) => ({
+                                ...prev,
+                                copyVsl: {
+                                  ...(prev as any).copyVsl,
+                                  audioUrl: '',
+                                  audioStoragePath: null,
+                                } as any,
+                              }));
+                              return;
+                            }
                             if (isHook) {
                               setConfig((prev) => ({
                                 ...prev,
@@ -6516,7 +7502,26 @@ export default function App() {
                           };
                           const newAudios = existing ? currentAudios : [...currentAudios, newAudio];
 
-                          if (isHook) {
+                          if (isVslVoice) {
+                            setConfig((prev) => ({
+                              ...prev,
+                              copyVsl: {
+                                ...(prev as any).copyVsl,
+                                audioUrl,
+                                audioStoragePath: storagePath || null,
+                                audios: newAudios,
+                              } as any,
+                              ...(voiceId
+                                ? {
+                                    avatar: {
+                                      ...prev.avatar,
+                                      voiceId,
+                                      ...(voiceName ? { voiceName } : {}),
+                                    },
+                                  }
+                                : {}),
+                            }));
+                          } else if (isHook) {
                             setConfig((prev) => ({
                               ...prev,
                               copy: {
@@ -6526,14 +7531,7 @@ export default function App() {
                                 hookAudios: newAudios,
                               } as any,
                             }));
-                            handleSaveProject({
-                              copy: {
-                                ...config.copy,
-                                hookAudioUrl: audioUrl,
-                                hookAudioStoragePath: storagePath || null,
-                                hookAudios: newAudios,
-                              },
-                            } as any);
+                            // (auto-save removido — salvar manualmente)
                           } else {
                             if (!existing) setAudios(newAudios);
                             setAudioUrl(audioUrl);
@@ -6542,14 +7540,18 @@ export default function App() {
                               audioUrl,
                               audioStoragePath: storagePath || null,
                               audios: newAudios,
-                              ...(voiceId ? { avatar: { ...prev.avatar, voiceId } } : {}),
+                              ...(voiceId
+                                ? {
+                                    avatar: {
+                                      ...prev.avatar,
+                                      voiceId,
+                                      // Guarda o nome legível pro painel de info.
+                                      ...(voiceName ? { voiceName } : {}),
+                                    },
+                                  }
+                                : {}),
                             }));
-                            handleSaveProject({
-                              audioUrl,
-                              audioStoragePath: storagePath || null,
-                              audios: newAudios,
-                              ...(voiceId ? { 'avatar.voiceId': voiceId } : {}),
-                            });
+                            // (auto-save removido — salvar manualmente)
                           }
                         }}
                         onDeleteAudioFromHistory={(
@@ -6562,9 +7564,76 @@ export default function App() {
                           });
                         }}
                       />
+
+                      {/* Toggle voz gancho/corpo/VSL TAMBÉM no rodapé — pra trocar
+                          de lado sem rolar até o topo. */}
+                      {(useHookFlow || hasVslVoice) && (
+                        <div className="max-w-4xl mx-auto px-6 pb-6">
+                          <div className="bg-white dark:bg-gray-900/80 p-2 rounded-2xl border-2 border-gray-100 dark:border-gray-800 shadow-sm flex gap-1">
+                            <button
+                              onClick={() => setVoiceSource('copy')}
+                              className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                                !isHook && !isVslVoice
+                                  ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 shadow-md'
+                                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60'
+                              }`}
+                            >
+                              Voz do Corpo
+                              {bodyAudios.length > 0 && (
+                                <span className="ml-2 text-[9px] opacity-70">
+                                  ({bodyAudios.length})
+                                </span>
+                              )}
+                            </button>
+                            {useHookFlow && (
+                              <button
+                                onClick={() => setVoiceSource('hook')}
+                                className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                                  isHook
+                                    ? 'bg-amber-500 text-white shadow-md'
+                                    : 'text-gray-500 hover:bg-amber-50'
+                                }`}
+                              >
+                                Voz do Gancho
+                                {hookAudios.length > 0 && (
+                                  <span className="ml-2 text-[9px] opacity-70">
+                                    ({hookAudios.length})
+                                  </span>
+                                )}
+                              </button>
+                            )}
+                            {hasVslVoice && (
+                              <button
+                                onClick={() => setVoiceSource('vsl')}
+                                className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                                  isVslVoice
+                                    ? 'bg-purple-600 text-white shadow-md'
+                                    : 'text-gray-500 hover:bg-purple-50'
+                                }`}
+                              >
+                                Voz da VSL
+                                {vslAudios.length > 0 && (
+                                  <span className="ml-2 text-[9px] opacity-70">
+                                    ({vslAudios.length})
+                                  </span>
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </>
                   );
                 })()}
+              {currentStep === 'remotion' && (
+                <LazyTab>
+                  <RemotionTab
+                    config={config}
+                    setConfig={setConfig}
+                    setCurrentStep={setCurrentStep}
+                  />
+                </LazyTab>
+              )}
               {currentStep === 'avatar' && (
                 <LazyTab>
                   <AvatarTab
@@ -6639,11 +7708,67 @@ export default function App() {
                     useHookFlow={useHookFlow}
                     loading={loading}
                     handleRenderZapSimple={handleRenderZapSimple}
+                    handleRenderZapSplit={handleRenderZapSplit}
                     handleDeleteVideoFromArray={handleDeleteVideoFromArray}
                     handleRenderHeadline={handleRenderHeadline}
                     handleRenderIntercut={handleRenderIntercut}
                     fetchZapCapTemplates={fetchZapCapTemplates}
                     zapCapTemplates={zapCapTemplates}
+                    onAddUploadedVideo={(newVideo: any, isHook: boolean) => {
+                      // Vídeo enviado pelo user vira fonte do pipeline de edição,
+                      // exatamente como um vídeo gerado pelo avatar. Corpo: state
+                      // `videos` (alimenta o picker) + config.videos (persiste).
+                      // Gancho: config.copy.hookVideos.
+                      if (isHook) {
+                        setConfig((prev) => {
+                          const prevHook =
+                            ((prev.copy as any)?.hookVideos as any[] | undefined) || [];
+                          return {
+                            ...prev,
+                            copy: { ...prev.copy, hookVideos: [...prevHook, newVideo] } as any,
+                          };
+                        });
+                      } else {
+                        setVideos((prev) => [...prev, newVideo]);
+                        setConfig((prev) => ({
+                          ...prev,
+                          videos: [...((prev.videos as any[]) || []), newVideo],
+                        }));
+                      }
+                    }}
+                  />
+                </LazyTab>
+              )}
+              {currentStep === 'merge' && (
+                <LazyTab>
+                  <MergeTab config={config} setConfig={setConfig} user={user} />
+                </LazyTab>
+              )}
+              {currentStep === 'montagem' && (
+                <LazyTab>
+                  <MontagemTab
+                    config={config}
+                    setConfig={setConfig}
+                    user={user}
+                    onAddUploadedVideo={(newVideo: any, isHook: boolean) => {
+                      if (isHook) {
+                        setConfig((prev) => {
+                          const prevHook =
+                            ((prev.copy as any)?.hookVideos as any[] | undefined) || [];
+                          return {
+                            ...prev,
+                            copy: { ...prev.copy, hookVideos: [...prevHook, newVideo] } as any,
+                          };
+                        });
+                      } else {
+                        setVideos((prev) => [...prev, newVideo]);
+                        setConfig((prev) => ({
+                          ...prev,
+                          videos: [...((prev.videos as any[]) || []), newVideo],
+                        }));
+                      }
+                    }}
+                    onGoToEdit={() => setCurrentStep('edit-zap')}
                   />
                 </LazyTab>
               )}
@@ -6769,6 +7894,71 @@ export default function App() {
         }}
         onCreate={handleCreateProject}
       />
+
+      {/* Lembrete de salvar ao trocar de aba com mudanças pendentes. O trabalho
+          não some ao navegar (config é estado global), mas sem salvar no
+          Firestore ele se perde ao recarregar/sair — daí o aviso. */}
+      {pendingStepChange && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md bg-white dark:bg-gray-900 rounded-[28px] shadow-2xl border-2 border-gray-200 dark:border-gray-800 p-6 space-y-5">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-amber-100 dark:bg-amber-950/40 flex items-center justify-center text-amber-600 dark:text-amber-400">
+                <Save size={20} />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-gray-900 dark:text-gray-50">
+                  Você tem alterações não salvas
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Salve antes de mudar de aba pra não perder o que fez ao recarregar.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                disabled={isSaving}
+                onClick={async () => {
+                  const target = pendingStepChange;
+                  await handleSaveProject(undefined, { silent: false });
+                  setPendingStepChange(null);
+                  if (target) setCurrentStep(target);
+                }}
+                className="w-full py-3 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="animate-spin" size={16} /> Salvando...
+                  </>
+                ) : (
+                  <>
+                    <Save size={16} /> Salvar e continuar
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                disabled={isSaving}
+                onClick={() => {
+                  const target = pendingStepChange;
+                  setPendingStepChange(null);
+                  if (target) setCurrentStep(target);
+                }}
+                className="w-full py-3 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-2xl font-bold text-sm hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50"
+              >
+                Continuar sem salvar
+              </button>
+              <button
+                type="button"
+                onClick={() => setPendingStepChange(null)}
+                className="w-full py-2 text-gray-500 dark:text-gray-400 text-xs font-bold hover:text-gray-700 dark:hover:text-gray-200"
+              >
+                Cancelar (ficar nesta aba)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <CostConfirmModal
         isOpen={!!pendingVideoGen}

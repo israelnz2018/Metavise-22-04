@@ -12,17 +12,45 @@ export type Step =
   | 'persona'
   | 'plan'
   | 'copy'
+  | 'copy-vsl'
   | 'hook-visual'
   | 'voz-premium'
+  | 'remotion'
   | 'avatar'
   | 'subtitles'
   | 'edit'
   | 'edit-zap'
   | 'edit2'
+  | 'merge'
+  | 'montagem'
   | 'final'
   | 'scene-builder';
 
 export type ProjectType = 'complete' | 'copy' | 'video' | 'editing';
+
+// ─── Modelo-alvo (Fase 0 — fundação; ainda não totalmente ligado) ───────────
+// Ver docs/plano-implementacao.md + docs/remotion-jornada-unificada.md.
+// Entrada do projeto: "plano" (Andromeda, nasce com os 15 briefs) vs "avulso"
+// (começa vazio; pode ter vários criativos também). Opcional p/ compat.
+export type ProjectMode = 'plano' | 'avulso';
+
+// Um criativo tem 3 partes; cada parte é preenchida por uma fonte.
+export type CreativePartKind = 'hook' | 'corpo' | 'cta';
+export type AssetKind = 'texto' | 'audio' | 'video' | 'imagem';
+export type AssetSource = 'escrito' | 'gerado' | 'upload' | 'puxado' | 'remotion';
+
+// Asset único por parte — substitui (no modelo-alvo) os arrays espalhados
+// audios[]/videos[]/zapVersions. Regra: 1 de cada por subprojeto.
+export interface CreativeAsset {
+  id: string;
+  part: CreativePartKind;
+  kind: AssetKind;
+  source: AssetSource;
+  url?: string;
+  storagePath?: string | null;
+  text?: string;
+  createdAt: any;
+}
 
 // Generic over the config shape so App.tsx can use
 // `Project<AdConfig>` for full type-safety while page/component code
@@ -40,6 +68,9 @@ export interface Project<TConfig = any> {
   userId: string;
   name: string;
   type: ProjectType;
+  /** "plano" (Andromeda) ou "avulso". Opcional p/ compat: projetos antigos
+   *  seguem como hoje (tratados como avulso quando ausente). */
+  mode?: ProjectMode;
   config: TConfig;
   variants?: ProjectVariant<TConfig>[];
   createdAt: any;
@@ -182,6 +213,23 @@ export interface BrollCandidate {
   duration: number; // s
 }
 
+/** Uma trilha de música (gerada por IA ou enviada). Mora em dois lugares:
+ *  - `config.edit.musicTracks` → músicas DESTE subprojeto (independentes).
+ *  - `users/{uid}/musicLibrary` → biblioteca global, só as que o user salvou.
+ *  Em ambos guardamos só a URL (não o áudio); deletar remove a referência,
+ *  nunca o arquivo físico (a mesma URL pode estar em uso em outro lugar). */
+export interface MusicTrack {
+  id: string;
+  url: string;
+  label: string;
+  source: 'ai' | 'upload';
+  prompt?: string;
+  originalFileName?: string;
+  lengthMs?: number;
+  sizeBytes?: number;
+  createdAt: string; // ISO
+}
+
 export interface AutoEditState {
   status:
     | 'idle'
@@ -279,6 +327,17 @@ export type PrimaryEmotion =
   | 'urgencia'
   | 'pertencimento';
 
+/** Estratégia de plano escolhida pelo cliente ANTES de gerar as personas.
+ *  Persistida em config.copy.answers.strategyMethod e enviada ao backend
+ *  (dentro de copyAnswers) pra calibrar plano + checklist:
+ *   - 'baiano'   → 3-7 criativos ótimos, rodados 1 por vez (2 dias cada),
+ *                  clonados em ~50 conjuntos de orçamento baixo, alvo amplo.
+ *   - 'metodo15' → plano estruturado de ~15 criativos (comportamento padrão).
+ *   - 'ia'       → a IA decide o método com base no produto/orçamento.
+ *   - 'custom'   → o cliente descreve o plano em texto livre
+ *                  (config.copy.answers.strategyCustom). */
+export type StrategyMethod = 'baiano' | 'metodo15' | 'ia' | 'custom';
+
 /** Result of the persona-discovery step. Multiple personas with weights,
  *  rather than one "winner". User can select which ones to include in
  *  the creative plan via checkboxes. */
@@ -329,7 +388,7 @@ export interface CreativeBrief {
   /** The actual first sentence the ad opens with — written, not just a concept. */
   hook: string;
   /** Target duration in seconds. */
-  durationTarget: 15 | 30 | 45 | 60 | 90 | 120;
+  durationTarget: 15 | 30 | 45 | 60 | 90 | 120 | 180 | 240 | 300;
   emotion: PrimaryEmotion | string;
   style: CreativeStyle | string;
   ctaStyle: CtaStyle;
@@ -339,6 +398,12 @@ export interface CreativeBrief {
   /** 1-line "why this combination makes sense" for the user to read
    *  before deciding to execute the brief. */
   rationale: string;
+  /** Quem CONTA a história em 1ª pessoa (decidido no planejamento, auto-
+   *  preenchido na aba Copy). Perfil curto e concreto do narrador — quem é,
+   *  idade, relação com o problema — pra a copy segurar UMA voz e não oscilar
+   *  entre "eu tenho" e "cuidei de alguém". Ex.: "Sofredor de 58 anos que
+   *  conviveu 6 anos com a dor antes de achar a resposta". */
+  narrator?: string;
   // --- lifecycle bookkeeping ---
   /** When set, points to the variant that was spawned from this brief. */
   executedVariantId?: string;

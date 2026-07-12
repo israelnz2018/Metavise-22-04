@@ -16,6 +16,7 @@ import {
   Search,
   X,
   Copy,
+  Plus,
 } from 'lucide-react';
 import type {
   Project,
@@ -25,6 +26,7 @@ import type {
   WeightedPersona,
 } from '@/types/project';
 import { VariantItem } from '@/components/VariantItem';
+import { CreativeInfoButton } from '@/components/CreativeInfoButton';
 import { getAuthorizedUrl } from '@/lib/gemini';
 
 type ProjectTypeFilter = 'all' | Project['type'];
@@ -54,9 +56,10 @@ interface ProjectsTabProps {
   /** Blueprint Fase 4 — não é mais usado (botão removido), mas mantido na
    *  interface por compat com App.tsx que ainda passa o handler. */
   onNewSubproject?: (p: Project) => void;
-  onLoadVariant: (v: ProjectVariant, step?: Step) => void;
+  onLoadVariant: (v: ProjectVariant, step?: Step, projectId?: string) => void;
   onDeleteVariant: (pid: string, vid: string) => void | Promise<void>;
   onRenameVariant: (pid: string, vid: string, newName: string) => void | Promise<void>;
+  onRenameProject: (pid: string, newName: string) => void | Promise<void>;
   onDeleteAudio: (audio: { url: string; storagePath: string | null }) => void;
   onDeleteVideoFromArray: (video: any) => void | Promise<void>;
   /** Creates a copy of the project with same config and "(cópia)"
@@ -70,10 +73,9 @@ interface ProjectsTabProps {
    *  seção "Dados do Projeto" pra criar subprojeto sem passar pelo plano.
    *  Carrega productInfo + persona como base, sem brief associado. */
   onSelectPersonaFromProject?: (p: Project, persona: any) => void;
-  /** Blueprint Fase 5 — abre BriefEditModal em mode='create' pra criar
-   *  Criativo 16+ (variação grande). Só aparece se o projeto já tem
-   *  briefs no plano (faz sentido falar em "16+" só se tem os primeiros). */
-  onStartBigVariation?: (p: Project) => void;
+  /** Catálogo HeyGen carregado no App — resolve nome/preview do avatar
+   *  no painel de info (criativos antigos só salvaram o id). */
+  heygenAvatars?: any[];
 }
 
 export function ProjectsTab({
@@ -87,17 +89,17 @@ export function ProjectsTab({
   setShowNewProjectModal,
   onDeleteProject,
   onLoadProject,
-  // onNewSubproject removido do destructuring — botão "Novo Subprojeto" não
-  // existe mais (Fase 4). Mantido como prop opcional pra compat.
+  onNewSubproject,
   onLoadVariant,
   onDeleteVariant,
   onRenameVariant,
+  onRenameProject,
   onDeleteAudio,
   onDeleteVideoFromArray,
   onDuplicateProject,
   onSelectBriefFromProject,
   onSelectPersonaFromProject,
-  onStartBigVariation,
+  heygenAvatars = [],
 }: ProjectsTabProps) {
   // Search + filter state for the list view. Persisted only in memory —
   // navigating away resets the filters, which is the right default
@@ -105,6 +107,9 @@ export function ProjectsTab({
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<ProjectTypeFilter>('all');
   const [sortMode, setSortMode] = useState<SortMode>('recent');
+  // Edição inline do NOME do projeto (mesmo padrão do subprojeto).
+  const [isRenamingProject, setIsRenamingProject] = useState(false);
+  const [projectRenameValue, setProjectRenameValue] = useState('');
 
   // Memoized so unrelated parent re-renders don't reapply filters when
   // the project list itself didn't change.
@@ -141,6 +146,15 @@ export function ProjectsTab({
       return null;
     }
 
+    // Planejamento "feito" = já tem personas ou plano gerado. Sem isso, o
+    // projeto ainda não tem estratégia, então criar subprojeto não faz
+    // sentido — o cliente precisa ir pro Planejamento primeiro.
+    const planningCopy: any = project.config?.copy || {};
+    const hasPlanning =
+      (Array.isArray(planningCopy.personasWithWeights) &&
+        planningCopy.personasWithWeights.length > 0) ||
+      (Array.isArray(planningCopy.creativeBriefs) && planningCopy.creativeBriefs.length > 0);
+
     return (
       <div className="space-y-8">
         <div className="flex items-center justify-between">
@@ -155,9 +169,61 @@ export function ProjectsTab({
               <ArrowLeft size={20} />
             </button>
             <div>
-              <h2 className="text-3xl font-black text-gray-900 dark:text-gray-50 tracking-tight">
-                {project.name}
-              </h2>
+              {isRenamingProject ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={projectRenameValue}
+                    onChange={(e) => setProjectRenameValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (projectRenameValue.trim() && projectRenameValue !== project.name) {
+                          onRenameProject(project.id, projectRenameValue);
+                        }
+                        setIsRenamingProject(false);
+                      } else if (e.key === 'Escape') {
+                        setIsRenamingProject(false);
+                      }
+                    }}
+                    autoFocus
+                    className="text-3xl font-black text-gray-900 dark:text-gray-50 tracking-tight border-2 border-blue-400 rounded-xl px-3 py-1 outline-none bg-white dark:bg-gray-900"
+                  />
+                  <button
+                    onClick={() => {
+                      if (projectRenameValue.trim() && projectRenameValue !== project.name) {
+                        onRenameProject(project.id, projectRenameValue);
+                      }
+                      setIsRenamingProject(false);
+                    }}
+                    className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all"
+                  >
+                    Salvar
+                  </button>
+                  <button
+                    onClick={() => setIsRenamingProject(false)}
+                    className="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-gray-200 transition-all"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <h2 className="text-3xl font-black text-gray-900 dark:text-gray-50 tracking-tight">
+                    {project.name}
+                  </h2>
+                  <button
+                    onClick={() => {
+                      setProjectRenameValue(project.name);
+                      setIsRenamingProject(true);
+                    }}
+                    className="p-1.5 rounded-lg text-gray-300 dark:text-gray-600 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-all"
+                    title="Renomear projeto"
+                  >
+                    <Edit3 size={18} />
+                  </button>
+                </div>
+              )}
               <p className="text-sm text-gray-400 dark:text-gray-500 font-medium">
                 Gerencie as versões e conteúdos deste projeto.
               </p>
@@ -194,7 +260,7 @@ export function ProjectsTab({
           onSelectPersona={
             onSelectPersonaFromProject ? (p) => onSelectPersonaFromProject(project, p) : undefined
           }
-          onStartBigVariation={onStartBigVariation ? () => onStartBigVariation(project) : undefined}
+          onReviewPlan={() => onLoadProject(project)}
         />
 
         <div className="bg-white dark:bg-gray-900/80 rounded-[40px] border-2 border-gray-200 dark:border-gray-800 shadow-xl overflow-hidden">
@@ -203,13 +269,19 @@ export function ProjectsTab({
               <h3 className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest flex items-center gap-2">
                 <Tag size={14} /> Subprojetos / Versões ({project.variants?.length || 0})
               </h3>
-              {/* Blueprint Fase 4 — "Novo Subprojeto" removido. Subprojetos
-                  agora nascem só via 2 portas na seção Dados do Projeto:
-                    Porta A → clica em persona → popup → variant
-                    Porta B → clica em brief → popup → variant
-                  Pra projetos legacy sem dados, a UI fica sem botão de
-                  criar variant. Solução futura: oferecer "Gerar Plano"
-                  como fallback explícito. */}
+              {/* Botão "Adicionar Subprojeto" só aparece DEPOIS do
+                  planejamento (personas/plano). Sem estratégia não faz
+                  sentido criar criativo — abaixo mostramos o aviso pra ir
+                  pro Planejamento primeiro. */}
+              {onNewSubproject && hasPlanning && (
+                <button
+                  onClick={() => onNewSubproject(project)}
+                  className="px-4 py-2 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl font-bold text-xs hover:from-blue-600 hover:to-blue-700 active:scale-[0.98] transition-all shadow-lg shadow-blue-200/50 dark:shadow-blue-900/30 ring-1 ring-inset ring-white/20 flex items-center gap-1.5"
+                >
+                  <Plus size={14} />
+                  Adicionar Subprojeto
+                </button>
+              )}
             </div>
             <div className="space-y-4">
               {project.variants && project.variants.length > 0 ? (
@@ -228,13 +300,33 @@ export function ProjectsTab({
                       onDeleteAudio({ url: audio.url, storagePath: audio.storagePath })
                     }
                     onDeleteVideo={onDeleteVideoFromArray}
+                    heygenAvatars={heygenAvatars}
                   />
                 ))
-              ) : (
+              ) : hasPlanning ? (
                 <div className="p-12 text-center bg-white dark:bg-gray-900/80 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-800">
                   <p className="text-gray-400 dark:text-gray-500 font-bold">
                     Nenhuma versão arquivada ainda.
                   </p>
+                </div>
+              ) : (
+                // Sem planejamento ainda → guia o cliente pro Planejamento
+                // em vez de oferecer criar subprojeto sem estratégia.
+                <div className="p-12 text-center bg-white dark:bg-gray-900/80 rounded-3xl border-2 border-dashed border-blue-200 dark:border-blue-900/50 space-y-4">
+                  <p className="text-gray-700 dark:text-gray-300 font-bold">
+                    Este projeto ainda não tem planejamento.
+                  </p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500 max-w-md mx-auto">
+                    Faça o planejamento (produto, persona e plano de marketing) primeiro. Depois
+                    você poderá criar os subprojetos a partir dele.
+                  </p>
+                  <button
+                    onClick={() => onLoadProject(project)}
+                    className="px-6 py-3 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-2xl font-bold hover:from-blue-600 hover:to-blue-700 active:scale-[0.98] transition-all shadow-lg shadow-blue-200/50 dark:shadow-blue-900/30 ring-1 ring-inset ring-white/20 inline-flex items-center gap-2"
+                  >
+                    <Sparkles size={16} />
+                    Fazer o planejamento do projeto
+                  </button>
                 </div>
               )}
             </div>
@@ -290,7 +382,12 @@ export function ProjectsTab({
                     <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">
                       Vídeo Finalizado
                     </p>
-                    <div className="aspect-video w-full max-w-2xl mx-auto bg-black rounded-[32px] overflow-hidden shadow-2xl border-4 border-white">
+                    <div className="relative aspect-video w-full max-w-2xl mx-auto bg-black rounded-[32px] overflow-hidden shadow-2xl border-4 border-white">
+                      <CreativeInfoButton
+                        variant={viewingVariant}
+                        heygenAvatars={heygenAvatars}
+                        placement="overlay"
+                      />
                       <video
                         src={
                           getAuthorizedUrl(
@@ -621,14 +718,14 @@ function ProjectDataSection({
   project,
   onSelectBrief,
   onSelectPersona,
-  onStartBigVariation,
+  onReviewPlan,
 }: {
   project: Project;
   onSelectBrief?: (brief: CreativeBrief) => void;
   onSelectPersona?: (persona: any) => void;
-  /** Blueprint Fase 5 — clica no CTA "Criar variação grande" abaixo dos briefs.
-   *  Só aparece se há pelo menos 1 brief no plano. */
-  onStartBigVariation?: () => void;
+  /** Abre o projeto na aba Planejamento pra revisar/editar a estratégia
+   *  completa (material, persona, plano) — onde tudo isso já é editável. */
+  onReviewPlan?: () => void;
 }) {
   const cfg: any = project.config || {};
   const copy: any = cfg.copy || {};
@@ -859,25 +956,25 @@ function ProjectDataSection({
                 })}
               </ol>
 
-              {/* Blueprint Fase 5 — CTA Criativo 16+. Só aparece se já há
-                briefs no plano (faz sentido falar em "16+" só depois dos
-                primeiros). Estilo amber pra reforçar que é exceção, não
-                regra: cliente deve esgotar os 15 antes de partir pra cá. */}
-              {onStartBigVariation && (
-                <button
-                  onClick={onStartBigVariation}
-                  className="w-full mt-2 px-4 py-3 rounded-2xl bg-amber-50 dark:bg-amber-950/30 ring-1 ring-amber-300 dark:ring-amber-800/60 hover:bg-amber-100 dark:hover:bg-amber-950/50 hover:ring-amber-500 transition-all flex items-center justify-center gap-2 group"
-                >
-                  <Sparkles
-                    size={14}
-                    className="text-amber-700 dark:text-amber-400 group-hover:scale-110 transition-transform"
-                  />
-                  <span className="text-xs font-black uppercase tracking-widest text-amber-900 dark:text-amber-200">
-                    Criar Criativo {briefs.length + 1} (variação grande)
-                  </span>
-                </button>
-              )}
             </section>
+          )}
+
+          {/* Revisar/editar a estratégia completa — abre o projeto na aba
+              Planejamento, onde material, persona e plano já são editáveis.
+              Evita duplicar o editor aqui (seria 2 lugares fazendo o mesmo). */}
+          {onReviewPlan && (
+            <button
+              onClick={onReviewPlan}
+              className="w-full px-4 py-3.5 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 text-white ring-1 ring-inset ring-white/20 shadow-lg shadow-blue-200/50 dark:shadow-blue-900/30 hover:from-blue-600 hover:to-blue-700 active:scale-[0.99] transition-all flex items-center justify-center gap-2 group"
+            >
+              <Sparkles
+                size={16}
+                className="group-hover:scale-110 transition-transform"
+              />
+              <span className="text-xs font-black uppercase tracking-widest">
+                Revisar plano do projeto
+              </span>
+            </button>
           )}
         </div>
       )}

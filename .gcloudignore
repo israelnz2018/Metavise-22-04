@@ -1,0 +1,23 @@
+# O que NÃO sobe pro Cloud Build (mantém o upload pequeno e sem segredos).
+# firebase-applet-config.json FICA (projectId/bucket, não é segredo).
+.git
+.github
+node_modules
+dist
+generated
+scratchpad
+*.log
+.DS_Store
+
+# Credencial e chaves — vão por env var no Cloud Run, não no build.
+service-account.json
+elevenlabs-config.json
+heygen-config.json
+runway-config.json
+gemini-config.json
+assemblyai-config.json
+zapcap-config.json
+claude-config.json
+pexels-config.json
+.env
+.env.*

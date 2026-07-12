@@ -12,6 +12,7 @@ export const GEMINI_CONFIG_PATH = path.join(process.cwd(), 'gemini-config.json')
 export const ASSEMBLYAI_CONFIG_PATH = path.join(process.cwd(), 'assemblyai-config.json');
 export const ZAPCAP_CONFIG_PATH = path.join(process.cwd(), 'zapcap-config.json');
 export const CLAUDE_CONFIG_PATH = path.join(process.cwd(), 'claude-config.json');
+export const PEXELS_CONFIG_PATH = path.join(process.cwd(), 'pexels-config.json');
 export const FIREBASE_CONFIG_PATH = path.join(process.cwd(), 'firebase-applet-config.json');
 
 // generated/ lives next to server.ts (one level above server/config/).

@@ -12,15 +12,13 @@
  * 4. discoverPersonaWithClaude       → Descobrir avatar/persona
  */
 
-// UX14: few-shot examples + vertical inference pra melhorar qualidade
-// da copy gerada (em vez de só dar regras, mostramos exemplos).
 import {
   selectCopyExamples,
   inferVertical,
   type CopyExample,
   type AwarenessLevel,
-  type CopyVertical,
 } from '@/data/copyLibrary';
+import type { CreativeBrief } from '@/types/project';
 
 const CLAUDE_URL = '/api/claude/complete';
 const CLAUDE_STREAM_URL = '/api/claude/complete-stream';
@@ -283,119 +281,136 @@ export const generateAdCopyWithClaude = async (
 
   const currentLevel = (answers.awarenessLevel || '3').toString().charAt(0) || '3';
   const wordCount = targetWordCount || 150;
+  const targetLang: 'pt' | 'en' = isPortuguese(answers.language) ? 'pt' : 'en';
+  // Tipo de criativo: anúncio curto (Meta) ou VSL longa em blocos.
+  const creativeType: 'ad' | 'vsl' = answers.__creativeType === 'vsl' ? 'vsl' : 'ad';
 
-  // Exact word budget per beat (replaces vague percentages)
-  const beatBudgets: Record<string, Array<[string, number]>> = {
-    '1': [
-      ['REVELAÇÃO', 0.25],
-      ['EVIDÊNCIA', 0.3],
-      ['CONEXÃO COM PRODUTO', 0.35],
-      ['CTA SUAVE', 0.1],
-    ],
-    '2': [
-      ['AGITAÇÃO DA DOR', 0.3],
-      ['DIAGNÓSTICO ÚNICO', 0.2],
-      ['SOLUÇÃO + MECANISMO', 0.3],
-      ['PROVA', 0.1],
-      ['CTA', 0.1],
-    ],
-    '3': [
-      ['QUEBRA DE PARADIGMA', 0.25],
-      ['MECANISMO ÚNICO', 0.35],
-      ['PROVA', 0.25],
-      ['CTA DIRETO', 0.15],
-    ],
-    '4': [
-      ['DIFERENCIAÇÃO', 0.35],
-      ['PROVA SOCIAL', 0.3],
-      ['GARANTIA', 0.2],
-      ['CTA + BENEFÍCIO', 0.15],
-    ],
-    '5': [
-      ['OFERTA INICIAL', 0.35],
-      ['URGÊNCIA REAL', 0.3],
-      ['CTA DIRETO', 0.35],
-    ],
-  };
+  // FEW-SHOT: 1 exemplo vencedor como ÂNCORA DE CRAFT (mostrar > mandar — é o
+  // que mais levanta a qualidade). Estuda COMO é escrito, nunca o conteúdo.
+  const clientLib = (answers.__clientCopyLibrary as CopyExample[]) || [];
+  const targetVertical = inferVertical({
+    produto: answers.productName,
+    oferta: answers.productResult,
+    dorPrincipal: answers.painPoints || answers.situation,
+    audience: answers.audience,
+  });
+  const examplePool = selectCopyExamples({
+    language: targetLang,
+    awareness: currentLevel as AwarenessLevel,
+    angleHint: angle,
+    count: 5,
+    clientLibrary: clientLib,
+  });
+  // PRIORIDADE: as copies DO USUÁRIO (clientLib) sempre vêm antes das do Metavise
+  // — ele confia mais nas dele. Dentro de cada grupo, prefere OUTRO nicho (craft
+  // sem overlap de conteúdo). Só usa as do Metavise se ele não tiver nenhuma.
+  const pickCraft = (arr: CopyExample[]) =>
+    arr.find((e) => !targetVertical || e.vertical !== targetVertical) || arr[0];
+  const myCopies = clientLib.filter((e) => e.language === targetLang);
+  const example = myCopies.length ? pickCraft(myCopies) : pickCraft(examplePool);
 
-  const beatInstructions: Record<string, string> = {
-    REVELAÇÃO: "Present a reality the avatar hasn't noticed. Start directly — no intro hook.",
-    EVIDÊNCIA: 'Fact, observation, or logical principle that proves the revelation.',
-    'CONEXÃO COM PRODUTO': `Introduce the product and how its mechanism solves the problem. Mechanism: ${answers.uniqueMechanism || ''}`,
-    'CTA SUAVE': 'Soft call-to-action, low pressure.',
-    'AGITAÇÃO DA DOR':
-      '2-3 visceral details of the pain. Use sensory language — what it feels like in daily life.',
-    'DIAGNÓSTICO ÚNICO':
-      "Reframe: 'It's not X, it's Y.' Name the real root cause the avatar hasn't identified.",
-    'SOLUÇÃO + MECANISMO': `Present the product and its mechanism: ${answers.uniqueMechanism || ''}`,
-    PROVA: 'Logical proof of the mechanism. No invented statistics or testimonials.',
-    CTA: 'Direct CTA with one clear benefit.',
-    'QUEBRA DE PARADIGMA':
-      'Contradict a widely held belief. Make it feel counterintuitive but undeniably true.',
-    'MECANISMO ÚNICO': `Explain how this differs from alternatives the avatar has already tried. Mechanism: ${answers.uniqueMechanism || ''}`,
-    'CTA DIRETO': 'Clear, direct action. One sentence.',
-    DIFERENCIAÇÃO: '1-2 specific differentiators vs. competing options the audience already knows.',
-    'PROVA SOCIAL': 'Mechanism proof or specific result. No invented testimonials.',
-    GARANTIA: 'Reduce purchase risk with a concrete guarantee or reassurance.',
-    'CTA + BENEFÍCIO': 'Direct action + one concrete benefit they get immediately.',
-    'OFERTA INICIAL': 'Present the offer directly and specifically. No warm-up.',
-    'URGÊNCIA REAL': 'Real scarcity or urgency only — never invent it.',
-  };
-
-  // VSL mode — explicit user choice from the form ('vsl-curiosity').
-  // Some users send traffic to a long video that closes the sale (need
-  // intrigue-only ads); others send straight to a product page (need
-  // selling ads). Without an explicit choice, fall back to the awareness-
-  // level beats — that preserves the old behaviour for projects that
-  // haven't set the new field yet.
-  const isVslTraffic = answers.copyStrategy === 'vsl-curiosity';
-  const vslBeats: Array<[string, number]> = [
-    ['REVELAÇÃO INESPERADA', 0.3],
-    ['LOOP DE CURIOSIDADE', 0.4],
-    ['PONTE PARA O VÍDEO', 0.2],
-    ['CTA SUAVE', 0.1],
-  ];
-  const vslBeatInstructions: Record<string, string> = {
-    'REVELAÇÃO INESPERADA':
-      'Open with a counterintuitive statement, surprising fact, or contradiction that stops the scroll. Do NOT reveal the product, mechanism, or solution.',
-    'LOOP DE CURIOSIDADE':
-      'Deepen the mystery. Hint that there is a specific explanation/method/reason — but never give it. Make the reader feel they MUST know more.',
-    'PONTE PARA O VÍDEO':
-      'Make it clear the full answer lives inside the video. Phrasing like "in this video", "what I show in detail", "the full method". Do not summarise it.',
-    'CTA SUAVE':
-      'Low-pressure invitation to watch the video. One short sentence. No promise of the outcome.',
-  };
-
-  const activeBeats = isVslTraffic ? vslBeats : (beatBudgets[currentLevel] || beatBudgets['3'])!;
-  const activeBeatInstructions = isVslTraffic ? vslBeatInstructions : beatInstructions;
-
-  const beatStructure = activeBeats
-    .map(([name, pct]) => {
-      const words = Math.round(wordCount * pct);
-      const instruction = activeBeatInstructions[name] || '';
-      return `[${name}] (${words} words): ${instruction}`;
-    })
-    .join('\n');
-
-  const vslGuard = isVslTraffic
+  // POV adapta ao narrador: com narrador = história em 1ª pessoa; SEM narrador =
+  // falar direto com "você", sem inventar um protagonista ("eu vivi isso").
+  const hasNarrator = !!(answers.narrator || '').toString().trim();
+  const povRule = hasNarrator
+    ? 'Use the GIVEN narrator as the voice, and match the STANCE their description implies — it may be first person ("I/my", someone who lived it), OR someone recounting OTHER people\'s stories / an observer who saw many cases. Do NOT force first person if the narrator is not a personal sufferer. Turn to "you/your" for the warning and the CTA, and hold that ONE voice throughout.'
+    : 'No narrator was given, so do NOT invent a personal first-person protagonist or backstory ("I lived this", "one afternoon I..."). Write DIRECTLY to the reader in second person ("you/your"), as a confident, knowledgeable voice — make the claims and the reveal stand on their own, not on a fabricated personal story.';
+  const exampleBlock = example
     ? `
-
---- VSL TRAFFIC MODE (CRITICAL) ---
-The click destination is a long-form Video Sales Letter (VSL). The ad's ONLY job is to earn the click. The VSL handles the entire sale.
-
-ABSOLUTELY DO NOT:
-- Promise the result or transformation
-- Reveal the product name in the first half
-- Describe the mechanism, formula, or method
-- Mention price, discount, guarantee, or refund
-- Use closing language ("buy now", "secure your spot", "limited offer")
-- Resolve the curiosity loop
-
-YOU MUST:
-- Open a loop the viewer can only close by watching
-- Treat the video as the ONLY place where the answer lives
-- Stop before the payoff. The reader should be MORE curious at the end than at the start, not less.`
+--- EXAMPLE — MIRROR THIS VOICE ---
+Match this ad's VOICE closely: its cadence, sentence rhythm, opening style, word choice, tone and energy — write as if the SAME person wrote both. Match its craft too (lived scenes, exact sensory detail, the flow, the hinge from despair to hope). Do NOT reuse its claims, numbers, names, product or specifics — mirror the VOICE, swap the CONTENT.
+"""
+${example.script}
+"""
+`
     : '';
+
+  // ── FRAMEWORK DE BLOCOS POR NÍVEL DE CONSCIÊNCIA (guia-da-copy / Higor Neves) ──
+  // A consciência É a espinha: ela seleciona QUAIS blocos entram e em que ordem.
+  // NÃO há mais override de estrutura por tipo de tráfego — o estilo advertorial
+  // denso é VOZ (junto dos blocos, na seção STORY BEATS + VOICE), não uma
+  // estrutura paralela. Direção de
+  // emoção e modelagem de copy de referência foram CORTADAS de propósito (§6 do
+  // guia): geração = framework + questionário + firewall, e só. O humanizador
+  // saiu da geração (era 2ª passada).
+  // (2) Instruções CURTAS por bloco — o contexto (dor, desejo, mecanismo,
+  // estatística…) já está na seção CONTEXT; aqui é só o JOB do bloco.
+  const BLOCKS: Record<number, { tag: string; instr: string }> = {
+    1: { tag: 'QUEBRA DE PADRÃO', instr: 'Scroll-stopping opener built on the REAL DRIVER of this offer (see below). First sentence. "This is me."' },
+    2: { tag: 'PROMESSA', instr: 'Promise the big result — a new, better way.' },
+    3: { tag: 'HISTÓRIA', instr: 'Quick story of where the mechanism came from.' },
+    4: { tag: 'MECANISMO ÚNICO', instr: 'The unique mechanism (high level) and why it beats the usual. Never reveal its identity.' },
+    5: { tag: 'PROVA', instr: 'Proof it makes sense. Never invent numbers or testimonials.' },
+    6: { tag: 'QUALIFICAÇÃO', instr: 'Who it is / is not for.' },
+    7: { tag: 'QUEM SOU EU', instr: 'Who the narrator is (authority or "just like you").' },
+    8: { tag: 'POR QUE CONTO ISSO', instr: 'Why the narrator is sharing this.' },
+    9: { tag: 'SOLUÇÕES QUE FALHAM', instr: 'The usual methods they tried and why they failed. Not their fault.' },
+    10: { tag: 'O DIA DO CHEGA', instr: 'The breaking-point moment, one concrete scene.' },
+    11: { tag: 'A BUSCA', instr: 'The journey to finding the mechanism.' },
+    12: { tag: 'POR QUE FUNCIONA', instr: 'Why it finally works — conceptual, never the identity.' },
+    13: { tag: 'PONTE PRO CLIQUE', instr: "On their own it won't resolve — only the destination shows how." },
+  };
+
+  const CTA: Record<'soft' | 'mid' | 'hard', string> = {
+    soft: 'Soft invitation: watch / learn more. Low pressure. No price, no offer.',
+    mid: 'Clear invitation to take the next step (watch it / see how it works). No price/offer.',
+    hard: 'Strong, direct call to act NOW. You may qualify the right reader ("if you are over 55 and..."). No price/payment — the checkout lives at the destination.',
+  };
+
+  // Mapa nível → blocos (em ordem) + força do CTA + urgência (§4 do guia).
+  const LEVEL_PLAN: Record<
+    string,
+    { blocks: number[]; cta: 'soft' | 'mid' | 'hard'; urgency: boolean; note: string }
+  > = {
+    '1': {
+      blocks: [1, 2, 3, 4, 5, 7, 9, 10, 11, 12, 13],
+      cta: 'soft',
+      urgency: false,
+      note: 'Cold / unaware: build everything from scratch — story + origin + mechanism. Soft CTA, no urgency.',
+    },
+    '2': {
+      blocks: [1, 2, 8, 9, 10, 4, 12, 5, 13],
+      cta: 'soft',
+      urgency: false,
+      note: 'Problem-aware: skip the long origin; go pain → real cause. Soft CTA.',
+    },
+    '3': {
+      blocks: [1, 9, 4, 12, 5, 2, 13],
+      cta: 'mid',
+      urgency: false,
+      note: 'Solution-aware: center on the mechanism + why the common ways fail + proof; little pain. Medium CTA.',
+    },
+    '4': {
+      blocks: [2, 5, 4, 6],
+      cta: 'hard',
+      urgency: true,
+      note: 'Product-aware: SHORT — promise + strong proof + why THIS one. Hard CTA + urgency.',
+    },
+    '5': {
+      blocks: [2, 6],
+      cta: 'hard',
+      urgency: true,
+      note: 'Most aware: VERY short — just the nudge. Keep PROMESSA to a single line. Hard direct CTA + scarcity.',
+    },
+  };
+
+  const plan = LEVEL_PLAN[currentLevel] || LEVEL_PLAN['3']!;
+  // (1) Blocos adaptam à DURAÇÃO: ~40 palavras por bloco no mínimo. Se a copy é
+  // curta, corta os blocos menos essenciais (por prioridade) e mantém a ordem
+  // narrativa — copy curta = poucos blocos DESENVOLVIDOS, não 11 fragmentos.
+  const BLOCK_PRIORITY = [1, 4, 9, 5, 2, 12, 13, 10, 6, 7, 11, 3, 8];
+  const maxBlocks = Math.max(3, Math.min(plan.blocks.length, Math.round(wordCount / 40)));
+  const keep = new Set(
+    BLOCK_PRIORITY.filter((id) => plan.blocks.includes(id)).slice(0, maxBlocks)
+  );
+  const chosenBlocks = plan.blocks.filter((id) => keep.has(id));
+  // Arco LEVE (1 linha) — o EXEMPLO carrega a textura; o arco só dá a forma
+  // certa pro nível de consciência. Não é checklist rígido.
+  const arcTags = [
+    ...chosenBlocks.map((id) => BLOCKS[id]!.tag),
+    ...(plan.urgency ? ['URGÊNCIA'] : []),
+    'CTA',
+  ].join(' → ');
 
   const ctaByDestination: Record<string, string> = {
     Vídeo: 'watch the video / see how it works',
@@ -405,119 +420,12 @@ YOU MUST:
     'Página de Captura': 'get the material / download now',
   };
 
-  const emotionGuidance: Record<string, string> = {
-    Frustração:
-      'Short, punchy sentences. Mirror the internal monologue of someone who has tried and failed. Vocabulary: stuck, tired, nothing works, done trying.',
-    Curiosidade:
-      'Open a loop early and hold it open until the mechanism reveal. Use incomplete thoughts and unexpected contrasts.',
-    'Medo de julgamento':
-      'Speak directly to the fear of how others perceive them. Normalize the vulnerability first, then reframe it.',
-    Confusão:
-      "Acknowledge the overwhelm upfront. Use contrast: 'You've heard X, but actually Y.' Simplify aggressively.",
-    Esperança:
-      'Future-paced language. Short glimpses of a better state. Warm and credible — not hyped.',
-    Alívio:
-      'Write as if the reader has been holding tension — this script is the exhale. Calm, clear, reassuring.',
-    'Desejo de reconhecimento':
-      'Acknowledge their effort and identity first. They want to be seen as capable and smart.',
-    Urgência: 'Active verbs. Present tense. No padding. Every sentence moves the reader forward.',
-    Ambição:
-      'Speak to a bigger version of themselves. Use specific outcomes, not vague transformation.',
-    'Desejo de controle':
-      "Frame around agency: 'You can', 'It's in your hands', 'You decide'. Avoid passive constructions.",
-    Exclusividade: "Language of rarity and selection. Not for everyone — and that's the point.",
-  };
-
-  const primaryEmotion = answers.primaryEmotion || '';
-  const emotionInstruction = emotionGuidance[primaryEmotion]
-    ? `\nEMOTION DIRECTION — ${primaryEmotion}:\n${emotionGuidance[primaryEmotion]}`
-    : primaryEmotion
-      ? `\nEMOTION DIRECTION: Write to actively trigger "${primaryEmotion}" in the reader. Use vocabulary, rhythm, and imagery that make them feel it — not just understand it.`
-      : '';
-
-  // UX14: few-shot examples + cultural PT-BR mode.
-  // Examples são injetados como referência de TOM e RITMO, não pra copiar.
-  // Cultural PT-BR só ativa quando lingua-alvo é português.
-  const targetLang: 'pt' | 'en' = isPortuguese(answers.language) ? 'pt' : 'en';
-  const inferredVertical: CopyVertical | undefined = inferVertical({
-    produto: answers.productName,
-    oferta: answers.productResult,
-    dorPrincipal: answers.painPoints || answers.situation,
-    audience: answers.audience,
-  });
-  // UX22: quando user marcou copies específicas (referenceCopyIds não vazio),
-  // App.tsx já filtrou a clientLibrary pra conter SÓ essas. Nesse caso
-  // aumentamos o count pra usar todas elas (até um teto razoável).
-  const clientLib = (answers.__clientCopyLibrary as CopyExample[]) || [];
-  const userExplicitlySelected = !!(answers.__manualSelection as boolean);
-  // UX23-F: similarity slider 0-100. Default 65 (medium-strong).
-  const similarityRaw = Number(answers.__referenceSimilarity);
-  const referenceSimilarity =
-    Number.isFinite(similarityRaw) && similarityRaw >= 0 && similarityRaw <= 100
-      ? similarityRaw
-      : 65;
-  // Buckets:
-  //   0-25  → light (study tone, don't copy — original behavior)
-  //   26-50 → medium (mirror the FEEL, position at top)
-  //   51-75 → strong (mirror tight + style fingerprint)
-  //   76-100 → clone (fingerprint + voice indistinguishable)
-  type SimilarityBucket = 'light' | 'medium' | 'strong' | 'clone';
-  const bucket: SimilarityBucket =
-    referenceSimilarity <= 25
-      ? 'light'
-      : referenceSimilarity <= 50
-        ? 'medium'
-        : referenceSimilarity <= 75
-          ? 'strong'
-          : 'clone';
-
-  const fewShotExamples: CopyExample[] = selectCopyExamples({
-    language: targetLang,
-    vertical: inferredVertical,
-    awareness: currentLevel as AwarenessLevel,
-    angleHint: angle,
-    // Se user selecionou manualmente, usa todas (até 5). Senão, auto-pick 2.
-    count: userExplicitlySelected ? Math.min(5, clientLib.length) : 2,
-    clientLibrary: clientLib,
-  });
-
-  // UX23-D: extrair fingerprint só quando user marcou manualmente + bucket
-  // for strong/clone. Custa 1 call extra de Claude (~1s) mas eleva muito
-  // a fidelidade da imitação. Para light/medium pulamos pra economizar.
-  let styleFingerprint: string | null = null;
-  if (
-    userExplicitlySelected &&
-    (bucket === 'strong' || bucket === 'clone') &&
-    clientLib.length > 0
-  ) {
-    try {
-      styleFingerprint = await extractStyleFingerprint(clientLib);
-    } catch {
-      styleFingerprint = null;
-    }
-  }
-
-  // Log pra debug — App.tsx também loga, mas aqui temos o estado completo.
-  if (userExplicitlySelected) {
-    console.info(
-      `[copy-gen] manual reference: ${clientLib.length} copies | similarity=${referenceSimilarity}% (${bucket}) | fingerprint=${styleFingerprint ? 'extracted' : 'none'}`
-    );
-  }
-
   const culturalBlock =
     targetLang === 'pt'
-      ? `\n\nCULTURAL VOICE — PORTUGUÊS (BRASIL) — APPLY ONLY WHEN WRITING IN PORTUGUESE:
-- Use construções orais brasileiras: "presta atenção que vou te contar", "olha só", "saca só", "do nada", "de uma vez"
-- EVITE construções traduzidas-do-inglês: "você está prestes a descobrir", "no mundo de hoje", "neste universo", "uma jornada"
-- Prefira ritmo de fala, não de redação literária
-- Use "você" (não "tu", "vós" ou "tu" misturado)
-- Idiomatismos brasileiros são bem-vindos: "do tipo", "tipo assim", "saca?", "viu?", "né?", "olha aí"
-- Frases curtas. Vírgula > ponto-e-vírgula. Quebra de linha tem peso.
-- EVITE adjetivos genéricos: "incrível", "transformador", "revolucionário", "definitivo"
-- Especificidade > intensidade: "3 da manhã" > "muito tarde", "47 mil pessoas" > "milhares"`
+      ? `\nEscreva em português do Brasil NATURAL e falado, nunca traduzido-do-inglês ("você está prestes a descobrir", "no mundo de hoje", "uma jornada"). Frases curtas, ritmo de fala, "você".`
       : '';
 
-  const systemPrompt = `You are a senior direct-response copywriter specializing in Meta Ads, trained in Eugene Schwartz's five stages of awareness (Breakthrough Advertising). You write in the style of Gary Halbert, Stefan Georgi (RMBC), and Dan Kennedy — direct, specific, honest, oral cadence.
+  let systemPrompt = `You are a senior direct-response copywriter specializing in Meta Ads, trained in Eugene Schwartz's five stages of awareness (Breakthrough Advertising). You write in the style of Gary Halbert, Stefan Georgi (RMBC), and Dan Kennedy — direct, specific, honest, oral cadence.
 
 OUTPUT LANGUAGE:
 Write the entire script in: ${answers.language || 'Português (Brasileiro)'}
@@ -525,109 +433,93 @@ Every word must be in this language. If any input data is in a different languag
 
 Respond ONLY with valid JSON. No markdown, no preamble.`;
 
-  // UX14/UX23: bloco de exemplos few-shot. Texto e força do bloco escalam
-  // conforme o bucket de similaridade (slider 0-100).
-  //
-  //   light  → "study TONE — don't copy" (comportamento antigo, baixa influência)
-  //   medium → "mirror the FEEL" (mais firme)
-  //   strong → "mirror voice tightly + fingerprint" (alta influência)
-  //   clone  → "voice must be indistinguishable" (máxima)
-  //
-  // O bloco só é construído quando há pelo menos 1 exemplo. Se o user não
-  // selecionou nada manualmente, força bucket='light' (comportamento legado).
-  const effectiveBucket: 'light' | 'medium' | 'strong' | 'clone' = userExplicitlySelected
-    ? bucket
-    : 'light';
+  // CONTEXT enxuto: só os campos PREENCHIDOS, rótulo + valor, sem coaching.
+  const ctxLines = [
+    `Language: ${answers.language || 'Português (Brasileiro)'}`,
+    `Awareness level: ${currentLevel}/5 — ${plan.note}`,
+    answers.audience && `Audience: ${answers.audience}`,
+    (answers.situation || answers.painPoints) &&
+      `Pain/situation: ${answers.situation || answers.painPoints}`,
+    answers.mainObjection && `Main objection: ${answers.mainObjection}`,
+    answers.hiddenDesire && `Hidden desire: ${answers.hiddenDesire}`,
+    (answers.emotionalDriver || '').toString().trim() &&
+      `Real emotional driver (read from the VSL — what truly moves this buyer): ${answers.emotionalDriver}`,
+    answers.productName && `Product: ${answers.productName}`,
+    answers.productResult && `Promised result: ${answers.productResult}`,
+    answers.uniqueMechanism && `Unique mechanism: ${answers.uniqueMechanism}`,
+    (answers.narrator || '').toString().trim() &&
+      `Narrator (the voice): ${(answers.narrator || '').toString().trim()}`,
+  ]
+    .filter(Boolean)
+    .join('\n');
 
-  const blockHeaders: Record<typeof effectiveBucket, string> = {
-    light: 'REFERENCE EXAMPLES (study the TONE, RHYTHM, SPECIFICITY — do NOT copy text or claims)',
-    medium:
-      'STYLE REFERENCE — MIRROR THIS FEEL (these are the voice we want; match cadence, sentence length, openings, and energy)',
-    strong:
-      'STYLE ANCHOR (PRIMARY DIRECTIVE) — Mirror the voice tightly. The output should feel like the SAME WRITER wrote both copies. Match: sentence rhythm, vocabulary register, opening style, transitions, and emotional temperature. Do NOT reuse claims/numbers — but DO reuse stylistic patterns.',
-    clone:
-      'VOICE CLONE (HIGHEST DIRECTIVE) — Your output must be INDISTINGUISHABLE in voice from the reference below. Match every stylistic move: sentence cadence, vocabulary, idioms, rhythm tricks, opening pattern, and emotional temperature. The reader should not be able to tell which copy is yours and which is the reference. Only the topic/product/numbers change.',
-  };
+  // O PAPEL DO ANÚNCIO depende da estratégia (campo 9). Curiosidade (padrão) =
+  // isca de clique, NÃO vendedor; quem vende e desenvolve o medo é a VSL.
+  const isDirectSale = (answers.copyStrategy || '') === 'direct-sale';
+  const adJob = isDirectSale
+    ? `--- THE AD'S JOB ---
+This ad goes straight to a sales page — it MAY present the product, the mechanism, the proof and the offer, and make the sale here.`
+    : `--- THE AD'S JOB (read this FIRST — it overrides everything else) ---
+This ad's ONLY job is to earn the CLICK into the video. The VIDEO sells and develops the deeper argument and fear (e.g. dependence on the system, what's coming) — the AD does NOT. So:
+- Do NOT explain how it works, the science/proof, or how to build/get it. Do NOT "make the case" or sell. Doing any of that here removes the reason to click.
+- Open a CURIOSITY GAP + a tension the reader needs resolved, then send them to the video for the answer. HINT the deeper fear; don't argue it.
+- You may name the curiosity hook as the thing to DISCOVER, but build a little intrigue first — do NOT dump it in the very first sentence.
+- Keep it TIGHT and intriguing — a teaser, not a mini-VSL. End on the click.`;
 
-  const blockFooter: Record<typeof effectiveBucket, string> = {
-    light: 'Match the FEEL, not the content.',
-    medium: 'Match the cadence and energy. Topic + numbers come from CONTEXT below.',
-    strong:
-      'The CONTEXT section below provides the topic, claims, and numbers. The STYLE comes from above. If they conflict, voice wins.',
-    clone:
-      'Voice imitation is the #1 priority. The CONTEXT below provides facts to substitute in. If a beat instruction conflicts with the voice, soften the beat — never the voice.',
-  };
-
-  const referenceBlock =
-    fewShotExamples.length > 0
-      ? `--- ${blockHeaders[effectiveBucket]} ---
-
-${fewShotExamples
-  .map(
-    (e, i) => `EXAMPLE ${i + 1} [${e.vertical} · awareness ${e.awareness} · ${e.angle}]:
-"""
-${e.script}
-"""
-Why this works: ${e.whyItWorks}`
-  )
-  .join('\n\n')}
-
-${blockFooter[effectiveBucket]}${styleFingerprint ? `\n\n${styleFingerprint}` : ''}
-`
-      : '';
-
-  // UX23-B: reposicionar o bloco de referência. Quando user selecionou
-  // manualmente E bucket >= medium, o bloco vai pro TOPO antes do CONTEXT
-  // (modelo prioriza o que vê primeiro). Pra light, mantém posição
-  // original no meio do prompt (menos disruptivo).
-  const positionReferenceAtTop =
-    userExplicitlySelected && effectiveBucket !== 'light' && referenceBlock.length > 0;
-  const topReferenceBlock = positionReferenceAtTop ? `${referenceBlock}\n` : '';
-  const inlineReferenceBlock = positionReferenceAtTop ? '' : referenceBlock;
-
-  const userPrompt = `Write a Meta Ads video script. Follow every instruction precisely.
-${topReferenceBlock}
+  let userPrompt = `Write a short, intriguing Meta Ads video script. Follow every instruction precisely.
+${adJob}
+${exampleBlock}
 --- CONTEXT ---
-Language: ${answers.language || 'Português (Brasileiro)'}
-Awareness level: ${currentLevel} / 5
-Audience: ${answers.audience || ''}
-Core pain / situation: ${answers.situation || answers.painPoints || ''}
-Main objection (anticipate and dissolve this in the copy): ${answers.mainObjection || '(none provided)'}
-Hidden desire (the deeper want — connect transformation to this, not just surface result): ${answers.hiddenDesire || '(none provided)'}
-Product: ${answers.productName || ''}
-Promised result: ${answers.productResult || ''}
-Unique mechanism: ${answers.uniqueMechanism || ''}
-${inlineReferenceBlock}
---- CREATIVE DIRECTION ---
-Ad style: ${answers.estiloAnuncio || 'Direto ao Ponto'}
-Apply this style to the tone, rhythm, and sentence structure throughout the script.
+${ctxLines}
+${
+  (answers.innovativeProductName || '').toString().trim().length > 0
+    ? `Named curiosity hook — the "innovative discovery" the video is about. Refer to it by THIS exact name to spark intrigue (the way "the yellow vitamin" or "the banana trick" does), but NEVER explain what it actually is or how it works — that payoff lives only in the video. The NAME is a teaser, not a spoiler: naming it is encouraged, explaining it is forbidden.\nName: "${(answers.innovativeProductName || '').toString().trim()}"`
+    : ''
+}${
+  (answers.statistics || '').toString().trim().length > 0
+    ? `\nGROUNDED STATISTICS — facts the user supplied. These (together with any numbers already in the product source above) are the ONLY statistical or numeric claims you may state as fact. Weave them in where they strengthen the cause, the escalation, or the proof. Keep each number EXACT as given (do NOT round "48,217" to "nearly 50,000"). If an attribution/source is included with a number, attribute it that way; if none is given, state it plainly — never invent an institution to make it sound credible. Do NOT invent, extrapolate, or "improve" any statistic beyond what is here or in the source:\n"""\n${(answers.statistics || '').toString().trim()}\n"""`
+    : ''
+}
 
-Angle: ${angle || 'Direto'}
-The opening sentence and the main argument must be built around this angle. It is the through-line of the entire script.
-${emotionInstruction}
+--- DRIVER (the real emotional engine of THIS offer) ---
+Agitate the "Real emotional driver" from the context above (read from the VSL) — that is what TRULY moves this buyer. If it wasn't given, infer it from the context. Different offers run on different drivers (a present pain, a deep desire, a fear of what could happen, the wish for autonomy/control/status/belonging, etc.); use the one THIS offer really leans on, don't assume a past personal hardship unless the source shows that.
 
---- BEAT STRUCTURE ---
-Write each beat in sequence. Do not skip or merge beats. Include the beat label in the output (e.g. [REVELAÇÃO]).
+--- ANGLE ---
+Angle: ${angle || 'Direto'} — the through-line of the whole ad.
 
-${beatStructure}
-${vslGuard}
+--- ARC (loose guide — the EXAMPLE above shows the texture to hit) ---
+Write ONE continuous, flowing advertorial — not an outline, no labels/brackets/beat-names. Rough flow for this level (a guide, not a checklist): ${arcTags}.
+VOICE: vivid and concrete; the first line IS the claim (no secondhand "podcast/overheard" device); never invent statistics. POV: ${povRule} CTA for this level: ${CTA[plan.cta]}
 
---- WORD COUNT ---
-Target: ${wordCount} words (±5 words max). Count words excluding beat labels in brackets.
-Do not pad or extend. If over, cut — do not summarize.
+--- LENGTH ---
+Aim for about ${wordCount} words. Prioritize a strong, complete, vivid ad over hitting the number exactly; do not pad.
 
 --- OUTPUT ---
 Respond with ONLY this JSON:
-{ "script": "full script text with beat labels included" }
+{ "script": "the full ad copy as ONE flowing text — NO labels, NO brackets, NO beat names" }
 
---- PROHIBITED ---
-- Invented characters ("a woman", "one client", "a teacher who...")
-- Deadlines not in the brief ("in 30 days", "in 7 days")
-- Unsourced claims ("studies show", "experts say", "research proves")
-- Cliché phrases: "transform your life", "discover the secret", "this will change everything", "revolutionary", "life-changing", "game-changer"
-- Default narrative openers like "I was listening to a podcast and...", "the other day I heard...", "a friend told me..." — these are CLICHÉS, not stories. Open with concrete sensory imagery or a counterintuitive claim instead.
-- Vague destination descriptors ("a short video", "a quick presentation", "an audio") UNLESS the user's destination description explicitly says so.
+--- FIREWALL (inviolable) ---
+- No price, installments, payment, guarantee, refund, or checkout — those live at the destination (levels 4-5 may use a strong CTA + real urgency only, never price).
+- Never reveal the EXACT identity of the solution, the brand/product name, or the protocol/dose — that payoff is the destination's.
+- The CONTEXT/inputs may CONTAIN the payoff — the price, the exact mechanism, or specs (e.g. "60 gallons a day", "$200 in parts", how to build/get it). Do NOT repeat these in the ad: only TEASE that they exist ("for the price of a nice dinner", "with parts most people already have") and send the reader to the destination for the reveal. Stating the price/specs/how-to outright kills the curiosity and the click. (Only an explicit direct-sale ad may state price.)
+- Invent NOTHING: no fake statistics, testimonials, named people, characters, or deadlines. Any number must come from the input / GROUNDED STATISTICS (no "studies show"). Prefer a generic authority anchor ("researchers in Sweden") over naming a specific institution, unless it came from the source.
+- Never name a competitor medication or drug (brand OR generic — gabapentin, Lyrica, Ozempic, etc.); Meta auto-rejects these. Use a generic category ("the usual painkillers") UNLESS the user listed it in REQUIRED TERMS below.
+- Villain only as a generic category ("big pharma", "the painkiller industry") — never a specific company or drug brand.
+- Disease only as an association ("linked to", "higher risk of"), and only if factual — never tell the reader they have or will get a disease.
+- Organic framing: never admit it is an ad/VSL; to the reader it is just "a video" someone shared. Skip clichés ("transform your life", "revolutionary", "game-changer").
 ${
+  (answers.mandatoryTerms || '').toString().trim().length > 0
+    ? `\nREQUIRED TERMS (each of these MUST appear in the output, verbatim, woven in naturally — do not dump them all into one sentence):\n${(
+        answers.mandatoryTerms || ''
+      )
+        .toString()
+        .split(/[,\n;]/)
+        .map((s: string) => s.trim())
+        .filter(Boolean)
+        .map((s: string) => `- "${s}"`)
+        .join('\n')}\n`
+    : ''
+}${
   (answers.avoidList || '').toString().trim().length > 0
     ? `\nUSER-SPECIFIED AVOID LIST (these MUST NEVER appear in the output):\n${(
         answers.avoidList || ''
@@ -651,10 +543,93 @@ ${(answers.destinationDescription || '').toString().trim()}
 Refer to the destination using ONLY the language above (or a natural translation/paraphrase). Do not call it a "podcast", "short video", "quick presentation", "audio", "course", "book", or any other format the user did not name. If the user called it an "encontro", "conversa", "live", "webinar" etc — use exactly that vocabulary.`
     : `Required phrasing for "${answers.clickDestination || 'Vídeo'}": ${ctaByDestination[answers.clickDestination || 'Vídeo'] || 'watch the video'}
 Use this phrasing or a natural variation in the output language.`
+}`;
+
+  // ─── MODO VSL ──────────────────────────────────────────────────────────────
+  // Roteiro LONGO cinematográfico (até ~1h) em BLOCOS de ~2 min. Ao contrário do
+  // anúncio, a VSL É o destino: ela desenvolve o argumento, revela o mecanismo e
+  // o produto, e VENDE. Cada bloco ~290 palavras (~2 min a ~150 ppm) para o
+  // pipeline gravar/renderizar em trechos.
+  if (creativeType === 'vsl') {
+    const vslBlocks = Math.max(4, Math.round(wordCount / 290));
+    systemPrompt = `You are a senior long-form VSL (Video Sales Letter) scriptwriter, trained in Stefan Georgi's RMBC method and Eugene Schwartz's five stages of awareness. You write cinematic sales narration meant to be read aloud as a voiceover over b-roll footage (there is NO on-screen presenter) — direct, specific, emotionally alive, oral cadence.
+
+OUTPUT LANGUAGE:
+Write the entire script in: ${answers.language || 'Português (Brasileiro)'}
+Every word must be in this language. If any input data is in a different language, translate it naturally before using it.${culturalBlock}
+
+Respond ONLY with valid JSON. No markdown, no preamble.`;
+
+    userPrompt = `Write a COMPLETE long-form VSL script (voiceover narration for a cinematic sales video). Follow every instruction precisely.
+
+--- WHAT THIS IS ---
+This is the VSL ITSELF — the full sales video, not a teaser ad. Unlike a short ad, it MAY and SHOULD develop the full argument: reveal the unique mechanism, explain how it works, present the product and the offer, handle objections, and drive the sale. It is narrated as a continuous voiceover over b-roll (no presenter on camera), so write for the EAR: spoken rhythm, short sentences, vivid concrete images.
+${exampleBlock}
+--- CONTEXT ---
+${ctxLines}
+${
+  (answers.innovativeProductName || '').toString().trim().length > 0
+    ? `Named curiosity hook — the "innovative discovery" the video is about: "${(answers.innovativeProductName || '').toString().trim()}". Use this name to build intrigue early, then PAY IT OFF later in the script (unlike an ad, the VSL delivers the answer).`
+    : ''
+}${
+  (answers.statistics || '').toString().trim().length > 0
+    ? `\nGROUNDED STATISTICS — the ONLY numeric/statistical claims you may state as fact (together with numbers already in the source). Keep each number EXACT; never invent an institution:\n"""\n${(answers.statistics || '').toString().trim()}\n"""`
+    : ''
 }
 
---- REPETITION LIMITS ---
-Product name: max 2 mentions. Core pain term: max 3 mentions (use synonyms after).`;
+--- DRIVER (the real emotional engine of THIS offer) ---
+Agitate the "Real emotional driver" from the context (read from the VSL) — what TRULY moves this buyer. If not given, infer from context. Different offers run on different drivers; use the one THIS offer really leans on.
+
+--- ANGLE ---
+Angle: ${angle || 'Direto'} — the through-line of the whole VSL.
+
+--- CTA / OFFER (how the VSL closes) ---
+This VSL SELLS the product inside the video and closes on the OFFER. The final block must drive the viewer to ACT on the offer NOW — a confident, direct call to click the offer button and get access (e.g. "clique no botão abaixo e garanta seu acesso agora"). ${
+  (answers.destinationDescription || '').toString().trim().length > 0
+    ? `The offer/destination the CTA points to (use it faithfully — do NOT invent format details):\n"""\n${(answers.destinationDescription || '').toString().trim()}\n"""`
+    : 'No destination described — close on a clear "click the button below and secure your access / your spot" toward the product offer.'
+} Do NOT end on "watch a video" (this IS the video) — end on the purchase/enrollment action. You MAY reference the offer, what they get, and honest urgency/scarcity in the close (price/guarantee only if given in the context).
+
+--- STRUCTURE (the full VSL arc — narrate it continuously, no bracketed labels inside the prose) ---
+Move through this arc across the blocks: (1) HOOK/LEAD — a pattern-interrupt opening that stops the scroll and names the big promise or the intrigue; (2) STORY/EMPATHY — meet the person and the stakes, build identification; (3) THE PROBLEM & THE ENEMY — agitate the driver, name the real villain (a generic category); (4) THE EPIPHANY / UNIQUE MECHANISM — the turning point and WHY this works when other things failed; (5) HOW IT WORKS — make the mechanism clear and believable; (6) PROOF & CREDIBILITY — evidence, only real/grounded; (7) THE PRODUCT & THE OFFER — introduce it plainly, what they get; (8) OBJECTIONS — dissolve the top hesitations; (9) CLOSE — clear CTA with honest urgency.
+VOICE: vivid and concrete; the first line IS the hook; never invent statistics. POV: ${povRule}
+
+--- LENGTH & BLOCKS ---
+Write approximately ${wordCount} words total, split into ${vslBlocks} blocks of roughly ${Math.round(wordCount / vslBlocks)} words each (~2 minutes of narration per block). Separate each block with a line containing ONLY:
+=== BLOCO N ===
+(where N is 1, 2, 3 …). Each block should end at a natural breath/beat, not mid-sentence. Do NOT put any other labels, brackets or beat-names inside the prose.
+
+--- OUTPUT ---
+Respond with ONLY this JSON:
+{ "script": "the full VSL narration, with the === BLOCO N === separators between blocks and NO other labels" }
+
+--- FIREWALL (inviolable) ---
+- Invent NOTHING: no fake statistics, testimonials, named people, or deadlines. Any number must come from the input / GROUNDED STATISTICS (no "studies show"). Prefer a generic authority anchor ("researchers in Sweden") over naming a specific institution, unless it came from the source.
+- Never name a competitor medication or drug (brand OR generic — gabapentin, Lyrica, Ozempic, etc.); use a generic category ("the usual painkillers") UNLESS listed in REQUIRED TERMS below.
+- Villain only as a generic category ("big pharma", "the painkiller industry") — never a specific company or drug brand.
+- Disease only as an association ("linked to", "higher risk of"), and only if factual — never tell the viewer they have or will get a disease.
+- Skip clichés ("transform your life", "revolutionary", "game-changer").${
+  (answers.mandatoryTerms || '').toString().trim().length > 0
+    ? `\n\nREQUIRED TERMS (each MUST appear verbatim, woven in naturally):\n${(answers.mandatoryTerms || '')
+        .toString()
+        .split(/[,\n;]/)
+        .map((s: string) => s.trim())
+        .filter(Boolean)
+        .map((s: string) => `- "${s}"`)
+        .join('\n')}`
+    : ''
+}${
+  (answers.avoidList || '').toString().trim().length > 0
+    ? `\n\nUSER-SPECIFIED AVOID LIST (these MUST NEVER appear):\n${(answers.avoidList || '')
+        .toString()
+        .split(/[,\n;]/)
+        .map((s: string) => s.trim())
+        .filter(Boolean)
+        .map((s: string) => `- "${s}"`)
+        .join('\n')}`
+    : ''
+}`;
+  }
 
   // UX25-A4: modo rascunho usa Sonnet 4.6 (mais rápido, ~5x mais barato).
   // Triggered por flag __draftMode no answers (não persiste).
@@ -678,7 +653,15 @@ Product name: max 2 mentions. Core pain term: max 3 mentions (use synonyms after
     }
   }
 
-  const maxTokens = Math.max(1500, wordCount * 8);
+  // max_tokens precisa cobrir o TEXTO (~wordCount*8 tokens + overhead do JSON)
+  // MAIS o adaptive thinking do Opus, que conta no MESMO budget e roda em
+  // effort 'high' (servidor) — pensa muito. Sem folga pro thinking, copies
+  // longas (3-5min) cortavam no meio. max_tokens é TETO, não alvo: subir não
+  // aumenta latência se a saída não cresce, então damos folga generosa.
+  // A geração principal usa streaming (sem risco de timeout em budget alto).
+  const textBudget = wordCount * 10 + 2000;
+  const thinkingHeadroom = useThinking ? 14000 : 2000;
+  const maxTokens = Math.max(20000, textBudget + thinkingHeadroom);
   const raw = onToken
     ? await streamClaude(systemPrompt, userPrompt, onToken, {
         maxTokens,
@@ -746,16 +729,26 @@ export const chooseHooksFromCopy = async (
   approvedCopy: string,
   awarenessLevel: string,
   candidateHooks: any[],
-  context?: HookSelectionContext
+  context?: HookSelectionContext,
+  language?: string
 ): Promise<{ grupos: any[] } | null> => {
   if (!candidateHooks || candidateHooks.length === 0) return null;
   if (!approvedCopy) return null;
+
+  // O idioma do campo "filled" (o hook pronto que aparece na tela) precisa
+  // seguir a copy. Sem isso, o prompt inteiro em PT fazia a IA devolver hooks
+  // em português mesmo quando a copy estava em inglês.
+  const targetLang: 'pt' | 'en' = isPortuguese(language) ? 'pt' : 'en';
+  const langNote =
+    targetLang === 'pt'
+      ? '\nIDIOMA: Os hooks preenchidos (campo "filled") devem sair em português brasileiro.'
+      : '\nLANGUAGE: The filled hook texts (field "filled") MUST be in English, matching the approved copy — never output Portuguese in the "filled" field.';
 
   const systemPrompt = `Você é um especialista em copywriting para Meta Ads. Você tem 2 tarefas:
 1. Selecionar hooks que combinem com a copy aprovada, o nível de consciência da audiência, e — quando fornecidos — o ângulo do criativo e a dor da persona-alvo.
 2. PREENCHER os placeholders (___, [topic], [pain], etc) de cada hook selecionado usando o contexto fornecido (produto, persona, ângulo, copy). O resultado deve ser um hook FALÁVEL e PRONTO, não um template.
 
-Hooks devem soar como abertura natural da copy, não introdução genérica. Responda APENAS em JSON válido sem markdown.`;
+Hooks devem soar como abertura natural da copy, não introdução genérica. Responda APENAS em JSON válido sem markdown.${langNote}`;
 
   // Bloco opcional de contexto rico. Só montado quando ao menos 1 campo
   // não-vazio é fornecido — evita poluir o prompt em fluxos legacy.
@@ -820,7 +813,7 @@ REGRAS DE PREENCHIMENTO DOS PLACEHOLDERS (campo "filled"):
    - Comprimento de hook real (5-25 palavras)
    - Sem placeholders restantes (zero "___", zero "[...]")
    - Sem aspas envolvendo o texto inteiro
-   - Mesma língua do CONTEXTO/COPY (PT ou EN), não traduza
+   - ${targetLang === 'en' ? 'Write the filled text in ENGLISH (same language as the approved copy) — do NOT translate to Portuguese' : 'Escreva o texto preenchido em português (mesma língua da copy) — não traduza'}
 9. Use detalhes ESPECÍFICOS do produto/persona, não genéricos. Se a dor é
    "neuropatia nos pés", não use "essa dor" — use "queimação nos pés".
 10. Mantenha o ESPÍRITO do template original (curiosidade, contraste, etc)
@@ -1000,6 +993,22 @@ FORMATO (JSON apenas):
 export const discoverPersonaWithClaude = async (answers: Record<string, any>): Promise<any> => {
   const systemPrompt = `Você é um especialista em marketing direto, copywriting e segmentação de Meta Ads. Você cria perfis ricos de cliente ideal (3 personas: principal, secundária, terciária) baseado em informações sobre o produto. Você infere dor, desejo, objeção e nível de consciência a partir do contexto. Responda APENAS em JSON válido sem markdown.`;
 
+  const strategyMethod = String(answers.strategyMethod || 'ia');
+  const strategyCustom = String(answers.strategyCustom || '');
+  const methodBlock = (() => {
+    switch (strategyMethod) {
+      case 'baiano':
+        return `MÉTODO DE TESTE: "Baiano" — poucos criativos ÓTIMOS (3-7), cada um testado isolado em ~50 conjuntos a baixo orçamento. Por isso as personas devem ter ÂNGULOS BEM DISTINTOS entre si (nada de personas redundantes) e dor aguda/clara — cada persona vira um teste limpo. Concentre o peso: prefira distribuições como 0.65/0.30/0.05; marque terciária como isStretch se for especulação.`;
+      case 'metodo15':
+        return `MÉTODO DE TESTE: "Método 15" — ~15 criativos diversos rodando juntos. Gere 3 personas equilibradas e complementares que sustentem volume e diversidade de ângulos.`;
+      case 'custom':
+        return `MÉTODO DE TESTE descrito pelo cliente (respeite ao definir personas e pesos): "${strategyCustom.slice(0, 800)}"`;
+      case 'ia':
+      default:
+        return `MÉTODO DE TESTE: a definir pela IA — escolha a distribuição de personas e pesos que melhor converte para ESTE produto.`;
+    }
+  })();
+
   const userPrompt = `Com base nas informações abaixo sobre um produto, gere 3 PERSONAS DIFERENTES (principal, secundária, terciária), priorizadas por probabilidade de conversão em Meta Ads.
 
 INFORMAÇÕES DO PRODUTO:
@@ -1025,6 +1034,8 @@ REGRAS:
 - Awareness 1=Inconsciente, 2=Consciente do problema, 3=Consciente da solução, 4=Consciente do produto, 5=Muito consciente.
 - Inferir dor, desejo, medo e objeção mesmo sem o usuário ter dito explicitamente.
 - Ângulo de vídeo deve ser concreto, não genérico.
+
+${methodBlock}
 
 ⚠️ ATENÇÃO — CAMPOS NOVOS DE CONFIDENCE (críticos pra distribuição de criativos):
 - "confidence" (0.0-1.0): quão FORTE a fonte sustenta essa persona.
@@ -1118,9 +1129,15 @@ export interface ProductInfo {
   productName: string;
   category: string;
   offer: string;
+  /** Preço como aparece no material (ex: "R$97/mês"). '' se não houver. */
+  priceInfo?: string;
+  /** 'recorrente' | 'unico' | '' — modelo de cobrança detectado. */
+  billingType?: string;
   promise: string;
   mainPain: string;
   secondaryPains: string[];
+  /** Motor emocional real desta oferta, lido da VSL (medo/autonomia/desejo/etc.). */
+  emotionalDriver?: string;
   benefits: string[];
   audience: string;
   awarenessLevel: string;
@@ -1140,6 +1157,8 @@ export async function personaFromProduct(input: {
     differentials: string[];
     triedBefores: string[];
     payingCapacities: string[];
+    payingRecurring?: string[];
+    billingModels?: string[];
     hiddenDesires: string[];
     languages: string[];
     ageBuckets: string[];
@@ -1179,287 +1198,101 @@ export async function extractProductInfo(input: {
 }
 
 // ─────────────────────────────────────────────
-// 7. PLANO DE MARKETING (Andromeda-aware)
+// 7. PLANO DE CRIATIVOS (guia-da-copy)
 // ─────────────────────────────────────────────
-export interface MarketingPlan {
-  summary: string;
-  creativeVolume: {
-    totalCreatives: number;
-    rationale: string;
-    perAudience: number;
-  };
-  hookMix: Array<{
-    angle: string;
-    count: number;
-    example: string;
-    awarenessLevel: string;
-    rationale: string;
-  }>;
-  awarenessCoverage: Array<{
-    level: string;
-    creativeCount: number;
-    approach: string;
-  }>;
-  durations: Array<{
-    length: string;
-    purpose: string;
-    count: number;
-  }>;
-  adStructure: {
-    campaigns: number;
-    adSets: number;
-    creativesPerAdSet: number;
-    rationale: string;
-  };
-  budget: {
-    dailyMin: number;
-    dailyRecommended: number;
-    rationale: string;
-  };
-  iterationPlan: {
-    testDays: number;
-    killThreshold: string;
-    scaleThreshold: string;
-    iterationFrequency: string;
-  };
-  andromedaTips: string[];
-  nextSteps: string[];
+/** Leitura de consciência por persona devolvida pelo backend (deduzida das
+ *  respostas — ninguém escolhe nível num dropdown). */
+export interface AwarenessReadout {
+  personaId: string;
+  personaName: string;
+  principal: CreativeBrief['awareness'];
+  secundarios: CreativeBrief['awareness'][];
+  motivo: string;
 }
 
-export async function generateMarketingPlan(input: {
-  productInfo?: any;
-  persona?: any;
-  copyAnswers?: any;
-}): Promise<MarketingPlan> {
-  // Legacy helper — used by callers that only care about the macro plan,
-  // not the briefs. Internally calls the same endpoint as the new
-  // blueprint helper but discards `briefs`. Kept for back-compat with
-  // PlanTab v1 until v2 ships.
-  const response = await fetch('/api/claude/marketing-plan', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
-  });
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`Marketing plan error: ${err}`);
-  }
-  const data = await response.json();
-  if (!data.success) throw new Error(data.error || 'Erro ao gerar plano de marketing.');
-  return data.plan;
+export interface CreativePlanResult {
+  briefs: CreativeBrief[];
+  awareness: AwarenessReadout[];
+  numCreatives: number;
+  structure: 'cbo' | 'abo';
+  cpaWarning: string | null;
 }
+
+// Duração-alvo padrão por nível de consciência (segundos). Menos consciente =
+// mais tempo pra educar; quase-comprando = curto e direto. (Default editável
+// depois, na engine de copy — aqui só preenche o brief.)
+const DURATION_BY_AWARENESS: Record<string, CreativeBrief['durationTarget']> = {
+  unaware: 180,
+  problem_aware: 120,
+  solution_aware: 90,
+  product_aware: 60,
+  most_aware: 30,
+};
 
 /**
- * Blueprint = macro plan + N creative briefs in one call. The endpoint
- * runs the expanded prompt that distributes briefs proportionally to
- * the weights of the SELECTED personas.
- *
- * Typical use from the v2 PlanTab:
- *   const { plan, briefs } = await generateMarketingBlueprint({
- *     productInfo,
- *     personas: weightedPersonas,
- *     selectedPersonaIds: ['p1', 'p2'],   // optional — defaults to all
- *     copyAnswers,
- *     targetCount: 15,                      // default 15 per Andromeda
- *   });
+ * Gera o PLANO DE CRIATIVOS (guia-da-copy): número = orçamento/dia ÷ custo por
+ * criativo, distribuído entre as personas (pelos pesos) e os níveis de
+ * consciência (deduzidos no backend). Cada brief sai enxuto — persona · nível ·
+ * ângulo — e aqui preenchemos os defaults que o resto do app (pós-plano) lê.
+ * SEM hook nesta fase: a abertura é escrita depois, na engine de copy.
  */
-export async function generateMarketingBlueprint(input: {
-  productInfo?: any;
-  personas: any[]; // WeightedPersona[]
-  selectedPersonaIds?: string[];
-  copyAnswers?: any;
-  targetCount?: number; // defaults server-side to 15
-}): Promise<{ plan: any; briefs: any[] }> {
-  const response = await fetch('/api/claude/marketing-plan', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
-  });
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`Blueprint error: ${err}`);
-  }
-  const data = await response.json();
-  if (!data.success) {
-    throw new Error(data.error || 'Erro ao gerar blueprint de marketing.');
-  }
-  return {
-    plan: data.plan,
-    briefs: Array.isArray(data.briefs) ? data.briefs : [],
-  };
-}
-
-// ─────────────────────────────────────────────
-// UX28-D — MONTHLY PLAN GENERATOR (post-processing layer)
-// ─────────────────────────────────────────────
-/**
- * Gera plano mensal calibrado. Por baixo dos panos chama o mesmo
- * generateMarketingBlueprint do backend (que produz N briefs via
- * persona-aware analysis), mas:
- *
- *   1) Passa monthlyTotal como targetCount
- *   2) Pós-processa cada brief atribuindo weekIndex (1-4) conforme
- *      cadência calibrada
- *   3) Atribui scriptLength conforme distribuição calibrada
- *   4) Marca os primeiros N briefs como modeledFromRefCopyId (round-
- *      robin entre as refs selecionadas)
- *
- * Não precisa de endpoint backend novo — é só uma camada de
- * organização. O modelo já gera angles diversos; a gente distribui
- * eles em semanas e marca quais devem clonar referências.
- */
-export interface MonthlyPlanInputs {
+export async function generateCreativePlan(input: {
   productInfo?: any;
   personas: any[];
   selectedPersonaIds?: string[];
   copyAnswers?: any;
-  /** Output do calibrateMonthlyPlan — quantos por semana, dist de tamanho, etc */
-  calibrated: {
-    monthlyTotal: number;
-    lengthDistribution: { short: number; medium: number; long: number };
-    weeklyTargets: { week1: number; week2: number; week3: number; week4: number };
-    modelingIntensity: number;
-  };
-  /** IDs das copies pra modelar (round-robin entre os modeling briefs) */
-  modelReferenceCopyIds: string[];
-  /** UX29: contexto estratégico — budget/CPA/preço/strategy. Vai pro copyAnswers
-   *  pra o backend (e o Claude) saber otimizar os angles/hooks pra o caso real. */
-  strategicContext?: {
-    productPrice: number;
-    idealCPA: number;
-    dailyBudgetUsd: number;
-    volumeStrategy: 'conservative' | 'modern' | 'aggressive';
-    profile: 'newcomer' | 'scaling' | 'serious' | 'agency';
-  };
-}
+  dailyBudget: number;
+  targetCpa: number;
+  productPrice: number;
+  structure: 'cbo' | 'abo';
+  costPerCreative: number;
+  /** Quantos criativos o usuário quer (manda sobre o recomendado). */
+  desiredCount?: number;
+}): Promise<CreativePlanResult> {
+  const response = await fetch('/api/claude/marketing-plan', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Plano de criativos error: ${err}`);
+  }
+  const data = await response.json();
+  if (!data.success) throw new Error(data.error || 'Erro ao gerar plano de criativos.');
 
-export async function generateMonthlyPlan(input: MonthlyPlanInputs): Promise<{
-  plan: any;
-  briefs: any[];
-}> {
-  const { calibrated, modelReferenceCopyIds, strategicContext } = input;
-  const N = Math.max(4, calibrated.monthlyTotal);
-
-  // UX29 fix: cap Claude generation a ~25 briefs únicos pra caber no
-  // max_tokens=12000 do backend. Volumes maiores são preenchidos com
-  // VARIAÇÕES dos base briefs (mesmo conceito, hook/CTA diferentes).
-  //
-  // Isso espelha a prática real: top affiliates não geram 139 conceitos
-  // únicos — geram 20-30 conceitos vencedores e produzem 5-10 variações
-  // de cada. Variações são marcadas com derivedFromBriefId pro tracking.
-  const MAX_UNIQUE_BRIEFS = 25;
-  const baseBriefCount = Math.min(N, MAX_UNIQUE_BRIEFS);
-
-  // UX29: enriquece copyAnswers com contexto estratégico — backend pode
-  // ou não usar, mas mantém o dado fluindo. Se o Claude prompt do
-  // /marketing-plan ler estes campos, ele pode adaptar angles/hooks
-  // (ex: budget baixo → ângulos seguros; CPA exigente → menos experimentação)
-  const enrichedCopyAnswers = strategicContext
-    ? {
-        ...(input.copyAnswers || {}),
-        __strategicContext: strategicContext,
-        // Surface campos diretamente também — caso o backend filtre __campos
-        budgetDailyUsd: strategicContext.dailyBudgetUsd,
-        targetCpa: strategicContext.idealCPA,
-        productPrice: strategicContext.productPrice,
-        volumeStrategy: strategicContext.volumeStrategy,
-      }
-    : input.copyAnswers;
-
-  // 1) Gera baseBriefCount briefs únicos via blueprint
-  const { plan, briefs: rawBriefs } = await generateMarketingBlueprint({
-    productInfo: input.productInfo,
-    personas: input.personas,
-    selectedPersonaIds: input.selectedPersonaIds,
-    copyAnswers: enrichedCopyAnswers,
-    targetCount: baseBriefCount,
+  const rawBriefs: any[] = Array.isArray(data.briefs) ? data.briefs : [];
+  // O backend só devolve persona · nível · ângulo. Preenchemos os campos que
+  // ele não gera mais (hook/emotion/style/...) pra satisfazer CreativeBrief
+  // sem tocar no código pós-plano que lê esses campos.
+  const briefs: CreativeBrief[] = rawBriefs.map((b, i) => {
+    const awareness = (b.awareness || 'problem_aware') as CreativeBrief['awareness'];
+    const ctaStyle: CreativeBrief['ctaStyle'] =
+      awareness === 'most_aware' || awareness === 'product_aware' ? 'hard' : 'soft';
+    return {
+      id: b.id || `brief_${i + 1}`,
+      index: b.index || i + 1,
+      targetPersonaId: b.targetPersonaId || '',
+      targetPersonaName: b.targetPersonaName || '',
+      awareness,
+      angle: b.angle || '',
+      hook: '',
+      durationTarget: DURATION_BY_AWARENESS[awareness] || 90,
+      emotion: '',
+      style: '',
+      ctaStyle,
+      promiseFocus: '',
+      rationale: '',
+    };
   });
 
-  const briefs = rawBriefs.slice(0, baseBriefCount);
-
-  // 2) UX29: se monthlyTotal > base, preenche com variações dos base briefs.
-  //    Cada variação herda persona/awareness/angle/emotion do parent mas
-  //    recebe id próprio + derivedFromBriefId + suffix no índice/rationale.
-  //    O hook fica vazio — usuário (ou IA) preenche quando executar o brief.
-  if (briefs.length > 0 && N > briefs.length) {
-    const needed = N - briefs.length;
-    const variations: any[] = [];
-    for (let i = 0; i < needed; i++) {
-      const parent = briefs[i % briefs.length];
-      if (!parent) continue;
-      const variantNum = Math.floor(i / briefs.length) + 2; // v2, v3, v4...
-      variations.push({
-        ...parent,
-        id: `${parent.id}_var${variantNum}_${i}`,
-        index: briefs.length + i + 1,
-        derivedFromBriefId: parent.id,
-        hook: '', // será regenerado quando executar
-        rationale: `Variação ${variantNum} do #${parent.index} (${parent.angle}). Mesmo ângulo + persona, hook/abertura diferentes pra rotação.`,
-        // Marca como variação no contexto — mantém o resto
-        _isVariation: true,
-        _parentIndex: parent.index,
-      });
-    }
-    briefs.push(...variations);
-  }
-
-  // 2) Distribui em semanas conforme weeklyTargets
-  const { week1, week2, week3, week4 } = calibrated.weeklyTargets;
-  let idx = 0;
-  const tagWeek = (count: number, weekIndex: 1 | 2 | 3 | 4) => {
-    for (let k = 0; k < count && idx < briefs.length; k++, idx++) {
-      briefs[idx].weekIndex = weekIndex;
-    }
+  return {
+    briefs,
+    awareness: Array.isArray(data.awareness) ? data.awareness : [],
+    numCreatives: Number(data.numCreatives) || briefs.length,
+    structure: data.structure === 'abo' ? 'abo' : 'cbo',
+    cpaWarning: data.cpaWarning || null,
   };
-  tagWeek(week1, 1);
-  tagWeek(week2, 2);
-  tagWeek(week3, 3);
-  tagWeek(week4, 4);
-
-  // 3) Distribui scriptLength conforme lengthDistribution (% short/med/long)
-  // Cada semana respeita a mesma proporção pra evitar "todos longos numa semana".
-  const buckets: Array<'short' | 'medium' | 'long'> = [];
-  const total = briefs.length;
-  const sCount = Math.round(total * (calibrated.lengthDistribution.short / 100));
-  const mCount = Math.round(total * (calibrated.lengthDistribution.medium / 100));
-  const lCount = total - sCount - mCount;
-  for (let k = 0; k < sCount; k++) buckets.push('short');
-  for (let k = 0; k < mCount; k++) buckets.push('medium');
-  for (let k = 0; k < lCount; k++) buckets.push('long');
-  // Shuffle pra evitar "todos curtos na S1, todos longos na S4"
-  for (let i = buckets.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    const tmp = buckets[i]!;
-    buckets[i] = buckets[j]!;
-    buckets[j] = tmp;
-  }
-  briefs.forEach((b, i) => {
-    b.scriptLength = buckets[i] || 'medium';
-  });
-
-  // 4) Marca os primeiros M briefs como modeledFromRefCopyId (round-robin)
-  //    M = round(monthlyTotal * modelingIntensity / 100)
-  if (modelReferenceCopyIds.length > 0 && calibrated.modelingIntensity > 0) {
-    const modelingCount = Math.round((N * calibrated.modelingIntensity) / 100);
-    // Pega briefs de várias semanas (não só S1) — espalha modelagem
-    const modelingIndices: number[] = [];
-    const perWeek = Math.ceil(modelingCount / 4);
-    for (let w = 1; w <= 4; w++) {
-      const weekBriefs = briefs.map((b, i) => ({ b, i })).filter(({ b }) => b.weekIndex === w);
-      for (let k = 0; k < Math.min(perWeek, weekBriefs.length); k++) {
-        const entry = weekBriefs[k];
-        if (!entry) continue;
-        modelingIndices.push(entry.i);
-        if (modelingIndices.length >= modelingCount) break;
-      }
-      if (modelingIndices.length >= modelingCount) break;
-    }
-    modelingIndices.forEach((i, k) => {
-      briefs[i].modeledFromRefCopyId = modelReferenceCopyIds[k % modelReferenceCopyIds.length];
-    });
-  }
-
-  return { plan, briefs };
 }
 
 export async function recommendAvatarAndVoice(input: {
@@ -1494,6 +1327,42 @@ export async function recommendAvatarAndVoice(input: {
   const data = await response.json();
   if (!data.success) throw new Error(data.error || 'Erro na recomendação.');
   return data.recommendation;
+}
+
+// ─────────────────────────────────────────────
+// BUSCAR ESTATÍSTICAS COM FONTE (web search no servidor)
+// ─────────────────────────────────────────────
+/**
+ * Busca estatísticas FACTUAIS com fonte na web pra o cliente que não tem
+ * números próprios. O backend usa web_search e só devolve dados com URL de
+ * fonte real (nunca inventa). O cliente revisa e escolhe quais usar — o
+ * front nunca auto-injeta no campo de estatísticas.
+ */
+export interface StatisticFinding {
+  stat: string;
+  source: string;
+  url: string;
+  year: string;
+}
+
+export async function findStatistics(input: {
+  productInfo?: any;
+  niche?: string;
+  language?: string;
+  count?: number;
+}): Promise<StatisticFinding[]> {
+  const response = await fetch('/api/claude/find-statistics', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Busca de estatísticas falhou: ${err}`);
+  }
+  const data = await response.json();
+  if (!data.success) throw new Error(data.error || 'Erro ao buscar estatísticas.');
+  return Array.isArray(data.statistics) ? data.statistics : [];
 }
 
 // ─────────────────────────────────────────────
@@ -1717,6 +1586,77 @@ FORMAT:
 }
 
 // ─────────────────────────────────────────────
+// 7a. AGENTE COPYWRITER — Polir (writer↔critic) + Chat
+// ─────────────────────────────────────────────
+
+/** Persona do copywriter mestre, compartilhada pelo Polir e pelo Chat. Reúne
+ *  o nível de craft + o firewall de conteúdo num só lugar. */
+function copywriterPersona(targetLang: 'pt' | 'en'): string {
+  return `You are a master direct-response copywriter — the calibre of Gary Halbert, Eugene Schwartz and Stefan Georgi (RMBC) — specialized in Meta Ads advertorials for an older (50+) audience. You write copy that does NOT read as AI: concrete, spoken, specific, human.
+You always protect a hard CONTENT FIREWALL: never invent statistics, named people, testimonials or results that weren't given; keep any disease link as "linked to / higher risk" only; keep any villain GENERIC (never a specific company or drug); hold ONE first-person narrator; never name the destination video's format unless the user did; never admit the piece is an ad or VSL.
+${targetLang === 'pt' ? 'Converse e escreva em português brasileiro idiomático e oral.' : 'Converse and write in natural, idiomatic English.'}`;
+}
+
+export interface CopywriterMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+/** Chat com o copywriter mestre sobre a copy atual. Devolve a resposta e,
+ *  quando ele reescreveu, a versão nova pra UI oferecer "Aplicar". O histórico
+ *  vai serializado no prompt (callClaude é system+user). */
+export async function copywriterChat(input: {
+  messages: CopywriterMessage[];
+  script: string;
+  answers: Record<string, any>;
+  angle: string;
+}): Promise<{ reply: string; revisedScript: string | null }> {
+  const { messages, script, answers, angle } = input;
+  const targetLang: 'pt' | 'en' = isPortuguese(answers.language) ? 'pt' : 'en';
+  const humanness = buildHumannessDirective(Math.min(20, Number(answers.aiLevel ?? 100)));
+
+  const systemPrompt = `${copywriterPersona(targetLang)}
+
+You are in a CHAT with the user about the ad copy below. Discuss it, give sharp, specific opinions, and when the user asks for a change, rewrite the copy accordingly (keep beats/[LABELS], facts, narrator, language). If you rewrite, put the FULL updated script in "revisedScript"; if the turn is only discussion, set "revisedScript" to null. Keep replies short and practical.
+Respond ONLY in JSON. No markdown.`;
+
+  const transcript = messages
+    .map((m) => `${m.role === 'user' ? 'USER' : 'COPYWRITER'}: ${m.content}`)
+    .join('\n\n');
+
+  const userPrompt = `CURRENT AD COPY:
+"""
+${script || '(ainda não há copy gerada)'}
+"""
+
+CONTEXT: language ${answers.language || 'Português (Brasileiro)'}; angle ${angle}; audience ${answers.audience || ''}.
+
+When you rewrite, apply these style rules:${humanness || ' (keep the current style)'}
+
+CONVERSATION SO FAR:
+${transcript}
+
+Reply to the LAST user message. Return: {"reply": "your message to the user${targetLang === 'pt' ? ' em português' : ''}", "revisedScript": "full updated script OR null"}`;
+
+  // Folga pro thinking 'high' + possível reescrita do script inteiro.
+  const chatMaxTokens = Math.max(20000, Math.ceil((script?.length || 0) / 3) + 14000);
+  const raw = await callClaude(systemPrompt, userPrompt, chatMaxTokens);
+  try {
+    const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const parsed = JSON.parse(cleaned);
+    return {
+      reply: (parsed.reply || '').toString().trim() || 'OK.',
+      revisedScript:
+        typeof parsed.revisedScript === 'string' && parsed.revisedScript.trim()
+          ? parsed.revisedScript.trim()
+          : null,
+    };
+  } catch {
+    return { reply: raw.trim() || 'Não consegui responder agora.', revisedScript: null };
+  }
+}
+
+// ─────────────────────────────────────────────
 // 7. VARIANTS A/B (UX15) — gerar N copies em paralelo
 // ─────────────────────────────────────────────
 /**
@@ -1742,8 +1682,219 @@ export async function generateAdCopyVariants(
 }
 
 // ─────────────────────────────────────────────
+// 7b. ESTÁGIO 2 — MELHORAR A COPY APLICANDO UMA SKILL
+// ─────────────────────────────────────────────
+/** Aplica uma SKILL (texto livre que o usuário adicionou: guia, framework,
+ *  estilo) por cima da copy já gerada pra melhorá-la DE VERDADE — sem quebrar a
+ *  estrutura de blocos/[LABELS], os fatos, o narrador, o idioma nem o firewall.
+ *  É o Estágio 2 do guia-da-copy, mas dirigido por uma skill escolhida na hora. */
+export async function improveCopyWithSkill(input: {
+  script: string;
+  skillName: string;
+  skillContent: string;
+  answers?: Record<string, any>;
+}): Promise<string> {
+  const { script, skillName, skillContent } = input;
+  const answers = input.answers || {};
+  if (!script || !script.trim() || !skillContent.trim()) return script;
+  const targetLang: 'pt' | 'en' = isPortuguese(answers.language) ? 'pt' : 'en';
+
+  const systemPrompt = `You are a world-class direct-response copywriter. Your job: take an existing ad script and make it GENUINELY BETTER by applying the SKILL the user provides below. Improve the hook, specificity, belief, emotion and flow — actually raise the quality, do not just paraphrase.
+
+NON-NEGOTIABLE — preserve all of this:
+- Keep the same structure and order of ideas. The copy is ONE flowing ad — do NOT add labels, brackets or section headings.
+- Keep the language (${answers.language || 'Português (Brasileiro)'}), the narrator, and every fact/number (never invent statistics, testimonials, people or institutions).
+- Keep the content firewall: no price/payment/guarantee/checkout; do not reveal the exact identity/brand/protocol; villain only as a generic category; organic framing (never admit it is an ad).
+Only the wording/craft changes — stronger, not different in substance.
+
+Respond ONLY in JSON. No markdown.`;
+
+  const userPrompt = `SKILL TO APPLY — "${skillName}":
+"""
+${skillContent}
+"""
+
+CURRENT AD SCRIPT (improve it by applying the skill above):
+"""
+${script}
+"""
+
+Rewrite the script applying the skill. Keep the structure, the order, the facts, the narrator, the language and the firewall. It stays ONE flowing ad — no labels/brackets. Make it genuinely stronger.
+Return: {"improved": "the full improved ad copy${targetLang === 'pt' ? ', em português' : ''}"}`;
+
+  const maxTokens = Math.max(
+    20000,
+    Math.ceil(script.length / 3 + skillContent.length / 3) + 14000
+  );
+  const raw = await callClaude(systemPrompt, userPrompt, maxTokens);
+  try {
+    const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    if (cleaned.startsWith('{')) {
+      const parsed = JSON.parse(cleaned);
+      return (parsed.improved || script).trim();
+    }
+    return cleaned || script;
+  } catch {
+    return script;
+  }
+}
+
+// ─────────────────────────────────────────────
+// 7c. GERAR NARRADOR — sugere quem conta a história (qualquer postura)
+// ─────────────────────────────────────────────
+/** Sugere UM narrador (a VOZ que conta o anúncio) que combina com o público, o
+ *  problema e o DRIVER real da oferta. Não força 1ª pessoa e NÃO spoila a
+ *  solução. Curto e editável; o user pode re-gerar. */
+export async function generateNarrator(
+  answers: Record<string, any>,
+  avoid: string[] = []
+): Promise<string> {
+  const targetLang: 'pt' | 'en' = isPortuguese(answers.language) ? 'pt' : 'en';
+  const systemPrompt = `You pick ONE narrator (the VOICE that tells the ad) that FITS this audience, problem and emotional driver. It can be first person OR third person — whatever fits. Output in ${answers.language || 'Português (Brasileiro)'}. Respond ONLY in JSON.`;
+  const avoidBlock =
+    avoid.length > 0
+      ? `\n\nALREADY SUGGESTED — make this one CLEARLY DIFFERENT: change the TYPE of voice and/or the age/relationship, not just reword these:\n${avoid.map((s) => `- "${s}"`).join('\n')}`
+      : '';
+  const driverLine = (answers.emotionalDriver || '').toString().trim()
+    ? `\nReal emotional driver of this offer: ${answers.emotionalDriver}`
+    : '';
+  const userPrompt = `Audience: ${answers.audience || ''}
+Pain/situation: ${answers.situation || answers.painPoints || ''}
+Product: ${answers.productName || ''}
+Promised result: ${answers.productResult || ''}${driverLine}
+
+Suggest ONE narrator in a single short sentence: who they are, their age, and their relation to the topic. The narrator must EMBODY the real driver above. It does NOT have to be first person — choose a DISTINCT TYPE of voice (rotate among: someone PREPARING against a future risk who wants to be ready rather than sorry · someone living the problem now · a caregiver · an adult son/daughter · a spouse · a professional who saw many cases · a friend who helped someone · a voice who RECOUNTS OTHER people's stories / an observer of the times), and vary age/gender/backstory — but stay believable for THIS audience.
+IMPORTANT on framing: make the narrator embody whatever the real driver above actually is — do not impose a frame the offer doesn't have. If that driver is ANTICIPATORY (about what could happen / wanting to be ready), make the narrator forward-looking and proactive rather than someone defined by a past disaster. A past or present hardship may appear as ONE supporting thread, never the sole frame.
+IMPORTANT: describe only WHO the narrator is. Do NOT reveal the solution, the product, or how it works (no "built our own X", no mechanism) — that is the ad's payoff, not the narrator's bio.${avoidBlock}
+Return: {"narrator": "one short sentence${targetLang === 'pt' ? ' em português' : ''}"}`;
+  const raw = await callClaude(systemPrompt, userPrompt, 20000);
+  try {
+    const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    if (cleaned.startsWith('{')) return (JSON.parse(cleaned).narrator || '').toString().trim();
+    return cleaned.trim();
+  } catch {
+    return '';
+  }
+}
+
+// ─────────────────────────────────────────────
+// 7d. GERAR NOME DO "PRODUTO INOVADOR" (gancho de curiosidade)
+// ─────────────────────────────────────────────
+/** Sugere UM apelido-teaser pra descoberta (estilo "yellow vitamin", "truque da
+ *  banana", "ritual de 5 segundos") com base no mecanismo — intrigante, SEM
+ *  revelar o que é de verdade. Curto e editável; o user pode re-gerar. */
+export async function generateInnovativeName(
+  answers: Record<string, any>,
+  avoid: string[] = [],
+  sourceText = ''
+): Promise<string> {
+  const targetLang: 'pt' | 'en' = isPortuguese(answers.language) ? 'pt' : 'en';
+  const src = (sourceText || '').toString().trim().slice(0, 14000);
+  const systemPrompt = `You find or create ONE short "curiosity-hook nickname" for the discovery in a direct-response ad — the way "the yellow vitamin", "the banana trick" or "the 5-second ritual" work. It must INTRIGUE without revealing what the thing actually is. PRIORITY: if the SOURCE material (the VSL/landing this ad drives to) already gives the discovery such a nickname, REUSE that exact nickname so the ad matches the video. Output in ${answers.language || 'Português (Brasileiro)'}. Respond ONLY in JSON.`;
+  const avoidBlock =
+    avoid.length > 0
+      ? `\nIf (and only if) you are INVENTING one, make it clearly DIFFERENT in words AND angle from these:\n${avoid.map((s) => `- "${s}"`).join('\n')}`
+      : '';
+  const sourceBlock = src
+    ? `\n\nSOURCE (the VSL/landing this ad links to) — scan it FIRST for the nickname it already uses for the discovery:\n"""\n${src}\n"""`
+    : '';
+  const userPrompt = `Product: ${answers.productName || ''}
+Promised result: ${answers.productResult || ''}
+Unique mechanism: ${answers.uniqueMechanism || ''}
+Pain/situation: ${answers.situation || answers.painPoints || ''}${sourceBlock}
+
+Give ONE short curiosity-hook nickname (2-4 words) for the discovery, vivid and intriguing, NEVER revealing the actual identity/ingredient/method.
+- FIRST: if the SOURCE above already names the discovery with such a teaser nickname, return THAT EXACT nickname (this links the ad to the video). Set "fromSource": true.
+- ONLY if the source has no such nickname (or no source was given): invent one, picking a FRESH angle (a place, a time of day, a number, a color, an everyday object, a ritual, a body sensation). Set "fromSource": false.${avoidBlock}
+Return: {"name": "the nickname${targetLang === 'pt' ? ' em português' : ''}", "fromSource": true|false}`;
+  const raw = await callClaude(systemPrompt, userPrompt, 20000);
+  try {
+    const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    if (cleaned.startsWith('{')) return (JSON.parse(cleaned).name || '').toString().trim();
+    return cleaned.trim();
+  } catch {
+    return '';
+  }
+}
+
+// ─────────────────────────────────────────────
 // 8. REGERAR 1 BEAT (UX16) — não a copy inteira
 // ─────────────────────────────────────────────
+
+/** Bloco anti-IA pra humanizar a prosa. Tem DUAS partes:
+ *  (1) BASELINE sempre-ligado — destilado do skill "humanizer" (guia "Signs of
+ *  AI writing" da Wikipedia), em `.claude/skills/humanizer/SKILL.md`, ADAPTADO
+ *  pra copy de VENDAS (mantém persuasão/emoção/CTA; nunca neutraliza como o
+ *  skill faria com texto enciclopédico). Restrição, não banimento (ver
+ *  principio-nunca-bloquear) — só o travessão é regra dura.
+ *  (2) ESCALA pelo slider `answers.aiLevel` (0-100, degraus de 20): quanto
+ *  MENOR, mais regras de ritmo ACUMULAM por cima do baseline.
+ *  NUNCA relaxa o firewall de conteúdo (estatística ancorada, narrador único,
+ *  vilão genérico, não-nomear-canal, não inventar prova). Hoisted. */
+function buildHumannessDirective(aiLevelRaw: any): string {
+  const lvl = Math.max(0, Math.min(100, Math.round(Number(aiLevelRaw ?? 100))));
+
+  // BASELINE — sempre aplicado (mesmo em 100). É o skill "humanizer" destilado.
+  const baseline = `\n\n--- ANTI-AI WRITING (always on — distilled from the "humanizer" skill, Wikipedia "Signs of AI writing", adapted for SALES copy) ---
+Write so it does NOT read as AI. This governs STYLE only; it NEVER weakens persuasion, emotion, the CTA, or the content firewall (grounded stats, single narrator, generic villain, no channel-naming). This is a sales ad in a real person's voice, NOT an encyclopedia — stay vivid, emotional and opinionated; "promotional" language is the JOB here, not a flaw.
+Default AWAY from these AI tells (keep one only if it genuinely earns its place; this is restraint, not a ban — except the em dash, which is a hard rule):
+- Em dashes: HARD RULE — at most ONE "—" in the whole piece; replace with a period, comma, or parentheses.
+- AI vocabulary words: delve, tapestry, testament, underscore, showcase, vibrant, intricate, pivotal, crucial, realm, foster, garner, elevate, unlock, navigate, embark, landscape (figurative), "in today's world", "ever-evolving".
+- Empty atmosphere adverbs, above all "quietly" (also "silently/softly/gently"): default cut; keep only with literal meaning. The ADJECTIVE "silent"/"quiet" ("silent deficiency") is fine, just sparingly. Don't personify abstractions with soft actions ("independence quietly leaves the room") — say what literally happens to the person.
+- "-ing" tails that fake depth ("…, highlighting/ensuring/reflecting/underscoring…"): cut or make a real clause.
+- Copula avoidance: prefer plain "is/are/has" over "serves as / stands as / boasts / represents".
+- Persuasive-authority tropes: "the real question is", "at its core", "what really matters", "make no mistake", "the truth is".
+- Aphorism formulas: "X is the Y of Z", "not a tool but a mirror".
+- Fake-candid rhetorical openers as standalone hooks: "Honestly?", "Look,", "Here's the thing".
+- Signposting / announcements: "let's dive in", "here's what you need to know".
+- Filler ("in order to"→"to", "at this point in time"→"now") and over-hedging ("could potentially possibly").
+- Synonym cycling for the same noun; false ranges ("from X to Y" when X and Y aren't on a real scale).
+- Chatbot artifacts ("I hope this helps", "Want me to…", "Certainly!"), emojis, curly quotes "" '' (use straight " '), mechanical boldface/headers.
+- Generic upbeat conclusions ("the future looks bright", "exciting times ahead") — end on the concrete CTA/payoff instead.
+PRESERVE what reads as human (do NOT strip): concrete, hard-to-fabricate specifics (a time of day, a place, a mundane object, an exact number/sensation); varied sentence length; a genuine aside or self-correction; ONE held first-person voice. Polish is not AI — do not flatten the legitimate vivid, emotional, persuasive language a sales ad needs.`;
+
+  // Em 100 (e ~90): só o baseline humanizer, sem quebrar ritmo agressivamente.
+  if (lvl >= 90) return baseline;
+
+  const rules: string[] = [];
+  // <= 80 — a antítese repetida (o em-dash e os advérbios já estão no baseline)
+  rules.push(
+    'The "it isn\'t X, it\'s Y" flip: use it ONCE at most in the whole copy, and NEVER as the opening line of the copy or of a beat. The model overuses it — watch for and remove repeats like "it isn\'t aging, it\'s…", "that isn\'t damage, that\'s…", "the cause was never X, it was Y".',
+  );
+  if (lvl <= 60)
+    rules.push(
+      'RESTRAIN repeated parallelism — this is the #1 remaining AI tell and the copy keeps OVERDOING it. A "parallel series" = 3 or more consecutive clauses/sentences sharing the same opener or grammatical frame, e.g.: "the same numb hands, the same shuffling walk, the same shrug" · "You show up. You take the dose. You pay the co-pay." · "First it\'s the pills. Then the stronger pills. Then an injection." · "Not a painkiller. Not an injection." · "That is the burning. That is the tingling." Allow AT MOST TWO such series in the WHOLE piece — never two in the same paragraph, never back-to-back across beats, never longer than 3 items. Break all the rest: merge into one flowing sentence, cut to two items, or change the structure so consecutive sentences do NOT start the same way. Plain functional lists of symptoms/benefits (commas in one sentence) do not count and are fine.',
+    );
+  if (lvl <= 40)
+    rules.push(
+      'Break the symmetry: paragraphs/beats of clearly UNEVEN length (one can be two short sentences, another a long winding one). Add spoken texture — a contraction, a quick aside, a repeated word for emphasis.',
+    );
+  if (lvl <= 20)
+    // Nível 20 = mirar o perfil da COPY RICA de referência: humano, oral,
+    // específico — mas LIMPO (a imperfeição/run-on só entra no 0).
+    rules.push(
+      'TARGET THE PROVEN "RICH ADVERTORIAL" VOICE (the reference winning copy). That means: plain, spoken words and ZERO literary/poetic flourishes written for emotional effect — kill lines like "a slow erasure of who you were", "independence quietly leaves the room", "your next good morning is waiting on the other side of that video"; say it plainly and concretely instead ("you stop trusting the stairs", "tap below and watch it now"). Talk DIRECTLY to the reader (you/your) in a calm, oral cadence ("Listen,", "Here\'s the problem,", "I hate to say it, but…"). Build belief from CONCRETE specifics — exact numbers wherever they are grounded in the inputs, plus vivid sensory/scene detail you MAY invent for realism (a time of day, a mundane object, an exact physical sensation) — NOT from rhythm or wordplay. Paragraphs of clearly uneven length. Keep the grammar CLEAN and tight — human but POLISHED, not messy. Never fabricate named people, testimonials, results, or statistics that are not in the inputs (that would be a fake testimonial).',
+    );
+  if (lvl <= 0)
+    rules.push(
+      'ONLY at this extreme: let it sound truly spoken — a slightly imperfect sentence, a mid-thought correction, or a short run-on is welcome where a real person would actually talk that way (every level above this keeps the grammar clean).',
+    );
+  const audit =
+    lvl <= 80
+      ? `\n\nBEFORE FINISHING — audit your OWN draft and FIX violations: count the "isn't X, it's Y" flips (max 1, and never as an opener)${
+          lvl <= 60
+            ? ', and the parallel series (3+ consecutive clauses/sentences sharing the same opener or frame) — keep AT MOST TWO in the whole piece, never back-to-back; merge or vary the rest'
+            : ''
+        }. If you are over the limit, rewrite those exact lines. Also trim the filler ADVERBS "quietly"/"silently"/"softly"/"gently" that add nothing (the adjective "silent"/"quiet" is fine in moderation — leave it). This audit OVERRIDES any punchy rhythm the beat instructions earlier seemed to invite.`
+      : '';
+  return `${baseline}
+
+--- EXTRA HUMANIZATION — CRITICAL STYLE OVERRIDE (slider ${100 - lvl}/100 toward human) ---
+These take PRIORITY over any rhythmic instinct or stylistic example earlier in this prompt. Apply to STYLE / RHYTHM ONLY. Do NOT relax any content rule above (grounded statistics, the single held narrator, generic villain, never naming the destination format, no invented claims or people):
+${rules.map((r) => `- ${r}`).join('\n')}${audit}`;
+}
+
+
 /**
  * Regenera APENAS um beat específico, mantendo encaixe com os adjacentes.
  * Útil quando user gosta da copy em geral mas quer melhorar uma seção
@@ -1755,9 +1906,23 @@ export async function regenerateBeat(input: {
   fullScript: string;
   answers: Record<string, any>;
   angle: string;
+  /** 0-100: quão PARECIDO o novo beat deve ser do atual. 0 = totalmente
+   *  diferente; 100 = quase igual (só pequenos ajustes). Default 50. */
+  similarity?: number;
 }): Promise<string> {
   const { beatLabel, beatCurrentText, fullScript, answers, angle } = input;
   if (!beatLabel || !fullScript) return beatCurrentText;
+
+  // Direciona o grau de mudança pelo slider de similaridade (0-100).
+  const sim = Math.max(0, Math.min(100, Math.round(input.similarity ?? 50)));
+  const simDirective =
+    sim <= 25
+      ? `SIMILARITY ${sim}/100 — Rewrite from SCRATCH: a completely DIFFERENT approach, angle, imagery and rhythm from the current text. Keep ONLY this beat's function in the script and the real product facts. It must read as a brand-new beat, not a variation of the current one.`
+      : sim <= 50
+        ? `SIMILARITY ${sim}/100 — Same core idea, but FRESH execution: noticeably different sentences, sensory details and rhythm. Do not reuse the current phrasing or sentence structure.`
+        : sim <= 75
+          ? `SIMILARITY ${sim}/100 — Keep the current structure and ideas; vary wording, examples and rhythm so it reads as a recognizable rewrite — clearly the same beat, just refreshed.`
+          : `SIMILARITY ${sim}/100 — Change VERY LITTLE: preserve almost all of the current text and its structure; only adjust word choice, polish, and flow. The reader should barely notice a difference.`;
 
   const targetLang: 'pt' | 'en' = isPortuguese(answers.language) ? 'pt' : 'en';
   const culturalNote =
@@ -1769,7 +1934,9 @@ export async function regenerateBeat(input: {
 
 Respond ONLY in JSON. No markdown.`;
 
-  const userPrompt = `Rewrite ONLY the [${beatLabel}] beat below. Keep the same role this beat plays in the script structure, but produce a different angle, sensory detail, or rhythm. Make sure it flows into the next beat naturally.
+  const userPrompt = `Rewrite ONLY the [${beatLabel}] beat below. Keep the same role this beat plays in the script structure and make sure it flows into the next beat naturally. How MUCH it should differ from the current text is governed by the SIMILARITY directive:
+
+${simDirective}
 
 FULL SCRIPT (for context — do NOT rewrite the whole thing):
 """
@@ -1795,6 +1962,7 @@ REQUIREMENTS:
 - Must connect naturally with the beat that comes before and after
 - Do NOT include the [${beatLabel}] label in your output — just the body text
 - Do NOT invent new product claims or persona details not in the source
+${buildHumannessDirective(answers.aiLevel)}
 
 FORMAT:
 {"newText": "rewritten beat text without the [LABEL]"}`;
@@ -1895,8 +2063,8 @@ export async function generateOriginalHooks(input: {
 
   const culturalNote =
     targetLang === 'pt'
-      ? '\n\nIDIOMA: Português brasileiro idiomático. Frases curtas e orais. Evite traduções literais do inglês. Use construções como "presta atenção", "olha só", "do nada".'
-      : '';
+      ? '\n\nIDIOMA: Escreva TODOS os hooks em português brasileiro idiomático. Frases curtas e orais. Evite traduções literais do inglês. Use construções como "presta atenção", "olha só", "do nada".'
+      : '\n\nLANGUAGE: Write EVERY hook in English. Match the language of the approved copy below — do NOT output Portuguese. Natural, spoken, direct-response English.';
 
   const systemPrompt = `Você é um copywriter sênior especialista em hooks de Meta Ads. Você cria hooks 100% ORIGINAIS — não usa templates, não preenche lacunas. Cada hook é uma abertura única projetada pra parar o scroll.
 
@@ -1942,7 +2110,7 @@ REGRAS:
 1. Distribua os 9 hooks em GRUPOS de fórmula: 2 hooks por fórmula. Total: 9-10 hooks em 5 grupos.
 2. Cada hook é específico — use detalhes concretos do produto/persona, não genéricos
 3. Tamanho: 5-25 palavras por hook
-4. Mesma língua do contexto (NÃO traduza)
+4. ${targetLang === 'en' ? 'Write every hook in ENGLISH (same language as the approved copy) — do NOT translate to Portuguese' : 'Escreva todos os hooks em português (mesma língua da copy) — NÃO traduza'}
 5. SEM aspas envolvendo o hook inteiro
 6. SEM placeholders restantes — cada hook é falável imediatamente
 7. Estilo direto-resposta — sem "no mundo de hoje", sem "uma jornada", sem "está prestes a"
@@ -2473,6 +2641,137 @@ Output (JSON only, max 6 items):
       }));
   } catch (err: any) {
     console.warn('[detectHallucinations] falhou:', err?.message);
+    return [];
+  }
+}
+
+// ─────────────────────────────────────────────
+// Quick-fix — generalizar autoridades nomeadas
+// Acha trechos que nomeiam uma instituição/expert específico + localização
+// usados como prova emprestada (ex.: "Instituto Karolinska na Suécia") e
+// propõe uma âncora genérica ("pesquisadores na Suécia"). Nomes que aparecem
+// na FONTE do produto são considerados ancorados e NÃO são flagados.
+// ─────────────────────────────────────────────
+export interface AuthorityAnchor {
+  excerpt: string; // trecho exato a trocar, ex.: "the Karolinska Institute in Sweden"
+  suggestion: string; // âncora genérica, ex.: "researchers in Sweden"
+  reason: string; // por que generalizar
+}
+
+export async function detectNamedAuthorities(input: {
+  generatedCopy: string;
+  productInfo?: any;
+  language?: string;
+}): Promise<AuthorityAnchor[]> {
+  if (!input.generatedCopy || !input.generatedCopy.trim()) return [];
+
+  const isPT = isPortuguese(input.language);
+
+  // Corpus da fonte = nomes que SÃO permitidos (vieram do material real).
+  // Diferente do detector de alucinação, NÃO retornamos cedo se vazio: sem
+  // fonte, nenhum nome está ancorado → tudo vira candidato a generalizar.
+  const bits: string[] = [];
+  const push = (label: string, val: unknown) => {
+    if (val == null) return;
+    const s = String(val).trim();
+    if (!s) return;
+    bits.push(`${label}: ${s}`);
+  };
+  const p = input.productInfo || {};
+  push('Produto', p.produto || p.productName);
+  push('Oferta', p.oferta);
+  push('Dor principal', p.dorPrincipal);
+  push('Promessa', p.promessa || p.productResult);
+  push('Mecanismo', p.mecanismoUnico || p.uniqueMechanism);
+  push('Descrição', p.descricao || p.description);
+  push('VSL / Transcrição', p.transcript || p.transcription);
+  push('História', p.historia);
+  push('Provas', p.provas || p.socialProof);
+  const corpus = bits.join('\n') || '(nenhuma fonte fornecida)';
+
+  const systemPrompt = isPT
+    ? `Você revisa copies de anúncio. Encontra trechos que NOMEIAM uma autoridade específica (instituição/universidade — geralmente com localização ou departamento — ou um cientista/expert nomeado) usada como prova de credibilidade, e propõe uma âncora GENÉRICA que mantém a autoridade sem o nome específico. Responda APENAS em JSON. Sem markdown.`
+    : `You review ad copies. You find phrases that NAME a specific authority (an institution/university — usually with a location or department — or a named scientist/expert) used as credibility proof, and propose a GENERIC anchor that keeps the authority without the specific name. Respond ONLY in JSON. No markdown.`;
+
+  const userPrompt = isPT
+    ? `FONTE (nomes que SÃO permitidos — vieram do material real do produto):
+"""
+${corpus.slice(0, 4000)}
+"""
+
+COPY GERADA:
+"""
+${input.generatedCopy.slice(0, 3000)}
+"""
+
+Encontre trechos da copy que nomeiam uma autoridade ESPECÍFICA como prova — uma instituição/universidade (frequentemente com localização ou departamento) ou um expert/cientista nomeado — usada para emprestar credibilidade.
+
+Para cada um, proponha uma âncora GENÉRICA que mantém a credibilidade mas tira o nome+localização específicos (ex.: "o Instituto Karolinska na Suécia" → "pesquisadores na Suécia"; "o Departamento de Neurociência de Harvard" → "uma equipe de uma grande universidade"; "Dra. Jane Smith de Stanford" → "uma neurologista").
+
+NÃO flagar:
+- Um nome que aparece na FONTE acima (está ancorado — mantenha).
+- Menções já genéricas ("pesquisadores", "médicos", "um estudo") — não há o que trocar.
+- O expert que apresenta o vídeo de destino, quando citado como o apresentador (isso é o CTA, não prova emprestada).
+
+Copie o "excerpt" EXATAMENTE como aparece na copy (incluindo o artigo que você quer substituir junto), pra poder trocar por correspondência exata.
+
+Output (JSON apenas, máximo 6 items):
+{ "anchors": [
+  { "excerpt": "trecho exato da copy", "suggestion": "âncora genérica", "reason": "motivo curto" }
+]}`
+    : `SOURCE (names that ARE allowed — they came from the real product material):
+"""
+${corpus.slice(0, 4000)}
+"""
+
+GENERATED COPY:
+"""
+${input.generatedCopy.slice(0, 3000)}
+"""
+
+Find phrases in the copy that name a SPECIFIC authority as proof — a named institution/university (often with a location or department) or a named expert/scientist — used to borrow credibility.
+
+For each, propose a GENERIC anchor that keeps the credibility but drops the specific name+location (e.g. "the Karolinska Institute in Sweden" → "researchers in Sweden"; "Harvard's Department of Neuroscience" → "a team at a leading university"; "Dr. Jane Smith of Stanford" → "a neurologist").
+
+DO NOT flag:
+- A name that appears in the SOURCE above (it's grounded — keep it).
+- Already-generic mentions ("researchers", "doctors", "a study") — nothing to fix.
+- The expert who fronts the destination video when named as the presenter (that's the CTA, not borrowed proof).
+
+Copy the "excerpt" EXACTLY as it appears in the copy (including the article you want replaced along with it), so it can be swapped by exact match.
+
+Output (JSON only, max 6 items):
+{ "anchors": [
+  { "excerpt": "exact phrase from the copy", "suggestion": "generic replacement", "reason": "short reason" }
+]}`;
+
+  try {
+    const raw = await callClaude(systemPrompt, userPrompt, 1000);
+    const cleaned = raw
+      .replace(/```json\n?/g, '')
+      .replace(/```\n?/g, '')
+      .trim();
+    const parsed = JSON.parse(cleaned);
+    const anchors = Array.isArray(parsed.anchors) ? parsed.anchors : [];
+    return anchors
+      .filter(
+        (a: any) =>
+          a &&
+          typeof a.excerpt === 'string' &&
+          a.excerpt.trim().length > 0 &&
+          typeof a.suggestion === 'string' &&
+          a.suggestion.trim().length > 0 &&
+          // só vale se o trecho realmente existe na copy (troca por match exato)
+          input.generatedCopy.includes(a.excerpt.trim())
+      )
+      .slice(0, 6)
+      .map((a: any) => ({
+        excerpt: a.excerpt.trim().slice(0, 200),
+        suggestion: a.suggestion.trim().slice(0, 200),
+        reason: (a.reason || '').toString().trim().slice(0, 200),
+      }));
+  } catch (err: any) {
+    console.warn('[detectNamedAuthorities] falhou:', err?.message);
     return [];
   }
 }

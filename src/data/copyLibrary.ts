@@ -54,8 +54,31 @@ export interface CopyExample {
 // (UX18) — essas têm prioridade sobre as do sistema.
 // ════════════════════════════════════════════════════════════════════
 export const COPY_LIBRARY: CopyExample[] = [
-  // Vazio até a equipe Metavise adicionar exemplos reais aqui.
-  // Estrutura mantida pra fácil expansão futura.
+  // Âncoras de CRAFT (não de conteúdo): advertorials densos em 1ª pessoa,
+  // validados, pra o modelo imitar a TEXTURA (cena, detalhe sensorial, fluxo,
+  // virada dor→esperança), nunca as claims. Adicione mais conforme curar.
+  {
+    id: 'pt-saude-neuropatia-aw2',
+    vertical: 'saude',
+    awareness: '2',
+    angle: 'dor / agitação',
+    language: 'pt',
+    script:
+      'São duas da manhã e a queimação nos meus pés me acorda de novo. Eu fico ali, com medo de pôr o pé no chão. Essa sou eu há meses. Já tinha tentado de tudo: pomadas que esfriam por dez minutos, vitaminas caras, meias especiais, banhos mornos, o copo d’água do lado da cama. Nada segurava aquela ardência. E não, a culpa não era minha: tudo que eu tentava tratava a pele, o lado de fora, e ignorava o que realmente acontecia por dentro. Foi aí que entendi uma coisa que ninguém tinha me explicado: existe um sinal nervoso desregulado, uma comunicação travada que os tratamentos comuns nem olham. Quando se cuida desse ponto que vinha sendo ignorado, a história começa a mudar. Hoje minhas noites são outras. Imagine dormir a noite inteira e levantar sem aquele medo. Assista ao vídeo curto que mostra como, enquanto ele ainda está no ar.',
+    whyItWorks:
+      'Cena concreta (2h, beira da cama), lista específica de tentativas falhas, absolvição ("não é culpa sua"), mecanismo só conceitual, sem preço/identidade, virada dor→esperança, fecha em clique. Densa e oral.',
+  },
+  {
+    id: 'pt-fisico-survival-aw2',
+    vertical: 'fisico',
+    awareness: '2',
+    angle: 'medo de perda / contra-intuitivo',
+    language: 'pt',
+    script:
+      'Eu tinha um ano de comida guardada, gerador, combustível, munição. E mesmo assim acordava às 2 da manhã, porque tinha uma falha que eu nunca conseguia fechar: água. Esse sou eu. Tentei o óbvio. Empilhei caixas de água na garagem; sumiram em dias, e o plástico começa a virar. Montei barris de chuva, que não servem pra nada num verão seco. Pedi orçamento de poço, que passava dos milhares, e ainda assim depende de uma rede que falha. Nada disso era independência de verdade, e a culpa não é sua: tudo isso acaba, congela ou depende da bomba de outra pessoa. Foi quando descobri o que um fazendeiro montou pra manter a própria família viva. Ele não estocava água. Ele fazia água: tirava do próprio ar, mesmo no calor seco do deserto. Sem rede, sem governo, sem empresa decidindo quando sua torneira corre. Imagine abrir uma torneira no seu quintal na semana em que as lojas esvaziam. Assista ao vídeo curto que mostra exatamente como ele faz, enquanto ainda está no ar.',
+    whyItWorks:
+      'Abre com a identidade do prospect (prepper) e a falha única; lista concreta de tentativas falhas; absolvição; mecanismo conceitual ("faz água do ar") sem entregar marca/preço/como-fazer; fecha em cena de esperança + clique.',
+  },
 ];
 
 // ────────────────────────────────────────────────────────────────────

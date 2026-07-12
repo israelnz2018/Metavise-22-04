@@ -18,6 +18,7 @@ import { GENERATED_DIR } from '../config/paths.js';
 import { getHeyGenKey } from '../config/apiKeys.js';
 import { createLogger } from '../utils/logger.js';
 import { downloadFile } from '../utils/download.js';
+import { buildHeyGenBackground } from '../utils/heygenBackground.js';
 import {
   cutAudioSegment,
   buildTimeline,
@@ -99,6 +100,8 @@ export interface StartJobOpts {
   title?: string;
   /** Full public URL prefix (e.g. http://localhost:3000) pra HeyGen fetchar os áudios. */
   publicUrlPrefix: string;
+  /** Fundo do avatar ({ type:'color'|'image'|'video', value }). Ausente = preto. */
+  background?: { type: 'color' | 'image' | 'video'; value: string };
 }
 
 const HEYGEN_API = 'https://api.heygen.com';
@@ -273,7 +276,10 @@ async function runJob(opts: StartJobOpts): Promise<void> {
       const { url: audioUrlForHeygen, via } = await uploadChunkPublic(localChunkPath, firebasePath);
       log.info(`[Job ${jobId}] chunk ${i} via=${via} → ${audioUrlForHeygen.substring(0, 100)}`);
 
-      const isTalkingPhoto = opts.avatarId.includes('talking_photo');
+      // `pa_<id>` = photo avatar (clone próprio) → talking_photo, id sem prefixo.
+      const isPhotoAvatar = opts.avatarId.startsWith('pa_');
+      const isTalkingPhoto = isPhotoAvatar || opts.avatarId.includes('talking_photo');
+      const talkingPhotoId = isPhotoAvatar ? opts.avatarId.slice(3) : opts.avatarId;
       const dimension =
         opts.aspectRatio === '1:1'
           ? { width: 1080, height: 1080 }
@@ -284,7 +290,12 @@ async function runJob(opts: StartJobOpts): Promise<void> {
               : { width: 1080, height: 1920 };
 
       const characterConfig = isTalkingPhoto
-        ? { type: 'talking_photo', talking_photo_id: opts.avatarId }
+        ? {
+            type: 'talking_photo',
+            talking_photo_id: talkingPhotoId,
+            // Preenche o canvas (16:9 sobrava borda preta sem scale).
+            scale: opts.scale ?? (opts.aspectRatio === '16:9' ? 1.1 : opts.aspectRatio === '4:5' ? 1.1 : undefined),
+          }
         : {
             type: 'avatar',
             avatar_id: opts.avatarId,
@@ -297,7 +308,7 @@ async function runJob(opts: StartJobOpts): Promise<void> {
           {
             character: characterConfig,
             voice: { type: 'audio', audio_url: audioUrlForHeygen },
-            background: { type: 'color', value: '#000000' },
+            background: buildHeyGenBackground(opts.background),
           },
         ],
         aspect_ratio: opts.aspectRatio,
@@ -428,6 +439,48 @@ async function runJob(opts: StartJobOpts): Promise<void> {
     const W = vStream?.width || 1080;
     const H = vStream?.height || 1920;
 
+    // ── Spec CANÔNICO pra TODOS os segmentos antes do concat ──────────────
+    // Causa do "travado + sem lip sync": os vídeos do HeyGen vêm com
+    // fps/timebase/sample-rate VARIÁVEIS, e o concat demuxer do ffmpeg exige
+    // parâmetros idênticos — colar fontes desencontradas desincroniza A/V e
+    // engasga nos cortes. Forçamos todo segmento (avatar e gap) pro MESMO
+    // padrão: 30fps CFR, mesma resolução (com pad), yuv420p, áudio 48k estéreo.
+    const CANON_FPS = 30;
+    const CANON_AR = 48000;
+    const canonOutputOptions = [
+      '-vf',
+      `scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2,fps=${CANON_FPS},setsar=1,format=yuv420p`,
+      '-r',
+      String(CANON_FPS),
+      '-vsync',
+      'cfr',
+      '-c:v',
+      'libx264',
+      '-preset',
+      'superfast',
+      '-crf',
+      '23',
+      '-c:a',
+      'aac',
+      '-b:a',
+      '128k',
+      '-ar',
+      String(CANON_AR),
+      '-ac',
+      '2',
+    ];
+    // Re-encoda um trecho do HeyGen pro spec canônico, preservando o A/V sync
+    // interno dele (cada segmento já vem sincronizado do HeyGen).
+    const normalizeSegment = (input: string, output: string): Promise<void> =>
+      new Promise((resolve, reject) => {
+        ffmpeg(input)
+          .outputOptions(canonOutputOptions)
+          .output(output)
+          .on('end', () => resolve())
+          .on('error', reject)
+          .run();
+      });
+
     // Pra cada gap: gera um segmento "tela preta + áudio do trecho original"
     // ─ corta o áudio original do gap → muxa com lavfi color=black → MP4 sem áudio,
     // depois adiciona o áudio do gap.
@@ -435,8 +488,12 @@ async function runJob(opts: StartJobOpts): Promise<void> {
     let avatarIdx = 0;
     for (const t of timeline) {
       if (t.kind === 'avatar') {
+        // Normaliza o vídeo do HeyGen pro spec canônico antes de entrar no
+        // concat (sem isso, fps/timebase diferentes desincronizam o lip sync).
         const avPath = jobs.get(jobId)!.subJobs[avatarIdx]!.downloadedPath!;
-        segmentFiles.push(avPath);
+        const avNormPath = path.join(workDir, `avatar_${avatarIdx}_norm.mp4`);
+        await normalizeSegment(avPath, avNormPath);
+        segmentFiles.push(avNormPath);
         avatarIdx++;
       } else {
         // Gap: render black with audio
@@ -452,21 +509,9 @@ async function runJob(opts: StartJobOpts): Promise<void> {
           ffmpeg(`color=c=black:s=${W}x${H}:d=${gapDur}:r=30`)
             .inputFormat('lavfi')
             .input(gapAudioPath)
-            .outputOptions([
-              '-c:v',
-              'libx264',
-              '-preset',
-              'superfast',
-              '-crf',
-              '23',
-              '-pix_fmt',
-              'yuv420p',
-              '-c:a',
-              'aac',
-              '-b:a',
-              '128k',
-              '-shortest',
-            ])
+            // Mesmo spec canônico dos trechos de avatar — sem isso, o gap (30fps,
+            // áudio do mp3) diverge do avatar e o concat desincroniza.
+            .outputOptions([...canonOutputOptions, '-shortest'])
             .output(gapMp4Path)
             .on('end', () => resolve(null))
             .on('error', reject)

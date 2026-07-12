@@ -6,6 +6,55 @@
 
 ---
 
+## 🟢 ESTADO ATUAL DO FLUXO (2026-05-31) — LEIA ISTO PRIMEIRO
+
+> Este bloco **sobrescreve** qualquer descrição de fluxo nas seções
+> históricas abaixo (§5, §15, etc.). As seções antigas ficam como
+> **registro do que foi feito**, mas o fluxo de UX evoluiu. Quando houver
+> conflito, **vale este bloco.**
+
+**Fluxo de entrada (hoje):**
+1. **Criar projeto** → o modal pede **só o nome** (sem escolher VSL/Produto;
+   todo projeto nasce `complete`). Vai **direto pra aba "Planejamento"**.
+2. **Aba "Planejamento"** (era "Identificar Persona") é **unificada**:
+   - **Topo:** os 3 inputs de material (YouTube / landing / texto) — a IA
+     extrai e auto-preenche as perguntas. (A antiga aba "Fonte do Produto"
+     foi **removida da navegação**; o arquivo `SourceTab.tsx` segue no repo.)
+   - **Meio:** as perguntas de persona → "Gerar 3 Personas" → "Salvar".
+   - **Fim:** o **Plano de Marketing** renderiza embutido (`#plan-section`).
+     O PlanTab **não é mais página separada**.
+3. **Botões do plano:** o **clássico** ("Gerar Plano de Marketing") fica à
+   mostra; o **mensal calibrado** fica recolhido num `<details>`.
+
+**Coisas que MUDARAM e contradizem as seções antigas:**
+- ❌ Removido o CTA "Ir pro Plano de Marketing" da PersonaTab (§2.1/§5) e o
+  handler `handleGoToPlan`. O plano agora aparece sozinho ao salvar personas.
+- ❌ Removido o "Enviar este persona pra Copy" (Path 1, §5) e
+  `handleSelectPersona`. Removidos também os checkboxes "Incluir" dos cards.
+- ✅ **Recolocado** o botão **"+ Adicionar Subprojeto"** na seção
+  Subprojetos/Versões (§15.7 dizia que tinha sido removido). Ele **não abre
+  popup** — vai direto pro Planejamento (`handleNewSubproject` →
+  `proceedNewSubproject` que agora **sempre** roteia pra `persona`).
+- ✅ **"Carregar Versão"** cai na **aba mais avançada com conteúdo**
+  (edit-zap > avatar > voz > gancho > copy > persona), não mais em `source`.
+
+**Invariante crítica (causa de bug recorrente):**
+- A seção de Plano só aparece quando `config.copy.personasWithWeights` tem
+  itens (`isV2`). Projetos antigos têm `savedPersonas` mas **não** esse
+  campo. O helper **`ensurePersonaWeights(cfg)`** (App.tsx) deriva os pesos
+  de `savedPersonas` quando faltam — aplicado em **carregar projeto,
+  carregar versão e novo subprojeto**. Salvar personas também popula o campo.
+
+**Ordem real das abas (STEPS em `src/lib/constants.ts`):**
+`Integrações · Meus Projetos · Planejamento · Copy · Copy do Gancho · Voz ·
+Remotion · Avatar · Edição Zap · Edição Premium · Exportar`
+
+**Pendências ativas:** (a) Plano vs Avulso na criação · (b) aviso de
+retenção "expira em X dias" · (c) Remotion render na nuvem · (d) quebrar os
+14 templates por parte. Nenhuma iniciada.
+
+---
+
 ## 1. The Goal in One Paragraph
 
 User pastes a 1-hour VSL (or describes their own product), and the app

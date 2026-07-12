@@ -21,8 +21,10 @@ import { heygenRouter } from './routes/heygen.routes.js';
 import { zapCapRouter, proxyImageRouter } from './routes/zapcap.routes.js';
 import { geminiRouter } from './routes/gemini.routes.js';
 import { claudeRouter } from './routes/claude.routes.js';
+import { pexelsRouter } from './routes/pexels.routes.js';
 import { webhooksRouter } from './routes/webhooks.routes.js';
 import { telemetryRouter } from './routes/telemetry.routes.js';
+import { requireAuth } from './middleware/auth.js';
 
 // Builds and returns a fully wired Express app: middleware, routers, error
 // handler, and the dev/prod SPA pipeline. Does NOT call listen() — see
@@ -45,19 +47,24 @@ export async function createApp(): Promise<Express> {
   // requests don't fall through to the HTML.
   app.use('/generated', staticRouter);
 
-  // API routers.
+  // API routers. `requireAuth` protege os endpoints que GASTAM (IA/render/APIs
+  // pagas): em produção (nuvem) exige o login do Firebase que o front já envia;
+  // em dev fica aberto (DEV_MODE) — então nada muda localmente. Assim a URL
+  // pública da nuvem não vira um serviço de render aberto que queima dinheiro.
+  // Válvula de escape: env AUTH_DISABLED=1 reabre tudo se precisar.
   app.use('/api/user', userRouter);
   app.use('/api/admin', adminRouter);
   app.use('/api', healthRouter);
-  app.use('/api/assemblyai', assemblyAIRouter);
-  app.use('/api/runway', runwayRouter);
-  app.use('/api/elevenlabs', elevenLabsRouter);
-  app.use('/api/elevenlabs-premium', elevenLabsPremiumRouter);
-  app.use('/api/video', videoRouter);
-  app.use('/api/heygen', heygenRouter);
-  app.use('/api/zapcap', zapCapRouter);
-  app.use('/api/gemini', geminiRouter);
-  app.use('/api/claude', claudeRouter);
+  app.use('/api/assemblyai', requireAuth, assemblyAIRouter);
+  app.use('/api/runway', requireAuth, runwayRouter);
+  app.use('/api/elevenlabs', requireAuth, elevenLabsRouter);
+  app.use('/api/elevenlabs-premium', requireAuth, elevenLabsPremiumRouter);
+  app.use('/api/video', requireAuth, videoRouter);
+  app.use('/api/heygen', requireAuth, heygenRouter);
+  app.use('/api/zapcap', requireAuth, zapCapRouter);
+  app.use('/api/gemini', requireAuth, geminiRouter);
+  app.use('/api/claude', requireAuth, claudeRouter);
+  app.use('/api/pexels', requireAuth, pexelsRouter);
   // Webhook receivers (HeyGen/ZapCap/Runway) + job-state read API.
   // Mounted under /api/webhooks for the POSTs, but the GET /jobs/...
   // endpoint also lives under it. See webhooks.routes.ts for setup.

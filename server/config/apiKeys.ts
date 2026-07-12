@@ -7,6 +7,7 @@ import {
   ASSEMBLYAI_CONFIG_PATH,
   ZAPCAP_CONFIG_PATH,
   CLAUDE_CONFIG_PATH,
+  PEXELS_CONFIG_PATH,
 } from './paths.js';
 
 function readKeyFromFile(filePath: string): string | null {
@@ -21,6 +22,13 @@ function readKeyFromFile(filePath: string): string | null {
     console.error(`[Config] Error reading/parsing ${filePath}:`, e);
   }
   return null;
+}
+
+export function getPexelsKey(): string | null {
+  const fileKey = readKeyFromFile(PEXELS_CONFIG_PATH);
+  if (fileKey) return fileKey;
+  const envKey = process.env.PEXELS_API_KEY;
+  return envKey ? envKey.trim().replace(/^["']|["']$/g, '') : null;
 }
 
 export function getElevenLabsKey(): string | null {

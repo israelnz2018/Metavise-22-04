@@ -78,7 +78,7 @@ interface Props {
       uppercase: boolean;
       textColor: string;
       highlightColor: string;
-      highlightMode: 'text' | 'background' | 'both' | 'none';
+      highlightMode: 'text' | 'background' | 'rectangle' | 'both' | 'none';
       popAnimation: boolean;
       outlineColor: string;
       fontFamily: string;
@@ -106,9 +106,11 @@ export function IntercutModal({
   // Defaults: branco, roxo, e modo "texto" (compatível com versão anterior).
   const [textColor, setTextColor] = useState<string>('#FFFFFF');
   const [highlightColor, setHighlightColor] = useState<string>('#9333EA');
-  const [highlightMode, setHighlightMode] = useState<'text' | 'background' | 'both' | 'none'>(
-    'text'
-  );
+  // 2 modos só: destacar a LETRA (text) ou pôr um FUNDO atrás da palavra.
+  const [highlightMode, setHighlightMode] = useState<'text' | 'background'>('text');
+  // Dentro de "Fundo", o FORMATO: contorna cada letra (blob, o original) ou
+  // uma caixa retangular. Mapeado pro modo do backend na hora de renderizar.
+  const [backgroundShape, setBackgroundShape] = useState<'blob' | 'rectangle'>('blob');
   // F6.16 — animação "pop" do retângulo (scale-in tipo TikTok).
   // Default off pra não surpreender quem já tinha gerações sem animação.
   const [popAnimation, setPopAnimation] = useState<boolean>(false);
@@ -401,13 +403,19 @@ export function IntercutModal({
     }
     // Sort by atSec so the backend processes them in order.
     const sorted = [...insertions].sort((a, b) => a.atSec - b.atSec);
+    // Mapeia pro modo que o backend entende: Fundo+Retângulo → 'rectangle',
+    // Fundo+Contorno → 'background' (halo), Texto → 'text'.
+    const wireMode: 'text' | 'background' | 'rectangle' =
+      highlightMode === 'background' && backgroundShape === 'rectangle'
+        ? 'rectangle'
+        : highlightMode;
     onRender(sorted, {
       wordsPerLine,
       mergeThresholdSec,
       uppercase,
       textColor,
       highlightColor,
-      highlightMode,
+      highlightMode: wireMode,
       popAnimation,
       outlineColor,
       fontFamily,
@@ -798,13 +806,11 @@ export function IntercutModal({
             <label className="text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-400">
               Onde aparece o destaque
             </label>
-            <div className="grid grid-cols-4 gap-1.5">
+            <div className="grid grid-cols-2 gap-1.5">
               {(
                 [
-                  { id: 'text', label: 'Texto', desc: 'Letra muda de cor' },
-                  { id: 'background', label: 'Fundo', desc: 'Halo atrás da palavra' },
-                  { id: 'both', label: 'Ambos', desc: 'Letra + halo' },
-                  { id: 'none', label: 'Nenhum', desc: 'Sem destaque' },
+                  { id: 'text', label: 'Texto', desc: 'A letra muda de cor' },
+                  { id: 'background', label: 'Fundo', desc: 'Cor atrás da palavra' },
                 ] as const
               ).map((m) => (
                 <button
@@ -825,9 +831,41 @@ export function IntercutModal({
             </div>
           </div>
 
-          {/* Color pickers — escondidos quando modo='none' (não fazem efeito).
+          {/* Formato do fundo — só aparece quando o modo é "Fundo". */}
+          {highlightMode === 'background' && (
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-400">
+                Formato do fundo
+              </label>
+              <div className="grid grid-cols-2 gap-1.5">
+                {(
+                  [
+                    { id: 'rectangle', label: 'Retângulo', desc: 'Caixa retangular atrás da palavra' },
+                    { id: 'blob', label: 'Contorno', desc: 'Segue o contorno de cada letra' },
+                  ] as const
+                ).map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => setBackgroundShape(s.id)}
+                    disabled={rendering}
+                    title={s.desc}
+                    className={`py-2 px-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                      backgroundShape === s.id
+                        ? 'bg-purple-600 text-white shadow-sm'
+                        : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:bg-purple-50 dark:hover:bg-purple-950/40 ring-1 ring-gray-200 dark:ring-gray-700'
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Color pickers — sempre visíveis (texto, borda e destaque).
               F6.17 — adicionado picker da BORDA (outline) das letras junto. */}
-          {highlightMode !== 'none' && (
+          {(highlightMode === 'text' || highlightMode === 'background') && (
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <label className="text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-400 block mb-1.5">
@@ -883,9 +921,9 @@ export function IntercutModal({
             </div>
           )}
 
-          {/* F6.16 — Animação "pop" do retângulo (TikTok/CapCut style).
-              Só faz sentido nos modos que desenham retângulo: background e both. */}
-          {(highlightMode === 'background' || highlightMode === 'both') && (
+          {/* F6.16 — Animação "pop" (TikTok/CapCut style). Aparece no modo
+              Fundo (tanto Contorno quanto Retângulo). */}
+          {highlightMode === 'background' && (
             <label className="flex items-center gap-3 cursor-pointer select-none p-3 bg-white dark:bg-gray-900 rounded-lg ring-1 ring-gray-200 dark:ring-gray-700">
               <input
                 type="checkbox"
@@ -899,7 +937,8 @@ export function IntercutModal({
                   ✨ Animar destaque (pop)
                 </p>
                 <p className="text-[10px] text-gray-500 dark:text-gray-400">
-                  Retângulo entra escalando 90% → 108% → 100% (~250ms). Estilo TikTok/CapCut.
+                  O destaque dá um esticão pra fora e assenta um pouco menor (~220ms). Estilo
+                  TikTok/CapCut.
                 </p>
               </div>
             </label>

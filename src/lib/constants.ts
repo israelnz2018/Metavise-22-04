@@ -9,14 +9,14 @@ import {
   CheckCircle2,
   Clapperboard,
   Edit3,
-  FileText,
+  Film,
   Layout,
   RefreshCw,
+  Scissors,
   Sparkles,
   User,
   Users,
   Video,
-  Wand2,
   Zap,
 } from 'lucide-react';
 import type { Step } from '@/types/project';
@@ -41,6 +41,21 @@ export const DURATION_OPTIONS = [
   { label: '90s', words: 225 },
   { label: '120s', words: 300 },
   { label: '180s', words: 450 },
+  { label: '240s', words: 600 },
+  { label: '300s', words: 750 },
+];
+
+// Durações de VSL em MINUTOS (≈150 palavras/min). A VSL gera roteiro longo em
+// blocos de ~2 min — a duração escolhida define o total de palavras/blocos.
+export const VSL_DURATION_OPTIONS = [
+  { label: '3 min', words: 450 },
+  { label: '5 min', words: 750 },
+  { label: '10 min', words: 1500 },
+  { label: '15 min', words: 2250 },
+  { label: '20 min', words: 3000 },
+  { label: '30 min', words: 4500 },
+  { label: '45 min', words: 6750 },
+  { label: '60 min', words: 9000 },
 ];
 
 // Manual hand-curated entries (gender + type='realistic'). Type is used by
@@ -204,15 +219,16 @@ export const AD_STYLES = [
 export const STEPS: { id: Step; label: string; icon: any }[] = [
   { id: 'integrations', label: 'Integrações', icon: RefreshCw },
   { id: 'projects', label: 'Meus Projetos', icon: Layout },
-  { id: 'source', label: 'Fonte do Produto', icon: FileText },
-  { id: 'persona', label: 'Identificar Persona', icon: Users },
-  { id: 'plan', label: 'Plano de Marketing', icon: Layout },
+  { id: 'persona', label: 'Planejamento', icon: Users },
   { id: 'copy', label: 'Copy', icon: Edit3 },
+  { id: 'copy-vsl', label: 'Copy da VSL', icon: Clapperboard },
   { id: 'hook-visual', label: 'Copy do Gancho', icon: Clapperboard },
   { id: 'voz-premium', label: 'Voz', icon: Sparkles },
+  { id: 'remotion', label: 'Remotion', icon: Film },
   { id: 'avatar', label: 'Avatar', icon: User },
-  { id: 'edit-zap', label: 'Edição Zap', icon: Zap },
-  { id: 'edit2', label: 'Edição Premium', icon: Wand2 },
+  { id: 'montagem', label: 'Montagem', icon: Film },
+  { id: 'edit-zap', label: 'Edição', icon: Zap },
+  { id: 'merge', label: 'Mesclar', icon: Scissors },
 
   { id: 'final', label: 'Exportar', icon: Video },
 ];
@@ -388,13 +404,61 @@ export const PERSONA_TRIED_BEFORE_OPTIONS = [
   'Nada ainda',
 ];
 
+// Modelo de cobrança — define QUAL régua de preço usar (pontual vs recorrente).
+export const PERSONA_BILLING_OPTIONS = [
+  'Pagamento único',
+  'Recorrente (mensal/assinatura)',
+];
+
+// Moeda do país onde o produto é vendido. Ordenado por relevância pra tráfego
+// pago (maiores mercados no topo). code = ISO 4217.
+export interface CurrencyOption {
+  code: string;
+  symbol: string;
+  country: string;
+  name: string;
+}
+export const SALE_CURRENCY_OPTIONS: CurrencyOption[] = [
+  { code: 'USD', symbol: 'US$', country: 'Estados Unidos', name: 'Dólar' },
+  { code: 'BRL', symbol: 'R$', country: 'Brasil', name: 'Real' },
+  { code: 'EUR', symbol: '€', country: 'Zona do Euro', name: 'Euro' },
+  { code: 'GBP', symbol: '£', country: 'Reino Unido', name: 'Libra' },
+  { code: 'CAD', symbol: 'CA$', country: 'Canadá', name: 'Dólar canadense' },
+  { code: 'AUD', symbol: 'A$', country: 'Austrália', name: 'Dólar australiano' },
+  { code: 'MXN', symbol: 'MX$', country: 'México', name: 'Peso mexicano' },
+  { code: 'INR', symbol: '₹', country: 'Índia', name: 'Rúpia' },
+  { code: 'ARS', symbol: 'AR$', country: 'Argentina', name: 'Peso argentino' },
+  { code: 'COP', symbol: 'CO$', country: 'Colômbia', name: 'Peso colombiano' },
+  { code: 'CLP', symbol: 'CL$', country: 'Chile', name: 'Peso chileno' },
+  { code: 'JPY', symbol: '¥', country: 'Japão', name: 'Iene' },
+  { code: 'CNY', symbol: 'CN¥', country: 'China', name: 'Yuan' },
+  { code: 'CHF', symbol: 'CHF', country: 'Suíça', name: 'Franco suíço' },
+  { code: 'SEK', symbol: 'kr', country: 'Suécia', name: 'Coroa sueca' },
+  { code: 'PLN', symbol: 'zł', country: 'Polônia', name: 'Złoty' },
+  { code: 'ZAR', symbol: 'R', country: 'África do Sul', name: 'Rand' },
+  { code: 'AED', symbol: 'د.إ', country: 'Emirados Árabes', name: 'Dirham' },
+];
+
+export function currencySymbol(code?: string): string {
+  return SALE_CURRENCY_OPTIONS.find((c) => c.code === code)?.symbol || code || 'US$';
+}
+
+// Faixa de preço PONTUAL (valor de uma compra única). Mantém o nome legado
+// PERSONA_PAYING_CAPACITY_OPTIONS pra não quebrar imports existentes.
 export const PERSONA_PAYING_CAPACITY_OPTIONS = [
   'Baixa (até R$200)',
   'Média (R$200-1.000)',
   'Alta (R$1.000-5.000)',
   'Premium (acima R$5.000)',
-  'Recorrente (mensal/assinatura)',
-  'Não sei ainda',
+];
+
+// Faixa de preço RECORRENTE (valor por mês). Usada quando billingModel é
+// "Recorrente". Anualizar dá ~12× — uma assinatura de R$200/mês = R$2.400/ano.
+export const PERSONA_PAYING_RECURRING_OPTIONS = [
+  'Baixa (até R$50/mês)',
+  'Média (R$50-200/mês)',
+  'Alta (R$200-500/mês)',
+  'Premium (acima R$500/mês)',
 ];
 
 export const PERSONA_HIDDEN_DESIRE_OPTIONS = [

@@ -39,6 +39,10 @@ const TAG_COLORS = [
 export function ScriptBeatEditor({ script, onChange, answers, angle }: Props) {
   const beats = parseScriptBeats(script);
   const [regeneratingIdx, setRegeneratingIdx] = useState<number | null>(null);
+  // Similaridade da PRÓXIMA regeração, por beat (0 = bem diferente,
+  // 100 = quase igual). Default 50 = reescrita reconhecível.
+  const [similarities, setSimilarities] = useState<Record<number, number>>({});
+  const getSim = (idx: number) => similarities[idx] ?? 50;
 
   if (beats.length === 0) return null;
 
@@ -60,6 +64,7 @@ export function ScriptBeatEditor({ script, onChange, answers, angle }: Props) {
         fullScript: assembleScriptFromBeats(beats),
         answers,
         angle,
+        similarity: getSim(idx),
       });
       if (newText && newText !== beat.text) {
         const updated = beats.map((b, i) => (i === idx ? { ...b, text: newText } : b));
@@ -85,6 +90,10 @@ export function ScriptBeatEditor({ script, onChange, answers, angle }: Props) {
           Modo Beat-by-Beat — {beats.length} beats — regere ou edite cada um separadamente
         </p>
       </div>
+      <p className="text-[10px] text-gray-400 dark:text-gray-500 -mt-1">
+        Antes de regerar, escolha a <b>similaridade</b>: 0 = trecho bem diferente · 100 = quase
+        igual (só pequenos ajustes).
+      </p>
 
       {beats.map((beat, idx) => {
         const isRegen = regeneratingIdx === idx;
@@ -117,6 +126,27 @@ export function ScriptBeatEditor({ script, onChange, answers, angle }: Props) {
                 {isRegen ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
                 {isRegen ? 'Regenerando…' : 'Regerar este beat'}
               </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-500 shrink-0">
+                Similaridade
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={5}
+                value={getSim(idx)}
+                disabled={isRegen}
+                onChange={(e) =>
+                  setSimilarities((prev) => ({ ...prev, [idx]: Number(e.target.value) }))
+                }
+                className="flex-1 max-w-[220px] accent-blue-600 disabled:opacity-50"
+                title="0 = bem diferente · 100 = quase igual"
+              />
+              <span className="text-[10px] font-bold tabular-nums text-gray-600 dark:text-gray-300 w-9 text-right">
+                {getSim(idx)}%
+              </span>
             </div>
             <textarea
               value={beat.text}

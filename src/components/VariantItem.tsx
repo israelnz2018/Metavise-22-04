@@ -12,13 +12,12 @@ import {
   Scissors,
 } from 'lucide-react';
 import type { Project, ProjectVariant, Step } from '@/types/project';
-import { cn, getVideoAspectRatioClass } from '@/lib/utils';
-import { getAuthorizedUrl } from '@/lib/gemini';
+import { CreativeInfoButton } from './CreativeInfoButton';
 
 interface VariantItemProps {
   variant: ProjectVariant;
   project: Project;
-  onLoad: (v: ProjectVariant, step?: Step) => void;
+  onLoad: (v: ProjectVariant, step?: Step, projectId?: string) => void;
   onDelete: (pid: string, vid: string) => void | Promise<void>;
   onRename: (pid: string, vid: string, newName: string) => void | Promise<void>;
   isViewing: boolean;
@@ -26,6 +25,9 @@ interface VariantItemProps {
   platformApiKey?: string | null;
   onDeleteAudio?: (audio: any) => void | Promise<void>;
   onDeleteVideo?: (video: any) => void | Promise<void>;
+  /** Catálogo HeyGen carregado no App — resolve nome/preview do avatar
+   *  no painel de info (criativos antigos só salvaram o id). */
+  heygenAvatars?: any[];
 }
 
 // Row in the Projects tab — shows a single variant of a project with its
@@ -38,47 +40,79 @@ export const VariantItem: React.FC<VariantItemProps> = ({
   onRename,
   isViewing,
   onView,
-  platformApiKey,
-  onDeleteAudio,
-  onDeleteVideo,
+  heygenAvatars = [],
 }) => {
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(variant.name);
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
 
-  const hasCopy = !!variant.config.copy.generatedScript;
-  const hasOptimizedCopy = !!variant.config.copy.optimizedScript;
-  const audios = variant.config.audios || [];
-  const videos = variant.config.videos || [];
+  const cfg: any = variant.config || {};
+  const copyCfg: any = cfg.copy || {};
+  const audios = cfg.audios || [];
+  const videos = cfg.videos || [];
+
+  // Detecção de "feito" por etapa (mesma fonte que o resolveDeepestStep).
+  const editCfg: any = cfg.edit || {};
+  // ─── Entregáveis do subprojeto, na ordem: HOOK → CORPO → FINAL ──────────
+  // Cada linha é um entregável; o usuário pode ABRIR (ir pra etapa) ou BAIXAR.
+  // Os itens do corpo editado (b-rolls/tela preta/música) saem do mesmo array
+  // `zapVersions`, separados pelo PREFIXO do arquivo salvo.
+  const urlOf = (x: any): string => (typeof x === 'string' ? x : x?.url || '');
+  const cleanArr = (a: any): string[] => (Array.isArray(a) ? a.map(urlOf).filter(Boolean) : []);
+  const incl = (u: string, sub: string) => {
+    try {
+      return decodeURIComponent(u).includes(sub);
+    } catch {
+      return u.includes(sub);
+    }
+  };
+  const pref = (a: any, p: string) => cleanArr(a).filter((u) => incl(u, p));
+
+  const hookAudioUrls = cleanArr(copyCfg.hookAudios).length
+    ? cleanArr(copyCfg.hookAudios)
+    : copyCfg.hookAudioUrl
+      ? [copyCfg.hookAudioUrl]
+      : [];
+  const hookVideoUrls = cleanArr(copyCfg.hookVideos).length
+    ? cleanArr(copyCfg.hookVideos)
+    : copyCfg.hookVideoUrl
+      ? [copyCfg.hookVideoUrl]
+      : [];
+  const bodyAudioUrls = cleanArr(audios).length ? cleanArr(audios) : cfg.audioUrl ? [cfg.audioUrl] : [];
+  const bodyVideoUrls = cleanArr(videos).length ? cleanArr(videos) : cfg.videoUrl ? [cfg.videoUrl] : [];
+
+  type Deliverable = {
+    key: string;
+    group: string;
+    step: Step;
+    label: string;
+    icon: React.ReactNode;
+    kind: 'text' | 'audio' | 'video';
+    urls: string[];
+    text?: string;
+    tone: string;
+  };
+  const deliverables: Deliverable[] = [
+    { key: 'h-copy', group: 'Gancho (Hook)', step: 'copy', label: 'Copy / roteiro do hook', icon: <Type size={14} />, kind: 'text', urls: [], text: copyCfg.hookSelecionado || copyCfg.hookOptimizedScript || '', tone: 'amber' },
+    { key: 'h-audio', group: 'Gancho (Hook)', step: 'voz-premium', label: 'Áudio do hook', icon: <Volume2 size={14} />, kind: 'audio', urls: hookAudioUrls, tone: 'green' },
+    { key: 'h-avatar', group: 'Gancho (Hook)', step: 'avatar', label: 'Avatar do hook', icon: <Video size={14} />, kind: 'video', urls: hookVideoUrls, tone: 'blue' },
+    { key: 'h-zap', group: 'Gancho (Hook)', step: 'edit-zap', label: 'Hook editado (legenda)', icon: <Scissors size={14} />, kind: 'video', urls: cleanArr(editCfg.zapHookVersions), tone: 'purple' },
+    { key: 'b-audio', group: 'Corpo', step: 'voz-premium', label: 'Áudio do corpo', icon: <Volume2 size={14} />, kind: 'audio', urls: bodyAudioUrls, tone: 'green' },
+    { key: 'b-avatar', group: 'Corpo', step: 'avatar', label: 'Avatar do corpo', icon: <Video size={14} />, kind: 'video', urls: bodyVideoUrls, tone: 'blue' },
+    { key: 'b-broll', group: 'Corpo', step: 'edit-zap', label: 'Corpo com b-rolls', icon: <Scissors size={14} />, kind: 'video', urls: pref(editCfg.zapVersions, 'zapcap'), tone: 'gray' },
+    { key: 'b-black', group: 'Corpo', step: 'edit-zap', label: 'Corpo + tela preta', icon: <Scissors size={14} />, kind: 'video', urls: pref(editCfg.zapVersions, 'intercut'), tone: 'gray' },
+    { key: 'b-music', group: 'Corpo', step: 'edit-zap', label: 'Corpo + música', icon: <Scissors size={14} />, kind: 'video', urls: pref(editCfg.zapVersions, 'addmusic'), tone: 'gray' },
+    { key: 'final', group: 'Final', step: 'edit-zap', label: 'Vídeo completo', icon: <Download size={14} />, kind: 'video', urls: cleanArr(editCfg.zapJoinedVersions), tone: 'purple' },
+  ];
+  const toneIcon: Record<string, string> = {
+    amber: 'bg-amber-100 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400',
+    green: 'bg-green-100 dark:bg-green-950/30 text-green-600 dark:text-green-400',
+    blue: 'bg-blue-100 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400',
+    purple: 'bg-purple-100 dark:bg-purple-950/30 text-purple-600 dark:text-purple-400',
+    gray: 'bg-gray-100 dark:bg-gray-800/60 text-gray-500 dark:text-gray-400',
+  };
 
   // Fallback for older data with single audio/video properties instead of arrays.
-  const displayAudios =
-    audios.length > 0
-      ? audios
-      : variant.config.audioUrl
-        ? [
-            {
-              url: variant.config.audioUrl,
-              storagePath: variant.config.audioStoragePath,
-              voiceId: variant.config.avatar.voiceId,
-              createdAt: '',
-            },
-          ]
-        : [];
-  const displayVideos =
-    videos.length > 0
-      ? videos
-      : variant.config.videoUrl
-        ? [
-            {
-              url: variant.config.videoUrl,
-              storagePath: variant.config.videoStoragePath,
-              createdAt: '',
-              aspectRatio: variant.config.format.aspectRatio,
-            },
-          ]
-        : [];
-
   return (
     <div
       className={`rounded-[32px] border-2 transition-all overflow-hidden ${
@@ -175,10 +209,13 @@ export const VariantItem: React.FC<VariantItemProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <div onClick={(e) => e.stopPropagation()}>
+            <CreativeInfoButton variant={variant} heygenAvatars={heygenAvatars} placement="inline" />
+          </div>
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onLoad(variant);
+              onLoad(variant, undefined, project.id);
             }}
             className="px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 hover:bg-blue-600 hover:text-white transition-all shadow-sm"
           >
@@ -205,312 +242,165 @@ export const VariantItem: React.FC<VariantItemProps> = ({
         </div>
 
         <div className="space-y-3">
-          {hasCopy && (
-            <div className="space-y-2">
-              <div
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setExpandedItem(expandedItem === 'copy' ? null : 'copy');
-                }}
-                className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all cursor-pointer ${
-                  expandedItem === 'copy'
-                    ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 shadow-sm'
-                    : 'bg-gray-50/50 dark:bg-gray-800/60 border-gray-200 dark:border-gray-800 hover:border-amber-200'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center ${expandedItem === 'copy' ? 'bg-amber-200 text-amber-700 dark:text-amber-400' : 'bg-amber-100 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400'}`}
-                  >
-                    <Type size={14} />
-                  </div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-400">
-                    Copywriting Gerada
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onLoad(variant, 'copy');
-                    }}
-                    className="px-3 py-1.5 bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-amber-200 transition-all"
-                  >
-                    Editar Copy
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onLoad(variant, 'voz-premium');
-                    }}
-                    className="px-3 py-1.5 bg-gray-900 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-black transition-all"
-                  >
-                    Ir para Voz
-                  </button>
-                  <ChevronDown
-                    size={16}
-                    className={`text-gray-400 dark:text-gray-500 transition-transform duration-300 ${expandedItem === 'copy' ? 'rotate-180' : ''}`}
-                  />
-                </div>
-              </div>
-              <AnimatePresence>
-                {expandedItem === 'copy' && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    className="overflow-hidden"
-                  >
-                    <div className="space-y-4 p-5 bg-white dark:bg-gray-900/80 rounded-2xl border border-amber-100 shadow-inner">
-                      <div className="space-y-2">
-                        <p className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
-                          Script Original
-                        </p>
-                        <div className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-medium leading-relaxed">
-                          {variant.config.copy.generatedScript}
-                        </div>
-                      </div>
-                      {hasOptimizedCopy && (
-                        <div className="space-y-2 pt-4 border-t border-gray-50">
-                          <p className="text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest">
-                            Script Otimizado (ElevenLabs)
-                          </p>
-                          <div className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-bold leading-relaxed">
-                            {variant.config.copy.optimizedScript}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </motion.div>
+          {/* Todas as etapas do fluxo. Cada uma abre a SUA aba. Etapas já
+              feitas mostram ✓ e expandem o conteúdo (copy/áudio/vídeo);
+              etapas pendentes ficam esmaecidas mas continuam clicáveis. */}
+          {deliverables.map((d, di) => {
+            const done = d.kind === 'text' ? !!d.text : d.urls.length > 0;
+            const latest = d.urls[d.urls.length - 1];
+            const isOpen = expandedItem === d.key;
+            const showGroup = di === 0 || deliverables[di - 1]?.group !== d.group;
+            return (
+              <div key={d.key} className="space-y-2">
+                {showGroup && (
+                  <p className="pt-1 text-[9px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-500">
+                    {d.group}
+                  </p>
                 )}
-              </AnimatePresence>
-            </div>
-          )}
-
-          {displayAudios.map((audio: any, idx: number) => (
-            <div key={`creative-audio-${idx}-${audio.url || 'no-url'}`} className="space-y-2">
-              <div
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setExpandedItem(expandedItem === `audio-${idx}` ? null : `audio-${idx}`);
-                }}
-                className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all cursor-pointer ${
-                  expandedItem === `audio-${idx}`
-                    ? 'bg-green-50 dark:bg-green-950/40 border-green-200 shadow-sm'
-                    : 'bg-gray-50/50 dark:bg-gray-800/60 border-gray-200 dark:border-gray-800 hover:border-green-200'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center ${expandedItem === `audio-${idx}` ? 'bg-green-200 text-green-700 dark:text-green-400' : 'bg-green-100 text-green-600 dark:text-green-400'}`}
-                  >
-                    <Volume2 size={14} />
-                  </div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-400">
-                    Narração {idx + 1}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onLoad(variant, 'avatar');
-                    }}
-                    className="px-3 py-1.5 bg-gray-900 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-black transition-all"
-                  >
-                    Ir para Avatar
-                  </button>
-                  <ChevronDown
-                    size={16}
-                    className={`text-gray-400 dark:text-gray-500 transition-transform duration-300 ${expandedItem === `audio-${idx}` ? 'rotate-180' : ''}`}
-                  />
-                </div>
-              </div>
-              <AnimatePresence>
-                {expandedItem === `audio-${idx}` && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    className="overflow-hidden"
-                  >
-                    <div className="p-4 bg-white dark:bg-gray-900/80 rounded-2xl border border-green-100 flex items-center justify-between gap-4 shadow-inner">
-                      <audio src={audio.url || undefined} controls className="h-8 flex-1" />
-                      <div className="flex items-center gap-2">
-                        <a
-                          href={audio.url}
-                          download={`audio-${idx + 1}.mp3`}
-                          className="p-2 text-gray-400 dark:text-gray-500 hover:text-blue-500 transition-colors"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Download size={16} />
-                        </a>
-                        {onDeleteAudio && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (
-                                window.confirm(
-                                  'Tem certeza que deseja deletar este áudio? Esta ação não pode ser desfeita.'
-                                )
-                              ) {
-                                onDeleteAudio(audio);
-                              }
-                            }}
-                            className="p-2 text-gray-400 dark:text-gray-500 hover:text-red-500 transition-colors"
-                            title="Deletar áudio"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        )}
-                      </div>
+                <div
+                  onClick={() => {
+                    if (done) setExpandedItem(isOpen ? null : d.key);
+                  }}
+                  className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all ${
+                    done ? 'cursor-pointer' : ''
+                  } ${
+                    isOpen
+                      ? 'bg-gray-50 dark:bg-gray-800/60 border-gray-300 dark:border-gray-700 shadow-sm'
+                      : done
+                        ? 'bg-gray-50/50 dark:bg-gray-800/60 border-gray-200 dark:border-gray-800 hover:border-gray-300'
+                        : 'bg-gray-50/30 dark:bg-gray-900/30 border-gray-200/60 dark:border-gray-800/60'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                        done ? toneIcon[d.tone] : 'bg-gray-100 dark:bg-gray-800/60 text-gray-400 dark:text-gray-600'
+                      }`}
+                    >
+                      {d.icon}
                     </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          ))}
-
-          {displayVideos.map((video: any, idx: number) => (
-            <div key={`creative-video-${idx}-${video.url || 'no-url'}`} className="space-y-2">
-              <div
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setExpandedItem(expandedItem === `video-${idx}` ? null : `video-${idx}`);
-                }}
-                className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all cursor-pointer ${
-                  expandedItem === `video-${idx}`
-                    ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 shadow-sm'
-                    : 'bg-gray-50/50 dark:bg-gray-800/60 border-gray-200 dark:border-gray-800 hover:border-blue-200'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center ${expandedItem === `video-${idx}` ? 'bg-blue-200 text-blue-700 dark:text-blue-300' : 'bg-blue-100 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400'}`}
-                  >
-                    <Video size={14} />
-                  </div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-400">
-                    Vídeo Avatar {idx + 1}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onLoad(variant, 'edit');
-                    }}
-                    className="px-3 py-1.5 bg-gray-900 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-black transition-all"
-                  >
-                    Ir para Edição
-                  </button>
-                  <ChevronDown
-                    size={16}
-                    className={`text-gray-400 dark:text-gray-500 transition-transform duration-300 ${expandedItem === `video-${idx}` ? 'rotate-180' : ''}`}
-                  />
-                </div>
-              </div>
-              <AnimatePresence>
-                {expandedItem === `video-${idx}` && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    className="overflow-hidden"
-                  >
-                    <div className="space-y-4 p-4 bg-white dark:bg-gray-900/80 rounded-2xl border border-blue-100 dark:border-blue-900 shadow-inner">
-                      <div
-                        className={cn(
-                          'bg-black rounded-xl overflow-hidden border-2 border-gray-200 dark:border-gray-800 shadow-sm',
-                          getVideoAspectRatioClass(video)
-                        )}
+                    <div>
+                      <span
+                        className={`text-[10px] font-black uppercase tracking-widest ${
+                          done ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'
+                        }`}
                       >
-                        <video
-                          src={
-                            getAuthorizedUrl(video.url || '', platformApiKey || undefined) ||
-                            undefined
-                          }
-                          controls
-                          className="w-full h-full object-contain"
-                          referrerPolicy={
-                            video.url?.includes('generativelanguage.googleapis.com')
-                              ? ('no-referrer' as const)
-                              : undefined
-                          }
-                          crossOrigin={
-                            video.url?.includes('generativelanguage.googleapis.com')
-                              ? ('anonymous' as const)
-                              : undefined
-                          }
-                          onError={(e) => {
-                            if (video.url?.startsWith('/generated/')) {
-                              console.warn('[Video Expired] Variant Item:', video.url);
-                              e.currentTarget.style.display = 'none';
-                            } else {
-                              console.error(
-                                '[Video Error] Variant Item:',
-                                e.currentTarget.error?.message,
-                                video.url
-                              );
-                            }
-                          }}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onLoad(variant, 'edit');
-                            }}
-                            className="px-4 py-2 bg-purple-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-purple-700 transition-all shadow-lg shadow-purple-100 flex items-center gap-2"
-                          >
-                            <Scissors size={12} />
-                            Editar Edição
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onLoad(variant, 'final');
-                            }}
-                            className="px-4 py-2 bg-gray-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-lg shadow-gray-200 flex items-center gap-2"
-                          >
-                            <Download size={12} />
-                            Exportar Completo
-                          </button>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <a
-                            href={video.url}
-                            download={`video-${idx + 1}.mp4`}
-                            className="p-2 text-gray-400 dark:text-gray-500 hover:text-blue-500 transition-colors"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <Download size={16} />
-                          </a>
-                          {onDeleteVideo && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onDeleteVideo(video);
-                              }}
-                              className="p-2 text-gray-400 dark:text-gray-500 hover:text-red-500 transition-colors"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
+                        {d.label}
+                      </span>
+                      <span
+                        className={`block text-[9px] font-bold tracking-wide ${
+                          done ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-600'
+                        }`}
+                      >
+                        {done
+                          ? d.kind === 'text'
+                            ? '✓ Pronto'
+                            : `✓ ${d.urls.length} ${d.urls.length > 1 ? 'versões' : 'versão'}`
+                          : 'Ainda não feito'}
+                      </span>
                     </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          ))}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {done && d.kind !== 'text' && latest && (
+                      <a
+                        href={latest}
+                        download
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-blue-600 text-white hover:bg-blue-700 whitespace-nowrap inline-flex items-center gap-1"
+                      >
+                        <Download size={12} /> Baixar
+                      </a>
+                    )}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onLoad(variant, d.step, project.id);
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                        done
+                          ? 'bg-gray-900 text-white hover:bg-black'
+                          : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 ring-1 ring-gray-300 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      Abrir
+                    </button>
+                    {done && (
+                      <ChevronDown
+                        size={16}
+                        className={`text-gray-400 dark:text-gray-500 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {/* Conteúdo expansível: player + baixar por versão */}
+                <AnimatePresence>
+                  {isOpen && done && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="p-4 bg-white dark:bg-gray-900/80 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-inner space-y-3">
+                        {d.kind === 'text' && (
+                          <div className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
+                            {d.text}
+                          </div>
+                        )}
+                        {d.kind === 'audio' &&
+                          d.urls.map((u, i) => (
+                            <div key={i} className="flex items-center gap-3">
+                              <audio src={u} controls className="h-8 flex-1" />
+                              <a
+                                href={u}
+                                download
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-2 text-gray-400 dark:text-gray-500 hover:text-blue-500"
+                              >
+                                <Download size={16} />
+                              </a>
+                            </div>
+                          ))}
+                        {d.kind === 'video' &&
+                          d.urls.map((u, i) => (
+                            <div key={i} className="space-y-2">
+                              <div className="relative">
+                                <video
+                                  src={u}
+                                  controls
+                                  className="w-full max-h-56 rounded-lg bg-black"
+                                />
+                                <CreativeInfoButton
+                                  variant={variant}
+                                  heygenAvatars={heygenAvatars}
+                                  placement="overlay"
+                                />
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-[10px] text-gray-400">versão {i + 1}</span>
+                                <a
+                                  href={u}
+                                  download
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:underline"
+                                >
+                                  <Download size={12} /> Baixar
+                                </a>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

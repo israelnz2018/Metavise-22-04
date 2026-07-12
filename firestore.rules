@@ -43,6 +43,12 @@ service cloud.firestore {
       match /copyLibrary/{copyId} {
         allow read, write: if isOwner(userId) || isAdmin();
       }
+
+      // Biblioteca pessoal de músicas (opt-in). Mesmo modelo da copyLibrary:
+      // o dono tem CRUD total; admin lê/escreve pra suporte.
+      match /musicLibrary/{musicId} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
     }
 
     match /projects/{projectId} {
@@ -50,6 +56,16 @@ service cloud.firestore {
       allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
       allow update: if isAuthenticated() && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid;
       allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+
+      // Subprojetos (variants) moram nesta subcoleção desde a migração que tirou
+      // o array `variants[]` de dentro do doc do projeto (limite de 1 MiB). As
+      // regras NÃO são herdadas pelo filho — sem esta, o app não consegue ler
+      // nem gravar subprojetos. Dono = dono do projeto pai.
+      match /variants/{variantId} {
+        allow read, write: if isAuthenticated() &&
+          (get(/databases/$(database)/documents/projects/$(projectId)).data.userId == request.auth.uid
+           || isAdmin());
+      }
     }
 
     match /usage_logs/{logId} {

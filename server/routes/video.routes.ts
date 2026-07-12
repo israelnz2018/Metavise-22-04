@@ -1,7 +1,11 @@
 import { Router } from 'express';
+import crypto from 'crypto';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
+import { spawn } from 'child_process';
 import ffmpeg from 'fluent-ffmpeg';
+import ffmpegStatic from 'ffmpeg-static';
 import admin from 'firebase-admin';
 import { GENERATED_DIR } from '../config/paths.js';
 import { getAssemblyAIKey } from '../config/apiKeys.js';
@@ -9,12 +13,114 @@ import { downloadFile } from '../utils/download.js';
 import { processDataError } from '../utils/errorExtractor.js';
 import { createLogger } from '../utils/logger.js';
 import { withFfmpegQueue } from '../services/jobQueue.js';
-import { ENCODE_BALANCED } from '../config/ffmpeg.js';
+import { ENCODE_BALANCED, ENCODE_FAST } from '../config/ffmpeg.js';
 import { persistVideo } from '../utils/persistVideo.js';
 
 const log = createLogger('Video');
 
 export const videoRouter = Router();
+
+// POST /api/video/split — corta um vídeo em 2 partes no segundo `atSec`.
+// Usado pelo fluxo "b-roll começa em Xs": a Parte 1 (0→X) vai pro ZapCap SEM
+// b-roll e a Parte 2 (X→fim) COM b-roll; depois as duas são juntadas. Re-encoda
+// pra garantir corte exato e A/V sincronizado. Devolve URLs absolutas
+// /generated/ (o servidor as baixa de si mesmo na etapa do edit-simple).
+videoRouter.post(
+  '/split',
+  withFfmpegQueue(async (req, res) => {
+    const { videoUrl, atSec } = req.body || {};
+    if (!videoUrl || typeof videoUrl !== 'string') {
+      return res.status(400).json({ error: 'videoUrl é obrigatório.' });
+    }
+    const cut = Number(atSec);
+    if (!Number.isFinite(cut) || cut <= 0) {
+      return res.status(400).json({ error: 'atSec deve ser um número > 0.' });
+    }
+    try {
+      const stamp = Date.now();
+      const srcPath = path.join(GENERATED_DIR, `split_src_${stamp}.mp4`);
+      await downloadFile(videoUrl, srcPath);
+
+      const meta: any = await new Promise((resolve, reject) =>
+        ffmpeg.ffprobe(srcPath, (err, m) => (err ? reject(err) : resolve(m)))
+      );
+      const dur = Number(meta?.format?.duration) || 0;
+      if (cut >= dur) {
+        try {
+          fs.unlinkSync(srcPath);
+        } catch {
+          /* ignore */
+        }
+        return res.status(400).json({
+          error: `O corte (${cut}s) precisa ser menor que a duração do vídeo (${dur.toFixed(1)}s).`,
+        });
+      }
+
+      const part1Name = `split_p1_${stamp}.mp4`;
+      const part2Name = `split_p2_${stamp}.mp4`;
+      const part1Path = path.join(GENERATED_DIR, part1Name);
+      const part2Path = path.join(GENERATED_DIR, part2Name);
+      const enc = [
+        '-c:v',
+        'libx264',
+        '-preset',
+        'veryfast',
+        '-crf',
+        '20',
+        '-pix_fmt',
+        'yuv420p',
+        '-c:a',
+        'aac',
+        '-b:a',
+        '192k',
+      ];
+
+      await new Promise((resolve, reject) => {
+        ffmpeg(srcPath)
+          .setStartTime(0)
+          .duration(cut)
+          .outputOptions(enc)
+          .output(part1Path)
+          .on('end', () => resolve(null))
+          .on('error', reject)
+          .run();
+      });
+      await new Promise((resolve, reject) => {
+        ffmpeg(srcPath)
+          .setStartTime(cut)
+          .outputOptions(enc)
+          .output(part2Path)
+          .on('end', () => resolve(null))
+          .on('error', reject)
+          .run();
+      });
+
+      try {
+        fs.unlinkSync(srcPath);
+      } catch {
+        /* ignore */
+      }
+
+      const forwardedHost = req.headers['x-forwarded-host'];
+      const host =
+        (typeof forwardedHost === 'string' ? forwardedHost.split(',')[0]?.trim() : null) ||
+        req.get('host') ||
+        '';
+      const protocol =
+        req.headers['x-forwarded-proto'] || (host.includes('localhost') ? 'http' : 'https');
+      const base = `${protocol}://${host}`;
+
+      res.json({
+        part1Url: `${base}/generated/${part1Name}`,
+        part2Url: `${base}/generated/${part2Name}`,
+        durationSec: dur,
+      });
+    } catch (err: any) {
+      log.error('[Video Split] erro:', err.message);
+      res.status(500).json({ error: `Falha ao cortar vídeo: ${err.message}` });
+    }
+  })
+);
 
 // POST /api/video/compress
 // Downloads, compresses to Full HD via ffmpeg, uploads to Firebase, returns
@@ -154,6 +260,60 @@ function escapeFilterPath(p: string): string {
   return p.replace(/\\/g, '\\\\').replace(/:/g, '\\:').replace(/'/g, "\\'");
 }
 
+// Cache PERSISTENTE do avatar base (o vídeo do HeyGen, tipicamente enorme —
+// ex.: 480 MB / 10 min). Antes era baixado a cada render pra dentro do workDir
+// e apagado no fim → cada re-montagem re-baixava tudo. Agora fica salvo por
+// hash da URL em generated/.avatar-cache e é reusado entre renders (o usuário
+// remonta o mesmo bloco várias vezes ajustando enquadramento). Download atômico
+// (.tmp + rename) e dedupe em memória pra chamadas concorrentes.
+const AVATAR_CACHE_DIR = path.join(GENERATED_DIR, '.avatar-cache');
+const avatarDownloadInflight = new Map<string, Promise<string>>();
+async function getPersistentAvatar(url: string): Promise<string> {
+  const key = crypto.createHash('sha1').update(url).digest('hex');
+  const dest = path.join(AVATAR_CACHE_DIR, `${key}.mp4`);
+  try {
+    if (fs.statSync(dest).size > 0) return dest; // já em cache
+  } catch {
+    /* não existe ainda */
+  }
+  const existing = avatarDownloadInflight.get(dest);
+  if (existing) return existing;
+  const p = (async () => {
+    fs.mkdirSync(AVATAR_CACHE_DIR, { recursive: true });
+    const tmp = `${dest}.${Date.now()}.tmp`;
+    await downloadFile(url, tmp);
+    fs.renameSync(tmp, dest);
+    return dest;
+  })();
+  avatarDownloadInflight.set(dest, p);
+  try {
+    return await p;
+  } finally {
+    avatarDownloadInflight.delete(dest);
+  }
+}
+
+// Pre-crop do avatar (remover legenda/rodapé etc.): lê cropL/R/T/B (frações
+// 0..0.45) do clip e devolve o prefixo de filtro `crop=...,` + as dimensões
+// EFETIVAS já recortadas (usadas pra calcular PiP/split sobre o quadro limpo).
+// Sem crop → prefixo vazio e dims originais.
+function buildPreCrop(
+  clip: any,
+  SW: number,
+  SH: number
+): { pre: string; ESW: number; ESH: number } {
+  const cl = Math.min(0.45, Math.max(0, Number(clip?.cropL) || 0));
+  const cr = Math.min(0.45, Math.max(0, Number(clip?.cropR) || 0));
+  const ct = Math.min(0.45, Math.max(0, Number(clip?.cropT) || 0));
+  const cb = Math.min(0.45, Math.max(0, Number(clip?.cropB) || 0));
+  if (!(cl || cr || ct || cb)) return { pre: '', ESW: SW, ESH: SH };
+  const ESW = Math.max(2, Math.round(SW * (1 - cl - cr)));
+  const ESH = Math.max(2, Math.round(SH * (1 - ct - cb)));
+  const ox = Math.round(SW * cl);
+  const oy = Math.round(SH * ct);
+  return { pre: `crop=${ESW}:${ESH}:${ox}:${oy},`, ESW, ESH };
+}
+
 // F6.18 — pasta de fontes bundled (Anton, Bebas Neue, Inter Black, etc.).
 // libass usa fontconfig pra resolver nomes da fonte. Quando passamos
 // `fontsdir=...` no filter subtitles, libass adiciona essa pasta às fontes
@@ -244,6 +404,66 @@ function positionToAssAlignment(position: string): number {
   }
 }
 
+// Texto CINÉTICO (estilo VSL): palavras grandes em negrito, coloridas, com
+// contorno preto e um POP de escala (50→112→100) na entrada. Via libass — cada
+// texto vira um Dialogue com timing próprio [atSec, endSec] e animação \t.
+function writeKineticTextAss(
+  workDir: string,
+  texts: { text?: string; atSec?: number; endSec?: number; color?: string; pos?: string }[],
+  width: number,
+  height: number
+): string {
+  const p = path.join(workDir, 'kinetic.ass');
+  const fontSize = Math.round(height * 0.11);
+  const lines = texts
+    .filter((t) => (t.text || '').trim())
+    .map((t, i) => {
+      const a = Math.max(0, Number(t.atSec) || 0) * 1000;
+      const e = Math.max(a + 150, (Number(t.endSec) || 0) * 1000);
+      const an = positionToAssAlignment(t.pos || 'middle');
+      const col = hexToAssColor(t.color || '#39FF14');
+      const esc = (t.text || '')
+        .toUpperCase()
+        .replace(/\\/g, '\\\\')
+        .replace(/\{/g, '\\{')
+        .replace(/\}/g, '\\}')
+        .replace(/\r?\n/g, '\\N');
+      // Fonte GRANDE (estilo VSL), adaptativa ao nº de palavras. Frases quebram
+      // em 2-3 linhas via WrapStyle 0 sem estourar a tela.
+      const nWords = (t.text || '').trim().split(/\s+/).length;
+      const fs = Math.round(height * (nWords <= 2 ? 0.16 : nWords <= 4 ? 0.14 : 0.115));
+      const bord = Math.max(9, Math.round(fs * 0.09));
+      // Animações de ENTRADA variadas (rotaciona por índice): pop, zoom-in,
+      // bounce, tilt. Sempre com fade-in suave.
+      const ENTRANCES = [
+        `\\fscx45\\fscy45\\t(0,130,\\fscx117\\fscy117)\\t(130,240,\\fscx100\\fscy100)`,
+        `\\fscx175\\fscy175\\t(0,200,\\fscx100\\fscy100)`,
+        `\\fscx55\\fscy55\\t(0,120,\\fscx122\\fscy122)\\t(120,210,\\fscx92\\fscy92)\\t(210,280,\\fscx100\\fscy100)`,
+        `\\frz8\\fscx55\\fscy55\\t(0,150,\\frz0\\fscx112\\fscy112)\\t(150,240,\\fscx100\\fscy100)`,
+      ];
+      const entrance = ENTRANCES[i % ENTRANCES.length];
+      const anim = `{\\an${an}\\fs${fs}\\c${col}\\3c&H000000&\\bord${bord}\\shad4\\fad(90,0)${entrance}}`;
+      return `Dialogue: 0,${msToAssTime(a)},${msToAssTime(e)},Default,,0,0,0,,${anim}${esc}`;
+    });
+  const ass = `[Script Info]
+ScriptType: v4.00+
+PlayResX: ${width}
+PlayResY: ${height}
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Impact,${fontSize},&H0014FF39,&H0014FF39,&H00000000,&H00000000,1,0,0,0,100,100,2,0,1,10,3,5,60,60,120,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+${lines.join('\n')}
+`;
+  fs.writeFileSync(p, ass, 'utf8');
+  return p;
+}
+
 // F6.3/F6.11 — generate ASS file with KARAOKE-style word highlight.
 //
 // F6.11 changes: instead of one giant line with all words, we slice the
@@ -276,7 +496,7 @@ function writeAssFileKaraoke(
   //     'both'        → letra muda de cor E retângulo aparece atrás
   //     'none'        → sem destaque por palavra; frase estática
   textColorHex: string = '#FFFFFF',
-  highlightMode: 'text' | 'background' | 'both' | 'none' = 'text',
+  highlightMode: 'text' | 'background' | 'rectangle' | 'both' | 'none' = 'text',
   // F6.16 — quando true, o retângulo (modo background/both) entra com
   // animação "pop": escala de 90% → 108% → 100% em ~250ms, dando aquela
   // batida visual estilo TikTok/CapCut. Sem efeito nos modos text/none.
@@ -323,6 +543,24 @@ function writeAssFileKaraoke(
         // colorido em volta da palavra. 100% alinhado à palavra falada
         // porque libass renderiza junto com a letra.
         return `{${popAnim(haloBorder)}\\3c${highlightAss}\\b1}${escaped}{\\r}`;
+      case 'rectangle': {
+        // Caixa RETANGULAR atrás da palavra: troca pro estilo DefaultBox
+        // (BorderStyle=3 = caixa opaca contínua na cor do destaque). O \r
+        // volta ao estilo Default. libass desenha a caixa no lugar exato da
+        // palavra, sem estimar coordenada (mesma técnica robusta da headline).
+        //
+        // Animação pop (CapCut/TikTok): a caixa dá um esticão pra fora e
+        // assenta MENOR que o tamanho base. Anima o \bord (margem da caixa):
+        // base → pico (esticão, ~90ms) → assenta menor (~220ms). Sem animação,
+        // fica no boxPad fixo. O \t() é relativo ao início do evento, que é
+        // exatamente quando a palavra fica ativa.
+        if (popAnimation) {
+          const peak = Math.round(boxPad * 1.8);
+          const settle = Math.max(2, Math.round(boxPad * 0.55));
+          return `{\\rDefaultBox\\b1\\bord${boxPad}\\t(0,90,\\bord${peak})\\t(90,220,\\bord${settle})}${escaped}{\\rDefault}`;
+        }
+        return `{\\rDefaultBox\\b1}${escaped}{\\rDefault}`;
+      }
       case 'both':
         // Letra colorida + halo colorido (mesma cor) = palavra "embrulhada"
         // toda em destaque.
@@ -331,6 +569,11 @@ function writeAssFileKaraoke(
         return escaped;
     }
   };
+  // F6.21 — padding da caixa retangular (modo 'rectangle'). É o Outline do
+  // estilo DefaultBox: com BorderStyle=3 vira a margem da caixa em volta do
+  // texto. Reduzido de 0.18 → 0.10 pra caixa ficar mais JUSTA (antes sobrava
+  // muito espaço em cima/embaixo da palavra).
+  const boxPad = Math.max(4, Math.round(fontSize * 0.1));
 
   // F6.20 — REVERTIDO da abordagem "retângulo via \p1 + \pos calculada":
   // estimar largura/posição de palavra dentro de uma linha que pode quebrar
@@ -433,6 +676,7 @@ ScaledBorderAndShadow: yes
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Default,${fontFamily},${fontSize},${textAss},${textAss},${outlineAss},&H00000000,1,0,0,0,100,100,0,0,1,3,0,${alignment},80,80,${marginV},1
+Style: DefaultBox,${fontFamily},${fontSize},${textAss},${textAss},${highlightAss},&H00000000,1,0,0,0,100,100,0,0,3,${boxPad},0,${alignment},80,80,${marginV},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -637,7 +881,7 @@ videoRouter.post(
         fontFamily: string = 'Impact',
         // F6.15 — novos params propagados pro writeAssFileKaraoke
         textColor: string = '#FFFFFF',
-        highlightMode: 'text' | 'background' | 'both' | 'none' = 'text',
+        highlightMode: 'text' | 'background' | 'rectangle' | 'both' | 'none' = 'text',
         // F6.16 — toggle da animação pop do retângulo
         popAnimation: boolean = false,
         // F6.17 — cor da borda (outline) ao redor das letras
@@ -785,7 +1029,7 @@ videoRouter.post(
         // Defaults preservam comportamento antigo (texto branco, destaque
         // em cor purple muda só a letra).
         const textColor = String(req.body?.textColor || '#FFFFFF');
-        const allowedModes = ['text', 'background', 'both', 'none'] as const;
+        const allowedModes = ['text', 'background', 'rectangle', 'both', 'none'] as const;
         const reqMode = String(req.body?.highlightMode || 'text');
         const highlightMode = (
           allowedModes.includes(reqMode as any) ? reqMode : 'text'
@@ -1677,9 +1921,9 @@ videoRouter.post(
     if (!videoUrl || !musicUrl || !userId) {
       return res.status(400).json({ error: 'videoUrl, musicUrl, userId são obrigatórios.' });
     }
-    const vol = Math.max(0.05, Math.min(1.0, Number(volume)));
-    const fIn = Math.max(0, Math.min(10, Number(fadeInSec)));
-    const fOut = Math.max(0, Math.min(10, Number(fadeOutSec)));
+    const vol = Math.max(0.02, Math.min(1.0, Number(volume)));
+    const fIn = Math.max(0, Math.min(20, Number(fadeInSec)));
+    const fOut = Math.max(0, Math.min(20, Number(fadeOutSec)));
 
     const jobId = `addmusic_${Date.now()}`;
     const workDir = path.join(GENERATED_DIR, jobId);
@@ -1707,12 +1951,27 @@ videoRouter.post(
         throw new Error(`Vídeo muito curto (${videoDurationSec}s).`);
       }
 
-      // Filtergraph: pad music with silence, trim to video duration,
-      // fade in/out, scale volume, then mix with original voiceover.
+      // Probe a duração da MÚSICA. Se for mais curta que o vídeo, em vez de
+      // preencher com SILÊNCIO (o que fazia a trilha "parar" antes do fim),
+      // damos LOOP na faixa até cobrir o vídeo inteiro. Aí cortamos no tamanho
+      // exato e aplicamos os fades.
+      const musicMeta: any = await new Promise((resolve, reject) => {
+        ffmpeg.ffprobe(musicPath, (err, m) => (err ? reject(err) : resolve(m)));
+      });
+      const musicDurationSec: number = Number(musicMeta.format.duration) || 0;
+      const needsLoop = musicDurationSec > 0 && musicDurationSec < videoDurationSec - 0.3;
+
+      // Fade-out: começa `fOut` segundos antes do fim do vídeo.
       const fadeOutStart = Math.max(0, videoDurationSec - fOut);
+      // O loop é feito no INPUT (-stream_loop), não no filtro: aloop com size
+      // gigante é instável e às vezes não repetia (deixava silêncio no fim).
+      // -stream_loop -1 repete o arquivo de música quantas vezes precisar; o
+      // atrim corta na duração exata do vídeo. apad fica como rede pra micro-
+      // diferenças quando NÃO precisa loop.
       const musicFilter = [
-        `apad`,
+        needsLoop ? null : `apad`,
         `atrim=duration=${videoDurationSec}`,
+        `asetpts=N/SR/TB`,
         fIn > 0 ? `afade=t=in:st=0:d=${fIn}` : '',
         fOut > 0 ? `afade=t=out:st=${fadeOutStart}:d=${fOut}` : '',
         `volume=${vol}`,
@@ -1726,9 +1985,12 @@ videoRouter.post(
       const finalPath = path.join(GENERATED_DIR, finalFilename);
 
       await new Promise((resolve, reject) => {
-        ffmpeg()
-          .input(videoPath)
-          .input(musicPath)
+        const cmd = ffmpeg().input(videoPath).input(musicPath);
+        // Loop da música no nível de INPUT quando ela é mais curta que o vídeo.
+        // inputOptions aplica ao ÚLTIMO input adicionado (a música) — por isso
+        // vem DEPOIS do .input(musicPath).
+        if (needsLoop) cmd.inputOptions(['-stream_loop', '-1']);
+        cmd
           .complexFilter(filterComplex)
           .outputOptions([
             '-map',
@@ -1768,6 +2030,1113 @@ videoRouter.post(
     } catch (err: any) {
       log.error('add-music failed:', err.message);
       res.status(500).json({ error: `Add music failed: ${err.message}` });
+    } finally {
+      try {
+        if (fs.existsSync(workDir)) fs.rmSync(workDir, { recursive: true, force: true });
+      } catch {
+        /* ignore */
+      }
+    }
+  })
+);
+
+// POST /api/video/broll
+// Insere clipes de B-roll (vindos do Pexels) DENTRO do vídeo do avatar, ANTES
+// das legendas. Cada clipe vira um "cutaway" full-frame na janela escolhida,
+// com o áudio original do avatar seguindo por baixo. O ZapCap roda depois e
+// queima a legenda por cima (inclusive sobre o b-roll).
+//
+// Body: { videoUrl, userId, inserts: [{ clipUrl, atSec, durationSec }] }
+// Resposta: { url }  (novo vídeo persistido no Storage)
+videoRouter.post(
+  '/broll',
+  withFfmpegQueue(async (req, res) => {
+    const { videoUrl, userId, inserts } = req.body || {};
+    if (!videoUrl || !userId) {
+      return res.status(400).json({ error: 'videoUrl e userId são obrigatórios.' });
+    }
+    if (!Array.isArray(inserts) || inserts.length === 0) {
+      return res.json({ url: videoUrl });
+    }
+    const clips = inserts.slice(0, 12);
+
+    const stamp = Date.now();
+    const workDir = path.join(GENERATED_DIR, `broll_${stamp}`);
+    fs.mkdirSync(workDir, { recursive: true });
+    const basePath = path.join(workDir, 'base.mp4');
+    const outPath = path.join(workDir, 'out.mp4');
+
+    try {
+      await downloadFile(videoUrl, basePath);
+
+      const clipPaths: string[] = [];
+      for (let i = 0; i < clips.length; i++) {
+        const cp = path.join(workDir, `clip_${i}.mp4`);
+        await downloadFile(clips[i].clipUrl, cp);
+        clipPaths.push(cp);
+      }
+
+      const { width, height } = await new Promise<{ width: number; height: number }>(
+        (resolve, reject) => {
+          ffmpeg.ffprobe(basePath, (err, meta) => {
+            if (err) return reject(err);
+            const s = meta.streams.find((x) => x.codec_type === 'video');
+            resolve({ width: s?.width || 1080, height: s?.height || 1920 });
+          });
+        }
+      );
+
+      const filters: string[] = [];
+      clips.forEach((ins: any, idx: number) => {
+        const dur = Math.max(0.5, Number(ins.durationSec) || 3);
+        const at = Math.max(0, Number(ins.atSec) || 0);
+        filters.push(
+          `[${idx + 1}:v]scale=${width}:${height}:force_original_aspect_ratio=increase,` +
+            `crop=${width}:${height},trim=0:${dur},setpts=PTS-STARTPTS+${at}/TB[ov${idx}]`
+        );
+      });
+      let prev = '0:v';
+      clips.forEach((ins: any, idx: number) => {
+        const dur = Math.max(0.5, Number(ins.durationSec) || 3);
+        const at = Math.max(0, Number(ins.atSec) || 0);
+        const end = at + dur;
+        const out = idx === clips.length - 1 ? 'vout' : `tmp${idx}`;
+        filters.push(
+          `[${prev}][ov${idx}]overlay=eof_action=pass:enable='between(t\\,${at}\\,${end})'[${out}]`
+        );
+        prev = out;
+      });
+
+      await new Promise((resolve, reject) => {
+        const cmd = ffmpeg();
+        cmd.input(basePath);
+        clipPaths.forEach((p) => cmd.input(p));
+        cmd
+          .complexFilter(filters)
+          .outputOptions(['-map', '[vout]', '-map', '0:a?', ...ENCODE_BALANCED])
+          .save(outPath)
+          .on('end', () => resolve(null))
+          .on('error', reject);
+      });
+
+      const buffer = fs.readFileSync(outPath);
+      const { url } = await persistVideo({
+        buffer,
+        filename: `broll_${stamp}.mp4`,
+        storageFolder: 'broll',
+        userId,
+      });
+      res.json({ url });
+    } catch (err: any) {
+      log.error('[Video B-roll] Erro:', err.message);
+      res.status(500).json({ error: processDataError(err) });
+    } finally {
+      try {
+        if (fs.existsSync(workDir)) fs.rmSync(workDir, { recursive: true, force: true });
+      } catch {
+        /* ignore */
+      }
+    }
+  })
+);
+
+// POST /api/video/compose
+// Monta um vídeo novo a partir de N vídeos ALINHADOS (mesma duração e mesmo
+// áudio — ex.: mesmas copy/voz/avatar/legenda, só b-roll/tela-preta diferentes).
+// Pra cada trecho [startSec,endSec] você escolhe de QUAL vídeo o VÍDEO vem; o
+// ÁUDIO sai inteiro do 1º vídeo (idêntico nos demais) → corte sem clique.
+// Body: { videos: string[], userId, segments: [{ sourceIndex, startSec, endSec }] }
+videoRouter.post(
+  '/compose',
+  withFfmpegQueue(async (req, res) => {
+    const { videos, userId, segments } = req.body || {};
+    if (!Array.isArray(videos) || videos.length === 0 || !userId) {
+      return res.status(400).json({ error: 'videos e userId são obrigatórios.' });
+    }
+    if (!Array.isArray(segments) || segments.length === 0) {
+      return res.status(400).json({ error: 'segments é obrigatório.' });
+    }
+    const segs = segments.slice(0, 60);
+    const stamp = Date.now();
+    const workDir = path.join(GENERATED_DIR, `compose_${stamp}`);
+    fs.mkdirSync(workDir, { recursive: true });
+    const outPath = path.join(workDir, 'out.mp4');
+
+    try {
+      // Baixa os vídeos em PARALELO (antes era um por um).
+      const srcPaths: string[] = videos.map((_: string, i: number) =>
+        path.join(workDir, `src_${i}.mp4`)
+      );
+      await Promise.all(videos.map((u: string, i: number) => downloadFile(u, srcPaths[i]!)));
+
+      await new Promise((resolve, reject) => {
+        const cmd = ffmpeg();
+        // 1 input por segmento (reabre o arquivo da fonte daquele trecho).
+        segs.forEach((s: any) => {
+          const idx = Math.max(0, Math.min(Number(s.sourceIndex) || 0, srcPaths.length - 1));
+          cmd.input(srcPaths[idx]!);
+        });
+        // input extra = fonte 0 (áudio inteiro, idêntico em todos).
+        cmd.input(srcPaths[0]!);
+        const audioIdx = segs.length;
+
+        const filters: string[] = [];
+        segs.forEach((s: any, i: number) => {
+          const a = Math.max(0, Number(s.startSec) || 0);
+          const b = Math.max(a + 0.05, Number(s.endSec) || 0);
+          filters.push(`[${i}:v]trim=${a}:${b},setpts=PTS-STARTPTS[v${i}]`);
+        });
+        filters.push(
+          `${segs.map((_: any, i: number) => `[v${i}]`).join('')}concat=n=${segs.length}:v=1:a=0[vout]`
+        );
+
+        cmd
+          .complexFilter(filters)
+          .outputOptions(['-map', '[vout]', '-map', `${audioIdx}:a?`, '-shortest', ...ENCODE_FAST, '-c:a aac', '-b:a 128k'])
+          .save(outPath)
+          .on('end', () => resolve(null))
+          .on('error', reject);
+      });
+
+      const buffer = fs.readFileSync(outPath);
+      const { url } = await persistVideo({
+        buffer,
+        filename: `compose_${stamp}.mp4`,
+        storageFolder: 'compose',
+        userId,
+      });
+      res.json({ url });
+    } catch (err: any) {
+      log.error('[Video Compose] Erro:', err.message);
+      res.status(500).json({ error: processDataError(err) });
+    } finally {
+      try {
+        if (fs.existsSync(workDir)) fs.rmSync(workDir, { recursive: true, force: true });
+      } catch {
+        /* ignore */
+      }
+    }
+  })
+);
+
+// POST /api/video/sequence
+// Monta UMA sequência a partir de vários TRECHOS (clipes do próprio usuário),
+// na ordem dada, cada um com o SEU PRÓPRIO áudio. Normaliza tudo pra 1080x1920
+// (pad preto) + 30fps + áudio 44100 estéreo, depois concatena. Body:
+// { clips: [{ url, startSec?, endSec? }], userId } → { url }
+videoRouter.post(
+  '/sequence',
+  withFfmpegQueue(async (req, res) => {
+    const { clips, userId, muted } = req.body || {};
+    if (!Array.isArray(clips) || clips.length === 0 || !userId) {
+      return res.status(400).json({ error: 'clips e userId são obrigatórios.' });
+    }
+    const list = clips.slice(0, 60).filter((c: any) => c && c.url);
+    if (list.length === 0) return res.status(400).json({ error: 'Nenhum clipe válido.' });
+    const stamp = Date.now();
+    const workDir = path.join(GENERATED_DIR, `sequence_${stamp}`);
+    fs.mkdirSync(workDir, { recursive: true });
+    const outPath = path.join(workDir, 'out.mp4');
+
+    try {
+      // Baixa os clipes em PARALELO (antes era um por um).
+      const srcPaths: string[] = list.map((_: any, i: number) =>
+        path.join(workDir, `clip_${i}.mp4`)
+      );
+      await Promise.all(list.map((c: any, i: number) => downloadFile(c.url, srcPaths[i]!)));
+
+      await new Promise((resolve, reject) => {
+        const cmd = ffmpeg();
+        srcPaths.forEach((p) => cmd.input(p));
+
+        // muted = trechos sem som (o usuário põe voz+música depois). Senão,
+        // mantém o áudio de cada trecho.
+        const isMuted = !!muted;
+        const filters: string[] = [];
+        list.forEach((c: any, i: number) => {
+          const a = Math.max(0, Number(c.startSec) || 0);
+          const b = Number(c.endSec) || 0;
+          const vTrim = b > a ? `trim=${a}:${b},` : a > 0 ? `trim=start=${a},` : '';
+          filters.push(
+            `[${i}:v]${vTrim}setpts=PTS-STARTPTS,scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30[v${i}]`
+          );
+          if (!isMuted) {
+            const aTrim = b > a ? `atrim=${a}:${b},` : a > 0 ? `atrim=start=${a},` : '';
+            filters.push(
+              `[${i}:a]${aTrim}asetpts=PTS-STARTPTS,aformat=sample_rates=44100:channel_layouts=stereo[a${i}]`
+            );
+          }
+        });
+
+        if (isMuted) {
+          filters.push(
+            `${list.map((_: any, i: number) => `[v${i}]`).join('')}concat=n=${list.length}:v=1:a=0[vout]`
+          );
+        } else {
+          filters.push(
+            `${list.map((_: any, i: number) => `[v${i}][a${i}]`).join('')}concat=n=${list.length}:v=1:a=1[vout][aout]`
+          );
+        }
+
+        cmd
+          .complexFilter(filters)
+          .outputOptions(
+            isMuted
+              ? ['-map', '[vout]', '-an', ...ENCODE_FAST]
+              : ['-map', '[vout]', '-map', '[aout]', ...ENCODE_FAST, '-c:a aac', '-b:a 128k']
+          )
+          .save(outPath)
+          .on('end', () => resolve(null))
+          .on('error', reject);
+      });
+
+      const buffer = fs.readFileSync(outPath);
+      const { url } = await persistVideo({
+        buffer,
+        filename: `sequence_${stamp}.mp4`,
+        storageFolder: 'sequence',
+        userId,
+      });
+      res.json({ url });
+    } catch (err: any) {
+      log.error('[Video Sequence] Erro:', err.message);
+      res.status(500).json({ error: processDataError(err) });
+    } finally {
+      try {
+        if (fs.existsSync(workDir)) fs.rmSync(workDir, { recursive: true, force: true });
+      } catch {
+        /* ignore */
+      }
+    }
+  })
+);
+
+// POST /api/video/timeline
+// Monta um vídeo TIMED ao áudio: base preta 1080x1920 com a duração do áudio,
+// cada trecho sobreposto no seu intervalo [atSec, endSec] (buracos = preto), e o
+// áudio (voz) por cima de tudo. Body:
+// { audioUrl, durationSec, clips:[{url, atSec, endSec, trimStart?}], userId } → { url }
+videoRouter.post(
+  '/timeline',
+  withFfmpegQueue(async (req, res) => {
+    const { audioUrl, durationSec, clips, userId } = req.body || {};
+    if (!audioUrl || !userId || !Array.isArray(clips) || clips.length === 0) {
+      return res.status(400).json({ error: 'audioUrl, clips e userId são obrigatórios.' });
+    }
+    // Janela opcional: renderiza só um GRUPO da timeline. `audioStartSec` é o
+    // offset no áudio; `durationSec` vira a duração DA JANELA. Os clipes já vêm
+    // rebaseados (atSec/endSec relativos ao início da janela). Permite montar um
+    // vídeo longo em pedaços de ~2 min e concatenar depois (evita 1 render pesado).
+    const audioStartSec = Math.max(0, Number((req.body || {}).audioStartSec) || 0);
+    // Formato do vídeo + enquadramento. `fit`: 'cover' preenche o frame cortando
+    // o excesso (sem barras pretas); 'contain' encaixa o clipe inteiro (com barras).
+    const AR: Record<string, [number, number]> = {
+      '1:1': [1080, 1080],
+      '9:16': [1080, 1920],
+      '16:9': [1920, 1080],
+    };
+    const [W, H] = AR[String((req.body || {}).aspectRatio)] || [1080, 1080];
+    const fit = String((req.body || {}).fit) === 'contain' ? 'contain' : 'cover';
+    const scaleFit =
+      fit === 'cover'
+        ? `scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H}`
+        : `scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2`;
+    const dur = Math.max(1, Math.min(Number(durationSec) || 0, 1800));
+    if (!dur) return res.status(400).json({ error: 'durationSec inválida.' });
+    const list = clips.slice(0, 40).filter((c: any) => c && c.url);
+    if (list.length === 0) return res.status(400).json({ error: 'Nenhum clipe válido.' });
+    const stamp = Date.now();
+    const workDir = path.join(GENERATED_DIR, `timeline_${stamp}`);
+    fs.mkdirSync(workDir, { recursive: true });
+    const outPath = path.join(workDir, 'out.mp4');
+
+    try {
+      const clipPaths: string[] = [];
+      // Caches CONCORRÊNCIA-SAFE: guardam a PROMESSA (não o path resolvido). Como
+      // os trechos são compostos em PARALELO, duas tarefas com a mesma URL pegam
+      // a MESMA promessa em vez de baixar duas vezes pro mesmo arquivo (o que
+      // corromperia o download). A atribuição da entrada é síncrona (antes de
+      // qualquer await), então não há corrida no índice do path.
+      // JANELA do avatar usada por ESTE render: menor/maior seek entre os trechos
+      // de avatar. Cortamos o avatar (enorme — ex.: 480 MB/10 min) pra essa janela
+      // UMA vez → cada composite lê um arquivo PEQUENO. Ler o arquivo de 480 MB em
+      // paralelo (vários composites seekando ao mesmo tempo) era o gargalo real
+      // (disputa de IO deixava cada composite ~5× mais lento).
+      const AV_LAYOUTS = new Set([
+        'avatar',
+        'pip',
+        'split-left',
+        'split-right',
+        'split-top',
+        'split-bottom',
+      ]);
+      let avWinStart = 0;
+      let avWinLen = 0;
+      {
+        let lo = Infinity;
+        let hi = -Infinity;
+        for (const c of list) {
+          if (c && c.avatarUrl && AV_LAYOUTS.has(String(c.layout || ''))) {
+            const s = Math.max(0, Number(c.avatarSeek) || 0);
+            const d = Math.max(0.1, (Number(c.endSec) || 0) - (Number(c.atSec) || 0));
+            lo = Math.min(lo, s);
+            hi = Math.max(hi, s + d);
+          }
+        }
+        if (lo !== Infinity && hi > lo) {
+          avWinStart = Math.max(0, lo - 0.5);
+          avWinLen = hi - avWinStart + 1; // margem no fim
+        }
+      }
+      const avatarCache: Record<string, Promise<string>> = {};
+      const getAvatarBase = (url: string): Promise<string> => {
+        if (!avatarCache[url]) {
+          avatarCache[url] = (async () => {
+            const full = await getPersistentAvatar(url); // 480 MB, baixado 1×
+            if (avWinLen <= 0) return full;
+            // Corta pra janela do bloco (uma vez): arquivo pequeno, sem disputa
+            // de IO. Output começa em avWinStart (timestamps zerados) → o seek de
+            // cada composite vira (avatarSeek − avWinStart).
+            const tp = path.join(workDir, `avtrim_${Object.keys(avatarCache).length}.mp4`);
+            await new Promise((resolve, reject) => {
+              ffmpeg()
+                .input(full)
+                .inputOptions(['-ss', String(avWinStart)])
+                .outputOptions([
+                  '-t',
+                  String(avWinLen),
+                  '-an',
+                  '-c:v',
+                  'libx264',
+                  '-preset',
+                  'ultrafast',
+                  '-pix_fmt',
+                  'yuv420p',
+                ])
+                .save(tp)
+                .on('end', () => resolve(null))
+                .on('error', (e: any, _o: any, se: any) =>
+                  reject(new Error(`avtrim: ${e?.message || e} | ${(se || '').slice(-200)}`))
+                );
+            });
+            return tp;
+          })();
+        }
+        return avatarCache[url]!;
+      };
+      // Dimensões do avatar (ffprobe UMA vez por arquivo).
+      const avatarDims: Record<string, Promise<{ w: number; h: number }>> = {};
+      const getAvatarDims = (avPath: string): Promise<{ w: number; h: number }> => {
+        if (!avatarDims[avPath]) {
+          avatarDims[avPath] = (async () => {
+            const meta: any = await new Promise((resolve, reject) =>
+              ffmpeg.ffprobe(avPath, (err, m) => (err ? reject(err) : resolve(m)))
+            );
+            const vs = (meta.streams || []).find((s: any) => s.width && s.height) || {};
+            return { w: Number(vs.width) || 1920, h: Number(vs.height) || 1080 };
+          })();
+        }
+        return avatarDims[avPath]!;
+      };
+      // Cache de B-ROLL por URL (o split/pip re-baixava o mesmo b-roll).
+      const bgCache: Record<string, Promise<string>> = {};
+      const getBg = (url: string): Promise<string> => {
+        if (!bgCache[url]) {
+          const bp = path.join(workDir, `bgc_${Object.keys(bgCache).length}.mp4`);
+          bgCache[url] = downloadFile(url, bp).then(() => bp);
+        }
+        return bgCache[url]!;
+      };
+      // Máscara CIRCULAR gerada UMA vez (o geq por-pixel por-frame era o gargalo
+      // do PiP). Depois é só alphamerge (rápido) em cada trecho.
+      let circleMaskPromise: Promise<string> | null = null;
+      const getCircleMask = (D: number): Promise<string> => {
+        if (!circleMaskPromise) {
+          circleMaskPromise = new Promise<string>((resolve, reject) => {
+            const mp = path.join(workDir, 'circle_mask.png');
+            const cc = D / 2;
+            const rr2 = cc * cc;
+            ffmpeg()
+              .input(`color=c=black:s=${D}x${D}:d=0.1`)
+              .inputOptions(['-f', 'lavfi'])
+              .complexFilter([
+                `format=gray,geq=lum='if(lte((X-${cc})*(X-${cc})+(Y-${cc})*(Y-${cc})\\,${rr2})\\,255\\,0)'`,
+              ])
+              .outputOptions(['-frames:v', '1'])
+              .save(mp)
+              .on('end', () => resolve(mp))
+              .on('error', (err: any, _o: any, stderr: any) =>
+                reject(new Error(`mask: ${err?.message || err} | ${(stderr || '').slice(-300)}`))
+              );
+          });
+        }
+        return circleMaskPromise;
+      };
+      // Paralelismo dos composites. Os FILTROS do ffmpeg (scale/blur/overlay) já
+      // usam vários núcleos sozinhos, então rodar muitos composites juntos só
+      // divide os núcleos entre eles (não acelera o trabalho de CPU). Usamos 2:
+      // cada composite pega ~metade dos núcleos e ainda sobrepomos os downloads.
+      const CPU_CORES = Math.max(2, os.cpus().length || 4);
+      const CLIP_CONCURRENCY = 2;
+      const CLIP_THREADS = Math.max(1, Math.floor(CPU_CORES / CLIP_CONCURRENCY));
+      const buildClip = async (i: number): Promise<void> => {
+        const p = path.join(workDir, `clip_${i}.mp4`);
+        // Duração que o composite PRECISA ter (o trecho + margem). Sem isto, o
+        // composite encodava a duração INTEIRA do input (ex.: avatar cortado de
+        // 111s) em vez dos ~3s do trecho → cada composite virava um encode
+        // gigante e o render TRAVAVA. Limita cada composite a essa janela.
+        const compDur =
+          Math.max(
+            0.5,
+            (Number(list[i].trimStart) || 0) +
+              ((Number(list[i].endSec) || 0) - (Number(list[i].atSec) || 0))
+          ) + 0.5;
+        // AVATAR COMPOSTO: PiP (círculo no canto) ou SPLIT com avatar. Pré-monta
+        // num único clipe WxH → o resto do filtergraph fica idêntico.
+        const layout = String(list[i].layout || '');
+        const avatarUrl = list[i].avatarUrl;
+        if (
+          (layout === 'avatar' ||
+            layout === 'pip' ||
+            layout === 'split-left' ||
+            layout === 'split-right' ||
+            layout === 'split-top' ||
+            layout === 'split-bottom') &&
+          avatarUrl
+        ) {
+          try {
+            // Seek relativo ao corte (o avatar já foi cortado a partir de avWinStart).
+            const avSeek = Math.max(0, (Number(list[i].avatarSeek) || 0) - avWinStart);
+            // AVATAR TELA CHEIA: só o avatar, sem b-roll. Preenche WxH com FUNDO
+            // BORRADO do próprio vídeo (igual VSL rica): fundo = cópia ampliada +
+            // blur cobrindo WxH; frente = vídeo inteiro encaixado (contain) e
+            // centralizado. Se a proporção bate (ex.: 16:9 em 16:9) a frente cobre
+            // tudo e o blur nem aparece; se a base é vertical num 16:9, as laterais
+            // ficam com o vídeo borrado em vez de barra preta / corte na cabeça.
+            if (layout === 'avatar') {
+              const av = await getAvatarBase(avatarUrl);
+              const { w: FSW, h: FSH } = await getAvatarDims(av);
+              const preCrop = buildPreCrop(list[i], FSW, FSH).pre;
+              await new Promise((resolve, reject) => {
+                const cmd = ffmpeg().input(av);
+                if (avSeek > 0) cmd.inputOptions([`-ss`, String(avSeek)]);
+                cmd
+                  .complexFilter([
+                    // Fundo borrado BARATO: reduz pra ~1/4, borra o frame pequeno
+                    // e amplia de volta. Blur a 1080p (boxblur=24:3) custava ~4s/
+                    // trecho — era o real gargalo; assim cai pra ~1s, visual igual.
+                    `[0:v]${preCrop}split=2[abg][afg]`,
+                    `[abg]scale=${Math.round(W / 4)}:${Math.round(H / 4)}:force_original_aspect_ratio=increase,crop=${Math.round(W / 4)}:${Math.round(H / 4)},boxblur=6:1,scale=${W}:${H},setsar=1[abgb]`,
+                    `[afg]scale=${W}:${H}:force_original_aspect_ratio=decrease,setsar=1[afgf]`,
+                    `[abgb][afgf]overlay=(W-w)/2:(H-h)/2:shortest=1,setsar=1[v]`,
+                  ])
+                  .outputOptions(['-map', '[v]', '-an', ...ENCODE_FAST, '-threads', String(CLIP_THREADS), '-t', String(compDur)])
+                  .save(p)
+                  .on('end', () => resolve(null))
+                  .on('error', (err: any, _o: any, stderr: any) =>
+                    reject(new Error(`avatar-full: ${err?.message || err} | ${(stderr || '').slice(-300)}`))
+                  );
+              });
+              clipPaths[i] = p;
+              return;
+            }
+            const bg = await getBg(list[i].url); // b-roll (fundo, cacheado)
+            const av = await getAvatarBase(avatarUrl); // avatar (cacheado)
+            const rawDims = await getAvatarDims(av); // dims reais do avatar
+            // Pre-crop (remove legenda/rodapé): dims EFETIVAS = já recortadas.
+            const { pre: preCrop, ESW: SW, ESH: SH } = buildPreCrop(list[i], rawDims.w, rawDims.h);
+            const D = Math.round(H * 0.34); // diâmetro do círculo do PiP
+            const maskP = layout === 'pip' ? await getCircleMask(D) : '';
+            await new Promise((resolve, reject) => {
+              const cmd = ffmpeg().input(bg).input(av);
+              if (avSeek > 0) cmd.inputOptions([`-ss`, String(avSeek)]); // seek no avatar (último input)
+              if (maskP) {
+                cmd.input(maskP); // máscara do círculo (input 2)
+                cmd.inputOptions(['-loop', '1']); // repete a imagem por todos os frames
+              }
+              let filters: string[];
+              if (layout === 'pip') {
+                const m = Math.round(H * 0.04); // margem do canto
+                // Círculo do PiP posicionado pelo ENQUADRAMENTO calibrado: centro
+                // (pipCX,pipCY) normalizado e diâmetro pipSize (fração do menor
+                // lado). Default = topo-centro (rosto). Crop numérico (dims já
+                // recortadas) com clamp pra nunca estourar a borda do avatar.
+                const pipSize = Math.min(1, Math.max(0.2, Number(list[i].pipSize) || 0.72));
+                const pipCX = Math.min(1, Math.max(0, Number(list[i].pipCX ?? 0.5)));
+                const pipCY = Math.min(1, Math.max(0, Number(list[i].pipCY ?? 0.28)));
+                const side = Math.round(Math.min(SW, SH) * pipSize);
+                const cx = Math.round(Math.min(SW - side, Math.max(0, SW * pipCX - side / 2)));
+                const cy = Math.round(Math.min(SH - side, Math.max(0, SH * pipCY - side / 2)));
+                const faceCrop = `crop=${side}:${side}:${cx}:${cy}`;
+                filters = [
+                  `[0:v]scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},setsar=1[bg]`,
+                  `[1:v]${preCrop}${faceCrop},scale=${D}:${D},setsar=1[face]`,
+                  `[2:v]format=gray,scale=${D}:${D}[mask]`,
+                  `[face][mask]alphamerge[circ]`,
+                  `[bg][circ]overlay=W-w-${m}:${m}:shortest=1[v]`,
+                ];
+              } else {
+                // SPLIT em 2 orientações:
+                //  - horizontal (split-left/right): avatar numa METADE LATERAL → hstack
+                //  - vertical  (split-top/bottom):  avatar numa METADE em cima/baixo → vstack
+                const vertical = layout === 'split-top' || layout === 'split-bottom';
+                const avatarFirst = layout === 'split-left' || layout === 'split-top';
+                // Dimensões da metade do avatar e da metade do b-roll.
+                const avHalfW = vertical ? W : Math.floor(W / 2);
+                const avHalfH = vertical ? Math.floor(H / 2) : H;
+                const brHalfW = vertical ? W : W - avHalfW;
+                const brHalfH = vertical ? H - avHalfH : H;
+                // CAIXA de recorte com a proporção da metade do avatar; TAMANHO
+                // (splitSize) = escala da maior caixa que cabe na fonte (1 = maior
+                // possível/mais aberto; menor = mais zoom). Posição por splitCX/CY.
+                const boxAR = avHalfW / avHalfH;
+                const sCX = Math.min(1, Math.max(0, Number(list[i].splitCX ?? 0.5)));
+                const sCY = Math.min(1, Math.max(0, Number(list[i].splitCY ?? 0.4)));
+                const sSize = Math.min(1, Math.max(0.4, Number(list[i].splitSize ?? 1)));
+                const maxBoxW = Math.min(SW, SH * boxAR);
+                const boxW = Math.round(maxBoxW * sSize);
+                const boxH = Math.round((maxBoxW / boxAR) * sSize);
+                const cx = Math.round(Math.min(SW - boxW, Math.max(0, SW * sCX - boxW / 2)));
+                const cy = Math.round(Math.min(SH - boxH, Math.max(0, SH * sCY - boxH / 2)));
+                const avF = `[1:v]${preCrop}crop=${boxW}:${boxH}:${cx}:${cy},scale=${avHalfW}:${avHalfH},setsar=1[avh]`;
+                const brF = `[0:v]scale=${brHalfW}:${brHalfH}:force_original_aspect_ratio=increase,crop=${brHalfW}:${brHalfH},setsar=1[brh]`;
+                const stack = vertical ? 'vstack' : 'hstack';
+                const order = avatarFirst ? `[avh][brh]` : `[brh][avh]`;
+                filters = [avF, brF, `${order}${stack}=inputs=2[v]`];
+              }
+              cmd
+                .complexFilter(filters)
+                .outputOptions(['-map', '[v]', '-an', ...ENCODE_FAST, '-threads', String(CLIP_THREADS), '-t', String(compDur)])
+                .save(p)
+                .on('end', () => resolve(null))
+                .on('error', (err: any, _o: any, stderr: any) =>
+                  reject(new Error(`${err?.message || err} | STDERR: ${(stderr || '').slice(-600)}`))
+                );
+            });
+            clipPaths[i] = p;
+            return;
+          } catch (avErr: any) {
+            // Falhou a composição do avatar (PiP/split/full) → cai no b-roll
+            // simples abaixo. Loga pra diagnosticar quando o avatar "não aparece".
+            log.error(
+              `[Timeline avatar ${layout}] trecho ${i} (seek ${list[i].avatarSeek}s) falhou: ${avErr?.message || avErr}`
+            );
+          }
+        }
+        // SPLIT-SCREEN: se o item tem `url2`, pré-monta os 2 b-rolls lado a lado
+        // num único clipe WxH. Assim o resto do filtergraph (transições, zoom,
+        // texto, índices) fica IDÊNTICO — split não afeta mais nada.
+        if (list[i].url2) {
+          try {
+            const lp = path.join(workDir, `split_l_${i}.mp4`);
+            const rp = path.join(workDir, `split_r_${i}.mp4`);
+            await downloadFile(list[i].url, lp);
+            await downloadFile(list[i].url2, rp);
+            const halfW = Math.floor(W / 2);
+            const rightW = W - halfW;
+            await new Promise((resolve, reject) => {
+              ffmpeg()
+                .input(lp)
+                .input(rp)
+                .complexFilter([
+                  `[0:v]scale=${halfW}:${H}:force_original_aspect_ratio=increase,crop=${halfW}:${H},setsar=1[l]`,
+                  `[1:v]scale=${rightW}:${H}:force_original_aspect_ratio=increase,crop=${rightW}:${H},setsar=1[r]`,
+                  `[l][r]hstack=inputs=2[v]`,
+                ])
+                .outputOptions(['-map', '[v]', '-an', ...ENCODE_FAST, '-threads', String(CLIP_THREADS), '-t', String(compDur)])
+                .save(p)
+                .on('end', () => resolve(null))
+                .on('error', reject);
+            });
+            clipPaths[i] = p;
+            return;
+          } catch {
+            /* falhou o split → cai no b-roll simples abaixo */
+          }
+        }
+        await downloadFile(list[i].url, p);
+        clipPaths[i] = p;
+      };
+      // Compõe os trechos em PARALELO (concorrência = CLIP_CONCURRENCY, adaptada
+      // aos núcleos) — antes era 1 por vez e uma VSL longa estourava o teto de
+      // 15 min. Os caches acima deduplicam downloads.
+      let clipNext = 0;
+      await Promise.all(
+        Array.from({ length: Math.min(CLIP_CONCURRENCY, list.length) }, async () => {
+          for (;;) {
+            const i = clipNext++;
+            if (i >= list.length) break;
+            await buildClip(i);
+          }
+        })
+      );
+      const audioPath = path.join(workDir, 'audio.mp3');
+      await downloadFile(audioUrl, audioPath);
+
+      // Sons de transição (opcional) — entrada toca no início, saída no começo
+      // da transição de saída (end - dOut).
+      const sounds: { path: string; at: number }[] = [];
+      for (let i = 0; i < list.length; i++) {
+        const at = Math.max(0, Number(list[i].atSec) || 0);
+        const end = Math.max(at + 0.1, Number(list[i].endSec) || 0);
+        const dOut = Math.min(Math.max(0.1, Number(list[i].transOutDur) || 0.4), Math.max(0.1, end - at));
+        if (list[i].soundIn) {
+          try {
+            const sp = path.join(workDir, `sin_${i}.mp3`);
+            await downloadFile(list[i].soundIn, sp);
+            sounds.push({ path: sp, at });
+          } catch {
+            /* ignora */
+          }
+        }
+        if (list[i].soundOut) {
+          try {
+            const sp = path.join(workDir, `sout_${i}.mp3`);
+            await downloadFile(list[i].soundOut, sp);
+            sounds.push({ path: sp, at: Math.max(0, end - dOut) });
+          } catch {
+            /* ignora */
+          }
+        }
+        // Efeito contextual. Padrão: toca logo depois da entrada (não colide com
+        // o whoosh). Se `soundMidAlign === 'end'` (ex.: SFX Reversed/riser), o
+        // FIM do efeito bate no fim do trecho → começa em (end - duração).
+        if (list[i].soundMid) {
+          try {
+            const sp = path.join(workDir, `smid_${i}.mp3`);
+            await downloadFile(list[i].soundMid, sp);
+            let atSfx = Math.min(at + 0.4, Math.max(at, end - 0.3));
+            if (list[i].soundMidAlign === 'end') {
+              const durSfx = await new Promise<number>((resolve) => {
+                ffmpeg.ffprobe(sp, (err, m) =>
+                  resolve(err ? 0 : Number(m?.format?.duration) || 0)
+                );
+              });
+              if (durSfx > 0) atSfx = Math.max(0, end - durSfx);
+            }
+            sounds.push({ path: sp, at: atSfx });
+          } catch {
+            /* ignora */
+          }
+        }
+      }
+
+      // Som de ENTRADA dos textos cinéticos (ex.: "Swoosh Fight") — começa no
+      // MESMO instante em que o texto aparece (t.atSec).
+      const textSfxList: any[] = Array.isArray((req.body || {}).texts) ? (req.body as any).texts : [];
+      for (let ti = 0; ti < textSfxList.length; ti++) {
+        const t = textSfxList[ti];
+        if (t && t.sound) {
+          try {
+            const sp = path.join(workDir, `txt_${ti}.mp3`);
+            await downloadFile(t.sound, sp);
+            sounds.push({ path: sp, at: Math.max(0, Number(t.atSec) || 0) });
+          } catch {
+            /* ignora */
+          }
+        }
+      }
+
+      await new Promise((resolve, reject) => {
+        const cmd = ffmpeg();
+        // input 0 = base preta (lavfi); 1..N = clipes; N+1 = áudio; depois = sons.
+        cmd.input(`color=c=black:s=${W}x${H}:r=30:d=${dur}`).inputOptions(['-f', 'lavfi']);
+        clipPaths.forEach((p) => cmd.input(p));
+        cmd.input(audioPath);
+        // Janela: busca o áudio no offset do grupo (fast seek antes do -i).
+        if (audioStartSec > 0) cmd.inputOptions(['-ss', String(audioStartSec)]);
+        const audioIdx = clipPaths.length + 1;
+        sounds.forEach((s) => cmd.input(s.path));
+        const soundStart = clipPaths.length + 2;
+
+        const filters: string[] = [];
+        let last = '0:v';
+        list.forEach((c: any, i: number) => {
+          const at = Math.max(0, Number(c.atSec) || 0);
+          const end = Math.max(at + 0.1, Number(c.endSec) || 0);
+          const win = end - at;
+          const ts = Math.max(0, Number(c.trimStart) || 0);
+          const tIn = String(c.transIn || 'none');
+          const tOut = String(c.transOut || 'none');
+          const dIn = Math.min(Math.max(0.1, Number(c.transInDur) || 0.4), Math.max(0.1, win));
+          const dOut = Math.min(Math.max(0.1, Number(c.transOutDur) || 0.4), Math.max(0.1, win));
+          const outStart = (end - dOut).toFixed(3);
+
+          // CROSSFADE (dissolve): o clipe COMEÇA a aparecer dIn ANTES do seu
+          // atSec, sobreposto ao trecho anterior (que segue por baixo), e faz
+          // fade-in por cima dele — dissolve real de um trecho pro outro, sem
+          // passar pelo preto. `atV` = início visual antecipado; estende o trim
+          // em dIn pra o clipe ainda terminar em `end`.
+          // Transições que SOBREPÕEM o clipe anterior (entram por cima dele, sem
+          // passar pelo preto) → link smooth: crossfade, slides e whip. O clipe
+          // começa dIn ANTES do seu atSec, e a transição de entrada roda em cima
+          // do trecho que está saindo.
+          const crossIn = ['dissolve', 'slideleft', 'slideright', 'slideup', 'slidedown', 'whip'].includes(
+            tIn
+          );
+          const atV = crossIn ? Math.max(0, at - dIn) : at;
+          const trimEnd = crossIn ? ts + win + dIn : ts + win;
+
+          // ZOOM (Ken Burns) no clipe inteiro via zoompan. inc calibrado pra
+          // alcançar ~1.18 no fim da janela. Aplicado ANTES do setpts pra não
+          // bagunçar o posicionamento no overlay.
+          const winZ = crossIn ? win + dIn : win;
+          const inc = (0.18 / Math.max(1, winZ * 30)).toFixed(6);
+          const zp = `d=1:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${W}x${H}:fps=30`;
+          let zoomF = '';
+          if (tIn === 'zoomin') zoomF = `,zoompan=z='min(zoom+${inc},1.18)':${zp},setsar=1`;
+          else if (tIn === 'zoomout')
+            zoomF = `,zoompan=z='if(eq(on,0),1.18,max(zoom-${inc},1.0))':${zp},setsar=1`;
+
+          // Ordem: trim → escala → [zoom] → setpts (posiciona) → [efeitos] → [fade].
+          let clipF = `[${i + 1}:v]trim=${ts}:${trimEnd},${scaleFit},setsar=1${zoomF},setpts=PTS-STARTPTS+${atV}/TB`;
+          // Efeitos extras (via `enable` de tempo, só na janela da transição):
+          // B&W = clipe todo; Whip = blur na entrada (+ slide rápido no overlay);
+          // Glitch = RGB-shift + ruído na entrada.
+          const effEnd = (atV + dIn).toFixed(3);
+          // P&B do clipe inteiro (independente da transição) — usado nos trechos
+          // de "antes" / passado (tom "past"). Também aceita tIn === 'bw' (legado).
+          if (c.bw || tIn === 'bw') clipF += `,hue=s=0`;
+          if (tIn === 'whip')
+            clipF += `,gblur=sigma=24:enable='between(t,${atV},${effEnd})'`;
+          else if (tIn === 'glitch')
+            clipF += `,rgbashift=rh=10:bh=-10:enable='between(t,${atV},${effEnd})',noise=alls=36:allf=t:enable='between(t,${atV},${effEnd})'`;
+          const fadeIn = tIn === 'fade' || tIn === 'dissolve';
+          const whiteIn = tIn === 'whiteflash';
+          const fadeOut = tOut === 'fade';
+          if (fadeIn || whiteIn || fadeOut) {
+            clipF += `,format=yuva420p`;
+            if (whiteIn) clipF += `,fade=t=in:st=${atV}:d=${dIn}:color=white`;
+            else if (fadeIn) clipF += `,fade=t=in:st=${atV}:d=${dIn}:alpha=1`;
+            if (fadeOut) clipF += `,fade=t=out:st=${outStart}:d=${dOut}:alpha=1`;
+          }
+          filters.push(`${clipF}[c${i}]`);
+
+          const out = `o${i}`;
+          // pIn usa atV (início visual, antecipado nos slides/whip) pra o
+          // movimento de entrada rodar EM CIMA do clipe anterior.
+          const pIn = `(t-${atV})/${dIn}`;
+          const pOut = `(t-${outStart})/${dOut}`;
+          const xIn = tIn === 'slideleft' || tIn === 'whip' ? `(1-${pIn})*W` : tIn === 'slideright' ? `-(1-${pIn})*W` : null;
+          const yIn = tIn === 'slideup' ? `(1-${pIn})*H` : tIn === 'slidedown' ? `-(1-${pIn})*H` : null;
+          const xOut = tOut === 'slideleft' ? `-(${pOut})*W` : tOut === 'slideright' ? `(${pOut})*W` : null;
+          const yOut = tOut === 'slideup' ? `-(${pOut})*H` : tOut === 'slidedown' ? `(${pOut})*H` : null;
+          const opts: string[] = [];
+          if (xIn || xOut)
+            opts.push(`x='if(lt(t,${atV}+${dIn}),${xIn || 0},if(gt(t,${outStart}),${xOut || 0},0))'`);
+          if (yIn || yOut)
+            opts.push(`y='if(lt(t,${atV}+${dIn}),${yIn || 0},if(gt(t,${outStart}),${yOut || 0},0))'`);
+          opts.push(`enable='between(t,${atV},${end})'`);
+          opts.push('eof_action=pass');
+          filters.push(`[${last}][c${i}]overlay=${opts.join(':')}[${out}]`);
+          last = out;
+        });
+
+        // TEXTO CINÉTICO (opcional): queima os textos grandes animados por cima
+        // de tudo, via libass. Cada texto tem seu timing [atSec, endSec].
+        const texts: any[] = Array.isArray((req.body || {}).texts) ? (req.body as any).texts : [];
+        const validTexts = texts.filter((t) => t && (t.text || '').trim());
+        if (validTexts.length > 0) {
+          const assPath = writeKineticTextAss(workDir, validTexts, W, H);
+          filters.push(
+            `[${last}]subtitles='${escapeFilterPath(assPath)}':fontsdir='${escapeFilterPath(FONTS_DIR)}'[vtxt]`
+          );
+          last = 'vtxt';
+        }
+
+        // Áudio: base (VOZ) + sons. Com `normalize=1` (padrão) o amix divide o
+        // volume pelo nº de entradas → a voz fica baixíssima com muitos SFX. Por
+        // isso: `normalize=0` (soma sem escalar, voz fica CHEIA) e cada SFX entra
+        // a ~55% pra não estourar nem cobrir a narração.
+        let audioMap = `${audioIdx}:a?`;
+        if (sounds.length > 0) {
+          sounds.forEach((s, k) => {
+            const ms = Math.round(s.at * 1000);
+            filters.push(
+              `[${soundStart + k}:a]adelay=${ms}|${ms},volume=0.55,aformat=sample_rates=44100:channel_layouts=stereo[snd${k}]`
+            );
+          });
+          const ins = [`[${audioIdx}:a]`, ...sounds.map((_, k) => `[snd${k}]`)].join('');
+          filters.push(
+            `${ins}amix=inputs=${sounds.length + 1}:normalize=0:duration=first:dropout_transition=0[aout]`
+          );
+          audioMap = '[aout]';
+        }
+
+        cmd
+          .complexFilter(filters)
+          // Montagem = usuário esperando na UI → preset superfast (ENCODE_FAST)
+          // + áudio aac. Corta MUITO o tempo vs. o preset 'fast' do BALANCED.
+          .outputOptions([
+            '-map',
+            `[${last}]`,
+            '-map',
+            audioMap,
+            '-shortest',
+            ...ENCODE_FAST,
+            '-c:a aac',
+            '-b:a 128k',
+          ])
+          .save(outPath)
+          .on('end', () => resolve(null))
+          .on('error', reject);
+      });
+
+      const buffer = fs.readFileSync(outPath);
+      const { url } = await persistVideo({
+        buffer,
+        filename: `timeline_${stamp}.mp4`,
+        storageFolder: 'timeline',
+        userId,
+      });
+      res.json({ url });
+    } catch (err: any) {
+      log.error('[Video Timeline] Erro:', err.message);
+      res.status(500).json({ error: processDataError(err) });
+    } finally {
+      try {
+        if (fs.existsSync(workDir)) fs.rmSync(workDir, { recursive: true, force: true });
+      } catch {
+        /* ignore */
+      }
+    }
+  })
+);
+
+// POST /api/video/join-audio
+// Extrai o ÁUDIO de vídeos num único mp3 (concatena se forem vários). Com 1
+// vídeo, só extrai o áudio dele. Muito mais rápido que juntar o vídeo inteiro
+// (não re-encoda imagem) — ideal pra somar gravações / gerar áudio pro clone.
+// Body: { videos: string[], userId } → { url }
+videoRouter.post(
+  '/join-audio',
+  withFfmpegQueue(async (req, res) => {
+    const { videos, userId } = req.body || {};
+    if (!Array.isArray(videos) || videos.length < 1 || !userId) {
+      return res.status(400).json({ error: 'pelo menos 1 vídeo e userId são obrigatórios.' });
+    }
+    const stamp = Date.now();
+    const workDir = path.join(GENERATED_DIR, `joinaudio_${stamp}`);
+    fs.mkdirSync(workDir, { recursive: true });
+    const outName = `audio_juntado_${stamp}.mp3`;
+    const outPath = path.join(GENERATED_DIR, outName);
+    const inputs: string[] = [];
+    try {
+      for (let i = 0; i < videos.slice(0, 20).length; i++) {
+        const p = path.join(workDir, `in_${i}.mp4`);
+        const src = String(videos[i]);
+        if (src.startsWith('/generated/')) {
+          fs.copyFileSync(path.join(GENERATED_DIR, src.replace('/generated/', '')), p);
+        } else {
+          await downloadFile(src, p);
+        }
+        inputs.push(p);
+      }
+      await new Promise((resolve, reject) => {
+        const cmd = ffmpeg();
+        inputs.forEach((p) => cmd.input(p));
+        cmd
+          .complexFilter([
+            ...inputs.map(
+              (_, i) => `[${i}:a]aresample=44100,aformat=channel_layouts=stereo[a${i}]`
+            ),
+            `${inputs.map((_, i) => `[a${i}]`).join('')}concat=n=${inputs.length}:v=0:a=1[out]`,
+          ])
+          .outputOptions(['-map', '[out]'])
+          .audioCodec('libmp3lame')
+          .on('end', () => resolve(null))
+          .on('error', reject)
+          .save(outPath);
+      });
+
+      const forwardedHost = req.headers['x-forwarded-host'];
+      const host =
+        (typeof forwardedHost === 'string' ? forwardedHost.split(',')[0]?.trim() : null) ||
+        req.get('host') ||
+        '';
+      const protocol =
+        req.headers['x-forwarded-proto'] || (host.includes('localhost') ? 'http' : 'https');
+      res.json({ url: `${protocol}://${host}/generated/${outName}` });
+    } catch (err: any) {
+      log.error('[Video join-audio]', err.message);
+      res.status(500).json({ error: processDataError(err) });
+    } finally {
+      try {
+        if (fs.existsSync(workDir)) fs.rmSync(workDir, { recursive: true, force: true });
+      } catch {
+        /* ignore */
+      }
+    }
+  })
+);
+
+// POST /api/video/transcribe
+// Transcreve um áudio (URL pública) via AssemblyAI e devolve as PALAVRAS com
+// tempo (ms). É o que o Auto-editar usa pra saber onde cortar / quais palavras
+// viram texto / o que buscar no Pexels. Body: { audioUrl, language? } →
+// { text, durationMs, words: [{text, start, end}] }
+videoRouter.post('/transcribe', async (req, res) => {
+  const apiKey = getAssemblyAIKey();
+  if (!apiKey) return res.status(500).json({ error: 'AssemblyAI não configurada.' });
+  const audioUrl = String((req.body || {}).audioUrl || '');
+  if (!audioUrl) return res.status(400).json({ error: 'audioUrl é obrigatório.' });
+  const lang = String((req.body || {}).language || '').trim();
+  try {
+    const submit = await fetch('https://api.assemblyai.com/v2/transcript', {
+      method: 'POST',
+      headers: { authorization: apiKey, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        audio_url: audioUrl,
+        ...(lang ? { language_code: lang } : { language_detection: true }),
+      }),
+    });
+    const sub: any = await submit.json();
+    if (!submit.ok || !sub.id) throw new Error(sub.error || `submit falhou (${submit.status})`);
+
+    // Poll até completar (VSL longa pode levar minutos).
+    let tr: any = null;
+    for (let i = 0; i < 180; i++) {
+      await new Promise((r) => setTimeout(r, 5000));
+      const pr = await fetch(`https://api.assemblyai.com/v2/transcript/${sub.id}`, {
+        headers: { authorization: apiKey },
+      });
+      tr = await pr.json();
+      if (tr.status === 'completed') break;
+      if (tr.status === 'error') throw new Error(tr.error || 'transcrição falhou');
+    }
+    if (!tr || tr.status !== 'completed') throw new Error('Timeout na transcrição.');
+
+    const words = Array.isArray(tr.words)
+      ? tr.words.map((w: any) => ({ text: w.text, start: w.start, end: w.end }))
+      : [];
+    res.json({
+      text: tr.text || '',
+      durationMs: tr.audio_duration ? tr.audio_duration * 1000 : undefined,
+      words,
+    });
+  } catch (err: any) {
+    log.error('[transcribe]', err.message);
+    res.status(500).json({ error: processDataError(err) });
+  }
+});
+
+// POST /api/video/analyze-style
+// Analisa o ESTILO de edição de uma VSL de referência: detecta os cortes de
+// cena (scene detection) numa amostra e devolve o RITMO (segundos por corte,
+// cortes por minuto). Serve pra o Auto-editar imitar a cadência da referência.
+// Body: { videoUrl, sampleSec? } → { sampleSec, cuts, avgCutSec, cutsPerMin, durationSec }
+videoRouter.post(
+  '/analyze-style',
+  withFfmpegQueue(async (req, res) => {
+    const url = String((req.body || {}).videoUrl || '');
+    if (!url) return res.status(400).json({ error: 'videoUrl é obrigatório.' });
+    // Amostra os primeiros N segundos (o hook/início costuma ter o ritmo mais
+    // agressivo). Default 300s (5 min) — suficiente e rápido.
+    const sampleSec = Math.max(30, Math.min(Number((req.body || {}).sampleSec) || 300, 600));
+    const bin = ffmpegStatic as unknown as string;
+    try {
+      const { cuts, durationSec } = await new Promise<{ cuts: number; durationSec: number }>(
+        (resolve, reject) => {
+          const args = [
+            '-ss',
+            '0',
+            '-t',
+            String(sampleSec),
+            '-i',
+            url,
+            '-filter:v',
+            "select='gt(scene,0.3)',showinfo",
+            '-an',
+            '-f',
+            'null',
+            '-',
+          ];
+          const proc = spawn(bin, args);
+          let stderr = '';
+          proc.stderr.on('data', (d) => {
+            stderr += d.toString();
+          });
+          proc.on('error', reject);
+          proc.on('close', () => {
+            const c = (stderr.match(/pts_time:/g) || []).length;
+            const durM = /Duration:\s*(\d+):(\d+):(\d+\.\d+)/.exec(stderr);
+            const dur = durM
+              ? Number(durM[1]) * 3600 + Number(durM[2]) * 60 + Number(durM[3])
+              : 0;
+            resolve({ cuts: c, durationSec: dur });
+          });
+        }
+      );
+      const analyzed = Math.min(sampleSec, durationSec || sampleSec);
+      const avgCutSec = cuts > 0 ? Number((analyzed / cuts).toFixed(2)) : 0;
+      const cutsPerMin = analyzed > 0 ? Number((cuts / (analyzed / 60)).toFixed(1) as any) : 0;
+      res.json({ sampleSec: analyzed, cuts, avgCutSec, cutsPerMin, durationSec });
+    } catch (err: any) {
+      log.error('[analyze-style]', err.message);
+      res.status(500).json({ error: processDataError(err) });
+    }
+  })
+);
+
+// POST /api/video/speed
+// Re-renderiza o vídeo numa velocidade diferente (salva de verdade, não é só
+// preview). Vídeo via setpts; áudio via atempo (encadeado quando sai de 0.5–2.0).
+// Body: { videoUrl, userId, speed }  → { url }
+videoRouter.post(
+  '/speed',
+  withFfmpegQueue(async (req, res) => {
+    const { videoUrl, userId } = req.body || {};
+    let speed = Number((req.body || {}).speed) || 1;
+    if (!videoUrl || !userId) {
+      return res.status(400).json({ error: 'videoUrl e userId são obrigatórios.' });
+    }
+    speed = Math.max(0.25, Math.min(speed, 4));
+    if (Math.abs(speed - 1) < 0.001) return res.json({ url: videoUrl }); // 1x = nada a fazer
+
+    const stamp = Date.now();
+    const workDir = path.join(GENERATED_DIR, `speed_${stamp}`);
+    fs.mkdirSync(workDir, { recursive: true });
+    const srcPath = path.join(workDir, 'src.mp4');
+    const outPath = path.join(workDir, 'out.mp4');
+
+    try {
+      await downloadFile(videoUrl, srcPath);
+
+      // atempo só aceita 0.5–2.0 por filtro; encadeia pra cobrir fora disso.
+      const factors: number[] = [];
+      let s = speed;
+      while (s > 2.0) {
+        factors.push(2.0);
+        s /= 2.0;
+      }
+      while (s < 0.5) {
+        factors.push(0.5);
+        s /= 0.5;
+      }
+      factors.push(Number(s.toFixed(6)));
+      const atempo = factors.map((f) => `atempo=${f}`).join(',');
+      const filter = `[0:v]setpts=PTS/${speed}[v];[0:a]${atempo}[a]`;
+
+      await new Promise((resolve, reject) => {
+        ffmpeg(srcPath)
+          .complexFilter(filter)
+          .outputOptions(['-map', '[v]', '-map', '[a]', ...ENCODE_BALANCED])
+          .save(outPath)
+          .on('end', () => resolve(null))
+          .on('error', reject);
+      });
+
+      const buffer = fs.readFileSync(outPath);
+      const { url } = await persistVideo({
+        buffer,
+        filename: `speed_${stamp}.mp4`,
+        storageFolder: 'speed',
+        userId,
+      });
+      res.json({ url });
+    } catch (err: any) {
+      log.error('[Video Speed] Erro:', err.message);
+      res.status(500).json({ error: processDataError(err) });
     } finally {
       try {
         if (fs.existsSync(workDir)) fs.rmSync(workDir, { recursive: true, force: true });

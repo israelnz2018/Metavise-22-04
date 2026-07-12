@@ -155,20 +155,32 @@ export function HeadlineModal(props: Props) {
         >
           {words.map((w, i) => {
             const wst = ws[i] || { tc: 0, bg: 0 };
+            const prev = ws[i - 1] || { tc: 0, bg: 0 };
+            const next = ws[i + 1] || { tc: 0, bg: 0 };
             const color = tcMap[wst.tc] || textColor;
             const bg = bgMap[wst.bg] || 'transparent';
+            // Palavras vizinhas com a MESMA cor de fundo devem formar uma barra
+            // contínua: tira o padding da borda interna e colore o espaço entre
+            // elas (senão fica um gap). Espelha o que o render do vídeo já faz.
+            const sameAsPrev = wst.bg > 0 && prev.bg === wst.bg;
+            const sameAsNext = wst.bg > 0 && next.bg === wst.bg;
+            const padL = wst.bg > 0 && !sameAsPrev ? '0.12em' : '0';
+            const padR = wst.bg > 0 && !sameAsNext ? '0.12em' : '0';
             return (
               <span key={`prev-${i}`}>
                 <span
                   style={{
                     color,
                     backgroundColor: bg,
-                    padding: wst.bg > 0 ? '0 0.12em' : 0,
+                    paddingLeft: padL,
+                    paddingRight: padR,
                   }}
                 >
                   {w}
                 </span>
-                {i < words.length - 1 ? ' ' : ''}
+                {i < words.length - 1 ? (
+                  <span style={{ backgroundColor: sameAsNext ? bg : 'transparent' }}> </span>
+                ) : null}
               </span>
             );
           })}

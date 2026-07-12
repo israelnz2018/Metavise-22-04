@@ -127,7 +127,27 @@ const HookChooser: React.FC<Props> = ({
 
   // (auto-seleção de filtros removida intencionalmente — usuário deve escolher manualmente)
 
-  const bible = useMemo(() => getHooksBible(language), [language]);
+  // O idioma da COPY manda — não o campo `language` do projeto, que cai no
+  // default "Português (Brasileiro)" mesmo quando a copy saiu em inglês por
+  // seguir a VSL. Detecta pelo texto da copy aprovada; só usa o prop quando
+  // não dá pra inferir (copy curta/vazia).
+  const effectiveLanguage = useMemo<string>(() => {
+    const text = (approvedCopy || '').toLowerCase();
+    if (text.trim().length < 20) return language || 'Português (Brasileiro)';
+    const ptHits =
+      (
+        text.match(
+          /\b(você|voce|não|nao|está|para|que|uma|isso|seu|sua|porque|então|agora|dor)\b/g
+        ) || []
+      ).length + (text.match(/[ãõçáéíóúâêô]/g) || []).length;
+    const enHits = (
+      text.match(/\b(the|you|your|and|that|with|this|for|not|what|why|how|are|was|she|he)\b/g) || []
+    ).length;
+    if (ptHits === 0 && enHits === 0) return language || 'Português (Brasileiro)';
+    return enHits > ptHits ? 'English' : 'Português (Brasileiro)';
+  }, [approvedCopy, language]);
+
+  const bible = useMemo(() => getHooksBible(effectiveLanguage), [effectiveLanguage]);
   const allHooks = bible.hooks || [];
 
   // Filtragem para OPÇÃO 3 (Dropdown/Busca) — depende de Busca e Tom.
@@ -193,7 +213,8 @@ const HookChooser: React.FC<Props> = ({
         approvedCopy,
         String(awarenessLevel),
         candidates,
-        selectionContext
+        selectionContext,
+        effectiveLanguage
       );
       if (result && result.grupos) {
         const recIds: number[] = [];
@@ -283,7 +304,7 @@ const HookChooser: React.FC<Props> = ({
         persona: selectionContext?.persona,
         brief: selectionContext?.brief,
         approvedCopy,
-        language,
+        language: effectiveLanguage,
         awarenessLevel: String(awarenessLevel || ''),
       });
       if (grupos.length === 0) {

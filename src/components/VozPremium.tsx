@@ -17,7 +17,9 @@ import {
   FileText,
   Film,
   Trash2,
+  Star,
 } from 'lucide-react';
+import { useVoiceFavorites } from '@/hooks/useVoiceFavorites';
 import {
   VozPremiumMode,
   ElevenLabsVoice,
@@ -47,10 +49,20 @@ interface Props {
     createdAt: string;
   }[];
   copyAnswers?: Record<string, any>;
+  /** Áudios dos blocos da VSL, persistidos (pra sobreviverem à navegação). */
+  savedBlockAudios?: { url?: string; storagePath?: string | null; status: string }[];
+  onBlockAudiosChange?: (
+    arr: { url?: string; storagePath?: string | null; status: string }[]
+  ) => void;
   savedOptimizedScript?: string;
   onOptimizedScript?: (optimized: string) => void;
   onApprovedScriptEdit?: (edited: string) => void;
-  onAudioReady?: (audioUrl: string, voiceId?: string, storagePath?: string | null) => void;
+  onAudioReady?: (
+    audioUrl: string,
+    voiceId?: string,
+    storagePath?: string | null,
+    voiceName?: string,
+  ) => void;
   onDeleteAudioFromHistory?: (url: string, storagePath: string | null) => void;
   onGoToVideo?: () => void;
   // When provided, the catalog will pre-select this voice on load so the
@@ -92,6 +104,12 @@ const MODES: {
     label: 'Catálogo',
     desc: 'Escolha uma voz da biblioteca',
     icon: <Music size={20} />,
+  },
+  {
+    id: 'library',
+    label: 'Minhas vozes',
+    desc: 'Vozes que você criou/clonou',
+    icon: <Star size={20} />,
   },
   {
     id: 'clone',
@@ -154,6 +172,41 @@ const DESCRIPTIVES = [
   { v: 'excited', l: 'Excited' },
 ];
 
+// Divide o roteiro em blocos pra gerar áudio por partes (evita 1 request longa
+// que pode falhar). Prioriza os marcadores "=== BLOCO N ===" da VSL; sem eles,
+// corta por ~290 palavras (~2 min) respeitando parágrafos. Roteiros curtos
+// viram 1 bloco só (aí a UI mostra o botão normal, não o painel de blocos).
+function splitScriptBlocks(text: string): string[] {
+  const t = (text || '').trim();
+  if (!t) return [];
+  if (/===\s*BLOCO/i.test(t)) {
+    const parts = t
+      .split(/===\s*BLOCO\s*\d*\s*===/i)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (parts.length > 1) return parts;
+  }
+  const words = t.split(/\s+/).filter(Boolean);
+  if (words.length <= 340) return [t];
+  const PER = 290;
+  const paras = t.split(/\n\s*\n/);
+  const blocks: string[] = [];
+  let cur = '';
+  let curWords = 0;
+  for (const p of paras) {
+    const w = p.split(/\s+/).filter(Boolean).length;
+    if (curWords + w > PER && cur) {
+      blocks.push(cur.trim());
+      cur = '';
+      curWords = 0;
+    }
+    cur += (cur ? '\n\n' : '') + p;
+    curWords += w;
+  }
+  if (cur.trim()) blocks.push(cur.trim());
+  return blocks.length ? blocks : [t];
+}
+
 const VozPremium: React.FC<Props> = ({
   approvedScript = '',
   personaGender,
@@ -161,6 +214,8 @@ const VozPremium: React.FC<Props> = ({
   savedAudioUrl,
   savedAudios = [],
   copyAnswers = {},
+  savedBlockAudios,
+  onBlockAudiosChange,
   savedOptimizedScript = '',
   onOptimizedScript,
   onApprovedScriptEdit,
@@ -191,6 +246,10 @@ const VozPremium: React.FC<Props> = ({
   const [voices, setVoices] = useState<ElevenLabsVoice[]>([]);
   const [loadingVoices, setLoadingVoices] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState<ElevenLabsVoice | null>(null);
+  // Vozes favoritas (localStorage, cross-projeto) — mesma ideia dos favoritos
+  // de avatar. A faixa "Favoritos" no topo do catálogo deixa reusar uma voz
+  // de outro subprojeto em 1 clique, sem re-buscar no catálogo paginado.
+  const voiceFavs = useVoiceFavorites();
 
   // OO — voice hover preview. Auto-play 3s of the ElevenLabs sample
   // on mouseEnter, stop on mouseLeave. Single shared <audio> instance
@@ -358,6 +417,242 @@ const VozPremium: React.FC<Props> = ({
   const [pendingLanguage, setPendingLanguage] = useState('');
   const [generating, setGenerating] = useState(false);
 
+  // "Minhas vozes" — vozes que o usuário criou/clonou na própria conta do
+  // ElevenLabs (endpoint /v1/voices), separadas das vozes premade da conta.
+  const [libraryVoices, setLibraryVoices] = useState<ElevenLabsVoice[]>([]);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+
+  // ── VSL: geração de áudio em BLOCOS (~2 min cada) + junção no fim ──
+  const scriptBlocks = useMemo(() => splitScriptBlocks(script), [script]);
+  const [blockAudios, setBlockAudios] = useState<
+    { url?: string; storagePath?: string | null; status: 'idle' | 'gen' | 'done' | 'error' }[]
+  >([]);
+  const [joiningBlocks, setJoiningBlocks] = useState(false);
+  // Qual bloco está no player de preview (default: o mais recente gerado).
+  const [previewBlock, setPreviewBlock] = useState<number | null>(null);
+  // Restaura os blocos SALVOS (persistidos) quando a quantidade bate; senão
+  // reinicia como idle. Assim os áudios de bloco sobrevivem à navegação.
+  useEffect(() => {
+    const saved = savedBlockAudios;
+    if (Array.isArray(saved) && saved.length === scriptBlocks.length && scriptBlocks.length > 0) {
+      setBlockAudios(saved.map((b) => ({ ...b, status: (b.status as any) || 'idle' })));
+    } else {
+      setBlockAudios(scriptBlocks.map(() => ({ status: 'idle' as const })));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scriptBlocks.length]);
+
+  // Persiste os blocos toda vez que mudam (pra sobreviverem à navegação).
+  useEffect(() => {
+    if (scriptBlocks.length > 1) onBlockAudiosChange?.(blockAudios);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blockAudios]);
+
+  const generateBlock = async (i: number) => {
+    if (!selectedVoice) {
+      toast.error('Selecione uma voz primeiro.');
+      return;
+    }
+    setBlockAudios((prev) => prev.map((b, idx) => (idx === i ? { ...b, status: 'gen' } : b)));
+    try {
+      const result = await generateAudio({ voiceId: selectedVoice.voice_id, script: scriptBlocks[i]! });
+      const blob = await (await fetch(result.audioUrl)).blob();
+      const { url, storagePath } = await uploadToFirebase(blob);
+      const finalUrl = url || result.audioUrl;
+      setBlockAudios((prev) =>
+        prev.map((b, idx) => (idx === i ? { url: finalUrl, storagePath, status: 'done' } : b))
+      );
+      setPreviewBlock(i); // recém-gerado vira o mais visível no player
+    } catch (e: any) {
+      setBlockAudios((prev) => prev.map((b, idx) => (idx === i ? { ...b, status: 'error' } : b)));
+      toast.error(`Bloco ${i + 1}: ${e.message}`);
+    }
+  };
+
+  const generateAllBlocks = async () => {
+    if (!selectedVoice) {
+      toast.error('Selecione uma voz primeiro.');
+      return;
+    }
+    const snap = blockAudios;
+    for (let i = 0; i < scriptBlocks.length; i++) {
+      if (snap[i]?.status === 'done') continue; // não regera os prontos
+      await generateBlock(i);
+    }
+  };
+
+  const joinBlocks = async () => {
+    const urls = blockAudios.map((b) => b.url).filter(Boolean) as string[];
+    if (urls.length < scriptBlocks.length) {
+      toast.error('Gere TODOS os blocos antes de juntar.');
+      return;
+    }
+    setJoiningBlocks(true);
+    try {
+      const r = await fetch('/api/elevenlabs/concat-audio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ urls }),
+      });
+      const d = await r.json();
+      if (!d.success) throw new Error(d.error || 'Falha ao juntar os blocos.');
+      const blob = await (await fetch(d.audioUrl)).blob();
+      const { url, storagePath } = await uploadToFirebase(blob);
+      const finalUrl = url || d.audioUrl;
+      setLocalAudioUrl(finalUrl);
+      setDone(true);
+      onAudioReady?.(finalUrl, selectedVoice?.voice_id || '', storagePath, selectedVoice?.name);
+      toast.success('Blocos juntados — áudio final da VSL pronto!');
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setJoiningBlocks(false);
+    }
+  };
+
+  const allBlocksDone =
+    scriptBlocks.length > 0 && blockAudios.filter((b) => b.status === 'done').length === scriptBlocks.length;
+
+  const renderBlockPanel = () => (
+    <div className="space-y-3 bg-white dark:bg-gray-900/80 rounded-2xl border-2 border-purple-200/60 dark:border-purple-800/50 p-5">
+      <div className="flex items-center gap-2">
+        <FileText size={16} className="text-purple-600 dark:text-purple-400" />
+        <span className="text-sm font-bold text-gray-800 dark:text-gray-200">
+          Gerar em blocos ({scriptBlocks.length} × ~2 min)
+        </span>
+      </div>
+      <p className="text-xs text-gray-500 dark:text-gray-400">
+        Áudio longo dividido em partes — se um bloco falhar, regere só ele. No fim, junte tudo num
+        áudio só.
+      </p>
+      {!selectedVoice && (
+        <p className="text-xs text-amber-600 dark:text-amber-400">Selecione uma voz acima.</p>
+      )}
+      <div className="space-y-2">
+        {scriptBlocks.map((blk, i) => {
+          const st = blockAudios[i]?.status || 'idle';
+          const words = blk.split(/\s+/).filter(Boolean).length;
+          const badge =
+            st === 'done'
+              ? 'text-green-600 dark:text-green-400'
+              : st === 'error'
+                ? 'text-red-600 dark:text-red-400'
+                : st === 'gen'
+                  ? 'text-purple-600 dark:text-purple-400'
+                  : 'text-gray-400 dark:text-gray-500';
+          return (
+            <div
+              key={i}
+              className="flex items-center gap-2 p-2.5 rounded-xl border border-gray-200 dark:border-gray-800"
+            >
+              <span className="text-xs font-black text-gray-700 dark:text-gray-300 w-16 shrink-0">
+                Bloco {i + 1}
+              </span>
+              <span className="text-[10px] text-gray-400 dark:text-gray-500 flex-1 min-w-0">
+                {words} palavras · ~{Math.max(1, Math.round(words / 150))} min
+              </span>
+              <span className={`text-[10px] font-bold uppercase tracking-widest ${badge}`}>
+                {st === 'done'
+                  ? '✓ pronto'
+                  : st === 'error'
+                    ? 'erro'
+                    : st === 'gen'
+                      ? 'gerando…'
+                      : '—'}
+              </span>
+              {st === 'done' && blockAudios[i]?.url && (
+                <button
+                  onClick={() => setPreviewBlock(i)}
+                  className={`p-1 rounded-full shrink-0 ${
+                    previewBlock === i
+                      ? 'bg-purple-600 text-white'
+                      : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400'
+                  }`}
+                  title="Ver/ouvir este bloco no player abaixo"
+                >
+                  <Play size={14} />
+                </button>
+              )}
+              <button
+                onClick={() => generateBlock(i)}
+                disabled={st === 'gen' || !selectedVoice}
+                className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-lg bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 disabled:opacity-40 shrink-0"
+              >
+                {st === 'gen' ? '…' : st === 'done' ? 'Regerar' : 'Gerar'}
+              </button>
+              {(st === 'done' || st === 'error') && (
+                <button
+                  onClick={() =>
+                    setBlockAudios((prev) =>
+                      prev.map((b, idx) => (idx === i ? { status: 'idle' } : b))
+                    )
+                  }
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 shrink-0"
+                  title="Apagar o áudio deste bloco"
+                >
+                  <Trash2 size={13} />
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {/* Player do bloco selecionado — segue o mais recente gerado por padrão,
+          e o ▷ de cada bloco troca aqui. */}
+      {(() => {
+        const doneIdx = blockAudios
+          .map((b, i) => ({ b, i }))
+          .filter((x) => x.b?.status === 'done' && x.b?.url)
+          .map((x) => x.i);
+        const effIdx =
+          previewBlock != null && blockAudios[previewBlock]?.url
+            ? previewBlock
+            : (doneIdx[doneIdx.length - 1] ?? null);
+        if (effIdx == null || !blockAudios[effIdx]?.url) return null;
+        return (
+          <div className="space-y-1.5 p-3 rounded-xl bg-purple-50/60 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800">
+            <span className="text-[11px] font-black uppercase tracking-widest text-purple-700 dark:text-purple-300">
+              Ouvindo — Bloco {effIdx + 1}
+              {previewBlock == null ? ' (mais recente)' : ''}
+            </span>
+            <audio
+              key={blockAudios[effIdx]!.url}
+              src={blockAudios[effIdx]!.url}
+              controls
+              className="w-full"
+            />
+          </div>
+        );
+      })()}
+      <div className="flex flex-wrap gap-2 justify-end pt-1">
+        <button
+          onClick={generateAllBlocks}
+          disabled={!selectedVoice}
+          className="text-xs font-bold px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-purple-400 disabled:opacity-40"
+        >
+          Gerar todos os blocos
+        </button>
+        <button
+          onClick={joinBlocks}
+          disabled={!allBlocksDone || joiningBlocks}
+          className={`flex items-center gap-2 text-sm font-bold px-5 py-2.5 rounded-xl transition ${
+            !allBlocksDone || joiningBlocks
+              ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+              : 'bg-purple-600 text-white hover:bg-purple-700'
+          }`}
+        >
+          {joiningBlocks ? (
+            <>
+              <Loader2 size={16} className="animate-spin" /> Juntando…
+            </>
+          ) : (
+            'Juntar → áudio final'
+          )}
+        </button>
+      </div>
+    </div>
+  );
+
   // Clone state
   const [cloneFile, setCloneFile] = useState<File | null>(null);
   const [cloneName, setCloneName] = useState('');
@@ -402,6 +697,29 @@ const VozPremium: React.FC<Props> = ({
       .catch((e) => toast.error(e.message))
       .finally(() => setLoadingVoices(false));
   }, [mode, filters, searchText, showLowQuality]);
+
+  // "Minhas vozes": busca a biblioteca da conta (/v1/voices) e mostra só as que
+  // VOCÊ criou — clones (cloned), geradas (generated) e clone profissional (PVC,
+  // que vem como category 'professional' porém SEM sharing) —, escondendo as
+  // premade e as vozes de biblioteca adicionadas como asset (professional COM sharing).
+  useEffect(() => {
+    if (mode !== 'library') return;
+    setLibraryLoading(true);
+    fetch('/api/elevenlabs/voices')
+      .then((r) => r.json())
+      .then((d) => {
+        const all: ElevenLabsVoice[] = Array.isArray(d?.voices) ? d.voices : [];
+        const mine = all.filter(
+          (v) =>
+            v.category === 'cloned' ||
+            v.category === 'generated' ||
+            (v.category === 'professional' && !v.sharing),
+        );
+        setLibraryVoices(mine);
+      })
+      .catch(() => toast.error('Falha ao buscar suas vozes.'))
+      .finally(() => setLibraryLoading(false));
+  }, [mode]);
 
   const handleLoadMoreVoices = () => {
     if (loadingMoreVoices || !voicesHasMore) return;
@@ -548,7 +866,7 @@ const VozPremium: React.FC<Props> = ({
       setLocalAudioUrl(finalUrl);
       setDone(true);
       toast.success('Áudio gerado!');
-      onAudioReady?.(finalUrl, selectedVoice.voice_id, storagePath);
+      onAudioReady?.(finalUrl, selectedVoice.voice_id, storagePath, selectedVoice.name);
     } catch (e: any) {
       toast.error(e.message);
     } finally {
@@ -1077,6 +1395,63 @@ const VozPremium: React.FC<Props> = ({
                 )}
 
                 {/* Voice list */}
+                {/* Faixa de FAVORITOS — vozes salvas (de qualquer subprojeto).
+                    Clique seleciona na hora; a estrela remove. Só aparece se
+                    houver favoritos, pra não tentar com lista vazia. */}
+                {voiceFavs.favoriteCount > 0 && (
+                  <div className="bg-amber-50/60 dark:bg-amber-950/20 rounded-2xl border border-amber-200 dark:border-amber-900/60 p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Star size={14} className="text-amber-500 fill-current" />
+                      <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">
+                        Vozes favoritas ({voiceFavs.favoriteCount})
+                      </h4>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {voiceFavs.voices.map((fav) => {
+                        const isSel = selectedVoice?.voice_id === fav.voice_id;
+                        return (
+                          <div
+                            key={fav.voice_id}
+                            onClick={() => setSelectedVoice(fav as ElevenLabsVoice)}
+                            className={`flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-full border-2 cursor-pointer transition ${
+                              isSel
+                                ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/40'
+                                : 'border-amber-200 dark:border-amber-900/60 bg-white dark:bg-gray-900/60 hover:border-purple-300'
+                            }`}
+                          >
+                            <span className="text-xs font-bold text-gray-800 dark:text-gray-100 max-w-[140px] truncate">
+                              {fav.name}
+                            </span>
+                            {fav.preview_url && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  new Audio(fav.preview_url!).play();
+                                }}
+                                className="p-0.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+                                title="Ouvir amostra"
+                              >
+                                <Play size={12} className="text-gray-500 dark:text-gray-400" />
+                              </button>
+                            )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                voiceFavs.remove(fav.voice_id);
+                                toast.success('Removida dos favoritos');
+                              }}
+                              className="p-0.5 rounded-full text-amber-500 hover:bg-amber-100 dark:hover:bg-amber-950/40"
+                              title="Remover dos favoritos"
+                            >
+                              <Star size={12} className="fill-current" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 <div className="bg-white dark:bg-gray-900/80 rounded-2xl border border-gray-200 dark:border-gray-800 p-5">
                   <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
                     {loadingVoices
@@ -1134,17 +1509,49 @@ const VozPremium: React.FC<Props> = ({
                               <span className="font-medium text-sm text-gray-900 dark:text-gray-50 truncate">
                                 {v.name}
                               </span>
-                              {v.preview_url && (
+                              <div className="flex items-center gap-0.5 shrink-0">
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    new Audio(v.preview_url).play();
+                                    const wasFav = voiceFavs.isFavorite(v.voice_id);
+                                    voiceFavs.toggle({
+                                      voice_id: v.voice_id,
+                                      name: v.name,
+                                      preview_url: v.preview_url,
+                                      labels: v.labels,
+                                    });
+                                    toast.success(
+                                      wasFav ? 'Removida dos favoritos' : 'Voz favoritada',
+                                    );
                                   }}
                                   className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+                                  title={
+                                    voiceFavs.isFavorite(v.voice_id)
+                                      ? 'Remover dos favoritos'
+                                      : 'Favoritar voz'
+                                  }
                                 >
-                                  <Play size={14} className="text-gray-500 dark:text-gray-400" />
+                                  <Star
+                                    size={14}
+                                    className={
+                                      voiceFavs.isFavorite(v.voice_id)
+                                        ? 'text-amber-500 fill-current'
+                                        : 'text-gray-400 dark:text-gray-500'
+                                    }
+                                  />
                                 </button>
-                              )}
+                                {v.preview_url && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      new Audio(v.preview_url).play();
+                                    }}
+                                    className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+                                  >
+                                    <Play size={14} className="text-gray-500 dark:text-gray-400" />
+                                  </button>
+                                )}
+                              </div>
                             </div>
                             <div className="flex flex-wrap gap-1 mt-1">
                               {v.labels?.gender && (
@@ -1206,25 +1613,131 @@ const VozPremium: React.FC<Props> = ({
                   )}
                 </div>
 
-                <div className="flex justify-end">
-                  <button
-                    onClick={handleGenerateCatalog}
-                    disabled={!selectedVoice || generating}
-                    className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition ${!selectedVoice || generating ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed' : 'bg-gray-900 text-white hover:bg-black'}`}
-                  >
-                    {generating ? (
-                      <>
-                        <Loader2 size={18} className="animate-spin" />
-                        Gerando...
-                      </>
-                    ) : (
-                      <>
-                        <Play size={18} />
-                        Gerar áudio
-                      </>
-                    )}
-                  </button>
+                {scriptBlocks.length > 1 ? (
+                  renderBlockPanel()
+                ) : (
+                  <div className="flex justify-end">
+                    <button
+                      onClick={handleGenerateCatalog}
+                      disabled={!selectedVoice || generating}
+                      className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition ${!selectedVoice || generating ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed' : 'bg-gray-900 text-white hover:bg-black'}`}
+                    >
+                      {generating ? (
+                        <>
+                          <Loader2 size={18} className="animate-spin" />
+                          Gerando...
+                        </>
+                      ) : (
+                        <>
+                          <Play size={18} />
+                          Gerar áudio
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── MINHAS VOZES ── */}
+            {mode === 'library' && (
+              <div className="space-y-6">
+                <div className="bg-white dark:bg-gray-900/80 rounded-2xl border border-gray-200 dark:border-gray-800 p-5">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Star size={16} className="text-amber-500" />
+                    <span className="text-sm font-bold text-gray-800 dark:text-gray-200">
+                      Vozes que você criou
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Clones e vozes geradas na sua conta do ElevenLabs. Selecione uma e gere o áudio.
+                  </p>
                 </div>
+
+                {libraryLoading ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Skeleton className="h-20 rounded-xl" />
+                    <Skeleton className="h-20 rounded-xl" />
+                  </div>
+                ) : libraryVoices.length === 0 ? (
+                  <div className="text-center py-10 text-sm text-gray-500 dark:text-gray-400">
+                    Nenhuma voz própria encontrada nesta conta do ElevenLabs.
+                    <br />
+                    Clone uma na aba "Clonar voz" ou verifique se a chave configurada é a da conta
+                    certa.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[32rem] overflow-y-auto">
+                    {libraryVoices.map((v) => (
+                      <div
+                        key={v.voice_id}
+                        onClick={() => setSelectedVoice(v)}
+                        onMouseEnter={() => playHoverPreview(v.preview_url)}
+                        onMouseLeave={stopHoverPreview}
+                        className={`text-left rounded-xl p-4 border-2 transition cursor-pointer relative ${
+                          selectedVoice?.voice_id === v.voice_id
+                            ? 'border-purple-500 bg-purple-50/30 dark:bg-purple-950/40'
+                            : 'border-gray-200 dark:border-gray-800 hover:border-gray-300'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-medium text-sm text-gray-900 dark:text-gray-50 truncate">
+                            {v.name}
+                          </span>
+                          {v.preview_url && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                new Audio(v.preview_url).play();
+                              }}
+                              className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 shrink-0"
+                            >
+                              <Play size={14} className="text-gray-500 dark:text-gray-400" />
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          <span className="text-xs bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full">
+                            {v.category === 'generated' ? 'gerada' : 'clone'}
+                          </span>
+                          {v.labels?.language && (
+                            <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">
+                              {v.labels.language}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {scriptBlocks.length > 1 ? (
+                  renderBlockPanel()
+                ) : (
+                  <div className="flex justify-end">
+                    <button
+                      onClick={handleGenerateCatalog}
+                      disabled={!selectedVoice || generating}
+                      className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition ${
+                        !selectedVoice || generating
+                          ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                          : 'bg-gray-900 text-white hover:bg-black'
+                      }`}
+                    >
+                      {generating ? (
+                        <>
+                          <Loader2 size={18} className="animate-spin" />
+                          Gerando...
+                        </>
+                      ) : (
+                        <>
+                          <Play size={18} />
+                          Gerar áudio
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 

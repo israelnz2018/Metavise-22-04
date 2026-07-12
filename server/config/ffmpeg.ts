@@ -8,11 +8,17 @@ import ffprobeStatic from 'ffprobe-static';
 // the paths. ffmpeg-static doesn't ship ffprobe — without setFfprobePath
 // any ffprobe() call fails with "Cannot find ffprobe".
 export function setupFfmpeg(): void {
-  if (ffmpegPath) {
-    ffmpeg.setFfmpegPath(ffmpegPath);
+  // Na nuvem (Cloud Run/Linux) usamos o ffmpeg COMPLETO do sistema via
+  // FFMPEG_PATH/FFPROBE_PATH — o binário do ffmpeg-static Linux vem SEM lavfi
+  // (dispositivos virtuais: color=, sine=, anullsrc=, geq da máscara), que é
+  // usado no fundo base de todo render. Local (Mac) cai no ffmpeg-static.
+  const ffPath = process.env.FFMPEG_PATH || ffmpegPath;
+  if (ffPath) {
+    ffmpeg.setFfmpegPath(ffPath);
   }
-  if (ffprobeStatic?.path) {
-    ffmpeg.setFfprobePath(ffprobeStatic.path);
+  const fpPath = process.env.FFPROBE_PATH || ffprobeStatic?.path;
+  if (fpPath) {
+    ffmpeg.setFfprobePath(fpPath);
   }
 }
 

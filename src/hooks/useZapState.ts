@@ -49,11 +49,15 @@ export function useZapState() {
   const [zapVideoUrl, setZapVideoUrl] = useState<string | null>(null);
   const [zapTemplateId, setZapTemplateId] = useState<string>('');
   const [zapBrollPercent, setZapBrollPercent] = useState<number>(10);
+  // Segundo em que o b-roll começa a atuar no CORPO. 0 = b-roll desde o início
+  // (comportamento atual). > 0 = a intro (0→X) sai sem b-roll (só legenda) e o
+  // b-roll entra só na parte 2 — o app corta, gera as duas no ZapCap e junta.
+  const [zapBrollStartSec, setZapBrollStartSec] = useState<number>(0);
   const [zapEmoji, setZapEmoji] = useState<boolean>(false);
   const [zapAnimation, setZapAnimation] = useState<boolean>(true);
   const [zapEmphasizeKeywords, setZapEmphasizeKeywords] = useState<boolean>(true);
   const [zapSilenceRemoval, setZapSilenceRemoval] = useState<number>(0);
-  const [zapLanguage, setZapLanguage] = useState<string>('en');
+  const [zapLanguage, setZapLanguage] = useState<string>('pt');
   // Estados de personalização da legenda (Edição Zap)
   const [zapVideoFormat, setZapVideoFormat] = useState<
     'auto' | '9:16' | '1:1' | '16:9'
@@ -77,8 +81,8 @@ export function useZapState() {
   // config.edit.zapHookVersions. Render callbacks read `editZapModeRef`
   // so they write to the correct slot even if the user toggled away
   // mid-render.
-  const [editZapMode, setEditZapMode] = useState<'body' | 'hook'>('body');
-  const editZapModeRef = useRef<'body' | 'hook'>('body');
+  const [editZapMode, setEditZapMode] = useState<'body' | 'hook' | 'vsl'>('body');
+  const editZapModeRef = useRef<'body' | 'hook' | 'vsl'>('body');
   useEffect(() => {
     editZapModeRef.current = editZapMode;
   }, [editZapMode]);
@@ -170,6 +174,7 @@ export function useZapState() {
     zapVideoUrl, setZapVideoUrl,
     zapTemplateId, setZapTemplateId,
     zapBrollPercent, setZapBrollPercent,
+    zapBrollStartSec, setZapBrollStartSec,
     zapEmoji, setZapEmoji,
     zapAnimation, setZapAnimation,
     zapEmphasizeKeywords, setZapEmphasizeKeywords,

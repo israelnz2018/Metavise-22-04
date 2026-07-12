@@ -19,6 +19,7 @@ import { toast } from 'react-hot-toast';
 import { motion } from 'motion/react';
 import { Skeleton } from '@/components/Skeleton';
 import { SegmentedAvatarModal } from '@/components/SegmentedAvatarModal';
+import { AvatarBackgroundPicker } from '@/components/AvatarBackgroundPicker';
 import {
   User,
   Sparkles,
@@ -63,8 +64,8 @@ interface Props {
   setLoading: (v: boolean) => void;
 
   // Mode toggle (body vs hook).
-  avatarMode: 'body' | 'hook';
-  setAvatarMode: (mode: 'body' | 'hook') => void;
+  avatarMode: 'body' | 'hook' | 'vsl';
+  setAvatarMode: (mode: 'body' | 'hook' | 'vsl') => void;
   useHookFlow: boolean;
 
   // Avatar gallery state.
@@ -189,6 +190,11 @@ export function AvatarTab({
   handleTestElevenLabsKey,
   handleUpdateElevenLabsKey,
 }: Props) {
+  // Projetos antigos podem não ter config.format / config.avatar — a tela lia
+  // esses campos sem guarda e quebrava inteira. Aliases seguros pro render.
+  const fmtCfg = config.format || ({ aspectRatio: '9:16', duration: 10 } as any);
+  const avatarCfg =
+    config.avatar || ({ faceId: 'f1', customFaceUrl: null, voiceId: '', scale: 1.0 } as any);
   // Avatar enrichment data is ~175KB — loaded on demand the first time
   // this tab mounts. While the promise is in flight, AVATAR_ENRICHMENT
   // is `{}` and the filter falls back to legacy keyword-on-name matching.
@@ -208,12 +214,20 @@ export function AvatarTab({
   // `showOnlyFavorites` is a chip in the filter row.
   const favorites = useAvatarFavorites();
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
+  // "Meus avatares" — clones próprios (photo avatars), marcados com is_custom.
+  const [showOnlyCustom, setShowOnlyCustom] = useState(false);
+  // Áudio da VSL escolhido no seletor (vazio = usa o mais recente por padrão).
+  const [vslAudioPick, setVslAudioPick] = useState<string>('');
+  const customCount = heygenAvatars.filter((a: any) => a.is_custom).length;
 
   // F9.7 — Modo Econômico (avatar segmentado). Estado isolado pra abrir
   // modal sem mexer no flow normal de geração HeyGen.
   const [segmentedModalOpen, setSegmentedModalOpen] = useState(false);
 
   let filteredAvatars = heygenAvatars.filter((a) => {
+    // "Meus avatares" sobrepõe TODOS os outros filtros — mostra só os clones
+    // próprios, sem depender de busca/gênero (que eles nem têm preenchido).
+    if (showOnlyCustom) return !!(a as any).is_custom;
     const enrichment = AVATAR_ENRICHMENT[a.avatar_id] || {};
     const matchesSearch = a.avatar_name.toLowerCase().includes(avatarSearch.toLowerCase());
     const matchesGender =
@@ -256,9 +270,17 @@ export function AvatarTab({
     const matchesEthnicity = matchesFilter(avatarFilters.ethnicities, 'ethnicities');
     // Favorites overrides everything when toggled on — that's the point.
     const matchesFav = !showOnlyFavorites || favorites.isFavorite(a.avatar_id);
+    // "Meus avatares" — só os clones próprios.
+    const matchesCustom = !showOnlyCustom || (a as any).is_custom;
 
     return (
-      matchesSearch && matchesGender && matchesAge && matchesStyle && matchesEthnicity && matchesFav
+      matchesSearch &&
+      matchesGender &&
+      matchesAge &&
+      matchesStyle &&
+      matchesEthnicity &&
+      matchesFav &&
+      matchesCustom
     );
   });
 
@@ -309,29 +331,102 @@ export function AvatarTab({
   });
 
   const isHookMode = avatarMode === 'hook';
+  const isVslMode = avatarMode === 'vsl';
   const hookAudioUrl = (config.copy?.hookAudioUrl as string | undefined) || '';
   const hookAudioStoragePath =
     (config.copy?.hookAudioStoragePath as string | null | undefined) || null;
   const hookVideos = (config.copy?.hookVideos as typeof videos | undefined) || [];
   const hookVideoUrl = (config.copy?.hookVideoUrl as string | undefined) || '';
-  const displayedAudioUrl = isHookMode ? hookAudioUrl : config.audioUrl;
-  const displayedAudioStoragePath = isHookMode
-    ? hookAudioStoragePath
-    : config.audioStoragePath || null;
+  // VSL: usa a voz da VSL (config.copyVsl). Opções = ÁUDIOS FINAIS (juntados) +
+  // BLOCOS prontos — assim dá pra gerar o avatar por bloco sem precisar juntar.
+  const vslCfg = (config as any).copyVsl || {};
+  const vslFinals = (((vslCfg.audios as any[]) || []).filter((a) => a?.url) as any[]).map(
+    (a, i, arr) => ({
+      url: a.url as string,
+      storagePath: (a.storagePath as string | null) ?? null,
+      label:
+        `Áudio final ${i + 1}` +
+        (i === arr.length - 1 ? ' (mais recente)' : '') +
+        (a.createdAt ? ` — ${new Date(a.createdAt).toLocaleDateString('pt-BR')}` : ''),
+    })
+  );
+  const vslBlocks = (((vslCfg.blockAudios as any[]) || []).map((b, i) => ({ b, i })) as any[])
+    .filter((x) => x.b?.url && x.b?.status === 'done')
+    .map((x) => ({
+      url: x.b.url as string,
+      storagePath: (x.b.storagePath as string | null) ?? null,
+      label: `Bloco ${x.i + 1}`,
+    }));
+  const vslAudioOptions = [...vslBlocks, ...vslFinals];
+  // Default = o áudio final mais recente; se não houver final, o último bloco.
+  const defaultVslAudio =
+    vslFinals[vslFinals.length - 1] || vslBlocks[vslBlocks.length - 1] || null;
+  const activeVslAudio =
+    (vslAudioPick && vslAudioOptions.find((o) => o.url === vslAudioPick)) || defaultVslAudio;
+  const vslAudioUrl = activeVslAudio?.url || (vslCfg.audioUrl as string | undefined) || '';
+  const vslAudioStoragePath =
+    activeVslAudio?.storagePath ?? (vslCfg.audioStoragePath as string | null | undefined) ?? null;
+  const vslVideos = (vslCfg.avatarVideos as typeof videos | undefined) || [];
+  const vslVideoUrl = (vslCfg.avatarVideoUrl as string | undefined) || '';
+  // Existe VSL neste subprojeto? (mostra o toggle só quando há voz/roteiro VSL)
+  const hasVsl = !!(vslAudioUrl || vslCfg.finalScript || vslCfg.generatedScript);
+  const displayedAudioUrl = isVslMode ? vslAudioUrl : isHookMode ? hookAudioUrl : config.audioUrl;
+  const displayedAudioStoragePath = isVslMode
+    ? vslAudioStoragePath
+    : isHookMode
+      ? hookAudioStoragePath
+      : config.audioStoragePath || null;
   // Big "current video" preview directly under the audio card. Same idea
   // as the gallery: in hook mode it must show the hook video, not the body's.
-  const displayedVideoUrl = isHookMode ? hookVideoUrl : videoUrl;
+  const displayedVideoUrl = isVslMode ? vslVideoUrl : isHookMode ? hookVideoUrl : videoUrl;
+  // Fonte da galeria/histórico conforme o modo.
+  const galleryVideos = isVslMode ? vslVideos : isHookMode ? hookVideos : videos || [];
+  const gallerySelectedUrl = isVslMode ? vslVideoUrl : isHookMode ? hookVideoUrl : videoUrl;
+  const modeLabel = isVslMode ? '(VSL)' : isHookMode ? '(Gancho)' : '(Corpo)';
+  // Aspect REAL do vídeo em preview (o vídeo pode ser 16:9 mesmo com o config
+  // em 9:16) — evita as faixas pretas por mismatch container × vídeo.
+  const displayedVideoObj = galleryVideos.find((v: any) => v.url === displayedVideoUrl);
+  const previewAspect = ((displayedVideoObj as any)?.aspectRatio as string) || fmtCfg.aspectRatio;
+
+  // Mantém config.copyVsl.audioUrl (usado pela GERAÇÃO) em sincronia com o áudio
+  // efetivo do modo VSL (mais recente por padrão, ou o escolhido no seletor).
+  useEffect(() => {
+    if (isVslMode && vslAudioUrl && vslCfg.audioUrl !== vslAudioUrl) {
+      setConfig((prev: any) => ({
+        ...prev,
+        copyVsl: {
+          ...(prev.copyVsl || {}),
+          audioUrl: vslAudioUrl,
+          audioStoragePath: vslAudioStoragePath,
+        },
+      }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isVslMode, vslAudioUrl]);
 
   return (
     <div className="max-w-[1600px] mx-auto space-y-12">
-      {/* Toggle: which side of the video are we producing? Hidden when
-          the project doesn't use a separate hook. */}
-      {useHookFlow && (
+      {/* Caminho alternativo: usar os próprios vídeos (sem avatar IA) → Montagem. */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-blue-50 dark:bg-blue-950/30 border-2 border-blue-200 dark:border-blue-900 rounded-2xl p-4">
+        <p className="text-sm text-blue-900 dark:text-blue-200 font-bold">
+          Tem seus próprios vídeos? Use eles em vez do avatar IA — você sobe os trechos e monta a sequência.
+        </p>
+        <button
+          onClick={() => setCurrentStep('montagem')}
+          className="shrink-0 px-4 py-2.5 bg-blue-700 hover:bg-blue-800 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all"
+        >
+          Usar meus próprios vídeos →
+        </button>
+      </div>
+
+      {/* Toggle: qual parte estamos produzindo? Aparece quando o projeto tem
+          gancho separado OU uma VSL (voz VSL disponível). */}
+      {(useHookFlow || hasVsl) && (
         <div className="bg-white dark:bg-gray-900/80 p-2 rounded-2xl border-2 border-gray-200 dark:border-gray-800 shadow-sm flex gap-1">
           <button
             onClick={() => setAvatarMode('body')}
             className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-              !isHookMode
+              !isHookMode && !isVslMode
                 ? 'bg-gray-900 text-white shadow-md'
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60'
             }`}
@@ -341,19 +436,36 @@ export function AvatarTab({
               <span className="ml-2 text-[9px] opacity-70">({(config.videos || []).length})</span>
             )}
           </button>
-          <button
-            onClick={() => setAvatarMode('hook')}
-            className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-              isHookMode
-                ? 'bg-amber-500 text-white shadow-md'
-                : 'text-gray-500 dark:text-gray-400 hover:bg-amber-50 dark:hover:bg-amber-950/40'
-            }`}
-          >
-            Avatar do Gancho
-            {hookVideos.length > 0 && (
-              <span className="ml-2 text-[9px] opacity-70">({hookVideos.length})</span>
-            )}
-          </button>
+          {useHookFlow && (
+            <button
+              onClick={() => setAvatarMode('hook')}
+              className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                isHookMode
+                  ? 'bg-amber-500 text-white shadow-md'
+                  : 'text-gray-500 dark:text-gray-400 hover:bg-amber-50 dark:hover:bg-amber-950/40'
+              }`}
+            >
+              Avatar do Gancho
+              {hookVideos.length > 0 && (
+                <span className="ml-2 text-[9px] opacity-70">({hookVideos.length})</span>
+              )}
+            </button>
+          )}
+          {hasVsl && (
+            <button
+              onClick={() => setAvatarMode('vsl')}
+              className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                isVslMode
+                  ? 'bg-violet-600 text-white shadow-md'
+                  : 'text-gray-500 dark:text-gray-400 hover:bg-violet-50 dark:hover:bg-violet-950/40'
+              }`}
+            >
+              Avatar da VSL
+              {vslVideos.length > 0 && (
+                <span className="ml-2 text-[9px] opacity-70">({vslVideos.length})</span>
+              )}
+            </button>
+          )}
         </div>
       )}
 
@@ -373,10 +485,43 @@ export function AvatarTab({
               <Volume2 size={16} />
             </div>
             <h3 className="text-sm font-black text-gray-900 dark:text-gray-50 uppercase tracking-widest">
-              Áudio Aprovado {isHookMode ? '(Gancho)' : '(Corpo)'}
+              Áudio Aprovado {modeLabel}
             </h3>
             <span className="ml-auto text-xs text-gray-400 dark:text-gray-500">vindo da Voz</span>
           </div>
+          {/* Seletor do áudio VSL — finais juntados + blocos prontos. Escolha
+              qualquer um (default: o final mais recente). */}
+          {isVslMode && vslAudioOptions.length > 1 && (
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[10px] font-black uppercase tracking-widest text-violet-600 dark:text-violet-400 shrink-0">
+                Áudio ({vslAudioOptions.length})
+              </span>
+              <select
+                value={vslAudioUrl}
+                onChange={(e) => setVslAudioPick(e.target.value)}
+                className="flex-1 px-2 py-1.5 rounded-lg border border-violet-200 dark:border-violet-800 bg-white dark:bg-gray-900 text-xs dark:text-gray-100"
+              >
+                {vslBlocks.length > 0 && (
+                  <optgroup label="Blocos">
+                    {vslBlocks.map((o) => (
+                      <option key={o.url} value={o.url}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {vslFinals.length > 0 && (
+                  <optgroup label="Áudio final (juntado)">
+                    {[...vslFinals].reverse().map((o) => (
+                      <option key={o.url} value={o.url}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <audio controls src={displayedAudioUrl} className="w-full flex-1" />
             <button
@@ -394,9 +539,11 @@ export function AvatarTab({
             </button>
           </div>
           <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-2 italic">
-            {isHookMode
-              ? 'Áudio do gancho. Para trocar, volte à aba Voz e ative "Voz do Gancho".'
-              : 'Áudio do corpo. Para trocar, volte à aba Voz.'}
+            {isVslMode
+              ? 'Áudio da VSL (voz longa). Para trocar, volte à aba Voz → modo VSL.'
+              : isHookMode
+                ? 'Áudio do gancho. Para trocar, volte à aba Voz e ative "Voz do Gancho".'
+                : 'Áudio do corpo. Para trocar, volte à aba Voz.'}
           </p>
         </div>
       )}
@@ -409,9 +556,11 @@ export function AvatarTab({
           }`}
         >
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            {isHookMode
-              ? '⚠ Você ainda não gerou o áudio do gancho. Vá em "Voz" → toggle "Voz do Gancho" → gerar.'
-              : '⚠ Você ainda não gerou o áudio do corpo. Vá em "Voz" → gerar.'}
+            {isVslMode
+              ? '⚠ Você ainda não gerou o áudio da VSL. Vá em "Voz" → modo VSL → gerar (ou juntar os blocos).'
+              : isHookMode
+                ? '⚠ Você ainda não gerou o áudio do gancho. Vá em "Voz" → toggle "Voz do Gancho" → gerar.'
+                : '⚠ Você ainda não gerou o áudio do corpo. Vá em "Voz" → gerar.'}
           </p>
         </div>
       )}
@@ -543,11 +692,13 @@ export function AvatarTab({
           <div
             className={cn(
               'bg-black rounded-[40px] overflow-hidden shadow-2xl border-4 border-white relative group mx-auto transition-all duration-500',
-              config.format.aspectRatio === '9:16'
+              previewAspect === '9:16'
                 ? 'aspect-[9/16] max-w-[400px]'
-                : config.format.aspectRatio === '1:1'
+                : previewAspect === '1:1'
                   ? 'aspect-square max-w-[500px]'
-                  : 'aspect-video w-full'
+                  : previewAspect === '4:5'
+                    ? 'aspect-[4/5] max-w-[500px]'
+                    : 'aspect-video w-full'
             )}
           >
             <video
@@ -562,7 +713,7 @@ export function AvatarTab({
                 isHookMode ? 'bg-amber-500' : 'bg-blue-600'
               }`}
             >
-              {isHookMode ? 'Vídeo do Gancho' : 'Vídeo do Corpo'}
+              {isVslMode ? 'Vídeo da VSL' : isHookMode ? 'Vídeo do Gancho' : 'Vídeo do Corpo'}
             </div>
             <div className="absolute top-6 right-6 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
@@ -624,14 +775,7 @@ export function AvatarTab({
               onClick={() => setCurrentStep('edit-zap')}
               className="flex-1 px-8 py-5 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-blue-700 transition-all flex items-center justify-center gap-3 shadow-xl shadow-blue-100"
             >
-              Continuar para Edição Zap
-              <ChevronRight size={20} />
-            </button>
-            <button
-              onClick={() => setCurrentStep('edit2')}
-              className="flex-1 px-8 py-5 bg-purple-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-purple-700 transition-all flex items-center justify-center gap-3 shadow-xl shadow-purple-100"
-            >
-              Continuar para Edição Premium
+              Continuar para Edição
               <ChevronRight size={20} />
             </button>
           </div>
@@ -639,7 +783,7 @@ export function AvatarTab({
       )}
 
       {/* Video History List */}
-      {(isHookMode ? hookVideos : videos || []).length > 0 && (
+      {galleryVideos.length > 0 && (
         <div className="bg-white dark:bg-gray-900/80 p-8 rounded-[40px] border-2 border-gray-200 dark:border-gray-800 shadow-xl space-y-6">
           <div className="flex items-center justify-between border-b border-gray-50 pb-6">
             <div className="space-y-1">
@@ -648,20 +792,19 @@ export function AvatarTab({
                   size={20}
                   className={isHookMode ? 'text-amber-500' : 'text-blue-600 dark:text-blue-400'}
                 />
-                Histórico de Vídeos {isHookMode ? '(Gancho)' : '(Corpo)'}
+                Histórico de Vídeos {modeLabel}
               </h3>
               <p className="text-xs text-gray-400 dark:text-gray-500 font-medium">
                 Selecione o vídeo que deseja usar no projeto.
               </p>
             </div>
             <span className="px-3 py-1 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-full text-[10px] font-black uppercase tracking-widest">
-              {(isHookMode ? hookVideos : videos || []).length}{' '}
-              {(isHookMode ? hookVideos : videos || []).length === 1 ? 'Vídeo' : 'Vídeos'}
+              {galleryVideos.length} {galleryVideos.length === 1 ? 'Vídeo' : 'Vídeos'}
             </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
-            {(isHookMode ? hookVideos : videos || []).map((video, idx) => (
+            {galleryVideos.map((video, idx) => (
               <div
                 key={`variant-video-${idx}-${video.url || 'no-url'}`}
                 onClick={() => {
@@ -669,7 +812,20 @@ export function AvatarTab({
                   // current mode — otherwise selecting a hook video would
                   // overwrite videoUrl (body state) and bleed across the
                   // toggle.
-                  if (isHookMode) {
+                  if (isVslMode) {
+                    setConfig((prev: any) => ({
+                      ...prev,
+                      copyVsl: {
+                        ...(prev.copyVsl || {}),
+                        avatarVideoUrl: video.url,
+                        avatarVideoStoragePath: video.storagePath,
+                      },
+                      format: {
+                        ...prev.format,
+                        aspectRatio: (video.aspectRatio as any) || prev.format.aspectRatio,
+                      },
+                    }));
+                  } else if (isHookMode) {
                     setConfig((prev: any) => ({
                       ...prev,
                       copy: {
@@ -707,7 +863,7 @@ export function AvatarTab({
                 }}
                 className={cn(
                   'group relative rounded-[32px] border-2 transition-all cursor-pointer overflow-hidden flex flex-col',
-                  (isHookMode ? hookVideoUrl : videoUrl) === video.url
+                  gallerySelectedUrl === video.url
                     ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40 shadow-lg'
                     : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/80 hover:border-blue-200'
                 )}
@@ -749,7 +905,7 @@ export function AvatarTab({
                   <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20">
                     <Play size={32} className="text-white fill-white" />
                   </div>
-                  {(isHookMode ? hookVideoUrl : videoUrl) === video.url && (
+                  {gallerySelectedUrl === video.url && (
                     <div className="absolute top-4 right-4 bg-blue-600 text-white p-1.5 rounded-full shadow-lg">
                       <CheckCircle2 size={16} />
                     </div>
@@ -874,23 +1030,38 @@ export function AvatarTab({
         </div>
 
         <div className="bg-white dark:bg-gray-900/80 p-6 rounded-[40px] border-2 border-gray-200 dark:border-gray-800 shadow-xl space-y-6">
-          {/* Favorites chip — own row so it's always visible without
-              eating the grid columns. Hidden when the user has zero
-              favorites yet (avoids tempting an empty list). */}
-          {favorites.favoriteCount > 0 && (
+          {/* Chips: "Meus avatares" (clones próprios) + Favoritos. Linha própria
+              pra ficarem sempre visíveis sem comer as colunas do grid. */}
+          {(customCount > 0 || favorites.favoriteCount > 0) && (
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={() => setShowOnlyFavorites((v) => !v)}
-                className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest transition-all border-2 ${
-                  showOnlyFavorites
-                    ? 'bg-amber-400 text-amber-950 border-amber-400 shadow-md'
-                    : 'bg-white dark:bg-gray-900/80 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-amber-300 hover:text-amber-700 dark:hover:text-amber-400'
-                }`}
-                title="Mostrar somente seus avatares favoritos"
-              >
-                <Star size={14} className={showOnlyFavorites ? 'fill-current' : ''} />
-                Favoritos ({favorites.favoriteCount})
-              </button>
+              {customCount > 0 && (
+                <button
+                  onClick={() => setShowOnlyCustom((v) => !v)}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest transition-all border-2 ${
+                    showOnlyCustom
+                      ? 'bg-emerald-500 text-white border-emerald-500 shadow-md'
+                      : 'bg-white dark:bg-gray-900/80 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-emerald-300 hover:text-emerald-700 dark:hover:text-emerald-400'
+                  }`}
+                  title="Mostrar somente os avatares que você clonou (photo avatars)"
+                >
+                  <Sparkles size={14} className={showOnlyCustom ? 'fill-current' : ''} />
+                  Meus avatares ({customCount})
+                </button>
+              )}
+              {favorites.favoriteCount > 0 && (
+                <button
+                  onClick={() => setShowOnlyFavorites((v) => !v)}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest transition-all border-2 ${
+                    showOnlyFavorites
+                      ? 'bg-amber-400 text-amber-950 border-amber-400 shadow-md'
+                      : 'bg-white dark:bg-gray-900/80 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-amber-300 hover:text-amber-700 dark:hover:text-amber-400'
+                  }`}
+                  title="Mostrar somente seus avatares favoritos"
+                >
+                  <Star size={14} className={showOnlyFavorites ? 'fill-current' : ''} />
+                  Favoritos ({favorites.favoriteCount})
+                </button>
+              )}
             </div>
           )}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -1089,7 +1260,7 @@ export function AvatarTab({
                     Escala do Avatar (Zoom)
                   </label>
                   <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
-                    {(config.avatar.scale || 1.0).toFixed(1)}x
+                    {(avatarCfg.scale || 1.0).toFixed(1)}x
                   </span>
                 </div>
                 <input
@@ -1097,7 +1268,7 @@ export function AvatarTab({
                   min="0.5"
                   max="2.0"
                   step="0.1"
-                  value={config.avatar.scale || 1.0}
+                  value={avatarCfg.scale || 1.0}
                   onChange={(e) =>
                     setConfig((prev: any) => ({
                       ...prev,
@@ -1132,6 +1303,20 @@ export function AvatarTab({
                   Gera apenas 3 segundos para validação rápida
                 </span>
               )}
+            </div>
+
+            <div className="mt-2 w-full md:max-w-md">
+              <AvatarBackgroundPicker
+                value={avatarCfg.background}
+                aspectRatio={fmtCfg.aspectRatio as any}
+                onChange={(bg) =>
+                  setConfig((prev: any) => ({
+                    ...prev,
+                    avatar: { ...prev.avatar, background: bg },
+                  }))
+                }
+                disabled={loading}
+              />
             </div>
           </div>
           <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
@@ -1175,11 +1360,12 @@ export function AvatarTab({
             )}
 
             <button
-              onClick={() => handleGenerateVideo(!!videoUrl)}
+              onClick={() => handleGenerateVideo(!!displayedVideoUrl)}
               disabled={
                 loading ||
                 !config.avatar.faceId ||
-                (!audioUrl && !isTestMode) ||
+                (((isVslMode ? !vslAudioUrl : isHookMode ? !hookAudioUrl : !audioUrl) &&
+                  !isTestMode)) ||
                 (videoOp &&
                   videoOp.status !== 'completed' &&
                   videoOp.status !== 'failed' &&
@@ -1198,7 +1384,7 @@ export function AvatarTab({
               ) : (
                 <Sparkles size={20} />
               )}
-              {videoUrl ? 'Regerar Avatar' : 'Gerar Avatar'}
+              {displayedVideoUrl ? 'Regerar Avatar' : 'Gerar Avatar'}
             </button>
 
             {/* F9.7 — Modo Econômico: gera HeyGen só nos trechos que cliente
@@ -1221,8 +1407,9 @@ export function AvatarTab({
           open={segmentedModalOpen}
           avatarId={config.avatar.faceId || ''}
           audioUrl={audioUrl || ''}
-          aspectRatio={config.format.aspectRatio as any}
-          scale={config.avatar.scale}
+          aspectRatio={fmtCfg.aspectRatio as any}
+          scale={avatarCfg.scale}
+          background={avatarCfg.background}
           onVideoReady={(url, totalSec) => {
             // Por enquanto: copia URL pro slot principal de vídeo e adiciona
             // metadata mínima. Cliente vê o vídeo no preview de baixo.
@@ -1416,10 +1603,18 @@ export function AvatarTab({
                         videoStoragePath: null,
                       }));
                     } else {
-                      // Select new one
+                      // Select new one. Guardamos também o NOME/preview/gênero
+                      // (não só o id) pro painel de info do criativo mostrar
+                      // "Sarah" sem precisar resolver no catálogo depois.
                       setConfig((prev: any) => ({
                         ...prev,
-                        avatar: { ...prev.avatar, faceId: a.avatar_id },
+                        avatar: {
+                          ...prev.avatar,
+                          faceId: a.avatar_id,
+                          faceName: a.avatar_name || '',
+                          facePreviewUrl: a.preview_image_url || '',
+                          faceGender: a.gender || '',
+                        },
                         videoUrl: null,
                         videoStoragePath: null,
                       }));
@@ -1433,10 +1628,15 @@ export function AvatarTab({
                     // Open modal regardless of selection state to show details
                     setPreviewAvatar(a);
 
+                    // HeyGen NÃO fornece aspect_ratio confiável (o schema nem
+                    // tem o campo) → default HORIZONTAL (16:9), IGUAL ao
+                    // AvatarPreviewModal. Só cai em 9:16 quando explicitamente
+                    // marcado como vertical. (Antes o default era 9:16, então o
+                    // avatar horizontal gerava vídeo vertical com bordas.)
                     const isHorizontal =
-                      a.aspect_ratio === '16:9' ||
-                      a.avatar_id?.toLowerCase().includes('horizontal') ||
-                      a.avatar_id?.toLowerCase().includes('landscape');
+                      a.aspect_ratio !== '9:16' &&
+                      !a.avatar_id?.toLowerCase().includes('vertical') &&
+                      !a.avatar_id?.toLowerCase().includes('portrait');
 
                     // Only reset format/crop when SWITCHING to a different avatar.
                     // Clicking the already-selected avatar should preserve the user's
@@ -1572,7 +1772,7 @@ export function AvatarTab({
           selectedFaceId={config.avatar.faceId}
           avatarFormat={config.avatar.avatarFormat}
           cropOffset={config.avatar.cropOffset || 0}
-          aspectRatio={config.format.aspectRatio}
+          aspectRatio={fmtCfg.aspectRatio}
           onClose={() => setPreviewAvatar(null)}
           onFormatChange={(format, nextAspectRatio) =>
             setConfig((prev: any) => ({
@@ -1599,7 +1799,13 @@ export function AvatarTab({
             } else {
               setConfig((prev: any) => ({
                 ...prev,
-                avatar: { ...prev.avatar, faceId: previewAvatar.avatar_id },
+                avatar: {
+                  ...prev.avatar,
+                  faceId: previewAvatar.avatar_id,
+                  faceName: previewAvatar.avatar_name || '',
+                  facePreviewUrl: previewAvatar.preview_image_url || '',
+                  faceGender: previewAvatar.gender || '',
+                },
               }));
               toast.success(`${previewAvatar.avatar_name} selecionado!`);
             }
@@ -1608,6 +1814,39 @@ export function AvatarTab({
 
         {/* Action Footer removed and moved to top */}
       </div>
+
+      {/* Toggle gancho/corpo TAMBÉM no rodapé — pra não precisar rolar até o
+          topo só pra trocar de lado. Mesmo comportamento do de cima. */}
+      {useHookFlow && (
+        <div className="bg-white dark:bg-gray-900/80 p-2 rounded-2xl border-2 border-gray-200 dark:border-gray-800 shadow-sm flex gap-1">
+          <button
+            onClick={() => setAvatarMode('body')}
+            className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+              !isHookMode
+                ? 'bg-gray-900 text-white shadow-md'
+                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60'
+            }`}
+          >
+            Avatar do Corpo
+            {(config.videos || []).length > 0 && (
+              <span className="ml-2 text-[9px] opacity-70">({(config.videos || []).length})</span>
+            )}
+          </button>
+          <button
+            onClick={() => setAvatarMode('hook')}
+            className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+              isHookMode
+                ? 'bg-amber-500 text-white shadow-md'
+                : 'text-gray-500 dark:text-gray-400 hover:bg-amber-50 dark:hover:bg-amber-950/40'
+            }`}
+          >
+            Avatar do Gancho
+            {hookVideos.length > 0 && (
+              <span className="ml-2 text-[9px] opacity-70">({hookVideos.length})</span>
+            )}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

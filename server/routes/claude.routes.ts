@@ -5,6 +5,13 @@ import ytdl from '@distube/ytdl-core';
 import { getClaudeKey, getAssemblyAIKey } from '../config/apiKeys.js';
 import { CLAUDE_CONFIG_PATH } from '../config/paths.js';
 import { createLogger } from '../utils/logger.js';
+import {
+  recordUsage,
+  parseUsageFromSSE,
+  getUsage,
+  resetUsage,
+  setBalance,
+} from '../utils/claudeUsage.js';
 const log = createLogger('Claude');
 
 // Fallback path when YouTube captions are unavailable: download the audio
@@ -89,17 +96,87 @@ function extractYoutubeId(url: string): string | null {
 
 export const claudeRouter = Router();
 
+// GET /api/claude/usage — gasto REAL acumulado nesta chave da Claude (o app
+// conta o próprio consumo; a Anthropic não expõe o saldo por chave).
+claudeRouter.get('/usage', (_req, res) => {
+  res.json({ success: true, usage: getUsage() });
+});
+// POST /api/claude/usage/reset — zera o contador (recomeça a medição).
+claudeRouter.post('/usage/reset', (_req, res) => {
+  res.json({ success: true, usage: resetUsage() });
+});
+// POST /api/claude/usage/balance — informa o saldo atual da conta (US$). A
+// Anthropic não expõe saldo por chave, então o app desconta o gasto medido.
+claudeRouter.post('/usage/balance', (req, res) => {
+  const amount = Number((req.body || {}).amount);
+  if (!Number.isFinite(amount) || amount < 0) {
+    return res.status(400).json({ success: false, error: 'amount inválido' });
+  }
+  res.json({ success: true, usage: setBalance(amount) });
+});
+
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
-// Opus 4.7 is Anthropic's strongest model — best for the kind of nuanced,
-// emotion-aware copy this app produces. Sonnet 4.6 is ~5× cheaper and faster
-// but visibly worse at creative writing. Override per-call by passing a
-// `model` field in the request body if you need to A/B compare.
-const DEFAULT_MODEL = 'claude-opus-4-7';
+// Opus 4.8 is Anthropic's strongest model — best for the kind of nuanced,
+// emotion-aware copy this app produces (mesmo preço do 4.7, modelo melhor).
+// Sonnet 4.6 é mais barato/rápido, mas visivelmente pior em escrita criativa.
+// Override per-call passando `model` no corpo da requisição.
+const DEFAULT_MODEL = 'claude-opus-4-8';
+// Modelo BARATO pras tarefas ESTRUTURADAS (extrair produto, gerar personas,
+// plano de criativos, estatísticas, recomendação de avatar/voz) — não têm
+// escrita criativa, então Sonnet 4.6 serve sem perder qualidade e corta custo.
+// A COPY continua no DEFAULT_MODEL (Opus). Pra mudar o modelo da copy, edite
+// DEFAULT_MODEL; pro estruturado, edite STRUCTURED_MODEL.
+const STRUCTURED_MODEL = 'claude-sonnet-4-6';
 // Extended thinking — Opus 4.7 uses the newer "adaptive" mode controlled by
 // output_config.effort ('low' | 'medium' | 'high'). Higher effort = more
 // internal reasoning, better copy quality, higher cost.
 const THINKING_EFFORT = 'high';
 const DEFAULT_MAX_TOKENS = 12000;
+
+// O modelo às vezes devolve JSON com quebras de linha / tabs CRUAS DENTRO das
+// strings (ex: "summary": "...focado em ⏎ vídeos longos..."), o que é JSON
+// inválido (control char precisa virar \n). Faz uma varredura de um passo só,
+// rastreando se está dentro de string, e escapa control chars nesse contexto.
+// Em JSON já válido não há control char cru dentro de string → no-op seguro.
+function escapeControlCharsInStrings(s: string): string {
+  let out = '';
+  let inStr = false;
+  let escaped = false;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (escaped) {
+      out += ch;
+      escaped = false;
+      continue;
+    }
+    if (ch === '\\') {
+      out += ch;
+      escaped = true;
+      continue;
+    }
+    if (ch === '"') {
+      inStr = !inStr;
+      out += ch;
+      continue;
+    }
+    if (inStr) {
+      if (ch === '\n') {
+        out += '\\n';
+        continue;
+      }
+      if (ch === '\r') {
+        out += '\\r';
+        continue;
+      }
+      if (ch === '\t') {
+        out += '\\t';
+        continue;
+      }
+    }
+    out += ch;
+  }
+  return out;
+}
 
 // POST /api/claude/config
 claudeRouter.post('/config', async (req, res) => {
@@ -282,6 +359,7 @@ claudeRouter.post('/complete', async (req, res) => {
     }
 
     const usage = data.usage || {};
+    recordUsage(model, usage);
     log.info(
       `[Claude] reply ok — input=${usage.input_tokens} cache_read=${usage.cache_read_input_tokens ?? 0} cache_write=${usage.cache_creation_input_tokens ?? 0} output=${usage.output_tokens} stop_reason=${data.stop_reason}`
     );
@@ -381,12 +459,18 @@ claudeRouter.post('/complete-stream', async (req, res) => {
     // those raw so the client can parse the same protocol.
     const reader = upstream.body.getReader();
     const decoder = new TextDecoder();
+    let sseBuf = ''; // acumula o stream pra extrair o usage no final
     try {
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
-        if (value) res.write(decoder.decode(value, { stream: true }));
+        if (value) {
+          const chunk = decoder.decode(value, { stream: true });
+          sseBuf += chunk;
+          res.write(chunk);
+        }
       }
+      recordUsage(model, parseUsageFromSSE(sseBuf));
       res.end();
     } catch (streamErr: any) {
       log.error('[Claude stream] pipe error:', streamErr);
@@ -529,12 +613,15 @@ claudeRouter.post('/extract-product-info', async (req, res) => {
 
 Responda APENAS um JSON com esta estrutura (sem prosa, sem markdown):
 {
-  "productName": "nome do produto/serviço",
+  "productName": "nome EXATO do produto/serviço. Se o material tiver a grafia ESCRITA (landing page, título, site, descrição), USE essa grafia letra por letra — transcrições de áudio/VSL erram nomes de marca novos (ex: ouvem 'Aria Leaf' quando é 'Arialief'). Copie o nome ESCRITO quando existir; só caia no que foi falado se não houver versão escrita.",
   "category": "categoria (ex: emagrecimento, finanças, infoproduto, físico)",
   "offer": "oferta resumida (o que custa quanto e o que vem incluso)",
+  "priceInfo": "preço encontrado no material com a moeda e o período, EXATAMENTE como aparece (ex: 'R$97/mês', 'US$197 único', '12x de R$39'). Se não houver preço explícito, string vazia.",
+  "billingType": "'recorrente' se for assinatura/mensalidade/plano que cobra repetido; 'unico' se for compra avulsa; string vazia se não der pra saber",
   "promise": "promessa principal — o resultado que o cliente terá",
   "mainPain": "dor principal que o produto resolve",
   "secondaryPains": ["dor 2", "dor 3"],
+  "emotionalDriver": "como ESTA VSL realmente vende — LEIA o material, não assuma (varia muito por oferta). Em 1-3 frases diga: (a) o DRIVER emocional PRINCIPAL que move o comprador (ex.: medo do que pode vir, autonomia/controle, segurança da família, desejo profundo, status, alívio, desconfiança...); (b) 1-2 ângulos SECUNDÁRIOS que a VSL também usa; (c) o TOM/postura do narrador que a VSL adota (ex.: pessoa que viveu, especialista, proativo se preparando, observador). Capte o que a VSL ESTÁ fazendo, não o sintoma de superfície.",
   "benefits": ["benefício 1", "benefício 2", "benefício 3"],
   "audience": "descrição do público-alvo (idade, gênero, situação, profissão se relevante)",
   "awarenessLevel": "unaware|problem-aware|solution-aware|product-aware|most-aware",
@@ -562,7 +649,7 @@ Extraia as informações estruturadas. Retorne APENAS o JSON.`;
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: DEFAULT_MODEL,
+        model: STRUCTURED_MODEL,
         max_tokens: 2500,
         system: SYSTEM,
         messages: [{ role: 'user', content: USER }],
@@ -578,6 +665,7 @@ Extraia as informações estruturadas. Retorne APENAS o JSON.`;
     }
 
     const data = await resp.json();
+    recordUsage(STRUCTURED_MODEL, data.usage);
     const textBlock = Array.isArray(data.content)
       ? data.content.find((b: any) => b?.type === 'text')
       : null;
@@ -598,6 +686,115 @@ Extraia as informações estruturadas. Retorne APENAS o JSON.`;
     res.json({ success: true, product });
   } catch (err: any) {
     log.error('[Claude extract-product-info] Exception:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/claude/broll-queries
+// Pra cada TRECHO de narração da VSL, gera um termo de busca VISUAL (2-3 palavras,
+// inglês) que captura a IDEIA da frase — não uma palavra solta. Usado pelo
+// Auto-editar pra buscar b-roll relevante no Pexels. Se `effects` (nomes de
+// efeitos sonoros disponíveis) vier no body, também escolhe — só quando encaixa
+// MUITO bem — um efeito contextual por trecho (ou null).
+// Body: { segments: string[], effects?: string[] }
+//   → { queries: string[], effects: (string|null)[] } (mesma ordem/tamanho)
+claudeRouter.post('/broll-queries', async (req, res) => {
+  const apiKey = getClaudeKey();
+  if (!apiKey) return res.status(500).json({ success: false, error: 'CLAUDE_API_KEY não configurada.' });
+  const segments: string[] = Array.isArray((req.body || {}).segments)
+    ? (req.body as any).segments.map((s: any) => String(s || '').slice(0, 400))
+    : [];
+  if (segments.length === 0) return res.status(400).json({ success: false, error: 'segments vazio.' });
+  const fxList: string[] = Array.isArray((req.body || {}).effects)
+    ? (req.body as any).effects.map((s: any) => String(s || '').slice(0, 40)).filter(Boolean)
+    : [];
+
+  const FX_RULES = fxList.length
+    ? `
+"fx" — a contextual SOUND EFFECT, ONLY from this exact list: ${JSON.stringify(fxList)}.
+- Use one ONLY when it clearly fits the snippet's meaning (e.g. "Cash Register" for money/price/earnings, "Clock Ticking" for urgency/time running out, "Censor Beep" for something forbidden/secret, "Grilos" for awkward silence, "Vinyl Stop" for a sudden stop/plot-twist, "Mouse Click" for clicking/buying online). Match the name to the idea.
+- Be selective but NOT rare: aim for about 1 effect every 2-3 snippets. Output the effect name EXACTLY as in the list, or null.`
+    : '\n"fx": always null.';
+
+  const SYSTEM = `You are an expert direct-response video editor cutting a Video Sales Letter. For each narration snippet (Portuguese) you receive, decide how to illustrate it. Output one JSON object per snippet with these fields:
+
+"q" — a B-ROLL stock-footage search query for Pexels:
+- 2 to 4 words, in ENGLISH.
+- Visual and concrete (a scene/action/object/emotion), NOT abstract words. Think what IMAGE illustrates the idea.
+- NEVER proper names, brand names, or numbers.
+
+"style" — "animation" or "real":
+- "animation" whenever the idea is scientific/internal/conceptual, better shown as a diagram/3D medical or explainer animation (gut/intestine/bacteria/microbiome, blood flow, how something works inside the body, a mechanism, a chart/graph concept) — use it freely here.
+- Even for NON-scientific snippets, still sprinkle "animation" occasionally (about 1 in 6) for visual variety.
+- Otherwise "real" for people, emotions, lifestyle, food, everyday scenes. Keep the majority "real".
+
+"tone" — "past" or "now":
+- "past" ONLY in the RARE, EXPLICIT "before" moments — the narrator literally describing how the person USED TO suffer in the PAST tense ("eu vivia...", "antes eu...", "eu sofria com...", "costumava..."). This gets a black-and-white look, so it must be reserved for unmistakable before-state lines.
+- This is the EXCEPTION: at most ~1 in 10 snippets should be "past". If there's ANY doubt, use "now".
+- "now" for everything else (present, solution, hope, results, neutral narration) — the default.
+
+"hl" — a short IMPACTFUL PHRASE to burn big on screen, or null:
+- It MUST be a VERBATIM contiguous slice of the snippet — the SAME words, SAME order, no paraphrase, nothing added or removed — 2 to 5 words, the punchiest fragment (a promise, a pain, an emotional hook). It has to be an exact substring so the app can sync it to the exact moment it's SPOKEN.
+- Be SELECTIVE: only about 1 in 3 snippets deserves a highlight. Use null for filler/connective snippets. Never the whole sentence — just the striking fragment.
+
+"split" — true or false:
+- true OCCASIONALLY (about 1 in 7) when showing TWO complementary visuals side by side fits: before/after, a comparison, "inside and outside", two related ideas at once. Most snippets false.
+${FX_RULES}
+Respond with ONLY a JSON array, one object per snippet, SAME order and length: [{"q":"...","style":"real|animation","tone":"now|past","hl":"frase curta" or null,"split":true|false,"fx":${fxList.length ? '"Effect Name" or null' : 'null'}}]`;
+
+  const USER = `Snippets (JSON array, ${segments.length} items):\n${JSON.stringify(segments)}\n\nReturn ONLY the JSON array of ${segments.length} objects {q, style, tone, hl, split, fx}.`;
+
+  try {
+    const resp = await fetch(ANTHROPIC_API, {
+      method: 'POST',
+      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: STRUCTURED_MODEL,
+        // ~80 tokens por trecho (query + style + tone + hl + split + fx). Teto
+        // baixo TRUNCA a resposta → JSON.parse falha → cai no fallback (palavra
+        // solta). Por isso generoso.
+        max_tokens: Math.min(16000, 200 + segments.length * 80),
+        system: SYSTEM,
+        messages: [{ role: 'user', content: USER }],
+      }),
+    });
+    if (!resp.ok) {
+      const t = await resp.text();
+      return res.status(resp.status).json({ success: false, error: `Claude ${resp.status} ${t.slice(0, 200)}` });
+    }
+    const data = await resp.json();
+    recordUsage(STRUCTURED_MODEL, data.usage);
+    const textBlock = Array.isArray(data.content) ? data.content.find((b: any) => b?.type === 'text') : null;
+    const raw = (textBlock?.text || '').replace(/^```(?:json)?\s*|\s*```$/g, '').trim();
+    let queries: string[] = [];
+    let effects: (string | null)[] = [];
+    let styles: string[] = [];
+    let tones: string[] = [];
+    let highlights: (string | null)[] = [];
+    let splits: boolean[] = [];
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        queries = parsed.map((o) => String((o && typeof o === 'object' ? o.q : o) || '').trim());
+        effects = parsed.map((o) => {
+          const fx = o && typeof o === 'object' ? o.fx : null;
+          return fx && fxList.includes(String(fx)) ? String(fx) : null;
+        });
+        styles = parsed.map((o) => (o && o.style === 'animation' ? 'animation' : 'real'));
+        tones = parsed.map((o) => (o && o.tone === 'past' ? 'past' : 'now'));
+        highlights = parsed.map((o) => {
+          const hl = o && typeof o === 'object' ? o.hl : null;
+          const s = hl ? String(hl).trim() : '';
+          return s && s.length >= 3 && s.length <= 60 ? s : null;
+        });
+        splits = parsed.map((o) => o && o.split === true);
+      }
+    } catch {
+      queries = [];
+    }
+    res.json({ success: true, queries, effects, styles, tones, highlights, splits });
+  } catch (err: any) {
+    log.error('[Claude broll-queries] Exception:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -637,7 +834,9 @@ Responda APENAS um JSON com esta estrutura exata (sem prosa, sem markdown):
   "differentials": ["2-5 valores exatos de differentials"],
   "problemComment": "contexto sobre o problema (1 frase)",
   "personaTriedBefore": ["1-5 valores exatos de triedBefores"],
-  "payingCapacity": "<UM valor exato de payingCapacities>",
+  "billingModel": "EXATAMENTE 'Pagamento único' OU 'Recorrente (mensal/assinatura)'. Detecte de productInfo.billingType/priceInfo: se aparece /mês, /mo, mensal, assinatura, plano, subscription = Recorrente; senão Pagamento único.",
+  "salePrice": "NÚMERO puro (sem moeda, sem texto) do preço de venda, NA MOEDA ORIGINAL do material (NÃO converta). Use productInfo.priceInfo. Se recorrente, o valor POR MÊS. Se houver vários planos, use o marcado como popular/recomendado, senão o do meio. Ex: '$9.99/mo' → salePrice 9.99. Vazio só se não houver preço no material.",
+  "saleCurrency": "código ISO 4217 da moeda do salePrice (ex: USD, BRL, EUR, GBP, CAD, AUD, MXN, ARS, JPY, INR...). Detecte do símbolo/contexto: $ ou US$ = USD; R$ = BRL; € = EUR; £ = GBP; ¥ = JPY; ₹ = INR. Se só houver '$' sem país, default USD.",
   "hiddenDesires": ["1-3 valores exatos de hiddenDesires"],
   "clientComment": "contexto sobre o cliente (1 frase)",
 
@@ -666,6 +865,14 @@ Regras:
 - Enums: SEMPRE escolha valores EXATOS das listas (case-sensitive). Nunca invente.
 - differentials: 2-5 itens. personaTriedBefore: 1-5. hiddenDesires: 1-3. age: 1-3.
 - Free-text CURTO e específico (não genérico).
+- PREÇO/COBRANÇA: preencha billingModel + salePrice + saleCurrency de productInfo.priceInfo/billingType.
+  Se billingType='recorrente' (ou priceInfo tiver "/mês","/mo","/ano","mensal","assinatura",
+  "subscription","plano") → billingModel="Recorrente (mensal/assinatura)" e salePrice = valor
+  POR MÊS. Senão → billingModel="Pagamento único" e salePrice = valor da compra.
+  Se houver vários planos, use o marcado como popular/recomendado; senão o do meio.
+  NUNCA converta moeda — mantenha o valor e a moeda ORIGINAIS. Ex: "$9.99/mo" → recorrente,
+  salePrice 9.99, saleCurrency "USD". salePrice é NÚMERO puro (sem símbolo). Vazio só se não
+  houver preço algum no material.
 - Se a informação não estiver clara no produto, use o melhor palpite com base no contexto.`;
 
   const USER = `INFORMAÇÕES DO PRODUTO:
@@ -685,7 +892,7 @@ Preencha todos os campos do formulário. Retorne APENAS o JSON.`;
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: DEFAULT_MODEL,
+        model: STRUCTURED_MODEL,
         // F7.4 — bumped from 1500 → 4000. The schema has ~30 fields with
         // string values 50-200 chars each. 1500 tokens was hitting the
         // ceiling and truncating mid-string, breaking JSON.parse and
@@ -705,6 +912,7 @@ Preencha todos os campos do formulário. Retorne APENAS o JSON.`;
     }
 
     const data = await resp.json();
+    recordUsage(STRUCTURED_MODEL, data.usage);
     const textBlock = Array.isArray(data.content)
       ? data.content.find((b: any) => b?.type === 'text')
       : null;
@@ -758,12 +966,36 @@ claudeRouter.post('/marketing-plan', async (req, res) => {
   //             copyAnswers, targetCount?: number }
   const {
     productInfo = {},
-    persona = null, // legacy single persona (kept for back-compat)
-    personas = null, // new: array of WeightedPersona
-    selectedPersonaIds = null, // new: user's subset of personas (defaults to all non-stretch)
+    persona = null, // single persona (back-compat)
+    personas = null, // array de WeightedPersona
+    selectedPersonaIds = null,
     copyAnswers = {},
-    targetCount = 15, // default to 15 briefs per Andromeda guidance
   } = req.body || {};
+
+  // GUIA DA COPY — Plano de criativos (foco: VENDA). Inputs de mídia:
+  // número de criativos = orçamento/dia ÷ custo por criativo (conta, não chute).
+  // Custo/criativo recomendado: CBO ~0,5× CPA · ABO ~1× CPA (piso 0,5× CPA).
+  const dailyBudget = Number((req.body || {}).dailyBudget) || 0;
+  const targetCpa = Number((req.body || {}).targetCpa) || 0;
+  const productPrice = Number((req.body || {}).productPrice) || 0;
+  const structure =
+    String((req.body || {}).structure || 'cbo').toLowerCase() === 'abo' ? 'abo' : 'cbo';
+  const costPerCreative = Number((req.body || {}).costPerCreative) || 0;
+  // nº de criativos: o cliente DECIDE (desiredCount). Quando ausente, cai pro
+  // recomendado (orçamento ÷ custo) e, por fim, pro back-compat (targetCount).
+  const desiredCount = Number((req.body || {}).desiredCount) || 0;
+  let numCreatives =
+    desiredCount > 0
+      ? desiredCount
+      : dailyBudget > 0 && costPerCreative > 0
+        ? Math.floor(dailyBudget / costPerCreative)
+        : Number((req.body || {}).targetCount) || 6;
+  numCreatives = Math.max(1, Math.min(numCreatives, 40));
+  // Aviso (não bloqueia): CPA >= preço = prejuízo.
+  const cpaWarning =
+    targetCpa > 0 && productPrice > 0 && targetCpa >= productPrice
+      ? `CPA-alvo (${targetCpa}) é maior ou igual ao preço (${productPrice}) — isso dá prejuízo por venda.`
+      : null;
 
   // Build the personas array the prompt will consume:
   //   - If `personas` provided, use it (filtered by selectedPersonaIds if any)
@@ -822,191 +1054,342 @@ claudeRouter.post('/marketing-plan', async (req, res) => {
     }));
   };
 
-  const distribution = computeDistribution(personasForPrompt, targetCount);
+  // Distribuição: reparte os N criativos entre as personas pelos pesos.
+  const distribution = computeDistribution(personasForPrompt, numCreatives);
 
-  const SYSTEM = `Você é um estrategista de Meta Ads com domínio dos updates recentes (Andromeda 2025+). Recebe info do produto + 1-3 personas com pesos + uma distribuição já calculada de quantos criativos cada persona recebe, e gera DOIS outputs em um JSON único: (1) o PLANO MACRO de lançamento, e (2) os N CRIATIVOS específicos (briefs) que serão produzidos.
+  const SYSTEM = `Você é um estrategista de criativos para Meta Ads. Você NÃO escreve copy nem hooks — você monta o PLANO DE CRIATIVOS: para cada criativo, define a PERSONA, o NÍVEL DE CONSCIÊNCIA e o ÂNGULO. Nada mais.
 
-Princípios Andromeda que DEVE guiar tudo:
-- Volume e diversidade vencem perfeição individual. Meta escolhe melhor que humanos quando tem N criativos pra testar.
-- Múltiplos hooks > um hook "perfeito". Cobrir 5-7 ângulos diferentes.
-- Cobrir TODOS os níveis de consciência relevantes DENTRO de cada persona (não pular awareness só porque é um nicho mais "frio").
-- Mix de durações: 15-30s (scroll-stoppers) + 30-60s (storytelling) + 60-180s (VSL profunda) quando faz sentido pro produto.
-- Diversidade conceitual REAL — não 15 versões da mesma ideia, mas 15 ângulos psicologicamente distintos.
-- Vídeo > estático na maioria dos casos. Avatar IA é viável e escala.
+REGRAS GERAIS:
+- IDIOMA: português do Brasil.
+- Responda APENAS um JSON válido — sem markdown, sem texto fora do JSON.
+- NÃO gere: hook, texto de copy, preço, oferta, orçamento, estrutura de campanha, duração, emoção, estilo. SÓ os campos do schema.
 
-Responda APENAS um JSON com esta estrutura (sem prosa, sem markdown):
+1) DEDUZA O NÍVEL DE CONSCIÊNCIA de cada persona, pelos sinais nas informações:
+   - não sabe que tem o problema / não liga os sintomas → "unaware"
+   - sente a dor, mas não conhece causa nem solução → "problem_aware"
+   - já sabe que existem soluções / já tentou métodos → "solution_aware"
+   - conhece o tipo de produto, quer prova / "por que esse" → "product_aware"
+   - quase comprando, só falta o empurrão → "most_aware"
+   Devolva o nível PRINCIPAL e 1-2 SECUNDÁRIOS quando os sinais aparecerem (uma persona raramente é um nível só).
+
+2) DISTRIBUA os criativos de cada persona pelos níveis dela: o PRINCIPAL leva MAIS criativos; os secundários levam alguns.
+
+3) ATRIBUA um ÂNGULO a cada criativo, escolhido do MENU FIXO:
+   choque, curiosidade, historia, dor, medo_de_perda, prova, autoridade, mecanismo, comparacao, transformacao, urgencia
+   Regras do ângulo:
+   - Compatível com o nível: unaware→choque,curiosidade,historia · problem_aware→dor,medo_de_perda,choque,prova,autoridade · solution_aware→mecanismo,comparacao,autoridade · product_aware→prova,transformacao,comparacao · most_aware→urgencia
+   - NÃO repita o mesmo ângulo entre criativos do MESMO nível (variedade = leque de teste).
+   - Ancore na dor/desejo REAIS da persona (das informações dadas).
+
+SCHEMA (responda exatamente assim, sem outros campos):
 {
-  "plan": {
-    "summary": "1-2 parágrafos em PT-BR resumindo a estratégia macro",
-    "creativeVolume": {
-      "totalCreatives": ${targetCount},
-      "rationale": "por que esse número faz sentido pra esse produto/personas",
-      "perAudience": número inteiro
-    },
-    "hookMix": [
-      { "angle": "Curiosidade", "count": 3, "example": "exemplo de hook", "awarenessLevel": "unaware", "rationale": "..." }
-    ],
-    "awarenessCoverage": [
-      { "level": "unaware|problem_aware|solution_aware|product_aware|most_aware", "creativeCount": 3, "approach": "..." }
-    ],
-    "durations": [
-      { "length": "15-30s", "purpose": "scroll stopper / disrupt", "count": 5 }
-    ],
-    "adStructure": {
-      "campaigns": 1,
-      "adSets": 1,
-      "creativesPerAdSet": ${targetCount},
-      "rationale": "Andromeda 2025+: 1 ad set Advantage+ broad com TODOS os criativos rodando juntos. Personas vivem nos criativos, não nos ad sets."
-    },
-    "budget": {
-      "dailyMin": 50,
-      "dailyRecommended": 150,
-      "rationale": "PT-BR — Andromeda precisa de ~50 conversões/semana por ad set pra otimizar bem"
-    },
-    "iterationPlan": {
-      "testDays": 5,
-      "killThreshold": "métrica + valor (ex: CPA > R$X depois de Y impressões)",
-      "scaleThreshold": "métrica + valor pra dobrar budget",
-      "iterationFrequency": "a cada quantos dias revisar"
-    },
-    "andromedaTips": ["tip específico 1", "tip 2", "tip 3"],
-    "nextSteps": ["ação 1 dentro do MetaVise", "ação 2"]
-  },
+  "awareness": [
+    { "personaId": "id", "personaName": "nome", "principal": "problem_aware", "secundarios": ["unaware", "solution_aware"], "motivo": "1 frase do porquê desses níveis" }
+  ],
   "briefs": [
-    {
-      "id": "brief_1",
-      "index": 1,
-      "targetPersonaId": "<id de uma das personas do input>",
-      "targetPersonaName": "<nome da mesma persona>",
-      "awareness": "unaware|problem_aware|solution_aware|product_aware|most_aware",
-      "angle": "Curiosidade|Urgência|Prova Social|Transformação|Mecanismo Revelado|Autoridade|Contra-Intuitivo|Medo de Perda|Desejo Aspiracional",
-      "hook": "TEXTO COMPLETO DA PRIMEIRA FRASE DO ANÚNCIO — não conceito, mas o que o avatar vai falar literalmente. 1-2 sentenças.",
-      "durationTarget": 15|30|45|60|90|120,
-      "emotion": "Curiosidade|Medo|Desejo|Validação|Raiva|Esperança|Urgência|Pertencimento",
-      "style": "Depoimento|Mecanismo Revelado|Antes e Depois|Demo|História Pessoal|Comparação|Lista de Benefícios|Autoridade Explica",
-      "ctaStyle": "soft|hard|curiosity_gap",
-      "promiseFocus": "qual benefício específico do produto esse criativo destaca (1 frase)",
-      "rationale": "1 linha — por que essa combinação faz sentido pra essa persona e esse momento do funil"
-    }
-    // ... repetir até totalizar exatamente ${targetCount} briefs
+    { "id": "brief_1", "index": 1, "targetPersonaId": "id", "targetPersonaName": "nome", "awareness": "problem_aware", "angle": "dor" }
   ]
 }
 
-🚨 REGRAS CRÍTICAS PARA OS BRIEFS:
-1. Total EXATO de ${targetCount} briefs. Nem mais, nem menos.
-2. Distribuição POR PERSONA DEVE SER:
-${distribution.map((d) => `   - ${d.personaName} (id: ${d.personaId}): ${d.count} briefs`).join('\n')}
-3. Cada brief usa EXATAMENTE o targetPersonaId/Name de uma das personas listadas acima.
-4. Dentro de cada bucket de persona, cubra MÚLTIPLOS awareness levels (não 5 briefs todos em "solution_aware" — varie).
-5. Dentro de cada bucket de persona, varie os ângulos psicológicos (não repita "Curiosidade" 4 vezes pro mesmo persona).
-6. Hook deve ser TEXTO PRONTO, não placeholder genérico. Use vocabulário específico das dores/desejos da persona.
-7. durationTarget realista pra duração necessária do hook (15s não dá pra "História Pessoal" elaborada).
-8. ids únicos no formato "brief_1", "brief_2", ..., "brief_${targetCount}".
-
-Os valores numéricos do PLAN devem refletir a realidade do produto (não invente budget de R$5000/d se for infoproduto novo).`;
+NÃO inclua nenhum outro campo nos briefs (sem hook, sem style, sem emotion, sem durationTarget, sem narrator, sem rationale).`;
 
   const USER = `INFO DO PRODUTO:
 ${JSON.stringify(productInfo, null, 2)}
 
-PERSONAS (${personasForPrompt.length}, com pesos já normalizados):
+PERSONAS (${personasForPrompt.length}):
 ${JSON.stringify(personasForPrompt, null, 2)}
 
-DISTRIBUIÇÃO PRÉ-CALCULADA (use EXATAMENTE essa contagem por persona):
-${JSON.stringify(distribution, null, 2)}
-
-COPY ANSWERS (contexto adicional, pode usar pra refinar mas não é fonte primária):
+CONTEXTO ADICIONAL (copyAnswers — use só pra refinar a leitura de consciência):
 ${JSON.stringify(copyAnswers, null, 2)}
 
-TARGET COUNT: ${targetCount} briefs no total.
+DISTRIBUIÇÃO POR PERSONA (use EXATAMENTE esta contagem de criativos por persona):
+${distribution.map((d) => `- ${d.personaName} (id: ${d.personaId}): ${d.count} criativos`).join('\n')}
 
-Gere o JSON completo com "plan" + "briefs" (exatamente ${targetCount} entradas).`;
+TOTAL DE CRIATIVOS: ${numCreatives}.
+
+Gere o JSON com "awareness" (um item por persona) e "briefs" (exatamente ${numCreatives} entradas, respeitando a contagem por persona).`;
 
   // Use Opus 4.7 — strategy is creative judgment + product domain knowledge.
   // Retry on overload (same pattern as /complete).
-  // max_tokens bumped from 4000 → 12000 to fit plan + 15 briefs.
-  const requestBody = JSON.stringify({
-    model: DEFAULT_MODEL,
-    max_tokens: 12000,
-    system: SYSTEM,
-    messages: [{ role: 'user', content: USER }],
-  });
+  // O plano agora só devolve awareness + briefs enxutos (persona·nível·ângulo),
+  // sem copy/hook/macro. 8000 tokens sobram pra fechar o JSON mesmo com ~40
+  // briefs. Sem web_search: não estimamos nada — os números vêm do cliente.
+  const messages: Array<{ role: string; content: any }> = [{ role: 'user', content: USER }];
+  const buildBody = () =>
+    JSON.stringify({
+      model: STRUCTURED_MODEL,
+      max_tokens: 8000,
+      system: SYSTEM,
+      messages,
+    });
 
   const MAX_ATTEMPTS = 5;
+  const MAX_PAUSE_CONTINUES = 4;
   try {
-    let resp: Response | null = null;
-    let lastText = '';
-    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      resp = await fetch(ANTHROPIC_API, {
-        method: 'POST',
-        headers: {
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'content-type': 'application/json',
-        },
-        body: requestBody,
-      });
-      if (resp.ok) break;
-      lastText = await resp.text();
-      const retryable = resp.status === 529 || resp.status === 429 || resp.status >= 500;
-      if (!retryable || attempt === MAX_ATTEMPTS) {
-        return res.status(resp.status).json({
+    let data: any = null;
+    for (let turn = 0; turn <= MAX_PAUSE_CONTINUES; turn++) {
+      let resp: Response | null = null;
+      let lastText = '';
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        resp = await fetch(ANTHROPIC_API, {
+          method: 'POST',
+          headers: {
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+            'content-type': 'application/json',
+          },
+          body: buildBody(),
+        });
+        if (resp.ok) break;
+        lastText = await resp.text();
+        const retryable = resp.status === 529 || resp.status === 429 || resp.status >= 500;
+        if (!retryable || attempt === MAX_ATTEMPTS) {
+          return res.status(resp.status).json({
+            success: false,
+            error: `Claude API error: ${resp.status} ${lastText.substring(0, 200)}`,
+          });
+        }
+        const delay =
+          resp.status === 529 || resp.status === 429
+            ? 10000 + 5000 * attempt
+            : 1000 * Math.pow(2, attempt - 1);
+        log.warn(
+          `[Claude marketing-plan] ${resp.status} attempt ${attempt}/${MAX_ATTEMPTS}, retrying in ${delay}ms…`
+        );
+        await new Promise((r) => setTimeout(r, delay));
+      }
+
+      if (!resp || !resp.ok) {
+        return res.status(503).json({
           success: false,
-          error: `Claude API error: ${resp.status} ${lastText.substring(0, 200)}`,
+          error:
+            'Claude indisponível após múltiplas tentativas. Tente novamente em alguns minutos.',
         });
       }
-      const delay =
-        resp.status === 529 || resp.status === 429
-          ? 10000 + 5000 * attempt
-          : 1000 * Math.pow(2, attempt - 1);
-      log.warn(
-        `[Claude marketing-plan] ${resp.status} attempt ${attempt}/${MAX_ATTEMPTS}, retrying in ${delay}ms…`
-      );
-      await new Promise((r) => setTimeout(r, delay));
-    }
 
-    if (!resp || !resp.ok) {
-      return res.status(503).json({
-        success: false,
-        error: 'Claude indisponível após múltiplas tentativas. Tente novamente em alguns minutos.',
-      });
+      data = await resp.json();
+      recordUsage(STRUCTURED_MODEL, data.usage);
+      // Turno pausado pela busca web: devolve o conteúdo do assistant e
+      // pede pra continuar. Repete até o modelo fechar a resposta.
+      if (data?.stop_reason === 'pause_turn' && Array.isArray(data.content)) {
+        log.warn(
+          `[Claude marketing-plan] pause_turn — continuando (${turn + 1}/${MAX_PAUSE_CONTINUES})`
+        );
+        messages.push({ role: 'assistant', content: data.content });
+        continue;
+      }
+      break;
     }
-
-    const data = await resp.json();
-    const textBlock = Array.isArray(data.content)
-      ? data.content.find((b: any) => b?.type === 'text')
-      : null;
-    const responseText = textBlock?.text || '';
+    // Com web_search a resposta tem VÁRIOS blocos de texto (o modelo comenta
+    // antes/depois de buscar). O JSON final está embutido — concatena todos os
+    // blocos de texto e extrai o objeto JSON pra ser robusto.
+    const textBlocks = Array.isArray(data.content)
+      ? data.content.filter((b: any) => b?.type === 'text').map((b: any) => b.text || '')
+      : [];
+    const joined = textBlocks.join('\n');
+    const jsonMatch = joined.match(/\{[\s\S]*\}/);
+    const responseText = jsonMatch ? jsonMatch[0] : textBlocks[textBlocks.length - 1] || '';
     const clean = responseText.replace(/^```(?:json)?\s*|\s*```$/g, '').trim();
 
     let parsed: any;
     try {
       parsed = JSON.parse(clean);
     } catch {
-      return res.status(500).json({
-        success: false,
-        error: 'Claude retornou resposta inválida (não-JSON).',
-        raw: responseText.substring(0, 500),
-      });
+      // Fallback: o modelo quebrou linha no meio de uma string (control char
+      // cru). Escapa e tenta de novo antes de desistir.
+      try {
+        parsed = JSON.parse(escapeControlCharsInStrings(clean));
+        log.warn('[Claude marketing-plan] JSON reparado (control chars em string).');
+      } catch {
+        log.error(
+          `[Claude marketing-plan] JSON.parse falhou. stop_reason=${data?.stop_reason} len=${responseText.length}`
+        );
+        return res.status(500).json({
+          success: false,
+          error: `Claude retornou resposta inválida (não-JSON). stop_reason: ${
+            data?.stop_reason || 'unknown'
+          }`,
+          raw: responseText.substring(0, 500),
+        });
+      }
     }
 
-    // Backwards-compat: if Claude returns the old flat shape (just plan
-    // fields, no `plan`/`briefs` wrapper), wrap it.
-    const responsePayload =
-      parsed && typeof parsed === 'object' && ('plan' in parsed || 'briefs' in parsed)
-        ? { plan: parsed.plan ?? null, briefs: Array.isArray(parsed.briefs) ? parsed.briefs : [] }
-        : { plan: parsed, briefs: [] };
+    // Novo shape enxuto: { awareness: [...], briefs: [{ persona·nível·ângulo }] }.
+    let briefs: any[] = Array.isArray(parsed?.briefs) ? parsed.briefs : [];
+    const awareness: any[] = Array.isArray(parsed?.awareness) ? parsed.awareness : [];
 
-    // Sanity-check: brief count matches request (log warning, don't fail —
-    // user can re-roll). The frontend can show a "X of 15 generated" hint.
-    if (responsePayload.briefs.length !== targetCount && responsePayload.briefs.length > 0) {
-      log.warn(
-        `[Claude marketing-plan] expected ${targetCount} briefs, got ${responsePayload.briefs.length}`
-      );
+    // O modelo às vezes gera mais briefs que o pedido (numCreatives já é
+    // calibrado por orçamento ÷ custo). Corta o excedente e re-indexa/IDs.
+    if (briefs.length > numCreatives) {
+      log.warn(`[Claude marketing-plan] trimming briefs ${briefs.length} → ${numCreatives}`);
+      briefs = briefs.slice(0, numCreatives);
+    } else if (briefs.length > 0 && briefs.length < numCreatives) {
+      log.warn(`[Claude marketing-plan] got fewer briefs (${briefs.length}) than ${numCreatives}`);
     }
+    briefs = briefs.map((b: any, i: number) => ({
+      ...b,
+      index: i + 1,
+      id: b?.id || `brief_${i + 1}`,
+    }));
 
-    res.json({ success: true, ...responsePayload });
+    res.json({ success: true, briefs, awareness, numCreatives, structure, cpaWarning });
   } catch (err: any) {
     log.error('[Claude marketing-plan] Exception:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/claude/find-statistics
+// Busca estatísticas FACTUAIS com FONTE na web (web_search nativo) pra o
+// cliente que não tem números próprios. NUNCA inventa: só devolve dados que
+// vêm com uma fonte real (URL). O cliente revisa e escolhe quais usar — o
+// front nunca auto-injeta. Princípio nunca-bloquear: o default é não inventar,
+// e o número só entra na copy se o cliente aprovar.
+//
+// Request: { productInfo?: any, niche?: string, language?: string, count?: number }
+// Response: { success: true, statistics: [{ stat, source, url, year }] }
+claudeRouter.post('/find-statistics', async (req, res) => {
+  const apiKey = getClaudeKey();
+  if (!apiKey) {
+    return res.status(500).json({ success: false, error: 'CLAUDE_API_KEY não configurada.' });
+  }
+
+  const {
+    productInfo = null,
+    niche = '',
+    language = 'pt-BR',
+    count = 6,
+  } = req.body || {};
+  const wantCount = Math.min(Math.max(Number(count) || 6, 3), 10);
+
+  const SYSTEM = `You are a fact-checking research assistant finding REAL, SOURCED statistics a marketer can use in a health/supplement ad. You have web_search — USE IT to find current, verifiable figures.
+
+HARD RULES (a violation makes the whole result useless):
+- Every statistic MUST come with a real, specific source URL you actually found via search. If you cannot find a credible source for a figure, DO NOT include it. Never invent, estimate, round, or "improve" a number.
+- Prefer authoritative sources (peer-reviewed studies, NIH/CDC/WHO/PubMed, major medical institutions, reputable health orgs). Avoid random blogs, the product's own marketing, or competitor sales pages.
+- Disease/condition links must be framed as ASSOCIATION or RISK only — "linked to", "associated with a higher risk of" — never as a certainty that any individual has or will develop the condition.
+- Keep each stat exact as the source states it. Include the publication/org name and the year if available.
+- Do NOT name a specific company or drug brand. General categories are fine.
+
+Return ONLY this JSON (no prose, no markdown):
+{
+  "statistics": [
+    { "stat": "<the factual claim, phrased ready to drop into copy, in ${language}>", "source": "<publication/org name>", "url": "<the source URL>", "year": "<year or empty string>" }
+  ]
+}
+Aim for up to ${wantCount} of the STRONGEST, most relevant, well-sourced statistics. Fewer well-sourced beats more weakly-sourced. If you genuinely find none, return { "statistics": [] }.`;
+
+  const USER = `NICHE / TOPIC: ${niche || '(see product info)'}
+
+${productInfo ? `PRODUCT INFO (use to understand the niche, the condition, and the audience — do NOT pull stats from here, find them on the web):\n${JSON.stringify(productInfo, null, 2)}` : '(no product info provided — use the niche/topic above)'}
+
+Find verifiable, well-sourced statistics relevant to this niche that would make an ad more credible (prevalence, risk associations, demographics, costs, treatment outcomes). Search the web, then return the JSON.`;
+
+  const messages: Array<{ role: string; content: any }> = [{ role: 'user', content: USER }];
+  const buildBody = () =>
+    JSON.stringify({
+      model: STRUCTURED_MODEL,
+      max_tokens: 6000,
+      system: SYSTEM,
+      messages,
+      tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 4 }],
+    });
+
+  const MAX_ATTEMPTS = 5;
+  const MAX_PAUSE_CONTINUES = 4;
+  try {
+    let data: any = null;
+    for (let turn = 0; turn <= MAX_PAUSE_CONTINUES; turn++) {
+      let resp: Response | null = null;
+      let lastText = '';
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        resp = await fetch(ANTHROPIC_API, {
+          method: 'POST',
+          headers: {
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+            'content-type': 'application/json',
+          },
+          body: buildBody(),
+        });
+        if (resp.ok) break;
+        lastText = await resp.text();
+        const retryable = resp.status === 529 || resp.status === 429 || resp.status >= 500;
+        if (!retryable || attempt === MAX_ATTEMPTS) {
+          return res.status(resp.status).json({
+            success: false,
+            error: `Claude API error: ${resp.status} ${lastText.substring(0, 200)}`,
+          });
+        }
+        const delay =
+          resp.status === 529 || resp.status === 429
+            ? 10000 + 5000 * attempt
+            : 1000 * Math.pow(2, attempt - 1);
+        log.warn(
+          `[Claude find-statistics] ${resp.status} attempt ${attempt}/${MAX_ATTEMPTS}, retrying in ${delay}ms…`
+        );
+        await new Promise((r) => setTimeout(r, delay));
+      }
+
+      if (!resp || !resp.ok) {
+        return res.status(503).json({
+          success: false,
+          error: 'Claude indisponível após múltiplas tentativas. Tente novamente em alguns minutos.',
+        });
+      }
+
+      data = await resp.json();
+      recordUsage(STRUCTURED_MODEL, data.usage);
+      if (data?.stop_reason === 'pause_turn' && Array.isArray(data.content)) {
+        log.warn(
+          `[Claude find-statistics] pause_turn — continuando (${turn + 1}/${MAX_PAUSE_CONTINUES})`
+        );
+        messages.push({ role: 'assistant', content: data.content });
+        continue;
+      }
+      break;
+    }
+
+    const textBlocks = Array.isArray(data.content)
+      ? data.content.filter((b: any) => b?.type === 'text').map((b: any) => b.text || '')
+      : [];
+    const joined = textBlocks.join('\n');
+    const jsonMatch = joined.match(/\{[\s\S]*\}/);
+    const responseText = jsonMatch ? jsonMatch[0] : textBlocks[textBlocks.length - 1] || '';
+    const clean = responseText.replace(/^```(?:json)?\s*|\s*```$/g, '').trim();
+
+    let parsed: any;
+    try {
+      parsed = JSON.parse(clean);
+    } catch {
+      try {
+        parsed = JSON.parse(escapeControlCharsInStrings(clean));
+      } catch {
+        log.error(
+          `[Claude find-statistics] JSON.parse falhou. stop_reason=${data?.stop_reason} len=${responseText.length}`
+        );
+        return res.status(500).json({
+          success: false,
+          error: `Claude retornou resposta inválida (não-JSON). stop_reason: ${data?.stop_reason || 'unknown'}`,
+          raw: responseText.substring(0, 500),
+        });
+      }
+    }
+
+    // Só devolve itens que vieram COM URL — a regra dura é "sem fonte, não
+    // entra". Filtra defensivamente caso o modelo escape um item sem url.
+    const statistics = (Array.isArray(parsed?.statistics) ? parsed.statistics : [])
+      .filter((s: any) => s && typeof s.stat === 'string' && typeof s.url === 'string' && s.url.trim())
+      .map((s: any) => ({
+        stat: String(s.stat).trim(),
+        source: String(s.source || '').trim(),
+        url: String(s.url).trim(),
+        year: String(s.year || '').trim(),
+      }));
+
+    res.json({ success: true, statistics });
+  } catch (err: any) {
+    log.error('[Claude find-statistics] Exception:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -1095,7 +1478,7 @@ Recommend the ideal avatar + voice profile. Respond with the JSON object only.`;
       system: SYSTEM,
       messages: [{ role: 'user', content: USER }],
     });
-  const PRIMARY_MODEL = DEFAULT_MODEL;
+  const PRIMARY_MODEL = STRUCTURED_MODEL;
   const FALLBACK_MODEL = 'claude-sonnet-4-6';
   let requestBody = makeBody(PRIMARY_MODEL);
 
@@ -1154,6 +1537,7 @@ Recommend the ideal avatar + voice profile. Respond with the JSON object only.`;
     }
 
     const data = await resp.json();
+    recordUsage(currentModel, data.usage);
     const textBlock = Array.isArray(data.content)
       ? data.content.find((b: any) => b?.type === 'text')
       : null;
