@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage, auth } from '@/lib/firebase';
@@ -134,9 +134,6 @@ interface AutoSlot {
 // Fim do item (compat com drafts antigos que usavam showSec).
 const itemEnd = (it: TLItem) => it.endSec ?? it.atSec + (it.showSec || 5);
 
-// Tamanho de cada GRUPO de render (~2 min). Timelines mais longas que isso
-// renderizam em grupos e juntam no fim.
-const GROUP_SEC = 120;
 
 // Campo numérico que guarda o TEXTO digitado localmente — evita o bug do
 // type="number" controlado, onde limpar mostra "0" e digitar vira "098.5".
@@ -274,12 +271,6 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
   const [pexQuery, setPexQuery] = useState('');
   const [pexResults, setPexResults] = useState<any[]>([]);
   const [pexSearching, setPexSearching] = useState(false);
-  // Render EM GRUPOS (~2 min) — evita 1 passada pesada de ffmpeg num vídeo longo.
-  const [groupRenders, setGroupRenders] = useState<
-    { url?: string; status: 'idle' | 'gen' | 'done' | 'error' }[]
-  >([]);
-  const [joiningGroups, setJoiningGroups] = useState(false);
-  const [previewGroup, setPreviewGroup] = useState<number | null>(null);
   // Qual som (de qual trecho) está sendo escolhido na biblioteca de efeitos.
   const [soundPicker, setSoundPicker] = useState<{
     idx: number;
@@ -301,7 +292,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
     url ? libSounds.find((s) => s.url === url)?.name || 'efeito' : '';
   const [autoEditing, setAutoEditing] = useState(false);
   // Ritmo do Auto-editar: base de duração dos cortes (s). Menor = MAIS trechos.
-  const [cutPace, setCutPace] = useState<number>(4);
+  const [cutPace, setCutPace] = useState<number>(10);
   // Candidate picker: slots planejados pela IA, cada um com candidatos do Pexels.
   const [autoSlots, setAutoSlots] = useState<AutoSlot[]>([]);
   const [researchingSlot, setResearchingSlot] = useState<number | null>(null);
@@ -339,6 +330,100 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
   // avatarStartSec + atSec → usa só a janela do bloco e mantém o lip-sync.
   const avatarPreviewRef = useRef<HTMLVideoElement | null>(null);
   const [avatarStartSec, setAvatarStartSec] = useState<number>(Number(draft.avatarStartSec) || 0);
+  // BLOCOS: fatia a VSL longa em pedaços de ~2 min cujos cortes caem em SILÊNCIOS
+  // (respiros entre frases). Cada bloco é montado separado (áudio cortado + avatar
+  // no offset certo); no fim junta tudo. fullAudioUrl = a voz inteira original.
+  const [fullAudioUrl, setFullAudioUrl] = useState<string>((draft.fullAudioUrl as any) || '');
+  const [blockSizeSec, setBlockSizeSec] = useState<number>(Number(draft.blockSizeSec) || 120);
+  const [blockEnds, setBlockEnds] = useState<number[]>(
+    Array.isArray(draft.blockEnds) ? draft.blockEnds : []
+  );
+  const [fatiando, setFatiando] = useState(false);
+  const [activeBlock, setActiveBlock] = useState<number>(-1);
+  const fmtT = (s: number) =>
+    `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+  // Fatia a VSL em blocos ~blockSizeSec, encaixando cada fim no SILÊNCIO mais
+  // próximo (via /api/video/silences).
+  const fatiarEmBlocos = async () => {
+    if (!audioUrl) {
+      toast.error('Carregue a voz da VSL como base primeiro.');
+      return;
+    }
+    setFatiando(true);
+    const tid = 'fatiar';
+    toast.loading('Achando os silêncios pra cortar os blocos…', { id: tid });
+    try {
+      const r = await fetch('/api/video/silences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ audioUrl }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Falha ao detectar silêncios.');
+      const dur = Number(d.duration) || audioDuration || 0;
+      if (dur <= 0) throw new Error('Não consegui ler a duração do áudio.');
+      const mids: number[] = (d.silences || []).map((s: any) => (s.start + s.end) / 2);
+      const ends: number[] = [];
+      let start = 0;
+      let guard = 0;
+      while (start < dur - 1 && guard++ < 200) {
+        const target = start + blockSizeSec;
+        if (target >= dur - Math.min(20, blockSizeSec * 0.3)) {
+          ends.push(dur);
+          break;
+        }
+        const near = mids
+          .filter((m) => m > start + blockSizeSec * 0.4 && m < dur - 1)
+          .sort((a, b) => Math.abs(a - target) - Math.abs(b - target))[0];
+        const end =
+          near != null && Math.abs(near - target) < blockSizeSec * 0.5 ? near : target;
+        ends.push(Math.min(Math.round(end * 10) / 10, dur));
+        start = end;
+      }
+      setFullAudioUrl(audioUrl);
+      setBlockEnds(ends);
+      setActiveBlock(-1);
+      toast.success(`${ends.length} blocos criados (cortes nos silêncios). Ajuste os fins se quiser.`, {
+        id: tid,
+      });
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao fatiar.', { id: tid });
+    } finally {
+      setFatiando(false);
+    }
+  };
+  // Prepara um bloco pra montar: corta o áudio [start,end], seta o offset do
+  // avatar e começa limpo. Depois é só Auto-editar + montar normal.
+  const trabalharNoBloco = async (idx: number) => {
+    const start = idx === 0 ? 0 : blockEnds[idx - 1]!;
+    const end = blockEnds[idx]!;
+    const src = fullAudioUrl || audioUrl;
+    if (!src || end <= start) return;
+    const tid = 'bloco';
+    toast.loading(`Preparando Bloco ${idx + 1}…`, { id: tid });
+    try {
+      const r = await fetch('/api/elevenlabs/trim-audio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: src, start, end, userId: uid }),
+      });
+      const d = await r.json();
+      if (!r.ok || !d.url) throw new Error(d.error || 'Falha ao cortar o áudio do bloco.');
+      setAudioUrl(d.url);
+      setAudioDuration(end - start);
+      setAvatarStartSec(start); // avatar alinhado ao início do bloco no vídeo de 19 min
+      setItems([]);
+      setClips([]);
+      setResultUrl('');
+      setActiveBlock(idx);
+      toast.success(
+        `Bloco ${idx + 1} pronto (${fmtT(start)}–${fmtT(end)}). Agora clique em Auto-editar.`,
+        { id: tid }
+      );
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao preparar o bloco.', { id: tid });
+    }
+  };
   // Enquadramento do avatar por URL (calibrado 1× e reaproveitado em TODOS os
   // trechos daquele avatar): faixa do split (splitFocusX) e círculo do PiP
   // (pipCX, pipCY, pipSize). Sem calibração → defaults (centro / topo-centro).
@@ -421,15 +506,12 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
 
   useEffect(() => {
     if (clips.length === 0 && !resultUrl && !audioUrl) return;
-    // groupUrls: URLs dos grupos já renderizados (índice alinhado aos grupos).
-    // A aba Edição lê isso pra editar cada grupo separado e juntar depois.
-    const groupUrls = groupRenders.map((g) => g.url || '');
     setConfig((prev: any) => ({
       ...prev,
-      montagem: { clips, items, texts, resultUrl, muted, audioUrl, audioDuration, groupUrls, aspect, fit, avatarUrl: avatarBase, avatarFraming, avatarStartSec },
+      montagem: { clips, items, texts, resultUrl, muted, audioUrl, audioDuration, aspect, fit, avatarUrl: avatarBase, avatarFraming, avatarStartSec, fullAudioUrl, blockSizeSec, blockEnds },
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clips, items, texts, resultUrl, muted, audioUrl, audioDuration, groupRenders, aspect, fit]);
+  }, [clips, items, texts, resultUrl, muted, audioUrl, audioDuration, aspect, fit]);
 
   // Preenche a duração de trechos que ainda não têm (1 por vez, sem travar).
   useEffect(() => {
@@ -823,24 +905,13 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       const words: { text: string; start: number; end: number }[] = td.words || [];
       if (words.length === 0) throw new Error('A transcrição não retornou palavras.');
 
-      // Ritmo escolhido pelo usuário (base dos cortes). Menor = mais trechos.
-      const avgCutSec = Math.max(2, Math.min(cutPace, 10));
-      // Ritmo VARIADO (não robótico): base ~avgCutSec com jitter + RAJADAS
-      // ocasionais de cortes rápidos (~2s), como numa edição de verdade — troca
-      // a cada 2s por um tempo, depois volta pros cortes normais de 3-6s.
+      // Ritmo escolhido pelo usuário (base dos cortes, em s). Menor = mais trechos.
+      // Menos ~12-15s · Médio ~9-11s · Mais ~6-8s · Muito ~4-5s.
+      const avgCutSec = Math.max(3, Math.min(cutPace, 20));
+      // Variação leve (±15%) DENTRO da banda escolhida — natural, sem robótico e
+      // sem estourar a faixa (nada de rajadas de 2s que furavam o "Menos").
       const rand = (a: number, b: number) => a + Math.random() * (b - a);
-      let burstLeft = 0;
-      const nextTargetMs = (): number => {
-        if (burstLeft > 0) {
-          burstLeft--;
-          return rand(1.8, 2.6) * 1000; // corte rápido dentro da rajada
-        }
-        if (Math.random() < 0.28) {
-          burstLeft = Math.random() < 0.5 ? 2 : 3; // inicia rajada de 2-3 cortes rápidos
-          return rand(1.8, 2.6) * 1000;
-        }
-        return rand(avgCutSec * 0.75, avgCutSec * 1.5) * 1000; // corte normal variado
-      };
+      const nextTargetMs = (): number => rand(avgCutSec * 0.85, avgCutSec * 1.15) * 1000;
       let curTargetMs = nextTargetMs();
 
       // Fatia em slots (snap no fim da palavra), guardando o TEXTO do trecho E
@@ -1051,12 +1122,12 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       toast.error('Escolha o b-roll de pelo menos um trecho.');
       return;
     }
-    // VARIEDADE de transições, balanceada: slides, crossfade, whip, ZOOM in/out,
-    // GLITCH, flash branco. Tipos "linkáveis" (slide/crossfade/whip) rodam nos
-    // DOIS lados do corte (saída + entrada) pra link smooth; os "solo"
-    // (zoom/glitch/flash) são só na ENTRADA do clipe. Swoosh 7 em TODO corte.
+    // VARIEDADE de transições — SÓ tipos "linkáveis" (slides / crossfade / whip),
+    // que rodam nos DOIS lados do corte (saída do trecho + entrada do próximo).
+    // Assim TODO corte tem transição de verdade (sem "vazio") e sem tela preta.
+    // (Zoom/glitch/flash ficam no manual, por trecho.) Swoosh 7 em todo corte.
     const VARIETY = [
-      'slideleft', 'dissolve', 'zoomin', 'whip', 'slideright', 'glitch', 'zoomout', 'dissolve', 'slideup', 'whiteflash',
+      'slideleft', 'dissolve', 'whip', 'slideright', 'dissolve', 'slideup', 'whip', 'slideleft', 'dissolve', 'slideright',
     ];
     const LINKABLE = new Set(['slideleft', 'slideright', 'slideup', 'slidedown', 'dissolve', 'whip']);
     const whoosh = soundForTransition('slideleft'); // Swoosh 7
@@ -1086,12 +1157,12 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       transOut: 'none' as string, // preenchido no 2º passo (link com o próximo)
       transOutDur: 0.15,
       soundOut: '',
-      // Efeito contextual (Cash Register, Clock Ticking…) escolhido pela IA.
-      soundMid: s.effectUrl || '',
-      // Riser/reversed → o fim do efeito bate no fim do trecho.
-      soundMidAlign: /reversed|riser|reverse/i.test(s.effectName || '') ? ('end' as const) : ('' as const),
-      // P&B nos trechos de "antes"/passado.
-      bw: s.tone === 'past',
+      // Efeito sonoro contextual vem DESMARCADO por padrão (o usuário ativa se
+      // quiser). Só os sons de TRANSIÇÃO (soundOut/soundIn) entram automáticos.
+      soundMid: '',
+      soundMidAlign: '' as const,
+      // P&B vem DESMARCADO por padrão — o usuário ativa manualmente se quiser.
+      bw: false,
       keyword: s.searchTerm || s.keyword,
     }));
     // 2º passo: linka a saída de cada trecho com a entrada do próximo (quando
@@ -1246,163 +1317,12 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
     setClips((prev) => prev.map((c, k) => (k === i ? { ...c, [key]: n } : c)));
   };
 
-  // ── Render EM GRUPOS ──────────────────────────────────────────────────────
-  // Divide a timeline em janelas de ~GROUP_SEC. Cada grupo recebe os clipes que
-  // o cruzam, rebaseados pro tempo da janela (trimStart pula o que já passou em
-  // grupos anteriores; transição/som só entram no grupo onde o clipe começa/termina).
-  const groups = useMemo(() => {
-    const total = audioDuration || 0;
-    if (!total) return [] as { t0: number; t1: number; winDur: number; clips: any[]; texts: any[] }[];
-    const n = Math.max(1, Math.ceil(total / GROUP_SEC));
-    const out: { t0: number; t1: number; winDur: number; clips: any[]; texts: any[] }[] = [];
-    for (let g = 0; g < n; g++) {
-      const t0 = g * GROUP_SEC;
-      const t1 = Math.min(total, (g + 1) * GROUP_SEC);
-      // Textos que caem na janela, rebaseados pro tempo do grupo.
-      const gtexts = texts
-        .filter((t) => t.atSec < t1 && t.endSec > t0)
-        .map((t) => ({
-          ...t,
-          atSec: Math.max(0, t.atSec - t0),
-          endSec: Math.min(t1, t.endSec) - t0,
-        }));
-      const gclips = items
-        .map((it) => {
-          const s = it.atSec;
-          const e = itemEnd(it);
-          if (!(s < t1 && e > t0)) return null;
-          const startsHere = s >= t0;
-          const endsHere = e <= t1;
-          const useAvatar = it.layout && it.layout !== 'full' && !!avatarBase;
-          return {
-            url: clips[it.clipIdx]?.url,
-            url2: it.clipIdx2 != null ? clips[it.clipIdx2]?.url : undefined,
-            // Avatar composto (PiP/split): busca o avatar no tempo ABSOLUTO do trecho.
-            layout: useAvatar ? it.layout : undefined,
-            avatarUrl: useAvatar ? avatarBase : undefined,
-            avatarSeek: useAvatar ? avatarStartSec + it.atSec : undefined,
-            // Enquadramento calibrado do avatar (mesmo pra todos os trechos).
-            splitCX: useAvatar ? framing.splitCX : undefined,
-            splitCY: useAvatar ? framing.splitCY : undefined,
-            splitSize: useAvatar ? framing.splitSize : undefined,
-            pipCX: useAvatar ? framing.pipCX : undefined,
-            pipCY: useAvatar ? framing.pipCY : undefined,
-            pipSize: useAvatar ? framing.pipSize : undefined,
-            cropL: useAvatar ? framing.cropL : undefined,
-            cropR: useAvatar ? framing.cropR : undefined,
-            cropT: useAvatar ? framing.cropT : undefined,
-            cropB: useAvatar ? framing.cropB : undefined,
-            atSec: Math.max(0, s - t0),
-            endSec: Math.min(t1, e) - t0,
-            trimStart: Math.max(0, t0 - s),
-            transIn: startsHere ? it.transIn || 'none' : 'none',
-            transInDur: it.transInDur || 0.1,
-            soundIn: startsHere ? it.soundIn || '' : '',
-            soundMid: startsHere ? it.soundMid || '' : '',
-            soundMidAlign: startsHere ? it.soundMidAlign || '' : '',
-            bw: it.bw || false,
-            transOut: endsHere ? it.transOut || 'none' : 'none',
-            transOutDur: it.transOutDur || 0.1,
-            soundOut: endsHere ? it.soundOut || '' : '',
-          };
-        })
-        .filter((c) => c && c.url && c.endSec > c.atSec);
-      out.push({ t0, t1, winDur: t1 - t0, clips: gclips, texts: gtexts });
-    }
-    return out;
-  }, [audioDuration, items, clips, texts]);
-
-  useEffect(() => {
-    // Restaura os grupos já renderizados (persistidos em config.montagem.groupUrls)
-    // pra sobreviverem à navegação — senão voltavam pra "idle" e a aba Edição
-    // não via os grupos.
-    const saved = ((config as any)?.montagem?.groupUrls as string[] | undefined) || [];
-    setGroupRenders(
-      groups.map((_, i) =>
-        saved[i] ? { url: saved[i], status: 'done' as const } : { status: 'idle' as const }
-      )
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groups.length]);
-
-  const renderGroup = async (gi: number) => {
-    if (!uid) return;
-    const g = groups[gi];
-    if (!g) return;
-    if (g.clips.length === 0) {
-      toast.error(`Grupo ${gi + 1}: sem clipes nesse trecho.`);
-      return;
-    }
-    setGroupRenders((prev) => prev.map((x, i) => (i === gi ? { ...x, status: 'gen' } : x)));
-    try {
-      const r = await fetch('/api/video/timeline', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: uid,
-          audioUrl,
-          audioStartSec: g.t0,
-          durationSec: g.winDur,
-          clips: g.clips,
-          texts: g.texts,
-          aspectRatio: aspect,
-          fit,
-        }),
-      });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error || 'Falha ao montar o grupo.');
-      setGroupRenders((prev) => prev.map((x, i) => (i === gi ? { url: data.url, status: 'done' } : x)));
-    } catch (e: any) {
-      setGroupRenders((prev) => prev.map((x, i) => (i === gi ? { ...x, status: 'error' } : x)));
-      toast.error(`Grupo ${gi + 1}: ${e.message}`);
-    }
-  };
-
-  const renderAllGroups = async () => {
-    const snap = groupRenders;
-    for (let i = 0; i < groups.length; i++) {
-      if (snap[i]?.status === 'done') continue;
-      await renderGroup(i);
-    }
-  };
-
-  const joinGroups = async () => {
-    if (!uid) return;
-    const urls = groupRenders.map((g) => g.url).filter(Boolean) as string[];
-    if (urls.length < groups.length) {
-      toast.error('Renderize TODOS os grupos antes de juntar.');
-      return;
-    }
-    if (urls.length === 1) {
-      setResultUrl(urls[0]!);
-      return;
-    }
-    setJoiningGroups(true);
-    const toastId = 'montagem-join';
-    toast.loading('Juntando os grupos...', { id: toastId });
-    try {
-      const r = await fetch('/api/video/concat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ videos: urls, userId: uid }),
-      });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error || 'Falha ao juntar.');
-      setResultUrl(data.url);
-      onAddUploadedVideo?.(
-        { url: data.url, uploaded: true, aspectRatio: aspect, createdAt: new Date().toISOString() },
-        false
-      );
-      toast.success('Grupos juntados — vídeo final pronto!', { id: toastId });
-    } catch (e: any) {
-      toast.error(e?.message || 'Erro ao juntar.', { id: toastId });
-    } finally {
-      setJoiningGroups(false);
-    }
-  };
-
-  const allGroupsDone =
-    groups.length > 0 && groupRenders.filter((g) => g.status === 'done').length === groups.length;
+  // Trechos com AVATAR CONTÍNUO (mesmo layout e lado: avatar tela cheia, PiP no
+  // mesmo canto, ou split no mesmo lado) NÃO levam transição no meio — ela
+  // sacudiria o avatar à toa. 'full' (só b-roll) não conta. Se o lado/layout
+  // muda (split-left→split-right, avatar→full, etc.), a transição fica.
+  const avatarContinuousBoundary = (a?: TLItem, b?: TLItem) =>
+    !!avatarBase && !!a?.layout && a.layout !== 'full' && a.layout === b?.layout;
 
   const compose = async () => {
     if (!uid) return;
@@ -1426,7 +1346,11 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
             aspectRatio: aspect,
             fit,
             texts,
-            clips: sorted.map((it) => ({
+            clips: sorted.map((it, i, arr) => {
+              // Avatar contínuo → sem transição (nem som) no corte do meio.
+              const inCut = i > 0 && avatarContinuousBoundary(arr[i - 1], it);
+              const outCut = i < arr.length - 1 && avatarContinuousBoundary(it, arr[i + 1]);
+              return {
               url: clips[it.clipIdx]?.url,
               url2: it.clipIdx2 != null ? clips[it.clipIdx2]?.url : undefined,
               layout: it.layout && it.layout !== 'full' && avatarBase ? it.layout : undefined,
@@ -1445,16 +1369,17 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
               atSec: it.atSec,
               endSec: itemEnd(it),
               trimStart: 0,
-              transIn: it.transIn || 'none',
+              transIn: inCut ? 'none' : it.transIn || 'none',
               transInDur: it.transInDur || 0.1,
-              soundIn: it.soundIn || '',
+              soundIn: inCut ? '' : it.soundIn || '',
               soundMid: it.soundMid || '',
               soundMidAlign: it.soundMidAlign || '',
               bw: it.bw || false,
-              transOut: it.transOut || 'none',
+              transOut: outCut ? 'none' : it.transOut || 'none',
               transOutDur: it.transOutDur || 0.1,
-              soundOut: it.soundOut || '',
-            })),
+              soundOut: outCut ? '' : it.soundOut || '',
+              };
+            }),
           }),
         });
         data = await r.json();
@@ -2023,7 +1948,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       )}
 
       {/* AVATAR BASE — vídeo do HeyGen (mesma narração) pro PiP/split */}
-      {isTimeline && displayItems.length > 0 && (
+      {isTimeline && (
         <div className="bg-white dark:bg-gray-900/70 p-3 rounded-2xl border-2 border-violet-200 dark:border-violet-900/60 space-y-2">
           <span className="text-[11px] font-black uppercase tracking-widest text-violet-600 dark:text-violet-400">
             Avatar base (opcional) — pro PiP / split
@@ -2135,7 +2060,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
           <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">
             Trechos na timeline (começa / termina, em segundos do áudio)
           </span>
-          {displayItems.map(({ it, idx }) => (
+          {displayItems.map(({ it, idx }, pos) => (
             <div
               key={idx}
               className="p-2 rounded-xl ring-1 ring-gray-200 dark:ring-gray-700 bg-white dark:bg-gray-900/60 space-y-2"
@@ -2272,6 +2197,21 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
                 const type = (it as any)[typeKey] || 'none';
                 const dur = (it as any)[durKey] ?? 0.1;
                 const snd = (it as any)[sndKey];
+                // Avatar contínuo (mesmo layout no vizinho) → transição cancelada
+                // nesse corte; mostra aviso em vez de um select que não é aplicado.
+                const cancelled =
+                  side === 'In'
+                    ? pos > 0 && avatarContinuousBoundary(displayItems[pos - 1]!.it, it)
+                    : pos < displayItems.length - 1 &&
+                      avatarContinuousBoundary(it, displayItems[pos + 1]!.it);
+                if (cancelled) {
+                  return (
+                    <div key={side} className="flex flex-wrap items-center gap-2 text-[10px] text-gray-400 pl-1">
+                      <span className="w-12 font-bold">{side === 'In' ? 'entrada' : 'saída'}</span>
+                      <span className="italic">— sem transição (avatar contínuo)</span>
+                    </div>
+                  );
+                }
                 return (
                   <div key={side} className="flex flex-wrap items-center gap-2 text-[10px] text-gray-500 pl-1">
                     <span className="w-12 font-bold">{side === 'In' ? 'entrada' : 'saída'}</span>
@@ -2335,6 +2275,97 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
         </div>
       )}
 
+      {/* BLOCOS — fatia VSL longa em pedaços de ~2 min cortados nos silêncios */}
+      {isTimeline && (audioDuration > 150 || blockEnds.length > 0) && (
+        <div className="bg-white dark:bg-gray-900/70 p-3 rounded-2xl border-2 border-amber-300 dark:border-amber-900/60 space-y-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">
+              🧩 Montar por blocos
+            </span>
+            <span className="text-[11px] text-gray-500 dark:text-gray-400">
+              Fatia a VSL longa em pedaços de ~{Math.round(blockSizeSec / 60)} min, cortados em
+              silêncios. Monte um de cada vez; no fim, junte tudo.
+            </span>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap text-[11px]">
+            <span className="text-gray-500 dark:text-gray-400">Tamanho do bloco:</span>
+            <input
+              type="number"
+              min={30}
+              max={600}
+              value={blockSizeSec}
+              onChange={(e) => setBlockSizeSec(Math.max(30, Math.min(600, Number(e.target.value) || 120)))}
+              className="w-16 px-2 py-1 rounded-lg border border-amber-300 dark:border-amber-800 bg-transparent"
+            />
+            <span className="text-gray-500 dark:text-gray-400">seg (~{Math.round(blockSizeSec / 60)} min)</span>
+            <button
+              onClick={fatiarEmBlocos}
+              disabled={fatiando}
+              className="px-3 py-1 rounded-lg bg-amber-500 text-white font-black uppercase tracking-widest hover:bg-amber-600 disabled:opacity-60"
+            >
+              {fatiando ? 'Achando silêncios…' : blockEnds.length > 0 ? 'Refatiar' : 'Fatiar em blocos'}
+            </button>
+          </div>
+          {blockEnds.length > 0 && (
+            <div className="space-y-1 max-h-64 overflow-y-auto pr-1">
+              {blockEnds.map((end, i) => {
+                const start = i === 0 ? 0 : blockEnds[i - 1]!;
+                return (
+                  <div
+                    key={i}
+                    className={`flex items-center gap-2 p-1.5 rounded-lg text-[11px] ${
+                      activeBlock === i
+                        ? 'bg-amber-100 dark:bg-amber-900/40 ring-1 ring-amber-400'
+                        : 'bg-gray-50 dark:bg-gray-800'
+                    }`}
+                  >
+                    <span className="font-black text-amber-700 dark:text-amber-300 w-16 shrink-0">
+                      Bloco {i + 1}
+                    </span>
+                    <span className="font-mono text-gray-600 dark:text-gray-300">
+                      {fmtT(start)} –
+                    </span>
+                    {/* Fim EDITÁVEL: mexer aqui empurra o início do próximo bloco */}
+                    <input
+                      type="text"
+                      defaultValue={fmtT(end)}
+                      onBlur={(e) => {
+                        const parts = e.target.value.split(':').map((x) => Number(x) || 0);
+                        const secs = parts.length === 2 ? parts[0]! * 60 + parts[1]! : parts[0]!;
+                        if (secs > start + 5) {
+                          setBlockEnds((prev) => {
+                            const next = [...prev];
+                            next[i] = Math.round(secs * 10) / 10;
+                            // mantém encadeado: fins seguintes >= este
+                            for (let k = i + 1; k < next.length; k++) {
+                              if (next[k]! <= next[k - 1]!) next[k] = next[k - 1]! + blockSizeSec;
+                            }
+                            return next;
+                          });
+                        }
+                      }}
+                      className="w-16 px-1.5 py-0.5 rounded border border-amber-300 dark:border-amber-800 bg-transparent font-mono"
+                      title="Fim do bloco (mm:ss). Mudar aqui empurra o início do próximo."
+                    />
+                    <span className="text-gray-400">({fmtT(end - start)})</span>
+                    <button
+                      onClick={() => trabalharNoBloco(i)}
+                      className="ml-auto px-2 py-0.5 rounded-lg bg-amber-500 text-white font-black uppercase tracking-widest hover:bg-amber-600"
+                    >
+                      {activeBlock === i ? '↻ neste bloco' : 'Trabalhar'}
+                    </button>
+                  </div>
+                );
+              })}
+              <p className="text-[10px] text-gray-400 pt-1">
+                Dica: ajuste o fim de um bloco pra cair num respiro entre frases. Depois de montar
+                todos, use "juntar grupos" pra ter a VSL inteira.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* AUTO-EDITAR — monta a timeline sozinho a partir da voz da VSL */}
       {isTimeline && (
         <div className="bg-gradient-to-br from-purple-600 to-fuchsia-600 rounded-2xl p-4 flex flex-wrap items-center gap-3">
@@ -2350,10 +2381,10 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
                 Trechos:
               </span>
               {[
-                { label: 'Menos', sec: 6 },
-                { label: 'Médio', sec: 4 },
-                { label: 'Mais', sec: 3 },
-                { label: 'Muito', sec: 2.3 },
+                { label: 'Menos', sec: 13.5 },
+                { label: 'Médio', sec: 10 },
+                { label: 'Mais', sec: 7 },
+                { label: 'Muito', sec: 4.5 },
               ].map((o) => (
                 <button
                   key={o.label}
@@ -2604,121 +2635,17 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
         </div>
       </div>
 
-      {isTimeline && groups.length > 1 ? (
-        <div className="space-y-3 bg-white dark:bg-gray-900/80 rounded-2xl border-2 border-purple-200/60 dark:border-purple-800/50 p-4">
-          <div className="flex items-center gap-2">
-            <Film size={16} className="text-purple-600 dark:text-purple-400" />
-            <span className="text-sm font-black text-gray-800 dark:text-gray-200">
-              Montar em grupos ({groups.length} × ~2 min)
-            </span>
-          </div>
-          <p className="text-[11px] text-gray-500 dark:text-gray-400">
-            Vídeo longo dividido em partes — se um grupo falhar, regere só ele. No fim, junte tudo.
-          </p>
-          <div className="space-y-2">
-            {groups.map((g, i) => {
-              const st = groupRenders[i]?.status || 'idle';
-              const badge =
-                st === 'done'
-                  ? 'text-green-600 dark:text-green-400'
-                  : st === 'error'
-                    ? 'text-red-600 dark:text-red-400'
-                    : st === 'gen'
-                      ? 'text-purple-600 dark:text-purple-400'
-                      : 'text-gray-400 dark:text-gray-500';
-              return (
-                <div key={i} className="space-y-1">
-                <div className="flex items-center gap-2 p-2.5 rounded-xl border border-gray-200 dark:border-gray-800">
-                  <span className="text-xs font-black text-gray-700 dark:text-gray-300 w-16 shrink-0">
-                    Grupo {i + 1}
-                  </span>
-                  <span className="text-[10px] text-gray-400 dark:text-gray-500 flex-1 min-w-0">
-                    {Math.round(g.t0)}–{Math.round(g.t1)}s · {g.clips.length} clipe(s)
-                  </span>
-                  <span className={`text-[10px] font-bold uppercase tracking-widest ${badge}`}>
-                    {st === 'done' ? '✓ pronto' : st === 'error' ? 'erro' : st === 'gen' ? 'gerando…' : '—'}
-                  </span>
-                  {st === 'done' && groupRenders[i]?.url && (
-                    <button
-                      onClick={() => setPreviewGroup(previewGroup === i ? null : i)}
-                      className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-lg border border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/40 shrink-0"
-                    >
-                      {previewGroup === i ? 'Fechar' : '▶ Ver'}
-                    </button>
-                  )}
-                  <button
-                    onClick={() => renderGroup(i)}
-                    disabled={st === 'gen' || g.clips.length === 0}
-                    className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-lg bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 disabled:opacity-40 shrink-0"
-                  >
-                    {st === 'gen' ? '…' : st === 'done' ? 'Regerar' : 'Montar'}
-                  </button>
-                  {(st === 'done' || st === 'error') && (
-                    <button
-                      onClick={() => {
-                        setGroupRenders((prev) =>
-                          prev.map((x, idx) => (idx === i ? { status: 'idle' } : x))
-                        );
-                        if (previewGroup === i) setPreviewGroup(null);
-                      }}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 shrink-0"
-                      title="Apagar o vídeo deste grupo"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  )}
-                </div>
-                {previewGroup === i && groupRenders[i]?.url && (
-                  <video
-                    src={groupRenders[i]!.url}
-                    controls
-                    autoPlay
-                    className="w-full max-h-[360px] rounded-xl bg-black mt-1"
-                  />
-                )}
-              </div>
-              );
-            })}
-          </div>
-          <div className="flex flex-wrap gap-2 justify-end pt-1">
-            <button
-              onClick={renderAllGroups}
-              className="text-xs font-bold px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-purple-400"
-            >
-              Montar todos os grupos
-            </button>
-            <button
-              onClick={joinGroups}
-              disabled={!allGroupsDone || joiningGroups}
-              className={`flex items-center gap-2 text-sm font-bold px-5 py-2.5 rounded-xl transition ${
-                !allGroupsDone || joiningGroups
-                  ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed'
-                  : 'bg-purple-600 text-white hover:bg-purple-700'
-              }`}
-            >
-              {joiningGroups ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" /> Juntando…
-                </>
-              ) : (
-                'Juntar → vídeo final'
-              )}
-            </button>
-          </div>
-        </div>
-      ) : (
-        <button
-          onClick={compose}
-          disabled={rendering || (isTimeline ? items.length === 0 || !audioDuration : clips.length === 0)}
-          className="w-full py-3.5 bg-blue-700 text-white rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-blue-800 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-        >
-          {rendering ? (
-            <><Loader2 size={16} className="animate-spin" /> Montando…</>
-          ) : (
-            <><Check size={16} /> {isTimeline ? `Montar no tempo do áudio (${items.length})` : `Montar sequência (${clips.length})`}</>
-          )}
-        </button>
-      )}
+      <button
+        onClick={compose}
+        disabled={rendering || (isTimeline ? items.length === 0 || !audioDuration : clips.length === 0)}
+        className="w-full py-3.5 bg-blue-700 text-white rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-blue-800 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+      >
+        {rendering ? (
+          <><Loader2 size={16} className="animate-spin" /> Montando…</>
+        ) : (
+          <><Check size={16} /> {isTimeline ? `Montar no tempo do áudio (${items.length})` : `Montar sequência (${clips.length})`}</>
+        )}
+      </button>
 
       {resultUrl && (
         <div className="space-y-3 p-4 rounded-2xl ring-1 ring-green-200 dark:ring-green-900 bg-green-50/60 dark:bg-green-950/30">

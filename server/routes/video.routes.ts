@@ -2788,8 +2788,11 @@ videoRouter.post(
           else if (tIn === 'zoomout')
             zoomF = `,zoompan=z='if(eq(on,0),1.18,max(zoom-${inc},1.0))':${zp},setsar=1`;
 
-          // Ordem: trim → escala → [zoom] → setpts (posiciona) → [efeitos] → [fade].
-          let clipF = `[${i + 1}:v]trim=${ts}:${trimEnd},${scaleFit},setsar=1${zoomF},setpts=PTS-STARTPTS+${atV}/TB`;
+          // Ordem: trim → escala → tpad → [zoom] → setpts (posiciona) → [efeitos] → [fade].
+          // tpad clona o ÚLTIMO frame se o b-roll for mais CURTO que a janela —
+          // sem isso o overlay (eof_action=pass) mostrava a base PRETA no fim do
+          // trecho (a "tela preta" de ~0,5s). Preenche a janela toda com segurança.
+          let clipF = `[${i + 1}:v]trim=${ts}:${trimEnd},${scaleFit},setsar=1,tpad=stop_mode=clone:stop_duration=${(winZ + 1).toFixed(2)}${zoomF},setpts=PTS-STARTPTS+${atV}/TB`;
           // Efeitos extras (via `enable` de tempo, só na janela da transição):
           // B&W = clipe todo; Whip = blur na entrada (+ slide rápido no overlay);
           // Glitch = RGB-shift + ruído na entrada.
@@ -2801,6 +2804,10 @@ videoRouter.post(
             clipF += `,gblur=sigma=24:enable='between(t,${atV},${effEnd})'`;
           else if (tIn === 'glitch')
             clipF += `,rgbashift=rh=10:bh=-10:enable='between(t,${atV},${effEnd})',noise=alls=36:allf=t:enable='between(t,${atV},${effEnd})'`;
+          // Whip na SAÍDA: blur no fim do trecho (o slide-out é tratado no xOut
+          // abaixo). Sem isso, "saída: whip" não fazia nada visível.
+          if (tOut === 'whip')
+            clipF += `,gblur=sigma=24:enable='between(t,${outStart},${end})'`;
           const fadeIn = tIn === 'fade' || tIn === 'dissolve';
           const whiteIn = tIn === 'whiteflash';
           const fadeOut = tOut === 'fade';
@@ -2819,7 +2826,7 @@ videoRouter.post(
           const pOut = `(t-${outStart})/${dOut}`;
           const xIn = tIn === 'slideleft' || tIn === 'whip' ? `(1-${pIn})*W` : tIn === 'slideright' ? `-(1-${pIn})*W` : null;
           const yIn = tIn === 'slideup' ? `(1-${pIn})*H` : tIn === 'slidedown' ? `-(1-${pIn})*H` : null;
-          const xOut = tOut === 'slideleft' ? `-(${pOut})*W` : tOut === 'slideright' ? `(${pOut})*W` : null;
+          const xOut = tOut === 'slideleft' || tOut === 'whip' ? `-(${pOut})*W` : tOut === 'slideright' ? `(${pOut})*W` : null;
           const yOut = tOut === 'slideup' ? `-(${pOut})*H` : tOut === 'slidedown' ? `(${pOut})*H` : null;
           const opts: string[] = [];
           if (xIn || xOut)
@@ -2969,6 +2976,58 @@ videoRouter.post(
     }
   })
 );
+
+// POST /api/video/silences
+// Detecta os SILÊNCIOS (pausas) de um áudio via ffmpeg silencedetect — rápido,
+// sem transcrever. Usado pra fatiar a VSL em BLOCOS de ~2 min cujos cortes caem
+// em respiros entre frases (não no meio de palavra / de b-roll).
+// Body: { audioUrl, noiseDb?, minSilenceSec? } → { silences:[{start,end}], duration }
+videoRouter.post('/silences', async (req, res) => {
+  const audioUrl = String((req.body || {}).audioUrl || '');
+  const noiseDb = Number((req.body || {}).noiseDb) || -30;
+  const minSil = Math.max(0.15, Number((req.body || {}).minSilenceSec) || 0.35);
+  if (!audioUrl) return res.status(400).json({ error: 'audioUrl obrigatório.' });
+  const stamp = Date.now();
+  const inPath = path.join(GENERATED_DIR, `sil_${stamp}.mp3`);
+  try {
+    await downloadFile(audioUrl, inPath);
+    const lines: string[] = [];
+    await new Promise((resolve, reject) => {
+      ffmpeg(inPath)
+        .audioFilters(`silencedetect=noise=${noiseDb}dB:d=${minSil}`)
+        .outputOptions(['-f', 'null'])
+        .output(process.platform === 'win32' ? 'NUL' : '/dev/null')
+        .on('stderr', (l: string) => lines.push(l))
+        .on('end', () => resolve(null))
+        .on('error', (e: any) => reject(e))
+        .run();
+    });
+    const silences: { start: number; end: number }[] = [];
+    let curStart: number | null = null;
+    for (const l of lines) {
+      const ms = l.match(/silence_start:\s*(-?[0-9.]+)/);
+      const me = l.match(/silence_end:\s*(-?[0-9.]+)/);
+      if (ms) curStart = Math.max(0, parseFloat(ms[1]!));
+      if (me && curStart != null) {
+        silences.push({ start: curStart, end: parseFloat(me[1]!) });
+        curStart = null;
+      }
+    }
+    const duration = await new Promise<number>((resolve) => {
+      ffmpeg.ffprobe(inPath, (err, m) => resolve(err ? 0 : Number(m?.format?.duration) || 0));
+    });
+    res.json({ silences, duration });
+  } catch (err: any) {
+    log.error('[Video silences]', err?.message || err);
+    res.status(500).json({ error: err?.message || 'Falha ao detectar silêncios.' });
+  } finally {
+    try {
+      if (fs.existsSync(inPath)) fs.unlinkSync(inPath);
+    } catch {
+      /* ignora */
+    }
+  }
+});
 
 // POST /api/video/transcribe
 // Transcreve um áudio (URL pública) via AssemblyAI e devolve as PALAVRAS com

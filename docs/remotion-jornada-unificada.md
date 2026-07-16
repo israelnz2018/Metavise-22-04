@@ -50,12 +50,12 @@ pequena é **adicionar o CTA** como terceira parte:
 
 Ao editar **cada parte**, o usuário escolhe **de onde vem** o conteúdo:
 
-| Fonte | O que produz | Velocidade / custo |
-|---|---|---|
-| ✍️ **Escrever** | texto → vira clipe (renderizado pelo Remotion) | instantâneo / centavos |
-| 🎙️🧑 **Gerar** (ElevenLabs + HeyGen) | voz e/ou avatar falando → clipe | minutos / créditos |
-| ⬆️ **Upload** | vídeo/imagem/áudio do usuário | instantâneo |
-| 🔗 **Puxar do projeto** | hook/copy/áudio/avatar já feitos no projeto (exceto edição) | instantâneo |
+| Fonte                                | O que produz                                                | Velocidade / custo     |
+| ------------------------------------ | ----------------------------------------------------------- | ---------------------- |
+| ✍️ **Escrever**                      | texto → vira clipe (renderizado pelo Remotion)              | instantâneo / centavos |
+| 🎙️🧑 **Gerar** (ElevenLabs + HeyGen) | voz e/ou avatar falando → clipe                             | minutos / créditos     |
+| ⬆️ **Upload**                        | vídeo/imagem/áudio do usuário                               | instantâneo            |
+| 🔗 **Puxar do projeto**              | hook/copy/áudio/avatar já feitos no projeto (exceto edição) | instantâneo            |
 
 Cada parte é **independente** — pode misturar (ex.: hook escrito + corpo avatar).
 
@@ -81,6 +81,7 @@ peças por parte**. Os 14 inteiros podem sobreviver como um **"modo expresso"**:
 aplica um conjunto combinando nas 3 de uma vez, para quem quer tudo-Remotion rápido.
 
 **Regra que amarra tudo:**
+
 - Parte de **texto** → precisa do Remotion para virar clipe.
 - Parte de **vídeo** (avatar/upload) → pode ir **crua** ou **com Remotion** (decorada).
 
@@ -102,10 +103,10 @@ Cada parte vira **um clipe**. No fim:
 
 Dois modos de montagem (mesmos espaços):
 
-| Modo | Resultado | Quando |
-|---|---|---|
-| 🎨 **Com Remotion** | parte(s) decorada(s): marca, legenda, transição, animação | quer acabamento |
-| 🔗 **Juntar direto** (concat) | clipes colados, cru | só vídeo, sem firula |
+| Modo                          | Resultado                                                 | Quando               |
+| ----------------------------- | --------------------------------------------------------- | -------------------- |
+| 🎨 **Com Remotion**           | parte(s) decorada(s): marca, legenda, transição, animação | quer acabamento      |
+| 🔗 **Juntar direto** (concat) | clipes colados, cru                                       | só vídeo, sem firula |
 
 **Trade-off honesto:** montar parte-por-parte dá flexibilidade total, mas perde um
 pouco da "coesão de peça única" (transições/layout desenhados atravessando as 3).
@@ -120,6 +121,7 @@ avatar e **ainda** quiser Remotion, o Remotion **decora em volta** do avatar:
 moldura, marca, legenda automática (do áudio do avatar), hook/CTA, transições.
 
 Três caminhos com avatar:
+
 1. Avatar **sem Remotion** → cru (concat).
 2. Avatar **com Remotion** → enfeitado (premium).
 3. **Sem avatar**, só Remotion → template puro (massa, barato).
@@ -133,16 +135,16 @@ Três caminhos com avatar:
 Cada proposta do plano já vem com `style` (`CreativeStyle`) e `hook` escritos.
 O `style` mapeia quase 1:1 para método/estilo de parte:
 
-| `style` do plano | → sugestão |
-|---|---|
-| `demo` | corpo: demo de tela (Remotion) |
-| `depoimento` | depoimento (Remotion) ou avatar |
-| `antes_e_depois` | antes/depois (Remotion) |
-| `comparacao` | comparação (Remotion) |
-| `lista_beneficios` | checklist (Remotion) |
-| `mecanismo_revelado` | pergunta → resposta (Remotion) |
-| `historia_pessoal` | POV / avatar |
-| `autoridade_explica` | tutorial / avatar |
+| `style` do plano     | → sugestão                      |
+| -------------------- | ------------------------------- |
+| `demo`               | corpo: demo de tela (Remotion)  |
+| `depoimento`         | depoimento (Remotion) ou avatar |
+| `antes_e_depois`     | antes/depois (Remotion)         |
+| `comparacao`         | comparação (Remotion)           |
+| `lista_beneficios`   | checklist (Remotion)            |
+| `mecanismo_revelado` | pergunta → resposta (Remotion)  |
+| `historia_pessoal`   | POV / avatar                    |
+| `autoridade_explica` | tutorial / avatar               |
 
 Ao abrir um criativo do plano na produção, ele já vem com **estilo + hook
 pré-preenchidos**. Recomendação, não trava — o usuário troca à vontade.
@@ -152,10 +154,10 @@ Fallback quando `style` é texto livre: cai em "demo" ou "texto".
 
 ## 9. Custo e velocidade (deixar visível na UI)
 
-| Fonte da parte | Velocidade | Custo |
-|---|---|---|
-| escrever / template / upload / puxar | instantâneo | centavos |
-| gerar avatar (HeyGen) | minutos (assíncrono) | créditos |
+| Fonte da parte                       | Velocidade           | Custo    |
+| ------------------------------------ | -------------------- | -------- |
+| escrever / template / upload / puxar | instantâneo          | centavos |
+| gerar avatar (HeyGen)                | minutos (assíncrono) | créditos |
 
 A régua "massa vs artesanal" não some — vira **granular, por parte**. A UI precisa
 mostrar isso na hora da escolha.
@@ -169,6 +171,7 @@ Runway, ZapCap (legenda), `/concat` (ffmpeg), jobStore, storage, e a estrutura
 hook/corpo da Voz/Avatar.
 
 **Novo / a fazer:**
+
 1. Adicionar **CTA** como 3ª parte (generalizar hook/corpo → hook/corpo/cta).
 2. Editor de parte com as 4 fontes + opção "incluir Remotion (só esta parte)".
 3. Quebrar os 14 templates em **estilos por parte** (hook/corpo/cta).

@@ -757,6 +757,15 @@ elevenLabsRouter.post('/music/generate', async (req, res) => {
   let durationMs = Math.max(3000, Math.min(600000, Number(lengthMs) || 30000));
   let logLabel: string;
 
+  // Sanitiza tokens de estilo: mantém só letras/espaço/hífen/&/barra — remove
+  // símbolos, números e caracteres estranhos que o filtro de Termos de Serviço
+  // do ElevenLabs às vezes confunde com marca/modelo. Vocabulário musical fica
+  // intacto ("uplifting strings", "soft piano"…).
+  const cleanTok = (s: any) =>
+    String(s).replace(/[^\p{L}\p{M}\s/&-]+/gu, ' ').replace(/\s+/g, ' ').trim();
+  const cleanArr = (a: any) =>
+    (Array.isArray(a) ? a.map(cleanTok).filter(Boolean) : []) as string[];
+
   if (hasPlan) {
     // A API limita cada SEÇÃO a 120000ms (2 min), mas a música inteira pode ir
     // até 600000ms (10 min). Então, em vez de TRUNCAR uma seção longa (o que
@@ -765,11 +774,9 @@ elevenLabsRouter.post('/music/generate', async (req, res) => {
     const MAX_SECTION_MS = 120000;
     const sections: any[] = [];
     for (const s of compositionPlan.sections) {
-      const name = String(s.sectionName || 'Section').substring(0, 100);
-      const pos = Array.isArray(s.positiveLocalStyles) ? s.positiveLocalStyles : [];
-      const neg = Array.isArray(s.negativeLocalStyles) ? s.negativeLocalStyles : [];
+      const pos = cleanArr(s.positiveLocalStyles);
+      const neg = cleanArr(s.negativeLocalStyles);
       let remaining = Math.max(3000, Number(s.durationMs) || 10000);
-      let part = 1;
       while (remaining > 0) {
         // Evita deixar um "rabo" menor que 3000ms (mínimo da API): se o resto
         // depois de um pedaço de 120s ficaria <3s, junta tudo num pedaço só
@@ -778,25 +785,24 @@ elevenLabsRouter.post('/music/generate', async (req, res) => {
         if (remaining - chunk > 0 && remaining - chunk < 3000) chunk = remaining;
         if (chunk > MAX_SECTION_MS) chunk = MAX_SECTION_MS;
         sections.push({
-          section_name: remaining === Math.max(3000, Number(s.durationMs) || 10000) && chunk === remaining
-            ? name
-            : `${name} (${part})`,
+          // Nome GENÉRICO de propósito: o nome descritivo do Claude ("Problema —
+          // Ozempic…") pode ecoar marca/produto/condição da copy e disparar o
+          // filtro de ToS do ElevenLabs. Quem guia a geração são os ESTILOS
+          // (musicais); o nome é só rótulo. O nome bonito fica no sidecar/UI.
+          section_name: `Section ${sections.length + 1}`,
           positive_local_styles: pos,
           negative_local_styles: neg,
           duration_ms: chunk,
           lines: [],
         });
         remaining -= chunk;
-        part++;
       }
     }
     durationMs = sections.reduce((acc: number, s: any) => acc + s.duration_ms, 0);
     // Nota: a API NÃO aceita force_instrumental junto com composition_plan.
     // O "sem voz" vem das `lines` vazias em cada seção + os estilos globais
     // negativos ("vocals", "lyrics") que o /music/plan já injeta.
-    const negativeGlobal = Array.isArray(compositionPlan.negativeGlobalStyles)
-      ? [...compositionPlan.negativeGlobalStyles]
-      : [];
+    const negativeGlobal = cleanArr(compositionPlan.negativeGlobalStyles);
     if (instrumental) {
       for (const tok of ['vocals', 'lyrics']) {
         if (!negativeGlobal.some((s: string) => String(s).toLowerCase().includes(tok))) {
@@ -806,9 +812,7 @@ elevenLabsRouter.post('/music/generate', async (req, res) => {
     }
     elevenBody = {
       composition_plan: {
-        positive_global_styles: Array.isArray(compositionPlan.positiveGlobalStyles)
-          ? compositionPlan.positiveGlobalStyles
-          : [],
+        positive_global_styles: cleanArr(compositionPlan.positiveGlobalStyles),
         negative_global_styles: negativeGlobal,
         sections,
       },
@@ -825,23 +829,53 @@ elevenLabsRouter.post('/music/generate', async (req, res) => {
     logLabel = `prompt="${String(prompt).substring(0, 60)}" ${durationMs}ms`;
   }
 
-  try {
-    log.info(`[Music Gen] ${logLabel} instrumental=${instrumental}`);
-    const r = await fetch('https://api.elevenlabs.io/v1/music?output_format=mp3_44100_128', {
+  // Fallback 100% musical: se o ToS recusar o prompt/estilos (uma palavra da
+  // copy vazou), regera só com o vocabulário MUSICAL — nunca deixa sem trilha.
+  const safeMusicalPrompt = (): string => {
+    let toks: string[] = [];
+    if (hasPlan) {
+      toks = cleanArr(compositionPlan.positiveGlobalStyles);
+      for (const s of compositionPlan.sections) toks.push(...cleanArr(s.positiveLocalStyles));
+    } else {
+      toks = cleanArr(String(prompt).split(','));
+    }
+    const uniq = Array.from(new Set(toks.map((t) => t.toLowerCase()))).slice(0, 8);
+    return ['instrumental background music, no vocals', ...uniq, 'cinematic, emotional'].join(', ');
+  };
+  const callMusic = (body: Record<string, any>) =>
+    fetch('https://api.elevenlabs.io/v1/music?output_format=mp3_44100_128', {
       method: 'POST',
-      headers: {
-        'xi-api-key': apiKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(elevenBody),
+      headers: { 'xi-api-key': apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
     });
 
+  try {
+    log.info(`[Music Gen] ${logLabel} instrumental=${instrumental}`);
+    let r = await callMusic(elevenBody);
+    let errText = r.ok ? '' : await r.text();
+
     if (!r.ok) {
-      const errText = await r.text();
-      log.error(`[Music Gen] FAILED HTTP ${r.status}: ${errText.substring(0, 200)}`);
-      return res.status(r.status).json({
-        error: `ElevenLabs Music: ${errText.substring(0, 200)}`,
-      });
+      const tos =
+        r.status >= 400 &&
+        r.status < 500 &&
+        /terms of service|invalid_request|bad_request|bad_prompt|violat/i.test(errText);
+      if (tos) {
+        log.warn('[Music Gen] ToS recusou; retry AUTOMÁTICO com prompt musical seguro.');
+        r = await callMusic({
+          prompt: safeMusicalPrompt(),
+          music_length_ms: durationMs,
+          model_id: 'music_v1',
+          force_instrumental: true,
+        });
+        errText = r.ok ? '' : await r.text();
+      }
+      if (!r.ok) {
+        log.error(`[Music Gen] FAILED HTTP ${r.status}: ${errText.substring(0, 200)}`);
+        const friendly = /terms of service|violat/i.test(errText)
+          ? 'O ElevenLabs recusou o prompt (Termos de Serviço) mesmo na versão neutra. Use estilos/instrumentos genéricos (ex.: "cinematic, uplifting strings") sem descrever o produto ou a condição.'
+          : `ElevenLabs Music: ${errText.substring(0, 200)}`;
+        return res.status(r.status).json({ error: friendly });
+      }
     }
 
     const arrayBuffer = await r.arrayBuffer();

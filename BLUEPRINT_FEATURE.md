@@ -14,6 +14,7 @@
 > conflito, **vale este bloco.**
 
 **Fluxo de entrada (hoje):**
+
 1. **Criar projeto** → o modal pede **só o nome** (sem escolher VSL/Produto;
    todo projeto nasce `complete`). Vai **direto pra aba "Planejamento"**.
 2. **Aba "Planejamento"** (era "Identificar Persona") é **unificada**:
@@ -27,6 +28,7 @@
    mostra; o **mensal calibrado** fica recolhido num `<details>`.
 
 **Coisas que MUDARAM e contradizem as seções antigas:**
+
 - ❌ Removido o CTA "Ir pro Plano de Marketing" da PersonaTab (§2.1/§5) e o
   handler `handleGoToPlan`. O plano agora aparece sozinho ao salvar personas.
 - ❌ Removido o "Enviar este persona pra Copy" (Path 1, §5) e
@@ -39,6 +41,7 @@
   (edit-zap > avatar > voz > gancho > copy > persona), não mais em `source`.
 
 **Invariante crítica (causa de bug recorrente):**
+
 - A seção de Plano só aparece quando `config.copy.personasWithWeights` tem
   itens (`isV2`). Projetos antigos têm `savedPersonas` mas **não** esse
   campo. O helper **`ensurePersonaWeights(cfg)`** (App.tsx) deriva os pesos

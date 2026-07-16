@@ -185,6 +185,7 @@ That sounds simple and effective. How do you take Arya Leaf?
 All you need to do is swallow a small capsule with a glass of water every morning, which in my experience takes just a few seconds. But that's not all. To create Arya Leaf, we wanted the best. So, we didn't stop with prime palm. While prime palm works on its own to stop the pain, we discovered that its healing power is significantly enhanced when combined with other powerful ingredients.
 
 **Ingredientes (além do Prime Palm/PEA):**
+
 - **Alpha lipoic acid** — super antioxidante, reduz inflamação e dor articular, rigidez, inchaço.
 - **Magnesium glycinate** — função de músculos e nervos, reduz câimbras/tensão, energia, controle de açúcar.
 - **Ruscus aculeatus (butcher's broom root)** — melhora circulação, reduz inflamação, varizes.
@@ -229,11 +230,11 @@ Due to the extraordinary results Arya Leaf offers, it quickly became a household
 
 **Oferta especial (apenas hoje):** compre 3 frascos → ganhe 3 grátis = tratamento de 6 meses.
 
-| Kit | Preço/frasco | Tratamento | Frete |
-|---|---|---|---|
-| 6 frascos (3+3 grátis) | **$49** | 6 meses | grátis |
-| 3 frascos (paga 2, leva 3) | **$69** | 3 meses | grátis |
-| 2 frascos | **$79** (pagamento único) | — | — |
+| Kit                        | Preço/frasco              | Tratamento | Frete  |
+| -------------------------- | ------------------------- | ---------- | ------ |
+| 6 frascos (3+3 grátis)     | **$49**                   | 6 meses    | grátis |
+| 3 frascos (paga 2, leva 3) | **$69**                   | 3 meses    | grátis |
+| 2 frascos                  | **$79** (pagamento único) | —          | —      |
 
 Entrega em casa em 2–5 dias.
 
