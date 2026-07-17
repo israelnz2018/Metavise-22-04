@@ -8,6 +8,7 @@ import {
   ZAPCAP_CONFIG_PATH,
   CLAUDE_CONFIG_PATH,
   PEXELS_CONFIG_PATH,
+  FAL_CONFIG_PATH,
 } from './paths.js';
 
 function readKeyFromFile(filePath: string): string | null {
@@ -28,6 +29,13 @@ export function getPexelsKey(): string | null {
   const fileKey = readKeyFromFile(PEXELS_CONFIG_PATH);
   if (fileKey) return fileKey;
   const envKey = process.env.PEXELS_API_KEY;
+  return envKey ? envKey.trim().replace(/^["']|["']$/g, '') : null;
+}
+
+export function getFalKey(): string | null {
+  const fileKey = readKeyFromFile(FAL_CONFIG_PATH);
+  if (fileKey) return fileKey;
+  const envKey = process.env.FAL_KEY ?? process.env.FAL_API_KEY;
   return envKey ? envKey.trim().replace(/^["']|["']$/g, '') : null;
 }
 

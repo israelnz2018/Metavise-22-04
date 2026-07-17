@@ -22,6 +22,7 @@ import { zapCapRouter, proxyImageRouter } from './routes/zapcap.routes.js';
 import { geminiRouter } from './routes/gemini.routes.js';
 import { claudeRouter } from './routes/claude.routes.js';
 import { pexelsRouter } from './routes/pexels.routes.js';
+import { falRouter } from './routes/fal.routes.js';
 import { webhooksRouter } from './routes/webhooks.routes.js';
 import { telemetryRouter } from './routes/telemetry.routes.js';
 import { requireAuth } from './middleware/auth.js';
@@ -65,6 +66,7 @@ export async function createApp(): Promise<Express> {
   app.use('/api/gemini', requireAuth, geminiRouter);
   app.use('/api/claude', requireAuth, claudeRouter);
   app.use('/api/pexels', requireAuth, pexelsRouter);
+  app.use('/api/fal', requireAuth, falRouter);
   // Webhook receivers (HeyGen/ZapCap/Runway) + job-state read API.
   // Mounted under /api/webhooks for the POSTs, but the GET /jobs/...
   // endpoint also lives under it. See webhooks.routes.ts for setup.

@@ -18,6 +18,8 @@ gemini-config.json
 assemblyai-config.json
 zapcap-config.json
 claude-config.json
+pexels-config.json
+fal-config.json
 
 # Firestore doc backups (contain production user data — never commit).
 backup-*.json
