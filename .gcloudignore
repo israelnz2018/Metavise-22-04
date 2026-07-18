@@ -19,5 +19,6 @@ assemblyai-config.json
 zapcap-config.json
 claude-config.json
 pexels-config.json
+fal-config.json
 .env
 .env.*
