@@ -10,7 +10,11 @@ setLogLevel('silent');
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = initializeFirestore(app, {
-  experimentalAutoDetectLongPolling: true
+  experimentalAutoDetectLongPolling: true,
+  // Campos `undefined` são ignorados em vez de derrubar o write inteiro. Sem
+  // isso, um único campo undefined no doc (ex.: ao criar subprojeto de um brief)
+  // faz o setDoc lançar "Unsupported field value: undefined" e nada é salvo.
+  ignoreUndefinedProperties: true,
 }, firebaseConfig.firestoreDatabaseId);
 export const storage = getStorage(app);
 

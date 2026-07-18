@@ -114,6 +114,9 @@ const MontagemTab = React.lazy(() =>
 const AvatarTab = React.lazy(() =>
   import('./pages/AvatarTab').then((m) => ({ default: m.AvatarTab }))
 );
+const VideoIATab = React.lazy(() =>
+  import('./pages/VideoIATab').then((m) => ({ default: m.VideoIATab }))
+);
 import { useZapState } from './hooks/useZapState';
 
 const CREATE_PROJECT_TIMEOUT_MS = 8000;
@@ -2658,7 +2661,7 @@ export default function App() {
       toast.success(`Subprojeto "${newVariant.name}" criado. Agora gere a copy.`);
     } catch (err) {
       console.error('Error executing brief:', err);
-      toast.error('Falha ao criar subprojeto.');
+      toast.error('Falha ao criar subprojeto: ' + String((err as any)?.message || err).slice(0, 220));
     }
   };
 
@@ -2790,7 +2793,7 @@ export default function App() {
       toast.success(`Subprojeto criado a partir da persona "${persona.name}".`);
     } catch (err) {
       console.error('Error creating persona-based variant:', err);
-      toast.error('Falha ao criar subprojeto.');
+      toast.error('Falha ao criar subprojeto: ' + String((err as any)?.message || err).slice(0, 220));
     }
   };
 
@@ -4736,6 +4739,7 @@ export default function App() {
       if (candidate === 'copy-vsl') continue; // aba neutra: fluxo do anúncio pula a VSL
       if (candidate === 'merge') continue; // aba neutra: fora do fluxo Próximo/Anterior
       if (candidate === 'montagem') continue; // aba neutra (alcançada pelo botão do Avatar)
+      if (candidate === 'video-ia') continue; // aba neutra (gerador, alcançada pela aba)
       if (canNavigateTo(candidate)) {
         setCurrentStep(candidate);
       }
@@ -4751,6 +4755,7 @@ export default function App() {
       if (candidate === 'copy-vsl') continue; // aba neutra: fluxo do anúncio pula a VSL
       if (candidate === 'merge') continue; // aba neutra: fora do fluxo Próximo/Anterior
       if (candidate === 'montagem') continue; // aba neutra (alcançada pelo botão do Avatar)
+      if (candidate === 'video-ia') continue; // aba neutra (gerador, alcançada pela aba)
       setCurrentStep(candidate);
       return;
     }
@@ -7693,6 +7698,37 @@ export default function App() {
                     handleDeleteVideoFromArray={handleDeleteVideoFromArray}
                     handleTestElevenLabsKey={handleTestElevenLabsKey}
                     handleUpdateElevenLabsKey={handleUpdateElevenLabsKey}
+                  />
+                </LazyTab>
+              )}
+              {currentStep === 'video-ia' && (
+                <LazyTab>
+                  <VideoIATab
+                    user={user}
+                    onAddClip={(clip) => {
+                      // Clipe do fal entra na BIBLIOTECA da Montagem
+                      // (config.montagem.clips) — de onde a timeline puxa os
+                      // b-rolls. A Montagem lê isso no mount (draft.clips).
+                      setConfig((prev) => {
+                        const montagem = ((prev as any).montagem || {}) as any;
+                        const clips = Array.isArray(montagem.clips) ? montagem.clips : [];
+                        return {
+                          ...prev,
+                          montagem: { ...montagem, clips: [...clips, clip] },
+                        } as any;
+                      });
+                    }}
+                    onGoToMontagem={() => setCurrentStep('montagem')}
+                    audios={[
+                      ...(((config as any).audios as any[]) || []).map((a, i) => ({
+                        url: a?.url,
+                        label: `🎙 Corpo #${i + 1}`,
+                      })),
+                      ...(((config.copy as any)?.hookAudios as any[]) || []).map((a, i) => ({
+                        url: a?.url,
+                        label: `🎣 Gancho #${i + 1}`,
+                      })),
+                    ].filter((a) => a.url)}
                   />
                 </LazyTab>
               )}

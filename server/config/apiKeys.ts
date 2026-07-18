@@ -39,6 +39,22 @@ export function getFalKey(): string | null {
   return envKey ? envKey.trim().replace(/^["']|["']$/g, '') : null;
 }
 
+// Chave ADMIN do fal — só pra LER saldo (billing). Separada da chave API (que
+// roda os modelos) por menor privilégio. Lê o campo `adminKey` do fal-config.json
+// ou FAL_ADMIN_KEY do .env.
+export function getFalAdminKey(): string | null {
+  if (fs.existsSync(FAL_CONFIG_PATH)) {
+    try {
+      const config = JSON.parse(fs.readFileSync(FAL_CONFIG_PATH, 'utf-8')) as { adminKey?: string };
+      if (config.adminKey) return config.adminKey.trim().replace(/^["']|["']$/g, '');
+    } catch (e) {
+      console.error(`[Config] Error reading fal adminKey:`, e);
+    }
+  }
+  const envKey = process.env.FAL_ADMIN_KEY;
+  return envKey ? envKey.trim().replace(/^["']|["']$/g, '') : null;
+}
+
 export function getElevenLabsKey(): string | null {
   console.log(`[ElevenLabs Config] Checking for config at: ${CONFIG_PATH}`);
   const fileKey = readKeyFromFile(CONFIG_PATH);

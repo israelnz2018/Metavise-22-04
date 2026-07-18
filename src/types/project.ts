@@ -17,6 +17,7 @@ export type Step =
   | 'voz-premium'
   | 'remotion'
   | 'avatar'
+  | 'video-ia'
   | 'subtitles'
   | 'edit'
   | 'edit-zap'

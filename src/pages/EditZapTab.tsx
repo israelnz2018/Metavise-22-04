@@ -25,6 +25,7 @@ import { getAuthorizedUrl } from '@/lib/gemini';
 import { VideoDurationBadge } from '@/components/VideoDurationBadge';
 import { VslJoinPanel } from '@/components/VslJoinPanel';
 import { VideoJoinPanel } from '@/components/VideoJoinPanel';
+import { AudioJoinPanel } from '@/components/AudioJoinPanel';
 import { CaptionPresetBar } from '@/components/CaptionPresetBar';
 import { VslStyleReference } from '@/components/VslStyleReference';
 import { HeadlineModal } from '@/components/HeadlineModal';
@@ -1558,6 +1559,34 @@ export function EditZapTab({
           url,
           label: `${isVslEdit ? 'VSL' : isHookEdit ? 'Gancho' : 'Versão'} ${i + 1}`,
         }))}
+      />
+
+      {/* Juntar ÁUDIOS (ex.: voz do gancho + voz do corpo) → mp3 pra Montagem.
+          Os áudios já gerados no subprojeto vêm prontos pra escolher. */}
+      <AudioJoinPanel
+        userId={user?.uid}
+        existingAudios={[
+          ...(((config.copy as any)?.hookAudios as any[]) || []).map((a, i) => ({
+            url: a?.url,
+            label: `🎣 Gancho #${i + 1}`,
+          })),
+          ...(((config as any).audios as any[]) || []).map((a, i) => ({
+            url: a?.url,
+            label: `🎙 Corpo #${i + 1}`,
+          })),
+        ].filter((a) => a.url)}
+        onJoined={(url) => {
+          // Entra nos áudios do CORPO (config.audios) — aparece na Montagem e no
+          // seletor de voz do Vídeo IA.
+          setConfig((prev: any) => ({
+            ...prev,
+            audios: [
+              ...((prev.audios as any[]) || []),
+              { url, storagePath: null, voiceId: 'joined', createdAt: new Date().toISOString() },
+            ],
+          }));
+          toast.success('Áudio adicionado ao projeto — já aparece na Montagem.');
+        }}
       />
 
       {/* JUNTAR Gancho + Corpo — picker livre (escondido se o projeto

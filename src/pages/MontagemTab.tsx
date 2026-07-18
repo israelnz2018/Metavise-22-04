@@ -322,6 +322,11 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
     (draft.aspect as any) || ((config as any)?.format?.aspectRatio as any) || '1:1'
   );
   const [fit, setFit] = useState<'cover' | 'contain'>((draft.fit as any) || 'cover');
+  // Orientação do Pexels segue o FORMATO da montagem. 1:1 busca LANDSCAPE (o
+  // Pexels quase não tem quadrado — "woman" tem 8; landscape tem milhares) e o
+  // "Preencher" corta as laterais pro quadrado, mantendo a altura/cabeça. Só
+  // 9:16 busca retrato.
+  const pexOrient = aspect === '9:16' ? 'portrait' : 'landscape';
   // Vídeo do AVATAR (HeyGen), sincronizado à narração — usado no PiP/split.
   const [avatarBase, setAvatarBase] = useState<string>((draft.avatarUrl as any) || '');
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -460,6 +465,10 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       url: ((config as any)?.copyVsl?.audioUrl as string) || '',
     },
     ...vslBlockAudios,
+    // Áudios JUNTADOS na Edição (gancho + corpo etc.) — voiceId 'joined'.
+    ...(((config as any)?.audios as any[]) || [])
+      .filter((a) => a?.voiceId === 'joined' && a?.url)
+      .map((a, i) => ({ key: `joined-${i}`, label: `Áudio juntado #${i + 1}`, url: a.url as string })),
   ].filter((o) => !!o.url);
   const isTimeline = !!audioUrl;
   // Double-buffer: dois <video> (A/B). Mantém o atual visível até o próximo
@@ -758,7 +767,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
     if (!q) return;
     setPexSearching(true);
     try {
-      const params = new URLSearchParams({ query: q, orientation: 'landscape', perPage: '12' });
+      const params = new URLSearchParams({ query: q, orientation: pexOrient, perPage: '12' });
       const r = await fetch(`/api/pexels/search?${params.toString()}`);
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || 'Falha na busca.');
@@ -1024,7 +1033,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
         toast.loading(`Buscando b-rolls ${k + 1}/${uniq.length}…`, { id: tid });
         try {
           const pr = await fetch(
-            `/api/pexels/search?query=${encodeURIComponent(uniq[k]!)}&orientation=landscape`
+            `/api/pexels/search?query=${encodeURIComponent(uniq[k]!)}&orientation=${pexOrient}`
           );
           const pd = await pr.json();
           const list = (pd?.clips || pd?.data?.clips || []) as any[];
@@ -1096,7 +1105,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
     setResearchingSlot(i);
     try {
       const pr = await fetch(
-        `/api/pexels/search?query=${encodeURIComponent(term)}&orientation=landscape`
+        `/api/pexels/search?query=${encodeURIComponent(term)}&orientation=${pexOrient}`
       );
       const pd = await pr.json();
       const list = (pd?.clips || pd?.data?.clips || []) as any[];
@@ -1208,7 +1217,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
     setBrollSwap((prev) => (prev ? { ...prev, term, loading: true } : prev));
     try {
       const pr = await fetch(
-        `/api/pexels/search?query=${encodeURIComponent(term || 'nature')}&orientation=landscape`
+        `/api/pexels/search?query=${encodeURIComponent(term || 'nature')}&orientation=${pexOrient}`
       );
       const pd = await pr.json();
       const list = (pd?.clips || pd?.data?.clips || []) as any[];
@@ -1240,7 +1249,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
     toast.loading('Escolhendo b-roll pro split…', { id: 'auto-split' });
     try {
       const pr = await fetch(
-        `/api/pexels/search?query=${encodeURIComponent(term)}&orientation=landscape`
+        `/api/pexels/search?query=${encodeURIComponent(term)}&orientation=${pexOrient}`
       );
       const pd = await pr.json();
       const list = (pd?.clips || pd?.data?.clips || []) as any[];
@@ -1733,10 +1742,16 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
             {/* PREVIEW 1:1 */}
             <div
               ref={previewWrapRef}
-              className="relative bg-black rounded-xl overflow-hidden mx-auto aspect-square max-h-[420px] w-full max-w-[420px] [&:fullscreen]:max-h-none [&:fullscreen]:max-w-none [&:fullscreen]:aspect-auto [&:fullscreen]:rounded-none"
+              className={`relative bg-black rounded-xl overflow-hidden mx-auto max-h-[440px] w-full ${
+                aspect === '9:16'
+                  ? 'aspect-[9/16] max-w-[260px]'
+                  : aspect === '16:9'
+                    ? 'aspect-video max-w-[640px]'
+                    : 'aspect-square max-w-[420px]'
+              } [&:fullscreen]:max-h-none [&:fullscreen]:max-w-none [&:fullscreen]:aspect-auto [&:fullscreen]:rounded-none`}
             >
-              <video ref={vARef} className="absolute inset-0 w-full h-full object-contain" style={{ opacity: 0 }} muted playsInline />
-              <video ref={vBRef} className="absolute inset-0 w-full h-full object-contain" style={{ opacity: 0 }} muted playsInline />
+              <video ref={vARef} className={`absolute inset-0 w-full h-full ${fit === 'cover' ? 'object-cover' : 'object-contain'}`} style={{ opacity: 0 }} muted playsInline />
+              <video ref={vBRef} className={`absolute inset-0 w-full h-full ${fit === 'cover' ? 'object-cover' : 'object-contain'}`} style={{ opacity: 0 }} muted playsInline />
               {/* Barra de controle (fica dentro do container → funciona em tela cheia) */}
               <div
                 style={{ zIndex: 10 }}
@@ -1863,7 +1878,9 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
                     ? 'bg-purple-600 hover:bg-purple-700'
                     : o.key === 'gancho'
                       ? 'bg-amber-500 hover:bg-amber-600'
-                      : 'bg-blue-600 hover:bg-blue-700'
+                      : o.key.startsWith('joined')
+                        ? 'bg-emerald-600 hover:bg-emerald-700'
+                        : 'bg-blue-600 hover:bg-blue-700'
                 }`}
               >
                 Usar {o.label}

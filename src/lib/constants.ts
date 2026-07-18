@@ -17,6 +17,7 @@ import {
   User,
   Users,
   Video,
+  Wand2,
   Zap,
 } from 'lucide-react';
 import type { Step } from '@/types/project';
@@ -226,6 +227,7 @@ export const STEPS: { id: Step; label: string; icon: any }[] = [
   { id: 'voz-premium', label: 'Voz', icon: Sparkles },
   { id: 'remotion', label: 'Remotion', icon: Film },
   { id: 'avatar', label: 'Avatar', icon: User },
+  { id: 'video-ia', label: 'Vídeo IA', icon: Wand2 },
   { id: 'montagem', label: 'Montagem', icon: Film },
   { id: 'edit-zap', label: 'Edição', icon: Zap },
   { id: 'merge', label: 'Mesclar', icon: Scissors },

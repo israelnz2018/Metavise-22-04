@@ -41,6 +41,8 @@ interface PersistOptions {
   storageFolder: string;
   /** Storage owner — used as path segment for organisational sanity. */
   userId?: string;
+  /** MIME do objeto (default video/mp4). Use audio/mpeg pra .mp3. */
+  contentType?: string;
   /** Override retry count (default 3). */
   maxRetries?: number;
 }
@@ -63,7 +65,7 @@ const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
  * that the SPA can render — never returns a temporary CDN URL.
  */
 export async function persistVideo(opts: PersistOptions): Promise<PersistResult> {
-  const { buffer, filename, storageFolder, userId, maxRetries = 3 } = opts;
+  const { buffer, filename, storageFolder, userId, contentType = 'video/mp4', maxRetries = 3 } = opts;
   const size = buffer.length;
 
   // Step 1 — always save local first. Cheap insurance.
@@ -93,7 +95,7 @@ export async function persistVideo(opts: PersistOptions): Promise<PersistResult>
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const file = bucket.file(destination);
-      await file.save(buffer, { metadata: { contentType: 'video/mp4' } });
+      await file.save(buffer, { metadata: { contentType } });
       // Year 2491 = effectively forever. Signed URLs work regardless of
       // bucket access mode (Uniform vs ACL).
       const [signedUrl] = await file.getSignedUrl({ action: 'read', expires: '03-09-2491' });

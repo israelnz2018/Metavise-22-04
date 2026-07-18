@@ -6,6 +6,7 @@ import ffmpeg from 'fluent-ffmpeg';
 import ffmpegStatic from 'ffmpeg-static';
 import { getElevenLabsKey, getClaudeKey } from '../config/apiKeys.js';
 import { CONFIG_PATH, GENERATED_DIR } from '../config/paths.js';
+import { persistVideo } from '../utils/persistVideo.js';
 import { createLogger } from '../utils/logger.js';
 import { createTTLCache } from '../utils/cache.js';
 const log = createLogger('ElevenLabs');
@@ -120,15 +121,27 @@ elevenLabsRouter.post('/concat-audio', async (req, res) => {
         .save(outPath);
     });
 
-    const forwardedHost = req.headers['x-forwarded-host'];
-    const host =
-      (typeof forwardedHost === 'string' ? forwardedHost.split(',')[0]?.trim() : null) ||
-      req.get('host') ||
-      '';
-    const protocol =
-      req.headers['x-forwarded-proto'] || (host.includes('localhost') ? 'http' : 'https');
-    const base = `${protocol}://${host}`;
-    res.json({ success: true, audioUrl: `${base}/generated/${outName}` });
+    // Persiste no Firebase Storage → URL ESTÁVEL, alcançável por serviços
+    // externos (fal/lip-sync) e pela nuvem. Sem isso a URL era local
+    // (localhost/generated) e o fal não conseguia baixar. Fallback pra local.
+    const userId = (req.body || {}).userId ? String((req.body as any).userId) : undefined;
+    let audioUrl = '';
+    try {
+      const buffer = fs.readFileSync(outPath);
+      const persisted = await persistVideo({
+        buffer,
+        filename: outName,
+        storageFolder: 'joined-audio',
+        userId,
+        contentType: 'audio/mpeg',
+      });
+      audioUrl = persisted.url;
+    } catch {
+      const host = req.get('host') || '';
+      const protocol = host.includes('localhost') ? 'http' : 'https';
+      audioUrl = `${protocol}://${host}/generated/${outName}`;
+    }
+    res.json({ success: true, audioUrl });
   } catch (err: any) {
     log.error('[ElevenLabs concat-audio]', err);
     res.status(500).json({ success: false, error: err.message });
@@ -310,8 +323,10 @@ elevenLabsPremiumRouter.get('/voices', async (req, res) => {
     const pageSize = Math.min(Number(req.query.page_size) || 100, 100);
     params.set('page_size', String(pageSize));
     if (req.query.page) params.set('page', String(req.query.page));
-    if (req.query.gender) params.set('gender', String(req.query.gender));
-    if (req.query.age) params.set('age', String(req.query.age));
+    // gender/age NÃO vão pra API: o shared-voices do ElevenLabs QUEBRA o filtro
+    // de idioma quando combinados com gender/age (retorna vozes de outros
+    // idiomas como padding). Filtramos por label no fetchPage. Só language /
+    // accent / use_case / descriptive vão pra API (esses funcionam).
     if (req.query.language) params.set('language', String(req.query.language));
     if (req.query.accent && !drop.has('accent')) params.set('accent', String(req.query.accent));
     if (req.query.use_case && !drop.has('use_case'))
@@ -320,6 +335,23 @@ elevenLabsPremiumRouter.get('/voices', async (req, res) => {
       params.set('descriptives', String(req.query.descriptive));
     if (req.query.search) params.set('search', String(req.query.search));
     return params;
+  };
+
+  // Filtro DURO por label (gender/age/language) — aplicado sobre o resultado do
+  // ElevenLabs, que ignora esses filtros no combinado. Language também entra
+  // aqui como reforço (às vezes vem padding de outro idioma).
+  const wantGender = req.query.gender ? String(req.query.gender).toLowerCase() : '';
+  const wantAge = req.query.age ? String(req.query.age).toLowerCase() : '';
+  const wantLang = req.query.language ? String(req.query.language).toLowerCase() : '';
+  // No raw do shared-voices os campos são TOP-LEVEL (v.gender, v.age,
+  // v.language); o `labels` só é montado depois. Lê top-level com fallback.
+  const field = (v: any, k: string) =>
+    String((v && (v[k] ?? (v.labels && v.labels[k]))) || '').toLowerCase();
+  const matchesHard = (v: any) => {
+    if (wantLang && field(v, 'language') !== wantLang) return false;
+    if (wantGender && field(v, 'gender') !== wantGender) return false;
+    if (wantAge && field(v, 'age') !== wantAge) return false;
+    return true;
   };
 
   const fetchPage = async (drop: Set<string>) => {
@@ -331,7 +363,11 @@ elevenLabsPremiumRouter.get('/voices', async (req, res) => {
       const errText = await r.text();
       throw new Error(`shared-voices ${r.status}: ${errText.substring(0, 200)}`);
     }
-    return r.json();
+    const data: any = await r.json();
+    if (Array.isArray(data.voices) && (wantGender || wantAge || wantLang)) {
+      data.voices = data.voices.filter(matchesHard);
+    }
+    return data;
   };
 
   try {

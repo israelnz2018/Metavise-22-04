@@ -6,7 +6,8 @@
 // Chave: getFalKey() (fal-config.json ou FAL_KEY no .env). NUNCA commitada.
 
 import { Router } from 'express';
-import { getFalKey } from '../config/apiKeys.js';
+import admin from 'firebase-admin';
+import { getFalKey, getFalAdminKey } from '../config/apiKeys.js';
 import { persistVideo } from '../utils/persistVideo.js';
 import { createLogger } from '../utils/logger.js';
 
@@ -75,6 +76,104 @@ async function runFalJob(
   throw new Error(`fal timeout após ${Math.round((Date.now() - started) / 1000)}s.`);
 }
 
+// GET /api/fal/balance — saldo de créditos do fal (usa a chave ADMIN).
+// Retorna { balance, currency } ou { error } se não houver chave admin.
+falRouter.get('/balance', async (_req, res) => {
+  const adminKey = getFalAdminKey();
+  if (!adminKey) {
+    return res.status(400).json({ error: 'Sem chave Admin do fal (adminKey em fal-config.json).' });
+  }
+  try {
+    const r = await fetch('https://api.fal.ai/v1/account/billing?expand=credits', {
+      headers: { Authorization: `Key ${adminKey}` },
+    });
+    const d: any = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      const msg = d?.error?.message || `HTTP ${r.status}`;
+      return res.status(r.status).json({ error: `fal billing: ${msg}` });
+    }
+    res.json({ balance: d?.credits?.current_balance ?? null, currency: d?.credits?.currency || 'USD' });
+  } catch (err: any) {
+    log.error('[fal/balance] erro:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/fal/videos?userId=... — lista os clipes fal já gerados (do Storage),
+// pra a aba repopular a galeria ao abrir (nunca "some" um vídeo).
+falRouter.get('/videos', async (req, res) => {
+  const userId = String((req.query as any).userId || '');
+  if (!userId) return res.status(400).json({ error: 'userId obrigatório.' });
+  try {
+    if (admin.apps.length === 0) return res.json({ videos: [] });
+    const bucket = admin.storage().bucket();
+    const [files] = await bucket.getFiles({ prefix: `fal/${userId}/` });
+    const mp4s = files.filter((f) => f.name.endsWith('.mp4')).sort((a, b) => b.name.localeCompare(a.name)).slice(0, 60);
+    const videos = await Promise.all(
+      mp4s.map(async (f) => {
+        const [url] = await f.getSignedUrl({ action: 'read', expires: '03-09-2491' });
+        const name = f.name.split('/').pop() || '';
+        return {
+          url,
+          // "synced" cobre tanto o antigo talking (VEED) quanto o lip-sync novo.
+          talking: name.includes('talking') || name.includes('lipsync'),
+          provider: name.includes('seedance') ? 'seedance' : 'kling',
+          createdAt: (f.metadata?.timeCreated as string) || null,
+        };
+      })
+    );
+    res.json({ videos });
+  } catch (err: any) {
+    log.error('[fal/videos] erro:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/fal/lipsync — LIP-SYNC: casa a boca de um VÍDEO (clipe do Kling)
+// com um ÁUDIO (voz do ElevenLabs). Só mexe na boca do rosto principal — não
+// "dá vida" à boneca. Retorna { url }. Modelo: Sync Lipsync 2.0.
+const FAL_LIPSYNC_MODEL = 'fal-ai/sync-lipsync/v2';
+falRouter.post('/lipsync', async (req, res) => {
+  try {
+    const apiKey = getFalKey();
+    if (!apiKey) {
+      return res
+        .status(400)
+        .json({ error: 'Configure a chave do fal (FAL_KEY no .env ou fal-config.json).' });
+    }
+    const b = (req.body || {}) as Record<string, any>;
+    const videoUrl = String(b.videoUrl || '');
+    const audioUrl = String(b.audioUrl || '');
+    const userId = b.userId ? String(b.userId) : undefined;
+    if (!videoUrl || !audioUrl) {
+      return res.status(400).json({ error: 'Informe o vídeo e o áudio (voz).' });
+    }
+    // loop: se o áudio for mais longo que o clipe, o vídeo dá loop pra cobrir a
+    // fala inteira (mantém a boca falando até o fim do áudio).
+    const input = { video_url: videoUrl, audio_url: audioUrl, sync_mode: 'loop' };
+    log.info(`[fal/lipsync] ${FAL_LIPSYNC_MODEL}`);
+    const out = await runFalJob(FAL_LIPSYNC_MODEL, input, apiKey);
+    const outUrl = out?.video?.url;
+    if (!outUrl) {
+      throw new Error(`fal não retornou vídeo: ${JSON.stringify(out).substring(0, 200)}`);
+    }
+    const vr = await fetch(outUrl);
+    if (!vr.ok) throw new Error(`Falha ao baixar o vídeo do fal (HTTP ${vr.status}).`);
+    const buffer = Buffer.from(await vr.arrayBuffer());
+    const { url } = await persistVideo({
+      buffer,
+      filename: `fal_lipsync_${Date.now()}.mp4`,
+      storageFolder: 'fal',
+      userId,
+    });
+    log.info(`[fal/lipsync] OK → ${url}`);
+    res.json({ url, model: FAL_LIPSYNC_MODEL });
+  } catch (err: any) {
+    log.error('[fal/lipsync] erro:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/fal/video
 // Body: { provider:'kling'|'seedance', prompt, imageUrl?, durationSec?,
 //         aspectRatio?, resolution?, userId }
@@ -95,8 +194,8 @@ falRouter.post('/video', async (req, res) => {
     if (!prompt && !imageUrl) {
       return res.status(400).json({ error: 'Informe um prompt (e/ou uma imagem inicial).' });
     }
-    // Menos de 10s por pedido do usuário: clamp 3–9s.
-    const durationSec = Math.max(3, Math.min(9, Math.round(Number(b.durationSec) || 5)));
+    // Duração EXATA escolhida pelo usuário — Kling aceita segundos inteiros 3–15.
+    const durationSec = Math.max(3, Math.min(15, Math.round(Number(b.durationSec) || 5)));
     const aspectRatio = String(b.aspectRatio || '16:9');
     const resolution = String(b.resolution || '720p');
     const mode: 'text' | 'image' = imageUrl ? 'image' : 'text';
@@ -141,6 +240,50 @@ falRouter.post('/video', async (req, res) => {
     res.json({ url, provider, model: modelId, durationSec });
   } catch (err: any) {
     log.error('[fal/video] erro:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/fal/talking — FOTO FALANDO (lip-sync): imagem + áudio (voz do
+// ElevenLabs) → vídeo com a boca SINCRONIZADA (VEED Fabric 1.0). A duração
+// segue o áudio. Retorna { url }.
+const FAL_TALKING_MODEL = 'veed/fabric-1.0';
+falRouter.post('/talking', async (req, res) => {
+  try {
+    const apiKey = getFalKey();
+    if (!apiKey) {
+      return res
+        .status(400)
+        .json({ error: 'Configure a chave do fal (FAL_KEY no .env ou fal-config.json).' });
+    }
+    const b = (req.body || {}) as Record<string, any>;
+    const imageUrl = String(b.imageUrl || '');
+    const audioUrl = String(b.audioUrl || '');
+    const userId = b.userId ? String(b.userId) : undefined;
+    const resolution = b.resolution === '720p' ? '720p' : '480p';
+    if (!imageUrl || !audioUrl) {
+      return res.status(400).json({ error: 'Informe a imagem e o áudio (voz).' });
+    }
+    const input = { image_url: imageUrl, audio_url: audioUrl, resolution };
+    log.info(`[fal/talking] ${resolution} img+audio → ${FAL_TALKING_MODEL}`);
+    const out = await runFalJob(FAL_TALKING_MODEL, input, apiKey);
+    const videoUrl = out?.video?.url;
+    if (!videoUrl) {
+      throw new Error(`fal não retornou vídeo: ${JSON.stringify(out).substring(0, 200)}`);
+    }
+    const vr = await fetch(videoUrl);
+    if (!vr.ok) throw new Error(`Falha ao baixar o vídeo do fal (HTTP ${vr.status}).`);
+    const buffer = Buffer.from(await vr.arrayBuffer());
+    const { url } = await persistVideo({
+      buffer,
+      filename: `fal_talking_${Date.now()}.mp4`,
+      storageFolder: 'fal',
+      userId,
+    });
+    log.info(`[fal/talking] OK → ${url}`);
+    res.json({ url, model: FAL_TALKING_MODEL });
+  } catch (err: any) {
+    log.error('[fal/talking] erro:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
