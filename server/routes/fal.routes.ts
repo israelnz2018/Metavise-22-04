@@ -99,6 +99,64 @@ falRouter.get('/balance', async (_req, res) => {
   }
 });
 
+// POST /api/fal/image — gera IMAGEM com Nano Banana. Sem referência = texto→imagem
+// (fal-ai/nano-banana); com imageUrls = edição/composição (fal-ai/nano-banana/edit,
+// ex.: "a mulher segurando ESSA boneca"). Persiste no Storage → URL estável.
+// Body: { prompt, imageUrls?, aspectRatio?, userId } → { url }.
+falRouter.post('/image', async (req, res) => {
+  try {
+    const apiKey = getFalKey();
+    if (!apiKey) {
+      return res
+        .status(400)
+        .json({ error: 'Configure a chave do fal (FAL_KEY no .env ou fal-config.json).' });
+    }
+    const b = (req.body || {}) as Record<string, any>;
+    const prompt = String(b.prompt || '').trim();
+    const imageUrls = Array.isArray(b.imageUrls) ? b.imageUrls.map(String).filter(Boolean) : [];
+    const aspectRatio = String(b.aspectRatio || '1:1');
+    const userId = b.userId ? String(b.userId) : undefined;
+    if (!prompt && imageUrls.length === 0) {
+      return res.status(400).json({ error: 'Informe um prompt (e/ou imagem de referência).' });
+    }
+    const hasRefs = imageUrls.length > 0;
+    const model = hasRefs ? 'fal-ai/nano-banana/edit' : 'fal-ai/nano-banana';
+    const input: Record<string, unknown> = { prompt, num_images: 1, aspect_ratio: aspectRatio };
+    if (hasRefs) input.image_urls = imageUrls;
+
+    log.info(`[fal/image] ${model} refs=${imageUrls.length} ${aspectRatio}`);
+    // Nano Banana é rápido → chamada SÍNCRONA (fal.run), sem fila.
+    const r = await fetch(`https://fal.run/${model}`, {
+      method: 'POST',
+      headers: { Authorization: `Key ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    const d: any = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      const msg = d?.detail ? JSON.stringify(d.detail) : `HTTP ${r.status}`;
+      throw new Error(`fal image: ${msg}`);
+    }
+    const imgUrl = d?.images?.[0]?.url;
+    if (!imgUrl) throw new Error(`fal não retornou imagem: ${JSON.stringify(d).substring(0, 200)}`);
+
+    const ir = await fetch(imgUrl);
+    if (!ir.ok) throw new Error(`Falha ao baixar a imagem do fal (HTTP ${ir.status}).`);
+    const buffer = Buffer.from(await ir.arrayBuffer());
+    const { url } = await persistVideo({
+      buffer,
+      filename: `fal_img_${Date.now()}.png`,
+      storageFolder: 'fal-image',
+      userId,
+      contentType: 'image/png',
+    });
+    log.info(`[fal/image] OK → ${url}`);
+    res.json({ url, model });
+  } catch (err: any) {
+    log.error('[fal/image] erro:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/fal/videos?userId=... — lista os clipes fal já gerados (do Storage),
 // pra a aba repopular a galeria ao abrir (nunca "some" um vídeo).
 falRouter.get('/videos', async (req, res) => {
@@ -125,6 +183,32 @@ falRouter.get('/videos', async (req, res) => {
     res.json({ videos });
   } catch (err: any) {
     log.error('[fal/videos] erro:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/fal/images?userId=... — lista as imagens já geradas (Nano Banana) do
+// Storage, pra galeria da aba Imagem IA não sumir.
+falRouter.get('/images', async (req, res) => {
+  const userId = String((req.query as any).userId || '');
+  if (!userId) return res.status(400).json({ error: 'userId obrigatório.' });
+  try {
+    if (admin.apps.length === 0) return res.json({ images: [] });
+    const bucket = admin.storage().bucket();
+    const [files] = await bucket.getFiles({ prefix: `fal-image/${userId}/` });
+    const pngs = files
+      .filter((f) => f.name.endsWith('.png'))
+      .sort((a, b) => b.name.localeCompare(a.name))
+      .slice(0, 60);
+    const images = await Promise.all(
+      pngs.map(async (f) => {
+        const [url] = await f.getSignedUrl({ action: 'read', expires: '03-09-2491' });
+        return { url, createdAt: (f.metadata?.timeCreated as string) || null };
+      })
+    );
+    res.json({ images });
+  } catch (err: any) {
+    log.error('[fal/images] erro:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

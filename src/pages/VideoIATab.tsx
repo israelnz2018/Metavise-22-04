@@ -11,6 +11,8 @@ interface Props {
   onGoToMontagem?: () => void;
   /** Áudios já gerados no ElevenLabs (gancho + corpo) pro lip-sync. */
   audios?: { url: string; label: string }[];
+  /** Imagens geradas na aba Imagem IA (Nano Banana) pra usar como imagem inicial. */
+  initialImages?: string[];
 }
 
 interface Result {
@@ -24,7 +26,7 @@ interface Result {
 
 const ASPECTS = ['1:1', '16:9', '9:16'] as const;
 
-export function VideoIATab({ user, onAddClip, onGoToMontagem, audios = [] }: Props) {
+export function VideoIATab({ user, onAddClip, onGoToMontagem, audios = [], initialImages = [] }: Props) {
   const uid = user?.uid || auth.currentUser?.uid;
 
   const [prompt, setPrompt] = useState('');
@@ -39,6 +41,10 @@ export function VideoIATab({ user, onAddClip, onGoToMontagem, audios = [] }: Pro
   const [syncIdx, setSyncIdx] = useState<number | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [audioUploading, setAudioUploading] = useState(false);
+  // Recortar trecho do áudio (ex.: só o segundo 35→43 pro clipe do meio).
+  const [trimSource, setTrimSource] = useState('');
+  const [trimStart, setTrimStart] = useState(0);
+  const [trimEnd, setTrimEnd] = useState(8);
 
   const [results, setResults] = useState<Result[]>(() => {
     try {
@@ -213,6 +219,30 @@ export function VideoIATab({ user, onAddClip, onGoToMontagem, audios = [] }: Pro
     }
   };
 
+  // Recorta o trecho [start,end] do áudio escolhido e sincroniza no clipe.
+  const trimAndSync = async (clipUrl: string) => {
+    if (!uid) return toast.error('Faça login.');
+    const src = trimSource || audios[0]?.url || '';
+    if (!src) return toast.error('Escolha o áudio de origem.');
+    if (!(trimEnd > trimStart)) return toast.error('O fim tem que ser maior que o início.');
+    setSyncing(true);
+    const tid = 'fal-lipsync';
+    toast.loading('Recortando o trecho…', { id: tid });
+    try {
+      const tr = await fetch('/api/elevenlabs/trim-audio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: src, start: trimStart, end: trimEnd, userId: uid }),
+      });
+      const td = await tr.json();
+      if (!tr.ok || !td.url) throw new Error(td.error || 'Falha ao recortar o áudio.');
+      await runLipsync(clipUrl, td.url); // runLipsync cuida do toast/estado a partir daqui
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao recortar.', { id: tid });
+      setSyncing(false);
+    }
+  };
+
   // Lê a duração REAL do vídeo (o durationSec guardado se perde ao recarregar do
   // servidor → viraria 5s de fallback). Assim o trecho na Montagem tem o tamanho
   // certo do clipe.
@@ -309,6 +339,26 @@ export function VideoIATab({ user, onAddClip, onGoToMontagem, audios = [] }: Pro
             </label>
           )}
         </div>
+        {/* Imagens geradas na aba Imagem IA (Nano Banana) */}
+        {!imageUrl && initialImages.length > 0 && (
+          <div className="space-y-1">
+            <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">
+              Ou use uma imagem gerada (Imagem IA):
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {initialImages.map((u) => (
+                <button
+                  key={u}
+                  onClick={() => setImageUrl(u)}
+                  className="rounded-lg overflow-hidden ring-1 ring-gray-200 dark:ring-gray-700 hover:ring-purple-500"
+                  title="Usar como imagem inicial"
+                >
+                  <img src={u} alt="gerada" className="h-14 w-14 object-cover" />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Passo 3 — duração + formato */}
@@ -437,6 +487,54 @@ export function VideoIATab({ user, onAddClip, onGoToMontagem, audios = [] }: Pro
                     </label>
                     {syncing && <span className="text-[11px] text-gray-400">sincronizando…</span>}
                   </div>
+                  {audios.length > 0 && (
+                    <div className="pt-2 border-t border-dashed border-gray-200 dark:border-gray-800 space-y-1.5">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">
+                        ✂️ Ou recorte um trecho (pro meio / fim do vídeo)
+                      </span>
+                      <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-600 dark:text-gray-300">
+                        <select
+                          value={trimSource || audios[0]!.url}
+                          onChange={(e) => setTrimSource(e.target.value)}
+                          className="px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100"
+                        >
+                          {audios.map((a, i) => (
+                            <option key={i} value={a.url}>
+                              {a.label}
+                            </option>
+                          ))}
+                        </select>
+                        de
+                        <input
+                          type="number"
+                          min={0}
+                          value={trimStart}
+                          onChange={(e) => setTrimStart(Math.max(0, Number(e.target.value) || 0))}
+                          className="w-16 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100"
+                        />
+                        a
+                        <input
+                          type="number"
+                          min={0}
+                          value={trimEnd}
+                          onChange={(e) => setTrimEnd(Math.max(0, Number(e.target.value) || 0))}
+                          className="w-16 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100"
+                        />
+                        s
+                        <button
+                          onClick={() => trimAndSync(res.url)}
+                          disabled={syncing || !(trimEnd > trimStart)}
+                          className="text-[11px] font-black px-2.5 py-1 rounded-lg bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50"
+                        >
+                          Recortar e sincronizar
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-gray-400">
+                        Pega o segundo na Montagem (o playhead mostra o tempo). Ex.: clipe do meio →
+                        de 35 a 43.
+                      </p>
+                    </div>
+                  )}
                   {audios.length === 0 && (
                     <p className="text-[11px] text-gray-400">
                       Gere a voz do gancho/corpo na aba <b>Voz</b> primeiro pra ela aparecer aqui.

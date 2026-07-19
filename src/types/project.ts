@@ -18,6 +18,7 @@ export type Step =
   | 'remotion'
   | 'avatar'
   | 'video-ia'
+  | 'imagem-ia'
   | 'subtitles'
   | 'edit'
   | 'edit-zap'

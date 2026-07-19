@@ -296,6 +296,12 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
   // Candidate picker: slots planejados pela IA, cada um com candidatos do Pexels.
   const [autoSlots, setAutoSlots] = useState<AutoSlot[]>([]);
   const [researchingSlot, setResearchingSlot] = useState<number | null>(null);
+  // Duração (s) dos "Meus vídeos do projeto", lida do metadata → mostra no canto.
+  const [myVidDur, setMyVidDur] = useState<Record<string, number>>({});
+  // Qual trecho está com o painel "Meus vídeos" aberto (só mostra ao clicar).
+  const [myVidOpen, setMyVidOpen] = useState<Record<number, boolean>>({});
+  // "Meus vídeos" aberto no modal de TROCAR.
+  const [swapMyVid, setSwapMyVid] = useState(false);
   // Trocar b-roll de um trecho JÁ aplicado na timeline (busca Pexels por item).
   const [brollSwap, setBrollSwap] = useState<{
     itemIdx: number;
@@ -327,6 +333,49 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
   // "Preencher" corta as laterais pro quadrado, mantendo a altura/cabeça. Só
   // 9:16 busca retrato.
   const pexOrient = aspect === '9:16' ? 'portrait' : 'landscape';
+  // Vídeos do PRÓPRIO subprojeto (Vídeo IA, avatar HeyGen, uploads) — pra
+  // escolher como b-roll no picker, além do Pexels. Exclui os "Auto N" (Pexels).
+  const myProjectVideos = (() => {
+    const out: { url: string; label: string; duration?: number }[] = [];
+    const seen = new Set<string>();
+    const push = (url: any, label: string, duration?: number) => {
+      const u = String(url || '');
+      if (u && !seen.has(u)) {
+        seen.add(u);
+        out.push({ url: u, label, duration: duration && isFinite(duration) ? duration : undefined });
+      }
+    };
+    // SÓ os teus mesmo: clipes do Vídeo IA (label "IA …") — NÃO os Pexels
+    // (Auto/Split/trocados). Avatar (HeyGen) e ganchos vêm do config.
+    clips.forEach((c) => {
+      if (/^IA /.test(c.label || '')) push(c.url, c.label || 'IA', c.duration);
+    });
+    (((config as any).videos as any[]) || []).forEach((v, i) => push(v?.url, `Avatar #${i + 1}`));
+    (((config.copy as any)?.hookVideos as any[]) || []).forEach((v, i) => push(v?.url, `Gancho #${i + 1}`));
+    return out;
+  })();
+  // Preenche a duração dos "Meus vídeos" que não vêm com ela (ex.: avatar) via
+  // um probe dedicado (createElement) — mais confiável que o metadata da
+  // miniatura, que às vezes não dispara com muitos vídeos na tela.
+  const needDurKey = myProjectVideos
+    .filter((mv) => !mv.duration && !myVidDur[mv.url])
+    .map((mv) => mv.url)
+    .join('|');
+  useEffect(() => {
+    if (!needDurKey) return;
+    needDurKey.split('|').forEach((url) => {
+      if (!url) return;
+      const v = document.createElement('video');
+      v.preload = 'metadata';
+      v.muted = true;
+      v.onloadedmetadata = () => {
+        const d = v.duration;
+        if (d && isFinite(d)) setMyVidDur((prev) => (prev[url] ? prev : { ...prev, [url]: d }));
+      };
+      v.src = url;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needDurKey]);
   // Vídeo do AVATAR (HeyGen), sincronizado à narração — usado no PiP/split.
   const [avatarBase, setAvatarBase] = useState<string>((draft.avatarUrl as any) || '');
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -817,7 +866,31 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
         return { ...it, endSec: n };
       })
     );
-  const removeItem = (idx: number) => setItems((prev) => prev.filter((_, k) => k !== idx));
+  const removeItem = (idx: number) =>
+    setItems((prev) => {
+      const target = prev[idx];
+      const remaining = prev.filter((_, k) => k !== idx);
+      if (!target) return remaining;
+      // Vizinhos NO TEMPO (o trecho apagado leva junto efeitos/som/transições).
+      const before = remaining
+        .filter((it) => it.atSec <= target.atSec)
+        .sort((a, b) => b.atSec - a.atSec)[0];
+      const after = remaining
+        .filter((it) => it.atSec >= target.atSec)
+        .sort((a, b) => a.atSec - b.atSec)[0];
+      if (!before || !after || before === after) return remaining;
+      // Re-linka: a SAÍDA do anterior casa com a ENTRADA do próximo (transição
+      // linkável + whoosh), pra conectar smooth sem sobra da transição apagada.
+      const LINKABLE = new Set(['slideleft', 'slideright', 'slideup', 'slidedown', 'dissolve', 'whip']);
+      const whoosh = soundForTransition('slideleft');
+      const link = LINKABLE.has(after.transIn || '') ? after.transIn! : 'dissolve';
+      return remaining.map((it) => {
+        if (it === before)
+          return { ...it, transOut: link, transOutDur: it.transOutDur || 0.15, soundOut: whoosh };
+        if (it === after) return { ...it, transIn: link, transInDur: it.transInDur || 0.15 };
+        return it;
+      });
+    });
   const setItemField = (idx: number, patch: Partial<TLItem>) =>
     setItems((prev) => prev.map((it, k) => (k === idx ? { ...it, ...patch } : it)));
 
@@ -1141,73 +1214,60 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
     const LINKABLE = new Set(['slideleft', 'slideright', 'slideup', 'slidedown', 'dissolve', 'whip']);
     const whoosh = soundForTransition('slideleft'); // Swoosh 7
     const base = clips.length;
-    // Monta os clipes; trechos SPLIT ganham um 2º b-roll (lado direito) usando
-    // outro candidato do mesmo termo.
+    // Agrupa trechos SEGUIDOS com o MESMO clipe → vira 1 item CONTÍNUO (ex.: teu
+    // vídeo cobrindo vários trechos), sem transição/som no meio. Pexels normal
+    // (URLs diferentes em cada trecho) não agrupa — segue trecho a trecho.
+    const groups: (typeof chosenSlots)[] = [];
+    chosenSlots.forEach((s) => {
+      const last = groups[groups.length - 1];
+      if (last && last[last.length - 1]!.chosen === s.chosen) last.push(s);
+      else groups.push([s]);
+    });
+    // Monta os clipes; trechos SPLIT (só quando é um trecho único) ganham um 2º
+    // b-roll usando outro candidato do mesmo termo.
     const newClips: { url: string; label: string }[] = [];
-    const leftIdx: number[] = [];
-    const rightIdx: (number | undefined)[] = [];
-    chosenSlots.forEach((s, k) => {
-      leftIdx[k] = base + newClips.length;
-      newClips.push({ url: s.chosen, label: `Auto ${k + 1}` });
-      if (s.split) {
-        const right = s.candidates.find((c) => c.url && c.url !== s.chosen)?.url || s.chosen;
-        rightIdx[k] = base + newClips.length;
+    const newItems = groups.map((grp, k) => {
+      const first = grp[0]!;
+      const lastSlot = grp[grp.length - 1]!;
+      const clipIdx = base + newClips.length;
+      newClips.push({ url: first.chosen, label: `Auto ${k + 1}` });
+      let clipIdx2: number | undefined;
+      if (grp.length === 1 && first.split) {
+        const right =
+          first.candidates.find((c) => c.url && c.url !== first.chosen)?.url || first.chosen;
+        clipIdx2 = base + newClips.length;
         newClips.push({ url: right, label: `Auto ${k + 1}B` });
       }
+      return {
+        clipIdx,
+        clipIdx2,
+        atSec: first.start,
+        endSec: lastSlot.end, // grupo mesclado cobre do 1º ao último trecho
+        transIn: k > 0 ? VARIETY[(k - 1) % VARIETY.length]! : 'none',
+        transInDur: 0.15,
+        soundIn: '',
+        transOut: 'none' as string, // preenchido no 2º passo (link com o próximo)
+        transOutDur: 0.15,
+        soundOut: '',
+        // Efeito sonoro contextual DESMARCADO por padrão (só sons de transição).
+        soundMid: '',
+        soundMidAlign: '' as const,
+        // P&B DESMARCADO por padrão.
+        bw: false,
+        keyword: first.searchTerm || first.keyword,
+      };
     });
-    const newItems = chosenSlots.map((s, k) => ({
-      clipIdx: leftIdx[k]!,
-      clipIdx2: rightIdx[k],
-      atSec: s.start,
-      endSec: s.end,
-      transIn: k > 0 ? VARIETY[(k - 1) % VARIETY.length]! : 'none',
-      transInDur: 0.15,
-      soundIn: '',
-      transOut: 'none' as string, // preenchido no 2º passo (link com o próximo)
-      transOutDur: 0.15,
-      soundOut: '',
-      // Efeito sonoro contextual vem DESMARCADO por padrão (o usuário ativa se
-      // quiser). Só os sons de TRANSIÇÃO (soundOut/soundIn) entram automáticos.
-      soundMid: '',
-      soundMidAlign: '' as const,
-      // P&B vem DESMARCADO por padrão — o usuário ativa manualmente se quiser.
-      bw: false,
-      keyword: s.searchTerm || s.keyword,
-    }));
-    // 2º passo: linka a saída de cada trecho com a entrada do próximo (quando
-    // for tipo linkável) + Swoosh 7 no corte.
+    // 2º passo: transição + Swoosh 7 ENTRE grupos (dentro do grupo é contínuo).
     for (let k = 0; k < newItems.length - 1; k++) {
       const nextIn = newItems[k + 1]!.transIn;
       newItems[k]!.transOut = LINKABLE.has(nextIn) ? nextIn : 'none';
       newItems[k]!.soundOut = whoosh;
     }
-    // Texto na tela = FRASE IMPACTANTE (PT) escolhida pela IA, no trecho em que
-    // é dita. Seletivo (a IA marca ~1 a cada 3). Sem destaque → sem texto.
-    // Som que acompanha CADA texto (começa junto): "Swoosh Fight" da biblioteca.
-    const fightSfx =
-      libSounds.find((s) => /fight/i.test(s.name) && /swoosh|whoosh/i.test(s.name))?.url ||
-      libSounds.find((s) => /fight/i.test(s.name))?.url ||
-      '';
-    let hlIdx = 0;
-    const newTexts: TextItem[] = chosenSlots
-      .filter((s) => (s.highlight || '').length >= 3)
-      .map((s) => {
-        // Aparece no momento EXATO em que a frase começa a ser dita.
-        const at = s.highlightStart ?? s.start;
-        // Alterna verde e branco.
-        const color = hlIdx++ % 2 === 0 ? '#39FF14' : '#FFFFFF';
-        return {
-          text: (s.highlight || '').toUpperCase(),
-          atSec: Number(at.toFixed(2)),
-          endSec: Number(Math.min(s.end, at + 2.8).toFixed(2)),
-          color,
-          pos: 'middle' as const,
-          sound: fightSfx || undefined,
-        };
-      });
+    // Textos na tela vêm DESATIVADOS por padrão — o Auto-editar NÃO adiciona
+    // texto sozinho. O usuário adiciona manualmente (botão "+ no playhead") se
+    // quiser. (A IA ainda detecta os destaques, só não vira texto automático.)
     setClips((prev) => [...prev, ...newClips]);
     setItems((prev) => [...prev, ...newItems]);
-    setTexts((prev) => [...prev, ...newTexts]);
     setAutoSlots([]);
     toast.success(`${newItems.length} trechos aplicados na timeline. Revise e monte os grupos.`);
   };
@@ -1483,11 +1543,64 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
               >
                 {brollSwap.loading ? '…' : 'Buscar'}
               </button>
+              {myProjectVideos.length > 0 && (
+                <button
+                  onClick={() => setSwapMyVid((v) => !v)}
+                  className={`text-xs font-black uppercase tracking-widest px-3 py-2 rounded-xl border-2 ${
+                    swapMyVid
+                      ? 'border-blue-500 bg-blue-600 text-white'
+                      : 'border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300'
+                  }`}
+                >
+                  🎬 Meus vídeos
+                </button>
+              )}
               <button onClick={() => setBrollSwap(null)} className="p-1.5 text-gray-400 hover:text-gray-700">
                 <X size={18} />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-4">
+              {swapMyVid && myProjectVideos.length > 0 && (
+                <div className="mb-4 space-y-1">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-blue-500 dark:text-blue-400">
+                    🎬 Meus vídeos do projeto
+                  </span>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {myProjectVideos.map((mv) => (
+                      <button
+                        key={mv.url}
+                        onClick={() => pickSwap(mv.url)}
+                        onMouseEnter={(e) => e.currentTarget.querySelector('video')?.play().catch(() => {})}
+                        onMouseLeave={(e) => e.currentTarget.querySelector('video')?.pause()}
+                        title={mv.label}
+                        className="relative aspect-video rounded-lg overflow-hidden border-2 border-blue-300/50 hover:border-blue-400"
+                      >
+                        <video
+                          src={mv.url}
+                          muted
+                          loop
+                          playsInline
+                          preload="metadata"
+                          onLoadedMetadata={(e) => {
+                            const d = (e.target as HTMLVideoElement).duration;
+                            if (d && isFinite(d))
+                              setMyVidDur((prev) => (prev[mv.url] ? prev : { ...prev, [mv.url]: d }));
+                          }}
+                          className="w-full h-full object-cover"
+                        />
+                        <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[9px] px-1 flex items-center justify-between gap-1">
+                          <span className="truncate">{mv.label}</span>
+                          {(mv.duration ?? myVidDur[mv.url]) ? (
+                            <span className="tabular-nums shrink-0 font-black">
+                              {(mv.duration ?? myVidDur[mv.url])!.toFixed(1)}s
+                            </span>
+                          ) : null}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               {brollSwap.candidates.length === 0 ? (
                 <p className="text-sm text-gray-400 text-center py-8">
                   Busque um termo pra ver os b-rolls.
@@ -1587,6 +1700,67 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
                       {researchingSlot === i ? '…' : 'Buscar'}
                     </button>
                   </div>
+                  {myProjectVideos.length > 0 && (
+                    <div className="space-y-1">
+                      <button
+                        onClick={() => setMyVidOpen((prev) => ({ ...prev, [i]: !prev[i] }))}
+                        className="text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 border border-blue-300 dark:border-blue-800 rounded-lg px-2.5 py-1.5 hover:bg-blue-50 dark:hover:bg-blue-950/40 flex items-center gap-1"
+                      >
+                        🎬 Meus vídeos ({myProjectVideos.length}) {myVidOpen[i] ? '▲' : '▼'}
+                      </button>
+                      {myVidOpen[i] && (
+                      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                        {myProjectVideos.map((mv) => (
+                          <button
+                            key={mv.url}
+                            onClick={() => chooseCandidate(i, mv.url)}
+                            onMouseEnter={(e) => {
+                              const v = e.currentTarget.querySelector('video');
+                              if (v) (v as HTMLVideoElement).play().catch(() => {});
+                            }}
+                            onMouseLeave={(e) => {
+                              const v = e.currentTarget.querySelector('video');
+                              if (v) (v as HTMLVideoElement).pause();
+                            }}
+                            title={mv.label}
+                            className={`relative aspect-video rounded-lg overflow-hidden border-2 ${
+                              s.chosen === mv.url
+                                ? 'border-purple-500 ring-2 ring-purple-300'
+                                : 'border-blue-300/50 hover:border-blue-400'
+                            }`}
+                          >
+                            <video
+                              src={mv.url}
+                              muted
+                              loop
+                              playsInline
+                              preload="metadata"
+                              onLoadedMetadata={(e) => {
+                                const d = (e.target as HTMLVideoElement).duration;
+                                if (d && isFinite(d))
+                                  setMyVidDur((prev) => (prev[mv.url] ? prev : { ...prev, [mv.url]: d }));
+                              }}
+                              className="w-full h-full object-cover"
+                            />
+                            <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[8px] px-1 flex items-center justify-between gap-1">
+                              <span className="truncate">{mv.label}</span>
+                              {(mv.duration ?? myVidDur[mv.url]) ? (
+                                <span className="tabular-nums shrink-0 font-black">
+                                  {(mv.duration ?? myVidDur[mv.url])!.toFixed(1)}s
+                                </span>
+                              ) : null}
+                            </span>
+                            {s.chosen === mv.url && (
+                              <span className="absolute top-1 right-1 bg-purple-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px]">
+                                ✓
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                      )}
+                    </div>
+                  )}
                   {s.candidates.length === 0 ? (
                     <p className="text-[11px] text-gray-400">
                       Nenhum b-roll — busque outro termo acima.
@@ -2083,7 +2257,21 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
               className="p-2 rounded-xl ring-1 ring-gray-200 dark:ring-gray-700 bg-white dark:bg-gray-900/60 space-y-2"
             >
               <div className="flex items-center gap-3">
-                <video src={clips[it.clipIdx]?.url} preload="metadata" className="w-24 h-16 object-cover rounded bg-black shrink-0" />
+                <video
+                  src={clips[it.clipIdx]?.url}
+                  preload="metadata"
+                  muted
+                  loop
+                  playsInline
+                  onMouseEnter={(e) => (e.currentTarget as HTMLVideoElement).play().catch(() => {})}
+                  onMouseLeave={(e) => {
+                    const v = e.currentTarget as HTMLVideoElement;
+                    v.pause();
+                    v.currentTime = 0;
+                  }}
+                  title="Passe o mouse pra ver o trecho"
+                  className="w-24 h-16 object-cover rounded bg-black shrink-0 cursor-pointer"
+                />
                 <div className="flex-1 min-w-0 flex flex-wrap items-center gap-2 text-[10px] text-gray-500">
                   <span className="truncate font-bold text-gray-800 dark:text-gray-100 max-w-[100px]">
                     {clips[it.clipIdx]?.label || 'trecho'}
@@ -2094,6 +2282,14 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
                     title="Trocar o b-roll deste trecho"
                   >
                     ⇄ trocar
+                  </button>
+                  <button
+                    onClick={() => playSegment(it.atSec, itemEnd(it))}
+                    disabled={!audioUrl}
+                    className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md border border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/40 disabled:opacity-40 inline-flex items-center gap-1"
+                    title="Ouvir o áudio deste trecho"
+                  >
+                    <Play size={10} /> ouvir
                   </button>
                   começa em
                   <NumInput value={it.atSec} min={0} onCommit={(n) => updateItem(idx, 'atSec', String(n))} className="w-16 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100" />

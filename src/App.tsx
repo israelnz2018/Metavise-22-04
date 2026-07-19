@@ -117,6 +117,9 @@ const AvatarTab = React.lazy(() =>
 const VideoIATab = React.lazy(() =>
   import('./pages/VideoIATab').then((m) => ({ default: m.VideoIATab }))
 );
+const ImagemIATab = React.lazy(() =>
+  import('./pages/ImagemIATab').then((m) => ({ default: m.ImagemIATab }))
+);
 import { useZapState } from './hooks/useZapState';
 
 const CREATE_PROJECT_TIMEOUT_MS = 8000;
@@ -4740,6 +4743,7 @@ export default function App() {
       if (candidate === 'merge') continue; // aba neutra: fora do fluxo Próximo/Anterior
       if (candidate === 'montagem') continue; // aba neutra (alcançada pelo botão do Avatar)
       if (candidate === 'video-ia') continue; // aba neutra (gerador, alcançada pela aba)
+      if (candidate === 'imagem-ia') continue; // aba neutra (gerador)
       if (canNavigateTo(candidate)) {
         setCurrentStep(candidate);
       }
@@ -4756,6 +4760,7 @@ export default function App() {
       if (candidate === 'merge') continue; // aba neutra: fora do fluxo Próximo/Anterior
       if (candidate === 'montagem') continue; // aba neutra (alcançada pelo botão do Avatar)
       if (candidate === 'video-ia') continue; // aba neutra (gerador, alcançada pela aba)
+      if (candidate === 'imagem-ia') continue; // aba neutra (gerador)
       setCurrentStep(candidate);
       return;
     }
@@ -7729,6 +7734,20 @@ export default function App() {
                         label: `🎣 Gancho #${i + 1}`,
                       })),
                     ].filter((a) => a.url)}
+                    initialImages={((config as any).imagensIA as string[]) || []}
+                  />
+                </LazyTab>
+              )}
+              {currentStep === 'imagem-ia' && (
+                <LazyTab>
+                  <ImagemIATab
+                    user={user}
+                    onUseInVideo={(url) =>
+                      setConfig((prev) => ({
+                        ...prev,
+                        imagensIA: [...(((prev as any).imagensIA as string[]) || []), url],
+                      }))
+                    }
                   />
                 </LazyTab>
               )}
