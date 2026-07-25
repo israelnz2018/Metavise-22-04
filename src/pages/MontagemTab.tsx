@@ -318,7 +318,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
   const [musicGen, setMusicGen] = useState(false);
   // Capa/thumbnail do criativo (Nano Banana redesenha um frame do vídeo).
   const [coverGen, setCoverGen] = useState(false);
-  const [coverUrl, setCoverUrl] = useState('');
+  const [coverUrl, setCoverUrl] = useState<string>(draft.coverUrl || '');
   // Trocar b-roll de um trecho JÁ aplicado na timeline (busca Pexels por item).
   const [brollSwap, setBrollSwap] = useState<{
     itemIdx: number;
@@ -583,10 +583,10 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
     if (clips.length === 0 && !resultUrl && !audioUrl) return;
     setConfig((prev: any) => ({
       ...prev,
-      montagem: { clips, items, texts, resultUrl, muted, audioUrl, audioDuration, aspect, fit, avatarUrl: avatarBase, avatarFraming, avatarStartSec, fullAudioUrl, blockSizeSec, blockEnds },
+      montagem: { clips, items, texts, resultUrl, coverUrl, muted, audioUrl, audioDuration, aspect, fit, avatarUrl: avatarBase, avatarFraming, avatarStartSec, fullAudioUrl, blockSizeSec, blockEnds },
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clips, items, texts, resultUrl, muted, audioUrl, audioDuration, aspect, fit]);
+  }, [clips, items, texts, resultUrl, coverUrl, muted, audioUrl, audioDuration, aspect, fit]);
 
   // Preenche a duração de trechos que ainda não têm (1 por vez, sem travar).
   useEffect(() => {
