@@ -3,6 +3,7 @@ import { toast } from 'react-hot-toast';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage, auth } from '@/lib/firebase';
 import { Sparkles, Loader2, X, Check, ImageIcon, ArrowRight, Film, Music } from 'lucide-react';
+import { useJobs } from '@/lib/jobsStore';
 
 interface Props {
   user?: { uid?: string } | null;
@@ -38,6 +39,7 @@ export function VideoIATab({
   initialImages = [],
 }: Props) {
   const uid = user?.uid || auth.currentUser?.uid;
+  const { addJob, updateJob } = useJobs();
 
   const [prompt, setPrompt] = useState('');
   const [imageUrl, setImageUrl] = useState('');
@@ -155,6 +157,7 @@ export function VideoIATab({
     }
     setGenerating(true);
     const tid = 'fal-video';
+    const jid = addJob(`Clipe Kling (${durationSec}s)`);
     toast.loading('Gerando o clipe… (~1-3 min, pode ir em outra aba)', { id: tid });
     try {
       const r = await fetch('/api/fal/video', {
@@ -176,8 +179,10 @@ export function VideoIATab({
         ...prev,
       ]);
       toast.success('Clipe pronto!', { id: tid });
+      updateJob(jid, { status: 'done' });
     } catch (e: any) {
       toast.error(e?.message || 'Erro ao gerar.', { id: tid });
+      updateJob(jid, { status: 'error' });
     } finally {
       setGenerating(false);
       fetchBalance();
@@ -188,6 +193,7 @@ export function VideoIATab({
     if (!uid) return toast.error('Faça login.');
     setSyncing(true);
     const tid = 'fal-lipsync';
+    const jid = addJob('Lip-sync (voz no clipe)');
     toast.loading('Sincronizando a voz no clipe… (~1-3 min)', { id: tid });
     try {
       const r = await fetch('/api/fal/lipsync', {
@@ -203,8 +209,10 @@ export function VideoIATab({
       ]);
       setSyncIdx(null);
       toast.success('Vídeo com a voz sincronizada pronto!', { id: tid });
+      updateJob(jid, { status: 'done' });
     } catch (e: any) {
       toast.error(e?.message || 'Erro no lip-sync.', { id: tid });
+      updateJob(jid, { status: 'error' });
     } finally {
       setSyncing(false);
       fetchBalance();
@@ -425,9 +433,13 @@ export function VideoIATab({
         {generating ? (
           <><Loader2 size={16} className="animate-spin" /> Gerando… (~1-3 min)</>
         ) : (
-          <><Sparkles size={16} /> Gerar clipe</>
+          <><Sparkles size={16} /> Gerar clipe · ≈ ${(durationSec * 0.28).toFixed(2)}</>
         )}
       </button>
+      <p className="text-[10px] text-gray-400 text-center -mt-2">
+        Custo estimado do Kling ≈ ${(durationSec * 0.28).toFixed(2)} ({durationSec}s). É estimativa —
+        o valor real sai do teu saldo do fal.
+      </p>
 
       {/* Resultados */}
       {results.length > 0 && (
@@ -546,6 +558,7 @@ export function VideoIATab({
                           className="text-[11px] font-black px-2.5 py-1 rounded-lg bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50"
                         >
                           Recortar e sincronizar
+                          {trimEnd > trimStart ? ` · ≈ $${((trimEnd - trimStart) * 0.05).toFixed(2)}` : ''}
                         </button>
                       </div>
                       <p className="text-[10px] text-gray-400">

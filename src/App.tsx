@@ -82,6 +82,7 @@ import { useDarkMode } from './hooks/useDarkMode';
 import { ensureNotificationPermission, notifyIfHidden } from './lib/notifications';
 import { COSTS } from './lib/costs';
 import { CostConfirmModal } from './components/CostConfirmModal';
+import { JobsPanel } from './components/JobsPanel';
 import { BriefEditModal } from './components/BriefEditModal';
 import type { CreativeBrief, WeightedPersona } from './types/project';
 // Step tabs are lazy-loaded so the initial JS payload stays small.
@@ -6501,6 +6502,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen app-shell text-gray-900 dark:text-gray-100 font-sans selection:bg-blue-100 dark:selection:bg-blue-900 overflow-x-hidden">
+      <JobsPanel />
       {/* Header. Frosted-glass: semi-transparent + backdrop blur so
           the app-shell gradient bleeds through subtly. Industry-standard
           modern SaaS pattern (Stripe, Linear, Vercel, Raycast). */}

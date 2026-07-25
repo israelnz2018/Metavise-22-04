@@ -3,6 +3,7 @@ import { toast } from 'react-hot-toast';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage, auth } from '@/lib/firebase';
 import { ImageIcon, Loader2, X, Check, Download, Sparkles, Film } from 'lucide-react';
+import { useJobs } from '@/lib/jobsStore';
 
 interface Props {
   user?: { uid?: string } | null;
@@ -21,6 +22,7 @@ const ASPECTS = ['1:1', '16:9', '9:16'] as const;
 
 export function ImagemIATab({ user, onUseInVideo }: Props) {
   const uid = user?.uid || auth.currentUser?.uid;
+  const { addJob, updateJob } = useJobs();
 
   const [prompt, setPrompt] = useState('');
   const [refs, setRefs] = useState<string[]>([]);
@@ -117,6 +119,7 @@ export function ImagemIATab({ user, onUseInVideo }: Props) {
     }
     setGenerating(true);
     const tid = 'fal-image';
+    const jid = addJob('Imagem IA (Nano Banana)');
     toast.loading('Gerando a imagem…', { id: tid });
     try {
       const r = await fetch('/api/fal/image', {
@@ -128,8 +131,10 @@ export function ImagemIATab({ user, onUseInVideo }: Props) {
       if (!r.ok) throw new Error(d.error || 'Falha ao gerar a imagem.');
       setResults((prev) => [{ url: d.url, prompt: prompt.trim(), at: Date.now() }, ...prev]);
       toast.success('Imagem pronta!', { id: tid });
+      updateJob(jid, { status: 'done' });
     } catch (e: any) {
       toast.error(e?.message || 'Erro ao gerar.', { id: tid });
+      updateJob(jid, { status: 'error' });
     } finally {
       setGenerating(false);
       fetchBalance();
@@ -222,7 +227,7 @@ export function ImagemIATab({ user, onUseInVideo }: Props) {
         {generating ? (
           <><Loader2 size={16} className="animate-spin" /> Gerando…</>
         ) : (
-          <><Sparkles size={16} /> Gerar imagem</>
+          <><Sparkles size={16} /> Gerar imagem · ≈ $0.04</>
         )}
       </button>
 

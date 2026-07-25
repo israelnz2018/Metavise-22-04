@@ -5,7 +5,8 @@ import { storage, auth } from '@/lib/firebase';
 import { SoundLibraryModal } from '@/components/SoundLibraryModal';
 import { useSoundLibrary } from '@/hooks/useSoundLibrary';
 import { AvatarFramingModal, AvatarFraming, DEFAULT_AVATAR_FRAMING } from '@/components/AvatarFramingModal';
-import { Film, Upload, Loader2, Trash2, ArrowUp, ArrowDown, Check, Music, X, Plus, Maximize, Play, Pause } from 'lucide-react';
+import { Film, Upload, Loader2, Trash2, ArrowUp, ArrowDown, Check, Music, X, Plus, Maximize, Play, Pause, GripVertical, Undo2, Redo2, ImageIcon, Download } from 'lucide-react';
+import { useJobs } from '@/lib/jobsStore';
 
 interface Clip {
   url: string;
@@ -252,6 +253,7 @@ interface Props {
  *  • SEM áudio → SEQUÊNCIA: cola os trechos em ordem.
  */
 export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoToEdit }: Props) {
+  const { addJob, updateJob } = useJobs();
   const draft = (config?.montagem as any) || {};
   const [clips, setClips] = useState<Clip[]>(() => (Array.isArray(draft.clips) ? draft.clips : []));
   const [items, setItems] = useState<TLItem[]>(() => (Array.isArray(draft.items) ? draft.items : []));
@@ -314,6 +316,9 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
   const [swapMyVid, setSwapMyVid] = useState(false);
   // Gerar música (arco emocional) e colar embaixo do vídeo montado.
   const [musicGen, setMusicGen] = useState(false);
+  // Capa/thumbnail do criativo (Nano Banana redesenha um frame do vídeo).
+  const [coverGen, setCoverGen] = useState(false);
+  const [coverUrl, setCoverUrl] = useState('');
   // Trocar b-roll de um trecho JÁ aplicado na timeline (busca Pexels por item).
   const [brollSwap, setBrollSwap] = useState<{
     itemIdx: number;
@@ -863,9 +868,11 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       // guarda no clipe pra próxima vez
       if (clips[clipIdx]) setClips((prev) => prev.map((c, k) => (k === clipIdx ? { ...c, duration: dur } : c)));
     }
+    pushHistory(items);
     setItems((prev) => [...prev, { clipIdx, atSec: at, endSec: Number((at + dur).toFixed(2)) }]);
   };
-  const updateItem = (idx: number, key: 'atSec' | 'endSec', val: string) =>
+  const updateItem = (idx: number, key: 'atSec' | 'endSec', val: string) => {
+    pushHistory(items);
     setItems((prev) =>
       prev.map((it, k) => {
         if (k !== idx) return it;
@@ -878,7 +885,9 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
         return { ...it, endSec: n };
       })
     );
-  const removeItem = (idx: number) =>
+  };
+  const removeItem = (idx: number) => {
+    pushHistory(items);
     setItems((prev) => {
       const target = prev[idx];
       const remaining = prev.filter((_, k) => k !== idx);
@@ -903,8 +912,88 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
         return it;
       });
     });
-  const setItemField = (idx: number, patch: Partial<TLItem>) =>
+  };
+  const setItemField = (idx: number, patch: Partial<TLItem>) => {
+    pushHistory(items);
     setItems((prev) => prev.map((it, k) => (k === idx ? { ...it, ...patch } : it)));
+  };
+
+  // Desfazer / refazer da timeline: pilha de snapshots dos trechos. Protege o
+  // usuário de apagar/limpar/mesclar por engano (Ctrl+Z / Ctrl+Shift+Z também).
+  const historyRef = useRef<{ past: TLItem[][]; future: TLItem[][] }>({ past: [], future: [] });
+  const [, setHistTick] = useState(0);
+  const pushHistory = (snap: TLItem[]) => {
+    const h = historyRef.current;
+    h.past.push(snap);
+    if (h.past.length > 60) h.past.shift();
+    h.future = [];
+    setHistTick((t) => t + 1);
+  };
+  const undo = () => {
+    const h = historyRef.current;
+    if (!h.past.length) return;
+    setItems((cur) => {
+      const prev = h.past.pop()!;
+      h.future.push(cur);
+      return prev;
+    });
+    setHistTick((t) => t + 1);
+  };
+  const redo = () => {
+    const h = historyRef.current;
+    if (!h.future.length) return;
+    setItems((cur) => {
+      const nxt = h.future.pop()!;
+      h.past.push(cur);
+      return nxt;
+    });
+    setHistTick((t) => t + 1);
+  };
+
+  // Arrastar um trecho na horizontal pra reposicionar no tempo (mantém a duração).
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const onDragStart = (idx: number, e: React.PointerEvent) => {
+    e.preventDefault();
+    pushHistory(items);
+    const startX = e.clientX;
+    const startAt = items[idx]?.atSec ?? 0;
+    const SENS = 0.04; // segundos por pixel (~25px = 1s)
+    const move = (ev: PointerEvent) => {
+      const newAt = Math.max(0, Number((startAt + (ev.clientX - startX) * SENS).toFixed(2)));
+      setItems((prev) =>
+        prev.map((it, k) => {
+          if (k !== idx) return it;
+          const dur = itemEnd(it) - it.atSec;
+          return { ...it, atSec: newAt, endSec: Number((newAt + dur).toFixed(2)) };
+        })
+      );
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      setDragIdx(null);
+    };
+    setDragIdx(idx);
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+
+  // Atalhos: Ctrl/Cmd+Z desfaz, Ctrl/Cmd+Shift+Z (ou Ctrl+Y) refaz.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const k = e.key.toLowerCase();
+      if (k !== 'z' && k !== 'y') return;
+      const el = e.target as HTMLElement | null;
+      if (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
+      e.preventDefault();
+      if (k === 'y' || (k === 'z' && e.shiftKey)) redo();
+      else undo();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Texto cinético na tela.
   const addText = () =>
@@ -1278,6 +1367,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
     // Textos na tela vêm DESATIVADOS por padrão — o Auto-editar NÃO adiciona
     // texto sozinho. O usuário adiciona manualmente (botão "+ no playhead") se
     // quiser. (A IA ainda detecta os destaques, só não vira texto automático.)
+    pushHistory(items);
     setClips((prev) => [...prev, ...newClips]);
     setItems((prev) => [...prev, ...newItems]);
     setAutoSlots([]);
@@ -1409,6 +1499,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
     if (!uid) return;
     setRendering(true);
     const toastId = 'montagem-render';
+    const jid = addJob('Montagem (render do vídeo)');
     toast.loading(isTimeline ? 'Montando no tempo do áudio...' : 'Montando a sequência...', {
       id: toastId,
     });
@@ -1485,8 +1576,10 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
         false
       );
       toast.success('Pronto — já está na Edição.', { id: toastId });
+      updateJob(jid, { status: 'done' });
     } catch (e: any) {
       toast.error(e?.message || 'Erro ao montar.', { id: toastId });
+      updateJob(jid, { status: 'error' });
     } finally {
       setRendering(false);
     }
@@ -1505,6 +1598,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       '';
     setMusicGen(true);
     const tid = 'montagem-music';
+    const jid = addJob('Música (arco emocional)');
     toast.loading('Planejando a música (arco emocional)…', { id: tid });
     try {
       const pr = await fetch('/api/elevenlabs/music/plan', {
@@ -1539,10 +1633,41 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
         false
       );
       toast.success('Música adicionada — vídeo com trilha pronto!', { id: tid });
+      updateJob(jid, { status: 'done' });
     } catch (e: any) {
       toast.error(e?.message || 'Erro na música.', { id: tid });
+      updateJob(jid, { status: 'error' });
     } finally {
       setMusicGen(false);
+    }
+  };
+
+  // Gera a CAPA/THUMBNAIL a partir de um frame do vídeo montado (Nano Banana).
+  // Pega o frame no playhead (ou 1s) — costuma ser onde o rosto está expressivo.
+  const gerarCapa = async () => {
+    if (!uid) return toast.error('Faça login.');
+    if (!resultUrl) return toast.error('Monte o vídeo primeiro.');
+    setCoverGen(true);
+    const tid = 'montagem-cover';
+    const jid = addJob('Capa/thumbnail (Nano Banana)');
+    toast.loading('Gerando a capa a partir do vídeo…', { id: tid });
+    try {
+      const atSec = playhead > 0.2 ? Number(playhead.toFixed(1)) : 1;
+      const r = await fetch('/api/fal/cover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoUrl: resultUrl, atSec, aspectRatio: aspect, userId: uid }),
+      });
+      const d = await r.json();
+      if (!r.ok || !d.url) throw new Error(d.error || 'Falha ao gerar a capa.');
+      setCoverUrl(d.url);
+      toast.success('Capa pronta!', { id: tid });
+      updateJob(jid, { status: 'done' });
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao gerar a capa.', { id: tid });
+      updateJob(jid, { status: 'error' });
+    } finally {
+      setCoverGen(false);
     }
   };
 
@@ -2121,6 +2246,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
               </span>
               <button
                 onClick={() => {
+                  pushHistory(items);
                   setAudioUrl('');
                   setItems([]);
                 }}
@@ -2337,15 +2463,44 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
 
       {isTimeline && displayItems.length > 0 && (
         <div className="space-y-2">
-          <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">
-            Trechos na timeline (começa / termina, em segundos do áudio)
-          </span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">
+              Trechos na timeline (arraste ⠿ pra reposicionar; começa / termina em s)
+            </span>
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                onClick={undo}
+                disabled={historyRef.current.past.length === 0}
+                title="Desfazer (Ctrl+Z)"
+                className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-blue-400 disabled:opacity-30"
+              >
+                <Undo2 size={14} />
+              </button>
+              <button
+                onClick={redo}
+                disabled={historyRef.current.future.length === 0}
+                title="Refazer (Ctrl+Shift+Z)"
+                className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-blue-400 disabled:opacity-30"
+              >
+                <Redo2 size={14} />
+              </button>
+            </div>
+          </div>
           {displayItems.map(({ it, idx }, pos) => (
             <div
               key={idx}
-              className="p-2 rounded-xl ring-1 ring-gray-200 dark:ring-gray-700 bg-white dark:bg-gray-900/60 space-y-2"
+              className={`p-2 rounded-xl ring-1 bg-white dark:bg-gray-900/60 space-y-2 ${
+                dragIdx === idx ? 'ring-2 ring-blue-500' : 'ring-gray-200 dark:ring-gray-700'
+              }`}
             >
               <div className="flex items-center gap-3">
+                <button
+                  onPointerDown={(e) => onDragStart(idx, e)}
+                  title="Arraste na horizontal pra reposicionar no tempo"
+                  className="shrink-0 p-1 -ml-1 rounded text-gray-300 hover:text-gray-600 dark:hover:text-gray-200 cursor-ew-resize touch-none"
+                >
+                  <GripVertical size={16} />
+                </button>
                 <video
                   src={clips[it.clipIdx]?.url}
                   preload="metadata"
@@ -2999,6 +3154,31 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
               <><Music size={16} /> Gerar música (arco emocional) e colar</>
             )}
           </button>
+          <button
+            onClick={gerarCapa}
+            disabled={coverGen}
+            className="w-full py-3 bg-pink-600 text-white rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-pink-700 disabled:opacity-60 flex items-center justify-center gap-2"
+          >
+            {coverGen ? (
+              <><Loader2 size={16} className="animate-spin" /> Gerando capa…</>
+            ) : (
+              <><ImageIcon size={16} /> Gerar capa/thumbnail · ≈ $0.04</>
+            )}
+          </button>
+          {coverUrl && (
+            <div className="space-y-2">
+              <img src={coverUrl} alt="capa" className="w-full max-h-[420px] object-contain rounded-xl bg-black" />
+              <a
+                href={coverUrl}
+                target="_blank"
+                rel="noreferrer"
+                download
+                className="inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-300 hover:underline"
+              >
+                <Download size={12} /> Baixar capa
+              </a>
+            </div>
+          )}
           {onGoToEdit && (
             <button onClick={onGoToEdit} className="w-full py-3 bg-gray-900 dark:bg-gray-50 text-white dark:text-gray-900 rounded-2xl font-black uppercase tracking-widest text-sm hover:opacity-90">
               Ir pra Edição →

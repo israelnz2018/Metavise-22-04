@@ -7,6 +7,11 @@
 
 import { Router } from 'express';
 import admin from 'firebase-admin';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+import { spawn } from 'child_process';
+import ffmpegStatic from 'ffmpeg-static';
 import { getFalKey, getFalAdminKey } from '../config/apiKeys.js';
 import { persistVideo } from '../utils/persistVideo.js';
 import { createLogger } from '../utils/logger.js';
@@ -153,6 +158,108 @@ falRouter.post('/image', async (req, res) => {
     res.json({ url, model });
   } catch (err: any) {
     log.error('[fal/image] erro:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Extrai UM frame do vídeo no segundo `atSec` → PNG (buffer). Usa o ffmpeg-static
+// que já shipamos. Serve de base pra capa (Nano Banana redesenha por cima).
+function grabFrame(videoUrl: string, atSec: number): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const bin = (ffmpegStatic as unknown as string) || 'ffmpeg';
+    const out = path.join(os.tmpdir(), `cover_${Date.now()}_${Math.round(atSec * 100)}.png`);
+    const args = ['-y', '-ss', String(Math.max(0, atSec)), '-i', videoUrl, '-frames:v', '1', '-q:v', '2', out];
+    const proc = spawn(bin, args);
+    let errBuf = '';
+    proc.stderr.on('data', (d) => (errBuf += d.toString()));
+    proc.on('error', reject);
+    proc.on('close', (code) => {
+      if (code !== 0 || !fs.existsSync(out)) {
+        return reject(new Error(`ffmpeg frame falhou (code ${code}): ${errBuf.slice(-300)}`));
+      }
+      try {
+        const buf = fs.readFileSync(out);
+        fs.unlink(out, () => {});
+        resolve(buf);
+      } catch (e) {
+        reject(e);
+      }
+    });
+  });
+}
+
+// POST /api/fal/cover — CAPA/THUMBNAIL do criativo. Tira um frame do vídeo montado,
+// manda pro Nano Banana redesenhar como thumbnail que para o scroll (mantém o rosto
+// e a cena, aumenta contraste/foco e deixa espaço pra texto). Retorna { url }.
+// Body: { videoUrl, atSec?, prompt?, aspectRatio?, userId } → { url }.
+falRouter.post('/cover', async (req, res) => {
+  try {
+    const apiKey = getFalKey();
+    if (!apiKey) {
+      return res
+        .status(400)
+        .json({ error: 'Configure a chave do fal (FAL_KEY no .env ou fal-config.json).' });
+    }
+    const b = (req.body || {}) as Record<string, any>;
+    const videoUrl = String(b.videoUrl || '');
+    const atSec = Number.isFinite(b.atSec) ? Math.max(0, Number(b.atSec)) : 1;
+    const aspectRatio = String(b.aspectRatio || '9:16');
+    const userId = b.userId ? String(b.userId) : undefined;
+    const extra = String(b.prompt || '').trim();
+    if (!videoUrl) return res.status(400).json({ error: 'Informe o vídeo (videoUrl).' });
+
+    log.info(`[fal/cover] frame @${atSec}s de ${videoUrl.slice(0, 60)}…`);
+    const frameBuf = await grabFrame(videoUrl, atSec);
+    // Sobe o frame pro Storage → URL pública que o Nano Banana consegue baixar.
+    const framePersist = await persistVideo({
+      buffer: frameBuf,
+      filename: `cover_src_${Date.now()}.png`,
+      storageFolder: 'fal-cover',
+      userId,
+      contentType: 'image/png',
+    });
+
+    const prompt =
+      `Transforme este frame numa THUMBNAIL de anúncio que para o scroll: ` +
+      `mantenha o rosto e a cena reconhecíveis, aumente o contraste e a nitidez, ` +
+      `foco no rosto/expressão, iluminação chamativa, cores vivas, deixe uma área limpa ` +
+      `no topo ou embaixo pra um texto curto. Sem adicionar texto/legenda. ` +
+      `Estilo de thumbnail de vídeo de alta conversão.` +
+      (extra ? ` ${extra}` : '');
+
+    const model = 'fal-ai/nano-banana/edit';
+    const input: Record<string, unknown> = {
+      prompt,
+      num_images: 1,
+      aspect_ratio: aspectRatio,
+      image_urls: [framePersist.url],
+    };
+    const r = await fetch(`https://fal.run/${model}`, {
+      method: 'POST',
+      headers: { Authorization: `Key ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    const d: any = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      const msg = d?.detail ? JSON.stringify(d.detail) : `HTTP ${r.status}`;
+      throw new Error(`fal cover: ${msg}`);
+    }
+    const imgUrl = d?.images?.[0]?.url;
+    if (!imgUrl) throw new Error(`fal não retornou capa: ${JSON.stringify(d).substring(0, 200)}`);
+    const ir = await fetch(imgUrl);
+    if (!ir.ok) throw new Error(`Falha ao baixar a capa do fal (HTTP ${ir.status}).`);
+    const buffer = Buffer.from(await ir.arrayBuffer());
+    const { url } = await persistVideo({
+      buffer,
+      filename: `fal_cover_${Date.now()}.png`,
+      storageFolder: 'fal-image',
+      userId,
+      contentType: 'image/png',
+    });
+    log.info(`[fal/cover] OK → ${url}`);
+    res.json({ url, frameUrl: framePersist.url, model });
+  } catch (err: any) {
+    log.error('[fal/cover] erro:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
