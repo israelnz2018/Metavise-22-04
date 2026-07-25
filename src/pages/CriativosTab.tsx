@@ -19,6 +19,7 @@ interface Creative {
   variantName: string;
   source: string;
   cover?: string;
+  aspect?: string;
 }
 
 const FAV_KEY = 'metavise-criativos-fav';
@@ -45,6 +46,8 @@ export function CriativosTab({ projectId, projectName }: Props) {
   const [fav, setFav] = useState<Set<string>>(() => loadSet(FAV_KEY));
   const [pub, setPub] = useState<Set<string>>(() => loadSet(PUB_KEY));
   const [filter, setFilter] = useState<'todos' | 'favoritos' | 'publicados'>('todos');
+  const [fmtFilter, setFmtFilter] = useState<'todos' | '9:16' | '1:1' | '16:9'>('todos');
+  const [srcFilter, setSrcFilter] = useState<string>('todos');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   // Checklist de publicação: abre ao marcar "no ar" um criativo ainda não publicado.
   const [pubModalUrl, setPubModalUrl] = useState<string | null>(null);
@@ -58,21 +61,22 @@ export function CriativosTab({ projectId, projectName }: Props) {
         const variants = await loadVariants(projectId);
         const out: Creative[] = [];
         const seen = new Set<string>();
-        const push = (url: string, variantId: string, variantName: string, source: string, cover?: string) => {
+        const push = (url: string, variantId: string, variantName: string, source: string, cover?: string, aspect?: string) => {
           if (!url || seen.has(url)) return;
           seen.add(url);
-          out.push({ url, variantId, variantName, source, cover });
+          out.push({ url, variantId, variantName, source, cover, aspect });
         };
         for (const v of variants) {
           const cfg = (v.config || {}) as any;
           const name = v.name || 'Sem nome';
           const cover = cfg?.montagem?.coverUrl || cfg?.montagem?.coverOptions?.[0];
+          const aspect = cfg?.montagem?.aspect; // formato do subprojeto (proxy)
           const edit = cfg?.edit || {};
-          (edit.zapVersions || []).forEach((u: string) => push(u, v.id, name, 'Edição', cover));
-          (edit.zapVslVersions || []).forEach((u: string) => push(u, v.id, name, 'Edição VSL', cover));
-          (edit.zapHookVersions || []).forEach((u: string) => push(u, v.id, name, 'Gancho', cover));
-          if (cfg?.montagem?.resultUrl) push(cfg.montagem.resultUrl, v.id, name, 'Montagem', cover);
-          if (cfg?.videoUrl) push(cfg.videoUrl, v.id, name, 'Avatar', cover);
+          (edit.zapVersions || []).forEach((u: string) => push(u, v.id, name, 'Edição', cover, aspect));
+          (edit.zapVslVersions || []).forEach((u: string) => push(u, v.id, name, 'Edição VSL', cover, aspect));
+          (edit.zapHookVersions || []).forEach((u: string) => push(u, v.id, name, 'Gancho', cover, aspect));
+          if (cfg?.montagem?.resultUrl) push(cfg.montagem.resultUrl, v.id, name, 'Montagem', cover, aspect);
+          if (cfg?.videoUrl) push(cfg.videoUrl, v.id, name, 'Avatar', cover, aspect);
         }
         setCreatives(out);
       } catch (e: any) {
@@ -126,11 +130,21 @@ export function CriativosTab({ projectId, projectName }: Props) {
     });
   };
 
+  // Fontes presentes (pra montar o filtro dinamicamente).
+  const sources = useMemo(
+    () => Array.from(new Set(creatives.map((c) => c.source))),
+    [creatives]
+  );
+
   const shown = useMemo(() => {
-    if (filter === 'favoritos') return creatives.filter((c) => fav.has(c.url));
-    if (filter === 'publicados') return creatives.filter((c) => pub.has(c.url));
-    return creatives;
-  }, [creatives, filter, fav, pub]);
+    return creatives.filter((c) => {
+      if (filter === 'favoritos' && !fav.has(c.url)) return false;
+      if (filter === 'publicados' && !pub.has(c.url)) return false;
+      if (fmtFilter !== 'todos' && c.aspect !== fmtFilter) return false;
+      if (srcFilter !== 'todos' && c.source !== srcFilter) return false;
+      return true;
+    });
+  }, [creatives, filter, fav, pub, fmtFilter, srcFilter]);
 
   const baixarSelecionados = () => {
     const urls = shown.filter((c) => selected.has(c.url));
@@ -184,10 +198,32 @@ export function CriativosTab({ projectId, projectName }: Props) {
       </p>
 
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-wrap">
           {chip('todos', 'Todos', creatives.length)}
           {chip('favoritos', 'Favoritos', creatives.filter((c) => fav.has(c.url)).length)}
           {chip('publicados', 'Publicados', creatives.filter((c) => pub.has(c.url)).length)}
+          <select
+            value={fmtFilter}
+            onChange={(e) => setFmtFilter(e.target.value as any)}
+            className="px-2.5 py-1.5 rounded-lg text-xs font-black bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-none outline-none"
+          >
+            <option value="todos">Todo formato</option>
+            <option value="9:16">9:16</option>
+            <option value="1:1">1:1</option>
+            <option value="16:9">16:9</option>
+          </select>
+          <select
+            value={srcFilter}
+            onChange={(e) => setSrcFilter(e.target.value)}
+            className="px-2.5 py-1.5 rounded-lg text-xs font-black bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-none outline-none"
+          >
+            <option value="todos">Toda fonte</option>
+            {sources.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
         </div>
         {selected.size > 0 && (
           <button
