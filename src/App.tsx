@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import HookVisualGenerator from './components/HookVisualGenerator';
 import VozPremium from './components/VozPremium';
 import { IntegrationsTab } from './pages/IntegrationsTab';
@@ -87,6 +87,7 @@ import { ensureNotificationPermission, notifyIfHidden } from './lib/notification
 import { COSTS } from './lib/costs';
 import { CostConfirmModal } from './components/CostConfirmModal';
 import { JobsPanel } from './components/JobsPanel';
+import { HeaderWallet } from './components/HeaderWallet';
 import { triggerProjectSave } from './lib/autosave';
 import { COST_RATES, logCreativeCost } from './lib/creativeCost';
 import { BriefEditModal } from './components/BriefEditModal';
@@ -6613,6 +6614,52 @@ export default function App() {
     );
   }
 
+  // Adiciona créditos (dev): promove um valor e credita na conta.
+  const handleAddCredits = async () => {
+    const raw = window.prompt('Quantos créditos adicionar?', '10000');
+    if (!raw) return;
+    const amount = Math.max(1, Math.min(100000, parseInt(raw, 10) || 0));
+    if (!amount) return;
+    try {
+      const { authedFetch } = await import('@/lib/authedFetch');
+      const res = await authedFetch('/api/user/credits/grant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      setCredits(data.newBalance);
+      toast.success(`+${data.granted} créditos! Saldo: ${data.newBalance}`);
+    } catch (err: any) {
+      toast.error(`Falha: ${err.message}`);
+    }
+  };
+
+  // CUSTO DO MÊS (todos os projetos): soma os lançamentos de custo (config.costs)
+  // de todos os subprojetos no mês corrente. Usa os custos AO VIVO do subprojeto
+  // aberto (config.costs) e os salvos (projects[].variants) dos demais.
+  const monthlyCost = useMemo(() => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    let total = 0;
+    const byLabel = new Map<string, number>();
+    for (const p of projects) {
+      for (const v of ((p.variants as any[]) || [])) {
+        const live = p.id === currentProjectId && v.id === currentVariantId;
+        const costs = (live ? (config as any).costs : v.config?.costs) as any[] | undefined;
+        for (const c of costs || []) {
+          if ((Number(c.at) || 0) >= start) {
+            const amt = Number(c.amount) || 0;
+            total += amt;
+            byLabel.set(c.label, (byLabel.get(c.label) || 0) + amt);
+          }
+        }
+      }
+    }
+    return { total, breakdown: Array.from(byLabel.entries()).sort((a, b) => b[1] - a[1]) };
+  }, [projects, config, currentProjectId, currentVariantId]);
+
   return (
     <div className="min-h-screen app-shell text-gray-900 dark:text-gray-100 font-sans selection:bg-blue-100 dark:selection:bg-blue-900 overflow-x-hidden">
       <JobsPanel />
@@ -6760,110 +6807,15 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Credits chip. F7.6 — agora clicável: clique abre prompt pra
-                adicionar créditos rapidamente (dev convenience). Em produção
-                isso deve virar fluxo de pagamento real. */}
-            <button
-              onClick={async () => {
-                const raw = window.prompt('Quantos créditos adicionar?', '10000');
-                if (!raw) return;
-                const amount = Math.max(1, Math.min(100000, parseInt(raw, 10) || 0));
-                if (!amount) return;
-                try {
-                  const { authedFetch } = await import('@/lib/authedFetch');
-                  const res = await authedFetch('/api/user/credits/grant', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ amount }),
-                  });
-                  const data = await res.json();
-                  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-                  setCredits(data.newBalance);
-                  toast.success(`+${data.granted} créditos! Saldo: ${data.newBalance}`);
-                } catch (err: any) {
-                  toast.error(`Falha: ${err.message}`);
-                }
-              }}
-              className="hidden 2xl:flex items-center gap-2 px-3 py-1.5 bg-gradient-to-br from-blue-50 to-blue-100/60 dark:from-blue-950/40 dark:to-blue-900/30 rounded-xl ring-1 ring-blue-200/60 dark:ring-blue-800/60 shadow-sm shadow-blue-200/30 dark:shadow-blue-900/20 hover:ring-blue-400 transition-all"
-              title="Clique pra adicionar créditos (dev)"
-            >
-              <Sparkles className="text-blue-600 dark:text-blue-400" size={15} />
-              <span className="text-sm font-black text-blue-700 dark:text-blue-300 tabular-nums">
-                {credits}
-              </span>
-              <span className="text-[10px] font-bold text-blue-500/70 dark:text-blue-500 uppercase tracking-widest">
-                Créditos
-              </span>
-            </button>
-            {apiSpend &&
-              (() => {
-                const hasBalance = apiSpend.balanceBase != null && apiSpend.availableUSD != null;
-                const avail = apiSpend.availableUSD ?? 0;
-                // Cor por faixa de saldo: verde ok, âmbar baixo, vermelho crítico.
-                const tone = !hasBalance
-                  ? 'gray'
-                  : avail <= 1
-                    ? 'red'
-                    : avail <= 5
-                      ? 'amber'
-                      : 'emerald';
-                const toneCls: Record<string, string> = {
-                  emerald:
-                    'from-emerald-50 to-emerald-100/60 dark:from-emerald-950/40 dark:to-emerald-900/30 ring-emerald-200/60 dark:ring-emerald-800/60 text-emerald-700 dark:text-emerald-300',
-                  amber:
-                    'from-amber-50 to-amber-100/60 dark:from-amber-950/40 dark:to-amber-900/30 ring-amber-200/60 dark:ring-amber-800/60 text-amber-700 dark:text-amber-300',
-                  red: 'from-red-50 to-red-100/60 dark:from-red-950/40 dark:to-red-900/30 ring-red-200/60 dark:ring-red-800/60 text-red-700 dark:text-red-300',
-                  gray: 'from-gray-50 to-gray-100/60 dark:from-gray-900/40 dark:to-gray-800/30 ring-gray-200/60 dark:ring-gray-800/60 text-gray-600 dark:text-gray-300',
-                };
-                return (
-                  <button
-                    onClick={promptSetApiBalance}
-                    className={`hidden lg:flex items-center gap-2 px-3 py-1.5 bg-gradient-to-br rounded-xl ring-1 shadow-sm hover:brightness-105 transition-all ${toneCls[tone]}`}
-                    title={
-                      hasBalance
-                        ? `Saldo estimado da conta Anthropic.\nSaldo informado: US$ ${apiSpend.balanceBase!.toFixed(2)}\nGasto desde então: US$ ${(apiSpend.balanceBase! - avail).toFixed(4)}\nGasto total medido: US$ ${apiSpend.costUSD.toFixed(4)}\n\nA Anthropic não expõe o saldo — clique pra atualizar após adicionar fundos.`
-                        : 'A Anthropic não expõe o saldo por chave. Clique e informe seu saldo atual (console.anthropic.com) — o app desconta o gasto daí pra frente.'
-                    }
-                  >
-                    <span className="text-sm font-black tabular-nums">
-                      {hasBalance ? `US$ ${avail.toFixed(2)}` : 'Definir saldo'}
-                    </span>
-                    {hasBalance && (
-                      <span className="text-[10px] font-bold opacity-70 uppercase tracking-widest">
-                        Saldo API
-                      </span>
-                    )}
-                  </button>
-                );
-              })()}
-            {currentProjectId &&
-              (() => {
-                const costs = ((config as any).costs as { label: string; amount: number }[]) || [];
-                if (costs.length === 0) return null;
-                const total = costs.reduce((s, c) => s + (Number(c.amount) || 0), 0);
-                // Agrupa por rótulo pro tooltip (quantas de cada + subtotal).
-                const byLabel = new Map<string, { n: number; sum: number }>();
-                for (const c of costs) {
-                  const cur = byLabel.get(c.label) || { n: 0, sum: 0 };
-                  cur.n += 1;
-                  cur.sum += Number(c.amount) || 0;
-                  byLabel.set(c.label, cur);
-                }
-                const breakdown = Array.from(byLabel.entries())
-                  .map(([l, v]) => `${l} ×${v.n}: US$ ${v.sum.toFixed(2)}`)
-                  .join('\n');
-                return (
-                  <div
-                    className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-gradient-to-br from-fuchsia-50 to-fuchsia-100/60 dark:from-fuchsia-950/40 dark:to-fuchsia-900/30 rounded-xl ring-1 ring-fuchsia-200/60 dark:ring-fuchsia-800/60 text-fuchsia-700 dark:text-fuchsia-300 shadow-sm"
-                    title={`Custo ESTIMADO deste criativo (fal + ElevenLabs + HeyGen + ZapCap):\n\n${breakdown}\n\nTotal: US$ ${total.toFixed(2)}\n\nSão estimativas — o valor real sai do saldo de cada provedor.`}
-                  >
-                    <span className="text-sm font-black tabular-nums">US$ {total.toFixed(2)}</span>
-                    <span className="text-[10px] font-bold opacity-70 uppercase tracking-widest">
-                      Custo criativo
-                    </span>
-                  </div>
-                );
-              })()}
+            <HeaderWallet
+              credits={credits}
+              onAddCredits={handleAddCredits}
+              apiSpend={apiSpend}
+              onSetApiBalance={promptSetApiBalance}
+              creativeCosts={currentProjectId ? ((config as any).costs || []) : []}
+              monthlyTotal={monthlyCost.total}
+              monthlyBreakdown={monthlyCost.breakdown}
+            />
             <RecentProjectsButton
               projects={projects}
               currentProjectId={currentProjectId}
@@ -7078,6 +7030,7 @@ export default function App() {
                 <PerformanceTab
                   projectId={currentProjectId}
                   projectName={projects.find((p) => p.id === currentProjectId)?.name}
+                  plan={(config as any).monthlyPlan || null}
                 />
               )}
               {currentStep === 'projects' && (

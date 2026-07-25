@@ -45,6 +45,9 @@ export function CriativosTab({ projectId, projectName }: Props) {
   const [pub, setPub] = useState<Set<string>>(() => loadSet(PUB_KEY));
   const [filter, setFilter] = useState<'todos' | 'favoritos' | 'publicados'>('todos');
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Checklist de publicação: abre ao marcar "no ar" um criativo ainda não publicado.
+  const [pubModalUrl, setPubModalUrl] = useState<string | null>(null);
+  const [checks, setChecks] = useState<boolean[]>([false, false, false, false]);
 
   useEffect(() => {
     if (!projectId) return;
@@ -88,12 +91,31 @@ export function CriativosTab({ projectId, projectName }: Props) {
     });
   };
   const togglePub = (url: string) => {
+    if (pub.has(url)) {
+      // Já publicado → desmarca na hora.
+      setPub((prev) => {
+        const next = new Set(prev);
+        next.delete(url);
+        saveSet(PUB_KEY, next);
+        return next;
+      });
+    } else {
+      // Vai publicar → abre o checklist antes.
+      setChecks([false, false, false, false]);
+      setPubModalUrl(url);
+    }
+  };
+  const confirmPublish = (force = false) => {
+    if (!pubModalUrl) return;
+    if (!force && !checks.every(Boolean)) return;
     setPub((prev) => {
       const next = new Set(prev);
-      next.has(url) ? next.delete(url) : next.add(url);
+      next.add(pubModalUrl);
       saveSet(PUB_KEY, next);
       return next;
     });
+    setPubModalUrl(null);
+    toast.success('Marcado como no ar.');
   };
   const toggleSel = (url: string) => {
     setSelected((prev) => {
@@ -254,6 +276,67 @@ export function CriativosTab({ projectId, projectName }: Props) {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Checklist de publicação — nudge pra conferir antes de marcar "no ar". */}
+      {pubModalUrl && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4" onClick={() => setPubModalUrl(null)}>
+          <div
+            className="w-full max-w-md bg-white dark:bg-gray-900 rounded-2xl border-2 border-gray-200 dark:border-gray-800 shadow-2xl p-5 space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2">
+              <Rocket size={18} className="text-green-600" />
+              <h3 className="text-base font-black text-gray-900 dark:text-gray-100">
+                Antes de colocar no ar
+              </h3>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Confira o básico pra não rodar mídia num criativo furado:
+            </p>
+            {[
+              'Formato certo pra plataforma (9:16 Reels/Stories, 1:1 feed, 16:9 YouTube)',
+              'Duração adequada pro objetivo',
+              'Tem legenda (a maioria assiste no mudo)',
+              'Gancho forte nos primeiros 3 segundos',
+            ].map((item, i) => (
+              <label key={i} className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={checks[i]}
+                  onChange={(e) =>
+                    setChecks((prev) => prev.map((c, k) => (k === i ? e.target.checked : c)))
+                  }
+                  className="mt-0.5 accent-green-600"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-200">{item}</span>
+              </label>
+            ))}
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <button
+                onClick={() => confirmPublish(true)}
+                className="text-[11px] font-bold text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                publicar assim mesmo
+              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPubModalUrl(null)}
+                  className="px-3 py-2 rounded-xl text-xs font-black text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => confirmPublish(false)}
+                  disabled={!checks.every(Boolean)}
+                  className="px-4 py-2 rounded-xl bg-green-600 text-white text-xs font-black hover:bg-green-700 disabled:opacity-40"
+                >
+                  Marcar no ar
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
