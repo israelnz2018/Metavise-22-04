@@ -3300,9 +3300,12 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
   const paletteCommands = useMemo<Command[]>(() => {
+    // Predicado PURO (sem efeitos) — não usar canNavigateTo aqui: ela dá
+    // toast/setCurrentStep, e isso rodaria durante o render → loop/branco.
+    const navOK = (id: Step) => id === 'projects' || id === 'integrations' || !!currentProjectId;
     const cmds: Command[] = [];
     for (const s of STEPS) {
-      if (!canNavigateTo(s.id)) continue;
+      if (!navOK(s.id)) continue;
       if (!useHookFlow && s.id === 'hook-visual') continue;
       cmds.push({ id: `step-${s.id}`, label: `Ir para ${s.label}`, sub: 'Aba', run: () => requestStepChange(s.id) });
     }
