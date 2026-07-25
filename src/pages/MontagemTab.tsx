@@ -10,6 +10,7 @@ import { useJobs } from '@/lib/jobsStore';
 import { triggerProjectSave } from '@/lib/autosave';
 import { logCreativeCost, COST_RATES } from '@/lib/creativeCost';
 import { EmptyState } from '@/components/EmptyState';
+import { useFileDrop } from '@/hooks/useFileDrop';
 
 interface Clip {
   url: string;
@@ -768,7 +769,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
   const stopRaf = () => cancelAnimationFrame(rafRef.current);
   useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
 
-  const onUpload = async (files: FileList | null) => {
+  const onUpload = async (files: FileList | File[] | null) => {
     if (!files || files.length === 0) return;
     if (!uid) return toast.error('Faça login pra enviar vídeos.');
     setUploading(true);
@@ -795,6 +796,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       setUploading(false);
     }
   };
+  const { dragging: dragUpload, dropHandlers: uploadDrop } = useFileDrop((files) => onUpload(files));
 
   const onUploadAudio = async (file?: File | null) => {
     if (!file) return;
@@ -3119,10 +3121,21 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
         )}
       </div>
 
-      {/* BIBLIOTECA de trechos (upload) */}
-      <label className="flex items-center justify-center gap-2 py-4 rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-700 text-sm font-black uppercase tracking-widest text-blue-700 dark:text-blue-300 hover:border-blue-400 cursor-pointer">
+      {/* BIBLIOTECA de trechos (upload) — clique OU arraste os vídeos aqui */}
+      <label
+        {...uploadDrop}
+        className={`flex items-center justify-center gap-2 py-4 rounded-2xl border-2 border-dashed text-sm font-black uppercase tracking-widest text-blue-700 dark:text-blue-300 cursor-pointer transition-colors ${
+          dragUpload
+            ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/40'
+            : 'border-gray-300 dark:border-gray-700 hover:border-blue-400'
+        }`}
+      >
         {uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-        {isTimeline ? 'Subir trechos (biblioteca)' : 'Enviar trechos (pode vários)'}
+        {dragUpload
+          ? 'Solte os vídeos aqui'
+          : isTimeline
+            ? 'Subir trechos (ou arraste aqui)'
+            : 'Enviar trechos (ou arraste aqui)'}
         <input type="file" accept="video/*" multiple className="hidden" onChange={(e) => onUpload(e.target.files)} />
       </label>
 

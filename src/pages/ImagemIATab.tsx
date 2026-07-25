@@ -5,6 +5,7 @@ import { storage, auth } from '@/lib/firebase';
 import { ImageIcon, Loader2, X, Check, Download, Sparkles, Film } from 'lucide-react';
 import { useJobs } from '@/lib/jobsStore';
 import { logCreativeCost, COST_RATES } from '@/lib/creativeCost';
+import { useFileDrop } from '@/hooks/useFileDrop';
 
 interface Props {
   user?: { uid?: string } | null;
@@ -93,6 +94,8 @@ export function ImagemIATab({ user, onUseInVideo }: Props) {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uid]);
+
+  const { dragging: dragRef, dropHandlers: refDrop } = useFileDrop((files) => uploadRef(files[0]));
 
   const uploadRef = async (file?: File | null) => {
     if (!file) return;
@@ -195,9 +198,16 @@ export function ImagemIATab({ user, onUseInVideo }: Props) {
               </button>
             </div>
           ))}
-          <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs font-bold px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-pink-400">
+          <label
+            {...refDrop}
+            className={`inline-flex items-center gap-1.5 cursor-pointer text-xs font-bold px-3 py-2 rounded-xl border transition-colors ${
+              dragRef
+                ? 'border-pink-500 bg-pink-50 dark:bg-pink-950/40 text-pink-700 dark:text-pink-300'
+                : 'border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-pink-400'
+            }`}
+          >
             {refUploading ? <Loader2 size={14} className="animate-spin" /> : <ImageIcon size={14} />}
-            Enviar referência
+            {dragRef ? 'Solte a imagem' : 'Enviar referência (ou arraste)'}
             <input type="file" accept="image/*" className="hidden" onChange={(e) => uploadRef(e.target.files?.[0])} />
           </label>
         </div>

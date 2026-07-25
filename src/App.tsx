@@ -3584,54 +3584,56 @@ export default function App() {
     }
   };
 
+  // Exclui na hora e oferece DESFAZER no toast (~7s) — recupera delete por engano
+  // sem a fricção do "tem certeza?". O subprojeto é re-salvável (temos o dado).
   const handleDeleteVariant = async (projectId: string, variantId: string) => {
-    toast(
-      (t) => (
-        <div className="flex flex-col gap-3">
-          <p className="font-bold text-gray-900">Deseja excluir esta versão do projeto?</p>
-          <div className="flex gap-2 justify-end">
-            <button
-              onClick={() => toast.dismiss(t.id)}
-              className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-sm font-bold hover:bg-gray-200"
-            >
-              Cancelar
-            </button>
+    const proj = projects.find((p) => p.id === projectId);
+    const variant = ((proj?.variants as any[]) || []).find((v) => v.id === variantId);
+    if (!variant) return;
+    const wasCurrent = currentVariantId === variantId;
+    try {
+      await deleteVariantDoc(projectId, variantId);
+      setProjects((prev) =>
+        prev.map((p) =>
+          p.id === projectId
+            ? ({ ...p, variants: ((p.variants as any[]) || []).filter((v) => v.id !== variantId) } as any)
+            : p
+        )
+      );
+      if (wasCurrent) setCurrentVariantId(null);
+      toast(
+        (t) => (
+          <span className="flex items-center gap-3">
+            Versão excluída.
             <button
               onClick={async () => {
                 toast.dismiss(t.id);
                 try {
-                  // Remove o doc do subprojeto na subcoleção + atualiza memória.
-                  await deleteVariantDoc(projectId, variantId);
+                  await saveVariant(projectId, variant);
                   setProjects((prev) =>
                     prev.map((p) =>
                       p.id === projectId
-                        ? ({
-                            ...p,
-                            variants: ((p.variants as any[]) || []).filter(
-                              (v) => v.id !== variantId
-                            ),
-                          } as any)
+                        ? ({ ...p, variants: [...((p.variants as any[]) || []), variant] } as any)
                         : p
                     )
                   );
-                  if (currentVariantId === variantId) {
-                    setCurrentVariantId(null);
-                  }
-                  toast.success('Versão excluída!');
-                } catch (err) {
-                  console.error('Error deleting variant:', err);
-                  setError('Falha ao excluir versão.');
+                  toast.success('Versão restaurada.');
+                } catch {
+                  toast.error('Falha ao desfazer.');
                 }
               }}
-              className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-sm font-bold hover:bg-red-700"
+              className="font-black underline text-blue-600"
             >
-              Excluir
+              Desfazer
             </button>
-          </div>
-        </div>
-      ),
-      { duration: Infinity }
-    );
+          </span>
+        ),
+        { duration: 7000 }
+      );
+    } catch (err) {
+      console.error('Error deleting variant:', err);
+      setError('Falha ao excluir versão.');
+    }
   };
 
   // --- AUTO-SAVE REMOVIDO (pedido do usuário) ---
