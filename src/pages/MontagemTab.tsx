@@ -7,6 +7,7 @@ import { useSoundLibrary } from '@/hooks/useSoundLibrary';
 import { AvatarFramingModal, AvatarFraming, DEFAULT_AVATAR_FRAMING } from '@/components/AvatarFramingModal';
 import { Film, Upload, Loader2, Trash2, ArrowUp, ArrowDown, Check, Music, X, Plus, Maximize, Play, Pause, GripVertical, Undo2, Redo2, ImageIcon, Download } from 'lucide-react';
 import { useJobs } from '@/lib/jobsStore';
+import { triggerProjectSave } from '@/lib/autosave';
 
 interface Clip {
   url: string;
@@ -1663,6 +1664,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       setCoverUrl(d.url);
       toast.success('Capa pronta!', { id: tid });
       updateJob(jid, { status: 'done' });
+      triggerProjectSave('capa');
     } catch (e: any) {
       toast.error(e?.message || 'Erro ao gerar a capa.', { id: tid });
       updateJob(jid, { status: 'error' });

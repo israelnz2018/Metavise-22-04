@@ -83,6 +83,7 @@ import { ensureNotificationPermission, notifyIfHidden } from './lib/notification
 import { COSTS } from './lib/costs';
 import { CostConfirmModal } from './components/CostConfirmModal';
 import { JobsPanel } from './components/JobsPanel';
+import { triggerProjectSave } from './lib/autosave';
 import { BriefEditModal } from './components/BriefEditModal';
 import type { CreativeBrief, WeightedPersona } from './types/project';
 // Step tabs are lazy-loaded so the initial JS payload stays small.
@@ -3019,7 +3020,9 @@ export default function App() {
     if (!user || isProjectLoading) return;
 
     if (!currentProjectId) {
-      setShowNewProjectModal(true);
+      // Auto-save silencioso NÃO abre o modal de novo projeto — só o clique
+      // manual em "Salvar" faz isso. Sem projeto aberto, o save vira no-op.
+      if (!silent) setShowNewProjectModal(true);
       return;
     }
 
@@ -3205,6 +3208,30 @@ export default function App() {
       setLastSavedAt(Date.now());
     }
   };
+
+  // Save por EVENTO: quando algo importante é gerado (vídeo, montagem, imagem,
+  // música, copy, edição), as abas disparam 'metavise-autosave'. Aqui salvamos
+  // com debounce (só depois que o config assentou) e silencioso — sem o toast
+  // pipocando do auto-save contínuo antigo. saveRef guarda a versão MAIS NOVA de
+  // handleSaveProject pra sempre salvar o config atual.
+  const saveRef = useRef(handleSaveProject);
+  saveRef.current = handleSaveProject;
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const onAutoSave = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        // Só salva se dá pra salvar (logado + projeto aberto) — senão vira no-op.
+        saveRef.current?.({}, { silent: true });
+        toast.success('Salvo', { id: 'autosave', duration: 1400 });
+      }, 1200);
+    };
+    window.addEventListener('metavise-autosave', onAutoSave);
+    return () => {
+      if (timer) clearTimeout(timer);
+      window.removeEventListener('metavise-autosave', onAutoSave);
+    };
+  }, []);
 
   // Dado um config de variante, descobre a aba MAIS avançada que já tem
   // conteúdo gerado — pra "Carregar Versão" cair direto onde o usuário parou,
@@ -4024,6 +4051,7 @@ export default function App() {
         };
       });
       setHasUnsavedCopyChanges(true);
+      triggerProjectSave('copy');
 
       // UX23-C: toast diferente quando usou referências manuais — confirma
       // pro user que a seleção dele teve efeito.
@@ -4399,7 +4427,8 @@ export default function App() {
                   tag: 'metavise-render',
                 });
 
-                // (auto-save removido — clique "Salvar" pra guardar o vídeo)
+                // Save por evento: vídeo do avatar pronto → persiste o projeto.
+                triggerProjectSave('video-avatar');
               });
             } else {
               setVideoUrl(statusData.video_url);
@@ -4409,6 +4438,7 @@ export default function App() {
                 body: 'Seu render do HeyGen terminou.',
                 tag: 'metavise-render',
               });
+              triggerProjectSave('video-avatar');
             }
           } else {
             addLog('VIDEO_FAILED');
@@ -5488,6 +5518,7 @@ export default function App() {
         const current = ((prev.edit as any)[key] as string[] | undefined) || [];
         return { ...prev, edit: { ...prev.edit, [key]: [...current, finalUrl] } };
       });
+      triggerProjectSave('edicao');
       toast.success(`Vídeo pronto — b-roll a partir de ${zapBrollStartSec}s!`, {
         id: tid,
         duration: 6000,
@@ -5753,6 +5784,7 @@ export default function App() {
               },
             };
           });
+          triggerProjectSave('edicao');
 
           // Reset the auto-retry guard so the NEXT user-initiated render
           // can also auto-retry if it hits the same b-roll failure.
@@ -6276,6 +6308,7 @@ export default function App() {
           });
 
           toast.success('Vídeo editado com sucesso!', { id: 'zapcap-render' });
+          triggerProjectSave('edicao');
           setLoading(false);
         } else if (status === 'failed' || status === 'error') {
           isRenderingRef.current = false;
@@ -7563,8 +7596,9 @@ export default function App() {
                                   }
                                 : {}),
                             }));
-                            // (auto-save removido — salvar manualmente)
                           }
+                          // Save por evento: voz/áudio gerado → persiste o projeto.
+                          triggerProjectSave('voz');
                         }}
                         onDeleteAudioFromHistory={(
                           urlToDelete: string,
@@ -7724,6 +7758,7 @@ export default function App() {
                           montagem: { ...montagem, clips: [...clips, clip] },
                         } as any;
                       });
+                      triggerProjectSave('clipe-ia');
                     }}
                     onPlaceOnTimeline={(clip, atSec) => {
                       // Coloca DIRETO na timeline no segundo certo (clipe recortado
@@ -7758,6 +7793,7 @@ export default function App() {
                           },
                         } as any;
                       });
+                      triggerProjectSave('clipe-ia-timeline');
                     }}
                     onGoToMontagem={() => setCurrentStep('montagem')}
                     audios={[
@@ -7778,12 +7814,13 @@ export default function App() {
                 <LazyTab>
                   <ImagemIATab
                     user={user}
-                    onUseInVideo={(url) =>
+                    onUseInVideo={(url) => {
                       setConfig((prev) => ({
                         ...prev,
                         imagensIA: [...(((prev as any).imagensIA as string[]) || []), url],
-                      }))
-                    }
+                      }));
+                      triggerProjectSave('imagem-ia');
+                    }}
                   />
                 </LazyTab>
               )}
@@ -7826,6 +7863,7 @@ export default function App() {
                           videos: [...((prev.videos as any[]) || []), newVideo],
                         }));
                       }
+                      triggerProjectSave('edicao-upload');
                     }}
                   />
                 </LazyTab>
@@ -7858,6 +7896,7 @@ export default function App() {
                           videos: [...((prev.videos as any[]) || []), newVideo],
                         }));
                       }
+                      triggerProjectSave('montagem');
                     }}
                     onGoToEdit={() => setCurrentStep('edit-zap')}
                   />
