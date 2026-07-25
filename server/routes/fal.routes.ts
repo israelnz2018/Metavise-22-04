@@ -190,8 +190,59 @@ function grabFrame(videoUrl: string, atSec: number): Promise<Buffer> {
 
 // POST /api/fal/cover — CAPA/THUMBNAIL do criativo. Tira um frame do vídeo montado,
 // manda pro Nano Banana redesenhar como thumbnail que para o scroll (mantém o rosto
-// e a cena, aumenta contraste/foco e deixa espaço pra texto). Retorna { url }.
-// Body: { videoUrl, atSec?, prompt?, aspectRatio?, userId } → { url }.
+// e a cena, aumenta contraste/foco e deixa espaço pra texto). Gera N variações
+// (estilos diferentes) do MESMO frame pra o usuário escolher a que para o scroll.
+// Body: { videoUrl, atSec?, count?, prompt?, aspectRatio?, userId } → { urls, url }.
+
+// Estilos de thumbnail — cada variação puxa uma pegada visual diferente pra dar
+// escolha real (não 3 imagens quase iguais).
+const COVER_STYLES = [
+  'Close no rosto, expressão marcante, cores quentes e vibrantes.',
+  'Alto contraste, fundo bem desfocado, foco total no olhar.',
+  'Estilo cinematográfico, iluminação dramática, tons ricos e saturados.',
+];
+
+async function makeCover(
+  apiKey: string,
+  frameUrl: string,
+  aspectRatio: string,
+  styleHint: string,
+  extra: string,
+  userId?: string
+): Promise<string> {
+  const prompt =
+    `Transforme este frame numa THUMBNAIL de anúncio que para o scroll: ` +
+    `mantenha o rosto e a cena reconhecíveis, aumente o contraste e a nitidez, ` +
+    `foco no rosto/expressão, deixe uma área limpa no topo ou embaixo pra um texto curto. ` +
+    `Sem adicionar texto/legenda. Estilo de thumbnail de vídeo de alta conversão. ` +
+    styleHint +
+    (extra ? ` ${extra}` : '');
+  const model = 'fal-ai/nano-banana/edit';
+  const r = await fetch(`https://fal.run/${model}`, {
+    method: 'POST',
+    headers: { Authorization: `Key ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, num_images: 1, aspect_ratio: aspectRatio, image_urls: [frameUrl] }),
+  });
+  const d: any = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const msg = d?.detail ? JSON.stringify(d.detail) : `HTTP ${r.status}`;
+    throw new Error(`fal cover: ${msg}`);
+  }
+  const imgUrl = d?.images?.[0]?.url;
+  if (!imgUrl) throw new Error(`fal não retornou capa: ${JSON.stringify(d).substring(0, 200)}`);
+  const ir = await fetch(imgUrl);
+  if (!ir.ok) throw new Error(`Falha ao baixar a capa do fal (HTTP ${ir.status}).`);
+  const buffer = Buffer.from(await ir.arrayBuffer());
+  const { url } = await persistVideo({
+    buffer,
+    filename: `fal_cover_${Date.now()}_${Math.round(Math.random() * 1e6)}.png`,
+    storageFolder: 'fal-image',
+    userId,
+    contentType: 'image/png',
+  });
+  return url;
+}
+
 falRouter.post('/cover', async (req, res) => {
   try {
     const apiKey = getFalKey();
@@ -206,11 +257,12 @@ falRouter.post('/cover', async (req, res) => {
     const aspectRatio = String(b.aspectRatio || '9:16');
     const userId = b.userId ? String(b.userId) : undefined;
     const extra = String(b.prompt || '').trim();
+    const count = Math.max(1, Math.min(3, Number(b.count) || 3));
     if (!videoUrl) return res.status(400).json({ error: 'Informe o vídeo (videoUrl).' });
 
-    log.info(`[fal/cover] frame @${atSec}s de ${videoUrl.slice(0, 60)}…`);
+    log.info(`[fal/cover] frame @${atSec}s ×${count} de ${videoUrl.slice(0, 60)}…`);
     const frameBuf = await grabFrame(videoUrl, atSec);
-    // Sobe o frame pro Storage → URL pública que o Nano Banana consegue baixar.
+    // Sobe o frame UMA vez → URL pública que o Nano Banana baixa em cada variação.
     const framePersist = await persistVideo({
       buffer: frameBuf,
       filename: `cover_src_${Date.now()}.png`,
@@ -219,45 +271,21 @@ falRouter.post('/cover', async (req, res) => {
       contentType: 'image/png',
     });
 
-    const prompt =
-      `Transforme este frame numa THUMBNAIL de anúncio que para o scroll: ` +
-      `mantenha o rosto e a cena reconhecíveis, aumente o contraste e a nitidez, ` +
-      `foco no rosto/expressão, iluminação chamativa, cores vivas, deixe uma área limpa ` +
-      `no topo ou embaixo pra um texto curto. Sem adicionar texto/legenda. ` +
-      `Estilo de thumbnail de vídeo de alta conversão.` +
-      (extra ? ` ${extra}` : '');
-
-    const model = 'fal-ai/nano-banana/edit';
-    const input: Record<string, unknown> = {
-      prompt,
-      num_images: 1,
-      aspect_ratio: aspectRatio,
-      image_urls: [framePersist.url],
-    };
-    const r = await fetch(`https://fal.run/${model}`, {
-      method: 'POST',
-      headers: { Authorization: `Key ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
-    });
-    const d: any = await r.json().catch(() => ({}));
-    if (!r.ok) {
-      const msg = d?.detail ? JSON.stringify(d.detail) : `HTTP ${r.status}`;
-      throw new Error(`fal cover: ${msg}`);
+    // Gera as N variações em paralelo. Se uma falhar, mantém as que deram certo.
+    const settled = await Promise.allSettled(
+      Array.from({ length: count }, (_, i) =>
+        makeCover(apiKey, framePersist.url, aspectRatio, COVER_STYLES[i % COVER_STYLES.length]!, extra, userId)
+      )
+    );
+    const urls = settled
+      .filter((s): s is PromiseFulfilledResult<string> => s.status === 'fulfilled')
+      .map((s) => s.value);
+    if (urls.length === 0) {
+      const firstErr = settled.find((s) => s.status === 'rejected') as PromiseRejectedResult | undefined;
+      throw new Error(firstErr?.reason?.message || 'Nenhuma capa foi gerada.');
     }
-    const imgUrl = d?.images?.[0]?.url;
-    if (!imgUrl) throw new Error(`fal não retornou capa: ${JSON.stringify(d).substring(0, 200)}`);
-    const ir = await fetch(imgUrl);
-    if (!ir.ok) throw new Error(`Falha ao baixar a capa do fal (HTTP ${ir.status}).`);
-    const buffer = Buffer.from(await ir.arrayBuffer());
-    const { url } = await persistVideo({
-      buffer,
-      filename: `fal_cover_${Date.now()}.png`,
-      storageFolder: 'fal-image',
-      userId,
-      contentType: 'image/png',
-    });
-    log.info(`[fal/cover] OK → ${url}`);
-    res.json({ url, frameUrl: framePersist.url, model });
+    log.info(`[fal/cover] OK → ${urls.length} capa(s)`);
+    res.json({ urls, url: urls[0], frameUrl: framePersist.url });
   } catch (err: any) {
     log.error('[fal/cover] erro:', err.message);
     res.status(500).json({ error: err.message });

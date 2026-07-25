@@ -2335,7 +2335,14 @@ videoRouter.post(
       '9:16': [1080, 1920],
       '16:9': [1920, 1080],
     };
-    const [W, H] = AR[String((req.body || {}).aspectRatio)] || [1080, 1080];
+    let [W, H] = AR[String((req.body || {}).aspectRatio)] || [1080, 1080];
+    // PRÉVIA RÁPIDA (rascunho): metade da resolução = ¼ dos pixels → render bem
+    // mais rápido pra conferir o corte antes do render final em 1080p.
+    const draft = !!(req.body || {}).draft;
+    if (draft) {
+      W = Math.max(2, Math.round((W * 0.5) / 2) * 2);
+      H = Math.max(2, Math.round((H * 0.5) / 2) * 2);
+    }
     const fit = String((req.body || {}).fit) === 'contain' ? 'contain' : 'cover';
     const scaleFit =
       fit === 'cover'

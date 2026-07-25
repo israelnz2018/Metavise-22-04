@@ -4,6 +4,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage, auth } from '@/lib/firebase';
 import { Sparkles, Loader2, X, Check, ImageIcon, ArrowRight, Film, Music } from 'lucide-react';
 import { useJobs } from '@/lib/jobsStore';
+import { logCreativeCost, COST_RATES } from '@/lib/creativeCost';
 
 interface Props {
   user?: { uid?: string } | null;
@@ -180,6 +181,7 @@ export function VideoIATab({
       ]);
       toast.success('Clipe pronto!', { id: tid });
       updateJob(jid, { status: 'done' });
+      logCreativeCost(`Clipe Kling (${durationSec}s)`, durationSec * COST_RATES.klingPerSec);
     } catch (e: any) {
       toast.error(e?.message || 'Erro ao gerar.', { id: tid });
       updateJob(jid, { status: 'error' });
@@ -210,6 +212,7 @@ export function VideoIATab({
       setSyncIdx(null);
       toast.success('Vídeo com a voz sincronizada pronto!', { id: tid });
       updateJob(jid, { status: 'done' });
+      logCreativeCost('Lip-sync (fal)', COST_RATES.lipsync);
     } catch (e: any) {
       toast.error(e?.message || 'Erro no lip-sync.', { id: tid });
       updateJob(jid, { status: 'error' });

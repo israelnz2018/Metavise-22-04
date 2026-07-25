@@ -8,6 +8,7 @@ import { AvatarFramingModal, AvatarFraming, DEFAULT_AVATAR_FRAMING } from '@/com
 import { Film, Upload, Loader2, Trash2, ArrowUp, ArrowDown, Check, Music, X, Plus, Maximize, Play, Pause, GripVertical, Undo2, Redo2, ImageIcon, Download } from 'lucide-react';
 import { useJobs } from '@/lib/jobsStore';
 import { triggerProjectSave } from '@/lib/autosave';
+import { logCreativeCost, COST_RATES } from '@/lib/creativeCost';
 
 interface Clip {
   url: string;
@@ -318,8 +319,12 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
   // Gerar música (arco emocional) e colar embaixo do vídeo montado.
   const [musicGen, setMusicGen] = useState(false);
   // Capa/thumbnail do criativo (Nano Banana redesenha um frame do vídeo).
+  // coverUrl = a escolhida; coverOptions = as variações geradas pra escolher.
   const [coverGen, setCoverGen] = useState(false);
   const [coverUrl, setCoverUrl] = useState<string>(draft.coverUrl || '');
+  const [coverOptions, setCoverOptions] = useState<string[]>(
+    Array.isArray(draft.coverOptions) ? draft.coverOptions : draft.coverUrl ? [draft.coverUrl] : []
+  );
   // Trocar b-roll de um trecho JÁ aplicado na timeline (busca Pexels por item).
   const [brollSwap, setBrollSwap] = useState<{
     itemIdx: number;
@@ -584,10 +589,10 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
     if (clips.length === 0 && !resultUrl && !audioUrl) return;
     setConfig((prev: any) => ({
       ...prev,
-      montagem: { clips, items, texts, resultUrl, coverUrl, muted, audioUrl, audioDuration, aspect, fit, avatarUrl: avatarBase, avatarFraming, avatarStartSec, fullAudioUrl, blockSizeSec, blockEnds },
+      montagem: { clips, items, texts, resultUrl, coverUrl, coverOptions, muted, audioUrl, audioDuration, aspect, fit, avatarUrl: avatarBase, avatarFraming, avatarStartSec, fullAudioUrl, blockSizeSec, blockEnds },
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clips, items, texts, resultUrl, coverUrl, muted, audioUrl, audioDuration, aspect, fit]);
+  }, [clips, items, texts, resultUrl, coverUrl, coverOptions, muted, audioUrl, audioDuration, aspect, fit]);
 
   // Preenche a duração de trechos que ainda não têm (1 por vez, sem travar).
   useEffect(() => {
@@ -1496,6 +1501,85 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
   const avatarContinuousBoundary = (a?: TLItem, b?: TLItem) =>
     !!avatarBase && !!a?.layout && a.layout !== 'full' && a.layout === b?.layout;
 
+  // Monta o payload de clipes da timeline (mesmo pro render final e pro rascunho).
+  const buildTimelineClips = () => {
+    const sorted = [...items].sort((a, b) => a.atSec - b.atSec);
+    return sorted.map((it, i, arr) => {
+      // Avatar contínuo → sem transição (nem som) no corte do meio.
+      const inCut = i > 0 && avatarContinuousBoundary(arr[i - 1], it);
+      const outCut = i < arr.length - 1 && avatarContinuousBoundary(it, arr[i + 1]);
+      return {
+        url: clips[it.clipIdx]?.url,
+        url2: it.clipIdx2 != null ? clips[it.clipIdx2]?.url : undefined,
+        layout: it.layout && it.layout !== 'full' && avatarBase ? it.layout : undefined,
+        avatarUrl: it.layout && it.layout !== 'full' && avatarBase ? avatarBase : undefined,
+        avatarSeek: it.layout && it.layout !== 'full' && avatarBase ? avatarStartSec + it.atSec : undefined,
+        splitCX: it.layout && it.layout !== 'full' && avatarBase ? framing.splitCX : undefined,
+        splitCY: it.layout && it.layout !== 'full' && avatarBase ? framing.splitCY : undefined,
+        splitSize: it.layout && it.layout !== 'full' && avatarBase ? framing.splitSize : undefined,
+        pipCX: it.layout && it.layout !== 'full' && avatarBase ? framing.pipCX : undefined,
+        pipCY: it.layout && it.layout !== 'full' && avatarBase ? framing.pipCY : undefined,
+        pipSize: it.layout && it.layout !== 'full' && avatarBase ? framing.pipSize : undefined,
+        cropL: it.layout && it.layout !== 'full' && avatarBase ? framing.cropL : undefined,
+        cropR: it.layout && it.layout !== 'full' && avatarBase ? framing.cropR : undefined,
+        cropT: it.layout && it.layout !== 'full' && avatarBase ? framing.cropT : undefined,
+        cropB: it.layout && it.layout !== 'full' && avatarBase ? framing.cropB : undefined,
+        atSec: it.atSec,
+        endSec: itemEnd(it),
+        trimStart: 0,
+        transIn: inCut ? 'none' : it.transIn || 'none',
+        transInDur: it.transInDur || 0.1,
+        soundIn: inCut ? '' : it.soundIn || '',
+        soundMid: it.soundMid || '',
+        soundMidAlign: it.soundMidAlign || '',
+        bw: it.bw || false,
+        transOut: outCut ? 'none' : it.transOut || 'none',
+        transOutDur: it.transOutDur || 0.1,
+        soundOut: outCut ? '' : it.soundOut || '',
+      };
+    });
+  };
+
+  // PRÉVIA RÁPIDA: render em baixa resolução (draft) só pra conferir o corte.
+  // NÃO vai pra Edição nem vira o vídeo final — abre num player à parte.
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [previewing, setPreviewing] = useState(false);
+  const composeDraft = async () => {
+    if (!uid) return;
+    if (!isTimeline) return toast.error('A prévia rápida é da timeline (com áudio).');
+    if (items.length === 0) return toast.error('Adicione pelo menos um trecho na timeline.');
+    setPreviewing(true);
+    const tid = 'montagem-preview';
+    const jid = addJob('Prévia rápida (rascunho)');
+    toast.loading('Gerando prévia rápida (baixa resolução)…', { id: tid });
+    try {
+      const r = await fetch('/api/video/timeline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: uid,
+          audioUrl,
+          durationSec: audioDuration,
+          aspectRatio: aspect,
+          fit,
+          texts,
+          draft: true,
+          clips: buildTimelineClips(),
+        }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'Falha na prévia.');
+      setPreviewUrl(data.url);
+      toast.success('Prévia pronta — é rascunho, não é o vídeo final.', { id: tid });
+      updateJob(jid, { status: 'done' });
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro na prévia.', { id: tid });
+      updateJob(jid, { status: 'error' });
+    } finally {
+      setPreviewing(false);
+    }
+  };
+
   const compose = async () => {
     if (!uid) return;
     setRendering(true);
@@ -1508,7 +1592,6 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       let data: any;
       if (isTimeline) {
         if (items.length === 0) throw new Error('Adicione pelo menos um trecho na timeline.');
-        const sorted = [...items].sort((a, b) => a.atSec - b.atSec);
         const r = await fetch('/api/video/timeline', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1519,40 +1602,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
             aspectRatio: aspect,
             fit,
             texts,
-            clips: sorted.map((it, i, arr) => {
-              // Avatar contínuo → sem transição (nem som) no corte do meio.
-              const inCut = i > 0 && avatarContinuousBoundary(arr[i - 1], it);
-              const outCut = i < arr.length - 1 && avatarContinuousBoundary(it, arr[i + 1]);
-              return {
-              url: clips[it.clipIdx]?.url,
-              url2: it.clipIdx2 != null ? clips[it.clipIdx2]?.url : undefined,
-              layout: it.layout && it.layout !== 'full' && avatarBase ? it.layout : undefined,
-              avatarUrl: it.layout && it.layout !== 'full' && avatarBase ? avatarBase : undefined,
-              avatarSeek: it.layout && it.layout !== 'full' && avatarBase ? avatarStartSec + it.atSec : undefined,
-              splitCX: it.layout && it.layout !== 'full' && avatarBase ? framing.splitCX : undefined,
-              splitCY: it.layout && it.layout !== 'full' && avatarBase ? framing.splitCY : undefined,
-              splitSize: it.layout && it.layout !== 'full' && avatarBase ? framing.splitSize : undefined,
-              pipCX: it.layout && it.layout !== 'full' && avatarBase ? framing.pipCX : undefined,
-              pipCY: it.layout && it.layout !== 'full' && avatarBase ? framing.pipCY : undefined,
-              pipSize: it.layout && it.layout !== 'full' && avatarBase ? framing.pipSize : undefined,
-              cropL: it.layout && it.layout !== 'full' && avatarBase ? framing.cropL : undefined,
-              cropR: it.layout && it.layout !== 'full' && avatarBase ? framing.cropR : undefined,
-              cropT: it.layout && it.layout !== 'full' && avatarBase ? framing.cropT : undefined,
-              cropB: it.layout && it.layout !== 'full' && avatarBase ? framing.cropB : undefined,
-              atSec: it.atSec,
-              endSec: itemEnd(it),
-              trimStart: 0,
-              transIn: inCut ? 'none' : it.transIn || 'none',
-              transInDur: it.transInDur || 0.1,
-              soundIn: inCut ? '' : it.soundIn || '',
-              soundMid: it.soundMid || '',
-              soundMidAlign: it.soundMidAlign || '',
-              bw: it.bw || false,
-              transOut: outCut ? 'none' : it.transOut || 'none',
-              transOutDur: it.transOutDur || 0.1,
-              soundOut: outCut ? '' : it.soundOut || '',
-              };
-            }),
+            clips: buildTimelineClips(),
           }),
         });
         data = await r.json();
@@ -1635,6 +1685,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       );
       toast.success('Música adicionada — vídeo com trilha pronto!', { id: tid });
       updateJob(jid, { status: 'done' });
+      logCreativeCost('Música (ElevenLabs)', COST_RATES.music);
     } catch (e: any) {
       toast.error(e?.message || 'Erro na música.', { id: tid });
       updateJob(jid, { status: 'error' });
@@ -1657,13 +1708,16 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       const r = await fetch('/api/fal/cover', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ videoUrl: resultUrl, atSec, aspectRatio: aspect, userId: uid }),
+        body: JSON.stringify({ videoUrl: resultUrl, atSec, aspectRatio: aspect, count: 3, userId: uid }),
       });
       const d = await r.json();
-      if (!r.ok || !d.url) throw new Error(d.error || 'Falha ao gerar a capa.');
-      setCoverUrl(d.url);
-      toast.success('Capa pronta!', { id: tid });
+      const urls: string[] = Array.isArray(d.urls) ? d.urls : d.url ? [d.url] : [];
+      if (!r.ok || urls.length === 0) throw new Error(d.error || 'Falha ao gerar a capa.');
+      setCoverOptions(urls);
+      setCoverUrl(urls[0]!); // pré-seleciona a 1ª; o usuário troca clicando
+      toast.success(`${urls.length} opções de capa prontas — escolha uma!`, { id: tid });
       updateJob(jid, { status: 'done' });
+      logCreativeCost('Capa/thumbnail (Nano Banana)', COST_RATES.covers(urls.length));
       triggerProjectSave('capa');
     } catch (e: any) {
       toast.error(e?.message || 'Erro ao gerar a capa.', { id: tid });
@@ -3130,6 +3184,44 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
         )}
       </button>
 
+      {/* PRÉVIA RÁPIDA: rascunho em baixa resolução pra ver o corte antes do
+          render final (bem mais rápido). Só na timeline. */}
+      {isTimeline && (
+        <button
+          onClick={composeDraft}
+          disabled={previewing || rendering || items.length === 0 || !audioDuration}
+          className="w-full -mt-1 py-2.5 rounded-2xl font-black uppercase tracking-widest text-xs border-2 border-blue-300 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+          title="Render rápido em baixa resolução só pra conferir o corte (não vai pra Edição)"
+        >
+          {previewing ? (
+            <><Loader2 size={14} className="animate-spin" /> Gerando prévia…</>
+          ) : (
+            <><Play size={14} /> Prévia rápida (rascunho)</>
+          )}
+        </button>
+      )}
+
+      {previewUrl && (
+        <div className="space-y-2 p-3 rounded-2xl ring-1 ring-blue-200 dark:ring-blue-900 bg-blue-50/50 dark:bg-blue-950/20">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] font-black uppercase tracking-widest text-blue-700 dark:text-blue-300">
+              Prévia rápida (rascunho — baixa resolução)
+            </p>
+            <button
+              onClick={() => setPreviewUrl('')}
+              className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-red-500"
+            >
+              <X size={12} /> fechar
+            </button>
+          </div>
+          <video src={previewUrl} controls className="w-full max-h-[360px] rounded-xl bg-black" />
+          <p className="text-[10px] text-gray-500">
+            É só rascunho pra conferir o corte. Quando estiver bom, clique em{' '}
+            <b>Montar</b> pra gerar o vídeo final em alta resolução.
+          </p>
+        </div>
+      )}
+
       {resultUrl && (
         <div className="space-y-3 p-4 rounded-2xl ring-1 ring-green-200 dark:ring-green-900 bg-green-50/60 dark:bg-green-950/30">
           <div className="flex items-center justify-between gap-2">
@@ -3162,23 +3254,48 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
             className="w-full py-3 bg-pink-600 text-white rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-pink-700 disabled:opacity-60 flex items-center justify-center gap-2"
           >
             {coverGen ? (
-              <><Loader2 size={16} className="animate-spin" /> Gerando capa…</>
+              <><Loader2 size={16} className="animate-spin" /> Gerando 3 capas…</>
             ) : (
-              <><ImageIcon size={16} /> Gerar capa/thumbnail · ≈ $0.04</>
+              <><ImageIcon size={16} /> Gerar 3 capas/thumbnails · ≈ $0.12</>
             )}
           </button>
-          {coverUrl && (
+          {coverOptions.length > 0 && (
             <div className="space-y-2">
-              <img src={coverUrl} alt="capa" className="w-full max-h-[420px] object-contain rounded-xl bg-black" />
-              <a
-                href={coverUrl}
-                target="_blank"
-                rel="noreferrer"
-                download
-                className="inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-300 hover:underline"
-              >
-                <Download size={12} /> Baixar capa
-              </a>
+              <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">
+                Escolha a capa (clique na que para o scroll)
+              </span>
+              <div className={`grid gap-2 ${coverOptions.length > 1 ? 'grid-cols-3' : 'grid-cols-1'}`}>
+                {coverOptions.map((u, i) => {
+                  const chosen = u === coverUrl;
+                  return (
+                    <div key={u} className="space-y-1">
+                      <button
+                        onClick={() => setCoverUrl(u)}
+                        className={`relative w-full rounded-xl overflow-hidden ring-2 ${
+                          chosen ? 'ring-pink-500' : 'ring-transparent hover:ring-gray-300'
+                        }`}
+                        title={chosen ? 'Capa escolhida' : 'Usar esta capa'}
+                      >
+                        <img src={u} alt={`capa ${i + 1}`} className="w-full object-contain bg-black max-h-[280px]" />
+                        {chosen && (
+                          <span className="absolute top-1 right-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-pink-600 text-white text-[9px] font-black uppercase">
+                            <Check size={10} /> escolhida
+                          </span>
+                        )}
+                      </button>
+                      <a
+                        href={u}
+                        target="_blank"
+                        rel="noreferrer"
+                        download
+                        className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:underline"
+                      >
+                        <Download size={11} /> baixar
+                      </a>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
           {onGoToEdit && (

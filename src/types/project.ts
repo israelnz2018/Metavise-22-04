@@ -26,7 +26,9 @@ export type Step =
   | 'merge'
   | 'montagem'
   | 'final'
-  | 'scene-builder';
+  | 'scene-builder'
+  | 'criativos'
+  | 'performance';
 
 export type ProjectType = 'complete' | 'copy' | 'video' | 'editing';
 

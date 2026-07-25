@@ -4,6 +4,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage, auth } from '@/lib/firebase';
 import { ImageIcon, Loader2, X, Check, Download, Sparkles, Film } from 'lucide-react';
 import { useJobs } from '@/lib/jobsStore';
+import { logCreativeCost, COST_RATES } from '@/lib/creativeCost';
 
 interface Props {
   user?: { uid?: string } | null;
@@ -132,6 +133,7 @@ export function ImagemIATab({ user, onUseInVideo }: Props) {
       setResults((prev) => [{ url: d.url, prompt: prompt.trim(), at: Date.now() }, ...prev]);
       toast.success('Imagem pronta!', { id: tid });
       updateJob(jid, { status: 'done' });
+      logCreativeCost('Imagem IA (Nano Banana)', COST_RATES.image);
     } catch (e: any) {
       toast.error(e?.message || 'Erro ao gerar.', { id: tid });
       updateJob(jid, { status: 'error' });

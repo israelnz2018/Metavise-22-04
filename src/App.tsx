@@ -7,6 +7,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import HookVisualGenerator from './components/HookVisualGenerator';
 import VozPremium from './components/VozPremium';
 import { IntegrationsTab } from './pages/IntegrationsTab';
+import { CriativosTab } from './pages/CriativosTab';
+import { PerformanceTab } from './pages/PerformanceTab';
 import { ProjectsTab } from './pages/ProjectsTab';
 // SourceTab + PlanTab are lazy-loaded — they pull in jsPDF / heavy CSS
 // that aren't needed for the initial app boot. React.lazy splits them
@@ -47,6 +49,8 @@ import {
   Download,
   LogOut,
   Settings,
+  Clapperboard,
+  BarChart3,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Toaster, toast } from 'react-hot-toast';
@@ -84,6 +88,7 @@ import { COSTS } from './lib/costs';
 import { CostConfirmModal } from './components/CostConfirmModal';
 import { JobsPanel } from './components/JobsPanel';
 import { triggerProjectSave } from './lib/autosave';
+import { COST_RATES, logCreativeCost } from './lib/creativeCost';
 import { BriefEditModal } from './components/BriefEditModal';
 import type { CreativeBrief, WeightedPersona } from './types/project';
 // Step tabs are lazy-loaded so the initial JS payload stays small.
@@ -3233,6 +3238,23 @@ export default function App() {
     };
   }, []);
 
+  // Custo estimado POR CRIATIVO: cada geração dispara 'metavise-cost' com o valor
+  // estimado; acumulamos em config.costs (por subprojeto). Um badge mostra o total.
+  useEffect(() => {
+    const onCost = (e: Event) => {
+      const detail = ((e as CustomEvent).detail || {}) as any;
+      const amount = Number(detail.amount) || 0;
+      if (!amount) return;
+      const entry = { label: String(detail.label || 'Geração'), amount, at: Number(detail.at) || Date.now() };
+      setConfig((prev: any) => ({
+        ...prev,
+        costs: [...(Array.isArray(prev.costs) ? prev.costs : []), entry].slice(-100),
+      }));
+    };
+    window.addEventListener('metavise-cost', onCost);
+    return () => window.removeEventListener('metavise-cost', onCost);
+  }, []);
+
   // Dado um config de variante, descobre a aba MAIS avançada que já tem
   // conteúdo gerado — pra "Carregar Versão" cair direto onde o usuário parou,
   // não na primeira etapa. Ordem do mais fundo pro mais raso.
@@ -4429,6 +4451,7 @@ export default function App() {
 
                 // Save por evento: vídeo do avatar pronto → persiste o projeto.
                 triggerProjectSave('video-avatar');
+                logCreativeCost('Vídeo do avatar (HeyGen)', COST_RATES.heygenVideo);
               });
             } else {
               setVideoUrl(statusData.video_url);
@@ -4439,6 +4462,7 @@ export default function App() {
                 tag: 'metavise-render',
               });
               triggerProjectSave('video-avatar');
+              logCreativeCost('Vídeo do avatar (HeyGen)', COST_RATES.heygenVideo);
             }
           } else {
             addLog('VIDEO_FAILED');
@@ -4752,6 +4776,7 @@ export default function App() {
 
   const canNavigateTo = (stepId: Step) => {
     if (stepId === 'projects' || stepId === 'integrations') return true;
+    if (stepId === 'criativos' || stepId === 'performance') return !!currentProjectId;
     if (!currentProjectId) {
       toast.error("Por favor, selecione um projeto primeiro em 'Meus Projetos'.", {
         icon: '📁',
@@ -5519,6 +5544,7 @@ export default function App() {
         return { ...prev, edit: { ...prev.edit, [key]: [...current, finalUrl] } };
       });
       triggerProjectSave('edicao');
+      logCreativeCost('Edição (ZapCap)', COST_RATES.zapcapEdit);
       toast.success(`Vídeo pronto — b-roll a partir de ${zapBrollStartSec}s!`, {
         id: tid,
         duration: 6000,
@@ -5785,6 +5811,7 @@ export default function App() {
             };
           });
           triggerProjectSave('edicao');
+          logCreativeCost('Edição (ZapCap)', COST_RATES.zapcapEdit);
 
           // Reset the auto-retry guard so the NEXT user-initiated render
           // can also auto-retry if it hits the same b-roll failure.
@@ -6309,6 +6336,7 @@ export default function App() {
 
           toast.success('Vídeo editado com sucesso!', { id: 'zapcap-render' });
           triggerProjectSave('edicao');
+          logCreativeCost('Edição (ZapCap)', COST_RATES.zapcapEdit);
           setLoading(false);
         } else if (status === 'failed' || status === 'error') {
           isRenderingRef.current = false;
@@ -6756,6 +6784,34 @@ export default function App() {
                   </button>
                 );
               })()}
+            {currentProjectId &&
+              (() => {
+                const costs = ((config as any).costs as { label: string; amount: number }[]) || [];
+                if (costs.length === 0) return null;
+                const total = costs.reduce((s, c) => s + (Number(c.amount) || 0), 0);
+                // Agrupa por rótulo pro tooltip (quantas de cada + subtotal).
+                const byLabel = new Map<string, { n: number; sum: number }>();
+                for (const c of costs) {
+                  const cur = byLabel.get(c.label) || { n: 0, sum: 0 };
+                  cur.n += 1;
+                  cur.sum += Number(c.amount) || 0;
+                  byLabel.set(c.label, cur);
+                }
+                const breakdown = Array.from(byLabel.entries())
+                  .map(([l, v]) => `${l} ×${v.n}: US$ ${v.sum.toFixed(2)}`)
+                  .join('\n');
+                return (
+                  <div
+                    className="hidden sm:flex items-center gap-2 px-3.5 py-2 bg-gradient-to-br from-fuchsia-50 to-fuchsia-100/60 dark:from-fuchsia-950/40 dark:to-fuchsia-900/30 rounded-xl ring-1 ring-fuchsia-200/60 dark:ring-fuchsia-800/60 text-fuchsia-700 dark:text-fuchsia-300 shadow-sm"
+                    title={`Custo ESTIMADO deste criativo (fal + ElevenLabs + HeyGen + ZapCap):\n\n${breakdown}\n\nTotal: US$ ${total.toFixed(2)}\n\nSão estimativas — o valor real sai do saldo de cada provedor.`}
+                  >
+                    <span className="text-sm font-black tabular-nums">US$ {total.toFixed(2)}</span>
+                    <span className="text-[10px] font-bold opacity-70 uppercase tracking-widest">
+                      Custo criativo
+                    </span>
+                  </div>
+                );
+              })()}
             <RecentProjectsButton
               projects={projects}
               currentProjectId={currentProjectId}
@@ -6773,6 +6829,32 @@ export default function App() {
               aria-label="Configurações"
             >
               <Settings size={20} />
+            </button>
+            <button
+              onClick={() => currentProjectId && setCurrentStep('criativos')}
+              disabled={!currentProjectId}
+              className={`p-2 transition-colors disabled:opacity-30 ${
+                currentStep === 'criativos'
+                  ? 'text-blue-600 dark:text-blue-400'
+                  : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+              }`}
+              title="Criativos (biblioteca de vídeos prontos)"
+              aria-label="Criativos"
+            >
+              <Clapperboard size={20} />
+            </button>
+            <button
+              onClick={() => currentProjectId && setCurrentStep('performance')}
+              disabled={!currentProjectId}
+              className={`p-2 transition-colors disabled:opacity-30 ${
+                currentStep === 'performance'
+                  ? 'text-blue-600 dark:text-blue-400'
+                  : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+              }`}
+              title="Performance (Meta Ads)"
+              aria-label="Performance"
+            >
+              <BarChart3 size={20} />
             </button>
             <button
               onClick={handleLogout}
@@ -6932,6 +7014,18 @@ export default function App() {
                     onSave: handleSaveZapCapKey,
                     onTest: handleTestZapCapConnection,
                   }}
+                />
+              )}
+              {currentStep === 'criativos' && (
+                <CriativosTab
+                  projectId={currentProjectId}
+                  projectName={projects.find((p) => p.id === currentProjectId)?.name}
+                />
+              )}
+              {currentStep === 'performance' && (
+                <PerformanceTab
+                  projectId={currentProjectId}
+                  projectName={projects.find((p) => p.id === currentProjectId)?.name}
                 />
               )}
               {currentStep === 'projects' && (
@@ -7598,7 +7692,10 @@ export default function App() {
                             }));
                           }
                           // Save por evento: voz/áudio gerado → persiste o projeto.
-                          triggerProjectSave('voz');
+                          if (!existing) {
+                            triggerProjectSave('voz');
+                            logCreativeCost('Voz/narração (ElevenLabs)', COST_RATES.voice);
+                          }
                         }}
                         onDeleteAudioFromHistory={(
                           urlToDelete: string,
