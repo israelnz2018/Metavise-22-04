@@ -3450,6 +3450,58 @@ export default function App() {
     }
   };
 
+  // REMIXAR criativo: duplica o subprojeto atual num novo, mantendo o trabalho
+  // (timeline, clipes/b-roll, áudio, copy, voz, avatar) e zerando só os RESULTADOS
+  // finais — pra trocar gancho/música/b-roll e re-montar sem começar do zero.
+  const handleRemixCurrent = async () => {
+    if (!currentProjectId) {
+      toast.error('Salve o projeto antes de remixar.');
+      return;
+    }
+    try {
+      const proj = projects.find((p) => p.id === currentProjectId);
+      const baseName =
+        ((proj?.variants as any[]) || []).find((v) => v.id === currentVariantId)?.name ||
+        proj?.name ||
+        'Criativo';
+      const m = ((config as any).montagem || {}) as any;
+      const clonedConfig: AdConfig = {
+        ...config,
+        // Zera SÓ os resultados finais — mantém timeline, clipes, áudio, copy e voz.
+        costs: [],
+        montagem: { ...m, resultUrl: '', coverUrl: '', coverOptions: [] },
+        edit: {
+          ...config.edit,
+          zapVersions: [],
+          zapHookVersions: [],
+          zapVslVersions: [],
+          zapJoinedVersions: [],
+        },
+      } as any;
+      const newVariant = {
+        id: `variant_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        name: `${baseName} (remix)`,
+        config: clonedConfig,
+        createdAt: new Date().toISOString(),
+      };
+      await saveVariant(currentProjectId, newVariant);
+      setProjects((prev) =>
+        prev.map((p) =>
+          p.id === currentProjectId
+            ? ({ ...p, variants: [...((p.variants as any[]) || []), newVariant] } as any)
+            : p
+        )
+      );
+      setCurrentVariantId(newVariant.id);
+      setConfig(clonedConfig);
+      setCurrentStep('montagem');
+      toast.success('Remix criado! Troque o gancho, a música ou o b-roll e monte de novo.');
+    } catch (err) {
+      console.error('Error remixing creative:', err);
+      toast.error('Falha ao remixar.');
+    }
+  };
+
   const handleRenameVariant = async (projectId: string, variantId: string, newName: string) => {
     if (!newName.trim()) {
       toast.error('Nome não pode ser vazio.');
@@ -6615,7 +6667,7 @@ export default function App() {
               internamente, e a aba atual sempre fica visível. */}
           {/* Wrapper que segura os chevrons + a nav rolável. min-w-0 deixa
               encolher; gap-1 dá um respiro pequeno entre seta e container. */}
-          <div className="hidden md:flex min-w-0 items-center gap-1">
+          <div className="hidden md:flex flex-1 min-w-0 items-center gap-1">
             {/* Seta esquerda — só aparece quando há overflow pra esquerda.
                 tabindex=-1 + aria-hidden quando inativa pra não poluir tab
                 navigation. */}
@@ -6707,7 +6759,7 @@ export default function App() {
             </button>
           </div>
 
-          <div className="flex items-center gap-4 flex-shrink-0">
+          <div className="flex items-center gap-2 flex-shrink-0">
             {/* Credits chip. F7.6 — agora clicável: clique abre prompt pra
                 adicionar créditos rapidamente (dev convenience). Em produção
                 isso deve virar fluxo de pagamento real. */}
@@ -6732,7 +6784,7 @@ export default function App() {
                   toast.error(`Falha: ${err.message}`);
                 }
               }}
-              className="hidden sm:flex items-center gap-2 px-3.5 py-2 bg-gradient-to-br from-blue-50 to-blue-100/60 dark:from-blue-950/40 dark:to-blue-900/30 rounded-xl ring-1 ring-blue-200/60 dark:ring-blue-800/60 shadow-sm shadow-blue-200/30 dark:shadow-blue-900/20 hover:ring-blue-400 transition-all"
+              className="hidden 2xl:flex items-center gap-2 px-3 py-1.5 bg-gradient-to-br from-blue-50 to-blue-100/60 dark:from-blue-950/40 dark:to-blue-900/30 rounded-xl ring-1 ring-blue-200/60 dark:ring-blue-800/60 shadow-sm shadow-blue-200/30 dark:shadow-blue-900/20 hover:ring-blue-400 transition-all"
               title="Clique pra adicionar créditos (dev)"
             >
               <Sparkles className="text-blue-600 dark:text-blue-400" size={15} />
@@ -6766,7 +6818,7 @@ export default function App() {
                 return (
                   <button
                     onClick={promptSetApiBalance}
-                    className={`hidden sm:flex items-center gap-2 px-3.5 py-2 bg-gradient-to-br rounded-xl ring-1 shadow-sm hover:brightness-105 transition-all ${toneCls[tone]}`}
+                    className={`hidden lg:flex items-center gap-2 px-3 py-1.5 bg-gradient-to-br rounded-xl ring-1 shadow-sm hover:brightness-105 transition-all ${toneCls[tone]}`}
                     title={
                       hasBalance
                         ? `Saldo estimado da conta Anthropic.\nSaldo informado: US$ ${apiSpend.balanceBase!.toFixed(2)}\nGasto desde então: US$ ${(apiSpend.balanceBase! - avail).toFixed(4)}\nGasto total medido: US$ ${apiSpend.costUSD.toFixed(4)}\n\nA Anthropic não expõe o saldo — clique pra atualizar após adicionar fundos.`
@@ -6802,7 +6854,7 @@ export default function App() {
                   .join('\n');
                 return (
                   <div
-                    className="hidden sm:flex items-center gap-2 px-3.5 py-2 bg-gradient-to-br from-fuchsia-50 to-fuchsia-100/60 dark:from-fuchsia-950/40 dark:to-fuchsia-900/30 rounded-xl ring-1 ring-fuchsia-200/60 dark:ring-fuchsia-800/60 text-fuchsia-700 dark:text-fuchsia-300 shadow-sm"
+                    className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-gradient-to-br from-fuchsia-50 to-fuchsia-100/60 dark:from-fuchsia-950/40 dark:to-fuchsia-900/30 rounded-xl ring-1 ring-fuchsia-200/60 dark:ring-fuchsia-800/60 text-fuchsia-700 dark:text-fuchsia-300 shadow-sm"
                     title={`Custo ESTIMADO deste criativo (fal + ElevenLabs + HeyGen + ZapCap):\n\n${breakdown}\n\nTotal: US$ ${total.toFixed(2)}\n\nSão estimativas — o valor real sai do saldo de cada provedor.`}
                   >
                     <span className="text-sm font-black tabular-nums">US$ {total.toFixed(2)}</span>
@@ -7996,6 +8048,7 @@ export default function App() {
                       triggerProjectSave('montagem');
                     }}
                     onGoToEdit={() => setCurrentStep('edit-zap')}
+                    onRemix={handleRemixCurrent}
                   />
                 </LazyTab>
               )}

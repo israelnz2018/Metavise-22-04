@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage, auth } from '@/lib/firebase';
@@ -245,6 +245,7 @@ interface Props {
   user?: { uid?: string } | null;
   onAddUploadedVideo?: (video: any, isHook: boolean) => void;
   onGoToEdit?: () => void;
+  onRemix?: () => void;
 }
 
 /**
@@ -254,7 +255,7 @@ interface Props {
  *    Buracos = tela preta; a voz toca por cima.
  *  • SEM áudio → SEQUÊNCIA: cola os trechos em ordem.
  */
-export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoToEdit }: Props) {
+export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoToEdit, onRemix }: Props) {
   const { addJob, updateJob } = useJobs();
   const draft = (config?.montagem as any) || {};
   const [clips, setClips] = useState<Clip[]>(() => (Array.isArray(draft.clips) ? draft.clips : []));
@@ -1752,6 +1753,49 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
 
   const displayItems = items.map((it, idx) => ({ it, idx })).sort((a, b) => a.it.atSec - b.it.atSec);
 
+  // VALIDAÇÃO PRÉ-RENDER: aponta problemas ANTES de gastar um render — buracos na
+  // timeline, trecho menor que o slot (congela/repete), sobreposição, áudio
+  // faltando. Não bloqueia (Metavise nunca proíbe) — só avisa.
+  const timelineWarnings = useMemo(() => {
+    if (!isTimeline) return [] as string[];
+    const w: string[] = [];
+    const GAP = 0.35; // tolerância em segundos
+    if (!audioUrl) w.push('Sem áudio — a timeline precisa de um áudio pra montar no tempo.');
+    if (items.length === 0) return w;
+    const sorted = [...items].sort((a, b) => a.atSec - b.atSec);
+    // Buraco no começo.
+    if (sorted[0]!.atSec > GAP) {
+      w.push(`Os primeiros ${sorted[0]!.atSec.toFixed(1)}s ficam sem vídeo (tela pode ficar preta).`);
+    }
+    for (let i = 0; i < sorted.length; i++) {
+      const it = sorted[i]!;
+      const end = itemEnd(it);
+      const slot = end - it.atSec;
+      // Clipe mais curto que o slot → congela/repete o último frame.
+      const clipDur = clips[it.clipIdx]?.duration || 0;
+      if (clipDur > 0 && clipDur < slot - GAP) {
+        w.push(
+          `Trecho ${i + 1} (${clips[it.clipIdx]?.label || 'trecho'}): clipe tem ${clipDur.toFixed(1)}s mas o slot é ${slot.toFixed(1)}s — vai congelar/repetir o fim.`
+        );
+      }
+      // Buraco/sobreposição com o próximo.
+      const next = sorted[i + 1];
+      if (next) {
+        if (next.atSec > end + GAP) {
+          w.push(`Buraco de ${(next.atSec - end).toFixed(1)}s entre os trechos ${i + 1} e ${i + 2}.`);
+        } else if (next.atSec < end - GAP) {
+          w.push(`Trechos ${i + 1} e ${i + 2} se sobrepõem por ${(end - next.atSec).toFixed(1)}s.`);
+        }
+      }
+    }
+    // Buraco no fim.
+    const last = sorted[sorted.length - 1]!;
+    if (audioDuration && itemEnd(last) < audioDuration - GAP) {
+      w.push(`Os últimos ${(audioDuration - itemEnd(last)).toFixed(1)}s ficam sem vídeo.`);
+    }
+    return w;
+  }, [isTimeline, audioUrl, items, clips, audioDuration]);
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <SoundLibraryModal
@@ -3172,6 +3216,27 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
         </div>
       </div>
 
+      {isTimeline && timelineWarnings.length > 0 && (
+        <div className="p-3 rounded-2xl ring-1 ring-amber-300 dark:ring-amber-800 bg-amber-50/70 dark:bg-amber-950/20 space-y-1.5">
+          <div className="flex items-center gap-1.5 text-amber-800 dark:text-amber-300">
+            <span className="text-sm">⚠️</span>
+            <span className="text-[11px] font-black uppercase tracking-widest">
+              {timelineWarnings.length} aviso(s) antes de montar
+            </span>
+          </div>
+          <ul className="list-disc pl-5 space-y-0.5">
+            {timelineWarnings.map((wmsg, i) => (
+              <li key={i} className="text-[11px] text-amber-800/90 dark:text-amber-300/90">
+                {wmsg}
+              </li>
+            ))}
+          </ul>
+          <p className="text-[10px] text-amber-700/70 dark:text-amber-400/70">
+            Dá pra montar mesmo assim — é só um alerta pra não gastar render num vídeo quebrado.
+          </p>
+        </div>
+      )}
+
       <button
         onClick={compose}
         disabled={rendering || (isTimeline ? items.length === 0 || !audioDuration : clips.length === 0)}
@@ -3297,6 +3362,15 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
                 })}
               </div>
             </div>
+          )}
+          {onRemix && (
+            <button
+              onClick={onRemix}
+              className="w-full py-3 rounded-2xl font-black uppercase tracking-widest text-sm border-2 border-indigo-300 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 flex items-center justify-center gap-2"
+              title="Cria uma cópia deste criativo pra trocar gancho/música/b-roll sem começar do zero"
+            >
+              <Plus size={16} /> Remixar (trocar gancho/música/b-roll)
+            </button>
           )}
           {onGoToEdit && (
             <button onClick={onGoToEdit} className="w-full py-3 bg-gray-900 dark:bg-gray-50 text-white dark:text-gray-900 rounded-2xl font-black uppercase tracking-widest text-sm hover:opacity-90">
