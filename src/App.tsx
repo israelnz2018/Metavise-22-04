@@ -3256,6 +3256,32 @@ export default function App() {
     return () => window.removeEventListener('metavise-cost', onCost);
   }, []);
 
+  // CUSTO DO MÊS (todos os projetos): soma os lançamentos de custo (config.costs)
+  // de todos os subprojetos no mês corrente. Usa os custos AO VIVO do subprojeto
+  // aberto (config.costs) e os salvos (projects[].variants) dos demais.
+  // (Fica AQUI, antes de qualquer return condicional — é hook, não pode ficar
+  // depois do `if (!user) return`.)
+  const monthlyCost = useMemo(() => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    let total = 0;
+    const byLabel = new Map<string, number>();
+    for (const p of projects) {
+      for (const v of ((p.variants as any[]) || [])) {
+        const live = p.id === currentProjectId && v.id === currentVariantId;
+        const costs = (live ? (config as any).costs : v.config?.costs) as any[] | undefined;
+        for (const c of costs || []) {
+          if ((Number(c.at) || 0) >= start) {
+            const amt = Number(c.amount) || 0;
+            total += amt;
+            byLabel.set(c.label, (byLabel.get(c.label) || 0) + amt);
+          }
+        }
+      }
+    }
+    return { total, breakdown: Array.from(byLabel.entries()).sort((a, b) => b[1] - a[1]) };
+  }, [projects, config, currentProjectId, currentVariantId]);
+
   // Dado um config de variante, descobre a aba MAIS avançada que já tem
   // conteúdo gerado — pra "Carregar Versão" cair direto onde o usuário parou,
   // não na primeira etapa. Ordem do mais fundo pro mais raso.
@@ -6635,30 +6661,6 @@ export default function App() {
       toast.error(`Falha: ${err.message}`);
     }
   };
-
-  // CUSTO DO MÊS (todos os projetos): soma os lançamentos de custo (config.costs)
-  // de todos os subprojetos no mês corrente. Usa os custos AO VIVO do subprojeto
-  // aberto (config.costs) e os salvos (projects[].variants) dos demais.
-  const monthlyCost = useMemo(() => {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-    let total = 0;
-    const byLabel = new Map<string, number>();
-    for (const p of projects) {
-      for (const v of ((p.variants as any[]) || [])) {
-        const live = p.id === currentProjectId && v.id === currentVariantId;
-        const costs = (live ? (config as any).costs : v.config?.costs) as any[] | undefined;
-        for (const c of costs || []) {
-          if ((Number(c.at) || 0) >= start) {
-            const amt = Number(c.amount) || 0;
-            total += amt;
-            byLabel.set(c.label, (byLabel.get(c.label) || 0) + amt);
-          }
-        }
-      }
-    }
-    return { total, breakdown: Array.from(byLabel.entries()).sort((a, b) => b[1] - a[1]) };
-  }, [projects, config, currentProjectId, currentVariantId]);
 
   return (
     <div className="min-h-screen app-shell text-gray-900 dark:text-gray-100 font-sans selection:bg-blue-100 dark:selection:bg-blue-900 overflow-x-hidden">
