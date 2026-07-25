@@ -183,7 +183,11 @@ export function VideoIATab({
       updateJob(jid, { status: 'done' });
       logCreativeCost(`Clipe Kling (${durationSec}s)`, durationSec * COST_RATES.klingPerSec);
     } catch (e: any) {
-      toast.error(e?.message || 'Erro ao gerar.', { id: tid });
+      const msg = String(e?.message || '');
+      const friendly = /saldo|balance|quota|insufficient/i.test(msg)
+        ? 'Saldo do fal insuficiente — adicione créditos no fal e tente de novo.'
+        : `${msg || 'Erro ao gerar'} — tente de novo; se persistir, confira o saldo do fal (badge de créditos).`;
+      toast.error(friendly, { id: tid, duration: 6000 });
       updateJob(jid, { status: 'error' });
     } finally {
       setGenerating(false);
@@ -436,7 +440,7 @@ export function VideoIATab({
         {generating ? (
           <><Loader2 size={16} className="animate-spin" /> Gerando… (~1-3 min)</>
         ) : (
-          <><Sparkles size={16} /> Gerar clipe · ≈ ${(durationSec * 0.28).toFixed(2)}</>
+          <><Sparkles size={16} /> Gerar clipe · ≈ ${(durationSec * 0.28).toFixed(2)} · ~1-3 min</>
         )}
       </button>
       <p className="text-[10px] text-gray-400 text-center -mt-2">

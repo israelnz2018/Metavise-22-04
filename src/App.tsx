@@ -88,6 +88,8 @@ import { COSTS } from './lib/costs';
 import { CostConfirmModal } from './components/CostConfirmModal';
 import { JobsPanel } from './components/JobsPanel';
 import { HeaderWallet } from './components/HeaderWallet';
+import { SubprojectProgress } from './components/SubprojectProgress';
+import { SaveIndicator } from './components/SaveIndicator';
 import { triggerProjectSave } from './lib/autosave';
 import { COST_RATES, logCreativeCost } from './lib/creativeCost';
 import { BriefEditModal } from './components/BriefEditModal';
@@ -6874,6 +6876,17 @@ export default function App() {
             </button>
           </div>
         </div>
+        {/* Barra de progresso do subprojeto + indicador de save (linha fina). */}
+        {currentProjectId && (
+          <div className="max-w-[1600px] mx-auto px-4 pb-2 flex items-center justify-between gap-3">
+            <SubprojectProgress config={config} onGo={(s) => requestStepChange(s)} />
+            <SaveIndicator
+              isSaving={isSaving}
+              lastSavedAt={_lastSavedAt}
+              hasUnsaved={hasUnsavedCopyChanges}
+            />
+          </div>
+        )}
       </header>
 
       {/* Main Content */}

@@ -591,6 +591,24 @@ export function ProjectsTab({
                 Comece criando seu primeiro projeto agora mesmo.
               </p>
             </div>
+            {/* Onboarding leve: 3 passos do que vem pela frente. */}
+            <div className="flex flex-col sm:flex-row gap-3 text-left max-w-2xl">
+              {[
+                ['1 · Copy', 'Cole sua VSL ou gere a copy do anúncio.'],
+                ['2 · Voz + Vídeo', 'Narração com voz IA e vídeo (avatar ou clipes IA).'],
+                ['3 · Montagem + Edição', 'Monte no tempo do áudio e exporte o criativo.'],
+              ].map(([t, d]) => (
+                <div
+                  key={t}
+                  className="flex-1 bg-white/70 dark:bg-gray-900/40 rounded-xl p-3 ring-1 ring-gray-200/60 dark:ring-gray-800/60"
+                >
+                  <p className="text-[11px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400">
+                    {t}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{d}</p>
+                </div>
+              ))}
+            </div>
             <button
               onClick={() => setShowNewProjectModal(true)}
               className="px-6 py-2.5 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl font-bold hover:from-blue-600 hover:to-blue-700 active:scale-[0.98] transition-all shadow-xl shadow-blue-200/60 dark:shadow-blue-900/30"

@@ -9,6 +9,7 @@ import { Film, Upload, Loader2, Trash2, ArrowUp, ArrowDown, Check, Music, X, Plu
 import { useJobs } from '@/lib/jobsStore';
 import { triggerProjectSave } from '@/lib/autosave';
 import { logCreativeCost, COST_RATES } from '@/lib/creativeCost';
+import { EmptyState } from '@/components/EmptyState';
 
 interface Clip {
   url: string;
@@ -1630,7 +1631,11 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       toast.success('Pronto — já está na Edição.', { id: toastId });
       updateJob(jid, { status: 'done' });
     } catch (e: any) {
-      toast.error(e?.message || 'Erro ao montar.', { id: toastId });
+      const msg = String(e?.message || '');
+      const friendly = /áudio|audio/i.test(msg)
+        ? msg
+        : `${msg || 'Erro ao montar'} — confira os avisos acima (buracos/áudio) e tente de novo.`;
+      toast.error(friendly, { id: toastId, duration: 6000 });
       updateJob(jid, { status: 'error' });
     } finally {
       setRendering(false);
@@ -2561,6 +2566,14 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
         </div>
       )}
 
+      {isTimeline && displayItems.length === 0 && (
+        <EmptyState
+          icon={Film}
+          title="Timeline vazia"
+          hint="Dê play no áudio e clique em “Adicionar aqui” no segundo certo pra colocar um trecho — ou use o Auto-editar pra a IA montar sozinha. Buracos viram tela preta; a voz toca por cima."
+        />
+      )}
+
       {isTimeline && displayItems.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2">
@@ -3245,7 +3258,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
         {rendering ? (
           <><Loader2 size={16} className="animate-spin" /> Montando…</>
         ) : (
-          <><Check size={16} /> {isTimeline ? `Montar no tempo do áudio (${items.length})` : `Montar sequência (${clips.length})`}</>
+          <><Check size={16} /> {isTimeline ? `Montar no tempo do áudio (${items.length}) · ~1-2 min` : `Montar sequência (${clips.length})`}</>
         )}
       </button>
 
@@ -3321,7 +3334,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
             {coverGen ? (
               <><Loader2 size={16} className="animate-spin" /> Gerando 3 capas…</>
             ) : (
-              <><ImageIcon size={16} /> Gerar 3 capas/thumbnails · ≈ $0.12</>
+              <><ImageIcon size={16} /> Gerar 3 capas/thumbnails · ≈ $0.12 · ~30s</>
             )}
           </button>
           {coverOptions.length > 0 && (
