@@ -7723,6 +7723,40 @@ export default function App() {
                         } as any;
                       });
                     }}
+                    onPlaceOnTimeline={(clip, atSec) => {
+                      // Coloca DIRETO na timeline no segundo certo (clipe recortado
+                      // + lip-sync): adiciona o clipe E um item na posição atSec.
+                      setConfig((prev) => {
+                        const montagem = ((prev as any).montagem || {}) as any;
+                        const clips = Array.isArray(montagem.clips) ? montagem.clips : [];
+                        const items = Array.isArray(montagem.items) ? montagem.items : [];
+                        const clipIdx = clips.length;
+                        return {
+                          ...prev,
+                          montagem: {
+                            ...montagem,
+                            clips: [...clips, clip],
+                            items: [
+                              ...items,
+                              {
+                                clipIdx,
+                                atSec,
+                                endSec: atSec + (clip.duration || 5),
+                                transIn: 'none',
+                                transInDur: 0.15,
+                                soundIn: '',
+                                transOut: 'none',
+                                transOutDur: 0.15,
+                                soundOut: '',
+                                soundMid: '',
+                                soundMidAlign: '',
+                                bw: false,
+                              },
+                            ],
+                          },
+                        } as any;
+                      });
+                    }}
                     onGoToMontagem={() => setCurrentStep('montagem')}
                     audios={[
                       ...(((config as any).audios as any[]) || []).map((a, i) => ({

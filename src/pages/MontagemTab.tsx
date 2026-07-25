@@ -293,6 +293,16 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
   const [autoEditing, setAutoEditing] = useState(false);
   // Ritmo do Auto-editar: base de duração dos cortes (s). Menor = MAIS trechos.
   const [cutPace, setCutPace] = useState<number>(10);
+  // Moldes de criativo: salvam formato + enquadramento + ritmo pra reaplicar.
+  const [templates, setTemplates] = useState<
+    { name: string; aspect: string; fit: string; cutPace: number }[]
+  >(() => {
+    try {
+      return JSON.parse(localStorage.getItem('metavise-montagem-templates') || '[]');
+    } catch {
+      return [];
+    }
+  });
   // Candidate picker: slots planejados pela IA, cada um com candidatos do Pexels.
   const [autoSlots, setAutoSlots] = useState<AutoSlot[]>([]);
   const [researchingSlot, setResearchingSlot] = useState<number | null>(null);
@@ -302,6 +312,8 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
   const [myVidOpen, setMyVidOpen] = useState<Record<number, boolean>>({});
   // "Meus vídeos" aberto no modal de TROCAR.
   const [swapMyVid, setSwapMyVid] = useState(false);
+  // Gerar música (arco emocional) e colar embaixo do vídeo montado.
+  const [musicGen, setMusicGen] = useState(false);
   // Trocar b-roll de um trecho JÁ aplicado na timeline (busca Pexels por item).
   const [brollSwap, setBrollSwap] = useState<{
     itemIdx: number;
@@ -1478,6 +1490,83 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
     } finally {
       setRendering(false);
     }
+  };
+
+  // Gera a música (arco emocional a partir da copy) e COLA embaixo do vídeo
+  // montado, num clique — plan → generate → add-music. Casa com a montagem.
+  const gerarMusicaEColar = async () => {
+    if (!uid) return toast.error('Faça login.');
+    if (!resultUrl) return toast.error('Monte o vídeo primeiro.');
+    const copyText =
+      ((config.copy as any)?.finalScript as string) ||
+      ((config.copy as any)?.optimizedScript as string) ||
+      ((config.copy as any)?.generatedScript as string) ||
+      ((config as any)?.copyVsl?.finalScript as string) ||
+      '';
+    setMusicGen(true);
+    const tid = 'montagem-music';
+    toast.loading('Planejando a música (arco emocional)…', { id: tid });
+    try {
+      const pr = await fetch('/api/elevenlabs/music/plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          copy: copyText,
+          totalDurationSec: Math.max(5, Math.round(audioDuration)),
+        }),
+      });
+      const plan = await pr.json();
+      if (!pr.ok) throw new Error(plan.error || 'Falha ao planejar a música.');
+      toast.loading('Compondo a trilha…', { id: tid });
+      const gr = await fetch('/api/elevenlabs/music/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ compositionPlan: plan, forceInstrumental: true }),
+      });
+      const gd = await gr.json();
+      if (!gr.ok || !gd.audioUrl) throw new Error(gd.error || 'Falha ao gerar a música.');
+      toast.loading('Colando a música no vídeo…', { id: tid });
+      const ar = await fetch('/api/video/add-music', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoUrl: resultUrl, musicUrl: gd.audioUrl, volume: 0.12, userId: uid }),
+      });
+      const ad = await ar.json();
+      if (!ar.ok || !ad.url) throw new Error(ad.error || 'Falha ao colar a música.');
+      setResultUrl(ad.url);
+      onAddUploadedVideo?.(
+        { url: ad.url, uploaded: true, aspectRatio: aspect, createdAt: new Date().toISOString() },
+        false
+      );
+      toast.success('Música adicionada — vídeo com trilha pronto!', { id: tid });
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro na música.', { id: tid });
+    } finally {
+      setMusicGen(false);
+    }
+  };
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('metavise-montagem-templates', JSON.stringify(templates));
+    } catch {
+      /* ignora */
+    }
+  }, [templates]);
+
+  const saveTemplate = () => {
+    const name = (window.prompt('Nome do molde (ex.: "VSL reborn 1:1"):') || '').trim();
+    if (!name) return;
+    setTemplates((prev) => [...prev.filter((t) => t.name !== name), { name, aspect, fit, cutPace }]);
+    toast.success(`Molde "${name}" salvo.`);
+  };
+  const applyTemplate = (name: string) => {
+    const t = templates.find((x) => x.name === name);
+    if (!t) return;
+    setAspect(t.aspect as any);
+    setFit(t.fit as any);
+    setCutPace(t.cutPace);
+    toast.success(`Molde "${name}" aplicado — agora é só Auto-editar.`);
   };
 
   const displayItems = items.map((it, idx) => ({ it, idx })).sort((a, b) => a.it.atSec - b.it.atSec);
@@ -2805,6 +2894,30 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
 
       {/* Formato + enquadramento do vídeo montado */}
       <div className="bg-white dark:bg-gray-900/70 p-3 rounded-2xl border-2 border-gray-200 dark:border-gray-800 flex flex-wrap items-center gap-x-4 gap-y-2">
+        {/* Moldes: salva formato+enquadramento+ritmo pra reaplicar num clique */}
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">Molde</span>
+          {templates.length > 0 && (
+            <select
+              value=""
+              onChange={(e) => e.target.value && applyTemplate(e.target.value)}
+              className="px-2 py-1 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-[11px] dark:text-gray-100"
+            >
+              <option value="">Aplicar…</option>
+              {templates.map((t) => (
+                <option key={t.name} value={t.name}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          )}
+          <button
+            onClick={saveTemplate}
+            className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-lg border-2 border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/40"
+          >
+            💾 Salvar molde
+          </button>
+        </div>
         <div className="flex items-center gap-2">
           <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">
             Formato
@@ -2875,6 +2988,17 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
             </button>
           </div>
           <video src={resultUrl} controls className="w-full max-h-[420px] rounded-xl bg-black" />
+          <button
+            onClick={gerarMusicaEColar}
+            disabled={musicGen}
+            className="w-full py-3 bg-purple-600 text-white rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-purple-700 disabled:opacity-60 flex items-center justify-center gap-2"
+          >
+            {musicGen ? (
+              <><Loader2 size={16} className="animate-spin" /> Gerando música…</>
+            ) : (
+              <><Music size={16} /> Gerar música (arco emocional) e colar</>
+            )}
+          </button>
           {onGoToEdit && (
             <button onClick={onGoToEdit} className="w-full py-3 bg-gray-900 dark:bg-gray-50 text-white dark:text-gray-900 rounded-2xl font-black uppercase tracking-widest text-sm hover:opacity-90">
               Ir pra Edição →

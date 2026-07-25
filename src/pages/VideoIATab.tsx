@@ -8,6 +8,8 @@ interface Props {
   user?: { uid?: string } | null;
   /** Adiciona o clipe à biblioteca da Montagem (config.montagem.clips). */
   onAddClip?: (clip: { url: string; label: string; duration: number }) => void;
+  /** Coloca o clipe DIRETO na timeline da Montagem no segundo `atSec` (auto-posiciona). */
+  onPlaceOnTimeline?: (clip: { url: string; label: string; duration: number }, atSec: number) => void;
   onGoToMontagem?: () => void;
   /** Áudios já gerados no ElevenLabs (gancho + corpo) pro lip-sync. */
   audios?: { url: string; label: string }[];
@@ -22,11 +24,19 @@ interface Result {
   at: number;
   sent?: boolean;
   synced?: boolean; // veio de um lip-sync (já tem voz)
+  placeAt?: number; // segundo do áudio de onde o trecho foi recortado (auto-posiciona)
 }
 
 const ASPECTS = ['1:1', '16:9', '9:16'] as const;
 
-export function VideoIATab({ user, onAddClip, onGoToMontagem, audios = [], initialImages = [] }: Props) {
+export function VideoIATab({
+  user,
+  onAddClip,
+  onPlaceOnTimeline,
+  onGoToMontagem,
+  audios = [],
+  initialImages = [],
+}: Props) {
   const uid = user?.uid || auth.currentUser?.uid;
 
   const [prompt, setPrompt] = useState('');
@@ -174,7 +184,7 @@ export function VideoIATab({ user, onAddClip, onGoToMontagem, audios = [], initi
     }
   };
 
-  const runLipsync = async (clipUrl: string, audioUrl: string) => {
+  const runLipsync = async (clipUrl: string, audioUrl: string, placeAt?: number) => {
     if (!uid) return toast.error('Faça login.');
     setSyncing(true);
     const tid = 'fal-lipsync';
@@ -188,7 +198,7 @@ export function VideoIATab({ user, onAddClip, onGoToMontagem, audios = [], initi
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || 'Falha ao sincronizar.');
       setResults((prev) => [
-        { url: d.url, prompt: '', durationSec: 0, at: Date.now(), synced: true },
+        { url: d.url, prompt: '', durationSec: 0, at: Date.now(), synced: true, placeAt },
         ...prev,
       ]);
       setSyncIdx(null);
@@ -236,7 +246,7 @@ export function VideoIATab({ user, onAddClip, onGoToMontagem, audios = [], initi
       });
       const td = await tr.json();
       if (!tr.ok || !td.url) throw new Error(td.error || 'Falha ao recortar o áudio.');
-      await runLipsync(clipUrl, td.url); // runLipsync cuida do toast/estado a partir daqui
+      await runLipsync(clipUrl, td.url, trimStart); // placeAt = início do trecho recortado
     } catch (e: any) {
       toast.error(e?.message || 'Erro ao recortar.', { id: tid });
       setSyncing(false);
@@ -257,13 +267,21 @@ export function VideoIATab({ user, onAddClip, onGoToMontagem, audios = [], initi
 
   const sendToMontagem = async (res: Result, idx: number) => {
     const realDur = await getVideoDuration(res.url);
-    onAddClip?.({
+    const clip = {
       url: res.url,
       label: res.synced ? 'IA falando' : 'IA Kling',
       duration: realDur || res.durationSec || 5,
-    });
-    setResults((prev) => prev.map((x, i) => (i === idx ? { ...x, sent: true } : x)));
-    toast.success('Enviado — abra a Montagem que está na biblioteca de clipes.');
+    };
+    if (res.placeAt != null && onPlaceOnTimeline) {
+      // Veio de um trecho recortado → posiciona DIRETO no segundo certo da timeline.
+      onPlaceOnTimeline(clip, res.placeAt);
+      setResults((prev) => prev.map((x, i) => (i === idx ? { ...x, sent: true } : x)));
+      toast.success(`Colocado na timeline no segundo ${res.placeAt.toFixed(0)}s.`);
+    } else {
+      onAddClip?.(clip);
+      setResults((prev) => prev.map((x, i) => (i === idx ? { ...x, sent: true } : x)));
+      toast.success('Enviado — abra a Montagem que está na biblioteca de clipes.');
+    }
   };
 
   const box = 'bg-white dark:bg-gray-900/70 rounded-2xl border border-gray-200 dark:border-gray-800 p-4';
@@ -443,7 +461,8 @@ export function VideoIATab({ user, onAddClip, onGoToMontagem, audios = [], initi
                       onClick={() => sendToMontagem(res, idx)}
                       className="inline-flex items-center gap-1.5 text-xs font-black px-3 py-2 rounded-xl bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 hover:opacity-90"
                     >
-                      <Film size={13} /> Pra Montagem
+                      <Film size={13} />{' '}
+                      {res.placeAt != null ? `Colocar em ${res.placeAt.toFixed(0)}s` : 'Pra Montagem'}
                     </button>
                   )}
                 </div>
