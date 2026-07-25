@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'react-hot-toast';
+import { playDing } from './ding';
 
 // Painel de JOBS global: rastreia as gerações longas (Kling, lip-sync, montagem,
 // música) num só lugar, pra o usuário trabalhar em paralelo e ser AVISADO quando
@@ -52,6 +53,7 @@ export function JobsProvider({ children }: { children: ReactNode }) {
         id: `jobdone-${id}`,
       });
       if (ok) {
+        playDing(); // "ding" de conclusão (pra quem saiu da aba)
         try {
           if ('Notification' in window && Notification.permission === 'granted') {
             // eslint-disable-next-line no-new

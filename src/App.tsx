@@ -90,6 +90,7 @@ import { JobsPanel } from './components/JobsPanel';
 import { HeaderWallet } from './components/HeaderWallet';
 import { SubprojectProgress } from './components/SubprojectProgress';
 import { SaveIndicator } from './components/SaveIndicator';
+import { Sidebar } from './components/Sidebar';
 import { triggerProjectSave } from './lib/autosave';
 import { COST_RATES, logCreativeCost } from './lib/creativeCost';
 import { BriefEditModal } from './components/BriefEditModal';
@@ -6718,9 +6719,9 @@ export default function App() {
               - flex-shrink-0 nos botões → cada um mantém tamanho próprio
               Resultado: página nunca scrolla horizontal; só a nav scrolla
               internamente, e a aba atual sempre fica visível. */}
-          {/* Wrapper que segura os chevrons + a nav rolável. min-w-0 deixa
-              encolher; gap-1 dá um respiro pequeno entre seta e container. */}
-          <div className="hidden md:flex flex-1 min-w-0 items-center gap-1">
+          {/* Wrapper que segura os chevrons + a nav rolável. No DESKTOP a nav
+              vira a barra lateral (Sidebar); aqui só no mobile (flex md:hidden). */}
+          <div className="flex md:hidden flex-1 min-w-0 items-center gap-1">
             {/* Seta esquerda — só aparece quando há overflow pra esquerda.
                 tabindex=-1 + aria-hidden quando inativa pra não poluir tab
                 navigation. */}
@@ -6891,8 +6892,15 @@ export default function App() {
         )}
       </header>
 
-      {/* Main Content */}
-      <main className="max-w-[1600px] mx-auto px-4 py-12">
+      {/* Sidebar (desktop) + conteúdo. No mobile a nav fica no header. */}
+      <div className="max-w-[1600px] mx-auto w-full px-4 flex items-start gap-2">
+        <Sidebar
+          currentStep={currentStep}
+          onNavigate={requestStepChange}
+          canNavigateTo={canNavigateTo}
+          useHookFlow={useHookFlow}
+        />
+        <main className="flex-1 min-w-0 py-12 md:pl-4">
         {!isOnline && (
           <div className="mb-6 p-4 bg-red-50/80 dark:bg-red-950/30 ring-1 ring-red-200/60 dark:ring-red-900/40 rounded-2xl flex items-center gap-3 text-red-700 dark:text-red-300 font-bold text-sm">
             <div className="w-2 h-2 bg-red-500 dark:bg-red-400 rounded-full animate-pulse shadow shadow-red-500/50" />
@@ -8121,7 +8129,8 @@ export default function App() {
             </div>
           )}
         </div>
-      </main>
+        </main>
+      </div>
       <NewProjectModal
         isOpen={showNewProjectModal}
         name={newProjectName}

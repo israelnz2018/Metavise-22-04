@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { useJobs } from '@/lib/jobsStore';
-import { Loader2, Check, X, ListChecks } from 'lucide-react';
+import { isDingMuted, setDingMuted } from '@/lib/ding';
+import { Loader2, Check, X, ListChecks, Volume2, VolumeX } from 'lucide-react';
 
 // Pílula flutuante (canto inferior esquerdo) que mostra as gerações rodando +
 // prontas. Deixa o usuário sair da aba e ser avisado quando terminar.
 export function JobsPanel() {
   const { jobs, clearDone } = useJobs();
   const [open, setOpen] = useState(false);
+  const [muted, setMuted] = useState(isDingMuted());
   if (jobs.length === 0) return null;
   const running = jobs.filter((j) => j.status === 'running').length;
 
@@ -18,12 +20,25 @@ export function JobsPanel() {
             <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">
               Gerações
             </span>
-            <button
-              onClick={clearDone}
-              className="text-[10px] text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-            >
-              limpar prontas
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  const next = !muted;
+                  setMuted(next);
+                  setDingMuted(next);
+                }}
+                title={muted ? 'Som desligado — ligar aviso' : 'Som ligado — desligar aviso'}
+                className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              >
+                {muted ? <VolumeX size={13} /> : <Volume2 size={13} />}
+              </button>
+              <button
+                onClick={clearDone}
+                className="text-[10px] text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              >
+                limpar prontas
+              </button>
+            </div>
           </div>
           {jobs.map((j) => (
             <div key={j.id} className="flex items-center gap-2 text-xs">
