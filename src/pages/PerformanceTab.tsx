@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { loadVariants } from '@/lib/variantStore';
 import { getMetaConnection, type CreativeMetrics } from '@/lib/metaAds';
-import { BarChart3, Loader2, Link2Off, ShieldAlert, TrendingUp } from 'lucide-react';
+import { BarChart3, Link2Off, ShieldAlert, TrendingUp } from 'lucide-react';
+import { Skeleton } from '@/components/Skeleton';
 import type { MonthlyPlanConfig } from '@/types/project';
 
 // PERFORMANCE (Meta Ads) — fecha o loop "gerou → rodou → o que vendeu".
@@ -165,8 +166,10 @@ export function PerformanceTab({ projectId, projectName, plan }: Props) {
       </div>
 
       {loading ? (
-        <div className="flex items-center gap-2 text-gray-500 p-8 justify-center">
-          <Loader2 size={18} className="animate-spin" /> Carregando criativos…
+        <div className="space-y-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 w-full rounded-xl" />
+          ))}
         </div>
       ) : rows.length === 0 ? (
         <div className="p-10 text-center text-gray-400 text-sm">

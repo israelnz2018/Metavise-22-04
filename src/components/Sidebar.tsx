@@ -1,3 +1,4 @@
+import { LayoutDashboard } from 'lucide-react';
 import { STEPS } from '@/lib/constants';
 import type { Step } from '@/types/project';
 
@@ -25,6 +26,20 @@ const byId = new Map(STEPS.map((s) => [s.id, s]));
 export function Sidebar({ currentStep, onNavigate, canNavigateTo, useHookFlow }: Props) {
   return (
     <aside className="hidden md:flex flex-col w-56 shrink-0 sticky top-20 self-start max-h-[calc(100vh-5rem)] overflow-y-auto scrollbar-hide border-r border-gray-200/60 dark:border-gray-800/60 py-4 pr-2">
+      {/* Resumo (hub) — porta de entrada do subprojeto. */}
+      {canNavigateTo('hub') && (
+        <button
+          onClick={() => onNavigate('hub')}
+          className={`w-full flex items-center gap-2.5 px-3 py-2 mb-3 rounded-xl text-sm font-black transition-colors text-left ${
+            currentStep === 'hub'
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-950/60'
+          }`}
+        >
+          <LayoutDashboard size={16} className="shrink-0" />
+          Resumo
+        </button>
+      )}
       {PHASES.map((phase) => (
         <div key={phase.title} className="mb-4">
           <div className="px-3 mb-1 text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-500">

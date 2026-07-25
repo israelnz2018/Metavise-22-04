@@ -9,6 +9,7 @@ import VozPremium from './components/VozPremium';
 import { IntegrationsTab } from './pages/IntegrationsTab';
 import { CriativosTab } from './pages/CriativosTab';
 import { PerformanceTab } from './pages/PerformanceTab';
+import { HubTab } from './pages/HubTab';
 import { ProjectsTab } from './pages/ProjectsTab';
 // SourceTab + PlanTab are lazy-loaded — they pull in jsPDF / heavy CSS
 // that aren't needed for the initial app boot. React.lazy splits them
@@ -91,6 +92,7 @@ import { HeaderWallet } from './components/HeaderWallet';
 import { SubprojectProgress } from './components/SubprojectProgress';
 import { SaveIndicator } from './components/SaveIndicator';
 import { Sidebar } from './components/Sidebar';
+import { CommandPalette, type Command } from './components/CommandPalette';
 import { triggerProjectSave } from './lib/autosave';
 import { COST_RATES, logCreativeCost } from './lib/creativeCost';
 import { BriefEditModal } from './components/BriefEditModal';
@@ -3285,6 +3287,38 @@ export default function App() {
     return { total, breakdown: Array.from(byLabel.entries()).sort((a, b) => b[1] - a[1]) };
   }, [projects, config, currentProjectId, currentVariantId]);
 
+  // COMMAND PALETTE (Cmd/Ctrl+K): saltar pra qualquer aba/projeto/ação.
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setPaletteOpen((o) => !o);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+  const paletteCommands = useMemo<Command[]>(() => {
+    const cmds: Command[] = [];
+    for (const s of STEPS) {
+      if (!canNavigateTo(s.id)) continue;
+      if (!useHookFlow && s.id === 'hook-visual') continue;
+      cmds.push({ id: `step-${s.id}`, label: `Ir para ${s.label}`, sub: 'Aba', run: () => requestStepChange(s.id) });
+    }
+    if (currentProjectId) {
+      cmds.push({ id: 'go-hub', label: 'Ir para Resumo do subprojeto', sub: 'Aba', run: () => setCurrentStep('hub') });
+      cmds.push({ id: 'go-criativos', label: 'Ir para Criativos', sub: 'Aba', run: () => setCurrentStep('criativos') });
+      cmds.push({ id: 'go-performance', label: 'Ir para Performance', sub: 'Aba', run: () => setCurrentStep('performance') });
+    }
+    cmds.push({ id: 'new-project', label: 'Novo projeto', sub: 'Ação', run: () => setShowNewProjectModal(true) });
+    for (const p of projects.slice(0, 20)) {
+      cmds.push({ id: `proj-${p.id}`, label: `Abrir ${p.name}`, sub: 'Projeto', run: () => void handleLoadProject(p) });
+    }
+    return cmds;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projects, useHookFlow, currentProjectId]);
+
   // Dado um config de variante, descobre a aba MAIS avançada que já tem
   // conteúdo gerado — pra "Carregar Versão" cair direto onde o usuário parou,
   // não na primeira etapa. Ordem do mais fundo pro mais raso.
@@ -4860,7 +4894,8 @@ export default function App() {
 
   const canNavigateTo = (stepId: Step) => {
     if (stepId === 'projects' || stepId === 'integrations') return true;
-    if (stepId === 'criativos' || stepId === 'performance') return !!currentProjectId;
+    if (stepId === 'criativos' || stepId === 'performance' || stepId === 'hub')
+      return !!currentProjectId;
     if (!currentProjectId) {
       toast.error("Por favor, selecione um projeto primeiro em 'Meus Projetos'.", {
         icon: '📁',
@@ -6670,6 +6705,7 @@ export default function App() {
   return (
     <div className="min-h-screen app-shell text-gray-900 dark:text-gray-100 font-sans selection:bg-blue-100 dark:selection:bg-blue-900 overflow-x-hidden">
       <JobsPanel />
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} commands={paletteCommands} />
       {/* Header. Frosted-glass: semi-transparent + backdrop blur so
           the app-shell gradient bleeds through subtly. Industry-standard
           modern SaaS pattern (Stripe, Linear, Vercel, Raycast). */}
@@ -7043,6 +7079,17 @@ export default function App() {
                     onSave: handleSaveZapCapKey,
                     onTest: handleTestZapCapConnection,
                   }}
+                />
+              )}
+              {currentStep === 'hub' && (
+                <HubTab
+                  config={config}
+                  projectName={
+                    ((projects.find((p) => p.id === currentProjectId)?.variants as any[]) || []).find(
+                      (v) => v.id === currentVariantId
+                    )?.name || projects.find((p) => p.id === currentProjectId)?.name
+                  }
+                  onGo={requestStepChange}
                 />
               )}
               {currentStep === 'criativos' && (

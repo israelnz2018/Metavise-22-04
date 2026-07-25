@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { loadVariants } from '@/lib/variantStore';
-import { Loader2, Star, Download, CheckSquare, Square, Rocket, Film } from 'lucide-react';
+import { Star, Download, CheckSquare, Square, Rocket, Film } from 'lucide-react';
+import { Skeleton } from '@/components/Skeleton';
 
 // BIBLIOTECA DE CRIATIVOS: junta os vídeos PRONTOS de todos os subprojetos do
 // projeto atual num só lugar. Favoritar e marcar "publicado" (localStorage, como
@@ -199,9 +200,7 @@ export function CriativosTab({ projectId, projectName }: Props) {
       </div>
 
       {loading ? (
-        <div className="flex items-center gap-2 text-gray-500 p-8 justify-center">
-          <Loader2 size={18} className="animate-spin" /> Carregando criativos…
-        </div>
+        <Skeleton.GalleryGrid count={8} />
       ) : shown.length === 0 ? (
         <div className="p-10 text-center text-gray-400 text-sm">
           Nenhum criativo {filter !== 'todos' ? `em "${filter}"` : 'pronto ainda'}. Gere uma montagem
