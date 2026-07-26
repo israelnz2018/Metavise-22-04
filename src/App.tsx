@@ -10,6 +10,7 @@ import { IntegrationsTab } from './pages/IntegrationsTab';
 import { CriativosTab } from './pages/CriativosTab';
 import { PerformanceTab } from './pages/PerformanceTab';
 import { HubTab } from './pages/HubTab';
+import { RecortarTab } from './pages/RecortarTab';
 import { ProjectsTab } from './pages/ProjectsTab';
 // SourceTab + PlanTab are lazy-loaded — they pull in jsPDF / heavy CSS
 // that aren't needed for the initial app boot. React.lazy splits them
@@ -7084,6 +7085,7 @@ export default function App() {
                   }}
                 />
               )}
+              {currentStep === 'recortar' && <RecortarTab user={user} />}
               {currentStep === 'hub' && (
                 <HubTab
                   config={config}

@@ -2040,6 +2040,80 @@ videoRouter.post(
   })
 );
 
+// POST /api/video/crop-resize — recorte LIVRE + resize + trim opcional.
+// Body: { videoUrl, crop:{x,y,w,h} (frações 0..1 da fonte), outW?, outH?,
+//         startSec?, endSec?, userId } → { url }.
+videoRouter.post(
+  '/crop-resize',
+  withFfmpegQueue(async (req, res) => {
+    const b = (req.body || {}) as any;
+    const videoUrl = b.videoUrl;
+    const userId = b.userId;
+    if (!videoUrl || !userId) {
+      return res.status(400).json({ error: 'videoUrl e userId são obrigatórios.' });
+    }
+    const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, Number(v) || 0));
+    const cx = clamp(b.crop?.x ?? 0, 0, 0.98);
+    const cy = clamp(b.crop?.y ?? 0, 0, 0.98);
+    const cw = clamp(b.crop?.w ?? 1, 0.02, 1 - cx);
+    const ch = clamp(b.crop?.h ?? 1, 0.02, 1 - cy);
+    const outW = Math.round(Number(b.outW) || 0);
+    const outH = Math.round(Number(b.outH) || 0);
+    const startSec = Math.max(0, Number(b.startSec) || 0);
+    const endSec = Number(b.endSec) || 0;
+    const dur = endSec > startSec ? endSec - startSec : 0;
+
+    let vf = `crop=iw*${cw}:ih*${ch}:iw*${cx}:ih*${cy}`;
+    if (outW > 1 && outH > 1) {
+      const ew = outW % 2 === 0 ? outW : outW + 1;
+      const eh = outH % 2 === 0 ? outH : outH + 1;
+      vf += `,scale=${ew}:${eh}`;
+    } else {
+      // Garante dimensões PARES (libx264 exige) mesmo sem resize explícito.
+      vf += `,scale=trunc(iw/2)*2:trunc(ih/2)*2`;
+    }
+
+    const jobId = `croprsz_${Date.now()}`;
+    const workDir = path.join(GENERATED_DIR, jobId);
+    fs.mkdirSync(workDir, { recursive: true });
+    try {
+      const videoPath = path.join(workDir, 'in.mp4');
+      await downloadFile(videoUrl, videoPath);
+      const finalFilename = `${jobId}.mp4`;
+      const finalPath = path.join(GENERATED_DIR, finalFilename);
+      await new Promise((resolve, reject) => {
+        const cmd = ffmpeg(videoPath);
+        if (startSec > 0) cmd.seekInput(startSec);
+        if (dur > 0) cmd.duration(dur);
+        cmd
+          .videoFilters(vf)
+          .outputOptions([...ENCODE_FAST, '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart'])
+          .output(finalPath)
+          .on('end', () => resolve(null))
+          .on('error', reject)
+          .run();
+      });
+      const persistResult = await persistVideo({
+        buffer: fs.readFileSync(finalPath),
+        filename: finalFilename,
+        storageFolder: 'crop-resize',
+        userId,
+      });
+      log.info('crop-resize persisted', { url: persistResult.url.split('?')[0] });
+      res.json({ url: persistResult.url });
+    } catch (err: any) {
+      log.error('crop-resize failed:', err.message);
+      res.status(500).json({ error: `Crop/resize failed: ${err.message}` });
+    } finally {
+      try {
+        if (fs.existsSync(workDir)) fs.rmSync(workDir, { recursive: true, force: true });
+      } catch {
+        /* ignore */
+      }
+    }
+  })
+);
+
 // POST /api/video/watermark
 // Sobrepõe a LOGO/marca do usuário no vídeo, na posição/tamanho/opacidade
 // escolhidos. Body: { videoUrl, logoUrl, position, sizePct, opacity, marginPct, userId }

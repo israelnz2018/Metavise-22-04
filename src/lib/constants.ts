@@ -11,6 +11,7 @@ import {
   Edit3,
   Film,
   ImageIcon,
+  Crop,
   Layout,
   RefreshCw,
   Scissors,
@@ -232,6 +233,7 @@ export const STEPS: { id: Step; label: string; icon: any }[] = [
   { id: 'video-ia', label: 'Vídeo IA', icon: Wand2 },
   { id: 'montagem', label: 'Montagem', icon: Film },
   { id: 'edit-zap', label: 'Edição', icon: Zap },
+  { id: 'recortar', label: 'Recortar', icon: Crop },
   { id: 'merge', label: 'Mesclar', icon: Scissors },
 
   { id: 'final', label: 'Exportar', icon: Video },

@@ -17,7 +17,7 @@ const PHASES: { title: string; ids: Step[] }[] = [
   { title: 'Início', ids: ['integrations', 'projects'] },
   { title: 'Planejamento & Copy', ids: ['persona', 'copy', 'copy-vsl', 'hook-visual'] },
   { title: 'Produção', ids: ['voz-premium', 'avatar', 'imagem-ia', 'video-ia', 'remotion'] },
-  { title: 'Montagem & Edição', ids: ['montagem', 'edit-zap', 'merge'] },
+  { title: 'Montagem & Edição', ids: ['montagem', 'edit-zap', 'recortar', 'merge'] },
   { title: 'Publicação', ids: ['final'] },
 ];
 

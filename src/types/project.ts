@@ -29,7 +29,8 @@ export type Step =
   | 'scene-builder'
   | 'criativos'
   | 'performance'
-  | 'hub';
+  | 'hub'
+  | 'recortar';
 
 export type ProjectType = 'complete' | 'copy' | 'video' | 'editing';
 
