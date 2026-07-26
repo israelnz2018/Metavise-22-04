@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { loadVariants } from '@/lib/variantStore';
-import { Star, Download, CheckSquare, Square, Rocket, Film } from 'lucide-react';
+import { Star, Download, CheckSquare, Square, Rocket, Film, Smartphone } from 'lucide-react';
 import { Skeleton } from '@/components/Skeleton';
+import { FeedMockup } from '@/components/FeedMockup';
 
 // BIBLIOTECA DE CRIATIVOS: junta os vídeos PRONTOS de todos os subprojetos do
 // projeto atual num só lugar. Favoritar e marcar "publicado" (localStorage, como
@@ -52,6 +53,7 @@ export function CriativosTab({ projectId, projectName }: Props) {
   // Checklist de publicação: abre ao marcar "no ar" um criativo ainda não publicado.
   const [pubModalUrl, setPubModalUrl] = useState<string | null>(null);
   const [checks, setChecks] = useState<boolean[]>([false, false, false, false]);
+  const [mockupUrl, setMockupUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!projectId) return;
@@ -296,12 +298,19 @@ export function CriativosTab({ projectId, projectName }: Props) {
                     >
                       <Rocket size={14} />
                     </button>
+                    <button
+                      onClick={() => setMockupUrl(c.url)}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-purple-600 ml-auto"
+                      title="Ver no feed (Instagram/Facebook)"
+                    >
+                      <Smartphone size={14} />
+                    </button>
                     <a
                       href={c.url}
                       target="_blank"
                       rel="noreferrer"
                       download
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 ml-auto"
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600"
                       title="Baixar"
                     >
                       <Download size={14} />
@@ -374,6 +383,8 @@ export function CriativosTab({ projectId, projectName }: Props) {
           </div>
         </div>
       )}
+
+      <FeedMockup open={!!mockupUrl} onClose={() => setMockupUrl(null)} videoUrl={mockupUrl || ''} />
     </div>
   );
 }

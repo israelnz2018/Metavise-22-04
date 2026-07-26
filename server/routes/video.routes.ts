@@ -2040,6 +2040,88 @@ videoRouter.post(
   })
 );
 
+// POST /api/video/watermark
+// Sobrepõe a LOGO/marca do usuário no vídeo, na posição/tamanho/opacidade
+// escolhidos. Body: { videoUrl, logoUrl, position, sizePct, opacity, marginPct, userId }
+//   position: 'tl'|'tr'|'bl'|'br'|'center'; sizePct: largura da logo em % do vídeo.
+videoRouter.post(
+  '/watermark',
+  withFfmpegQueue(async (req, res) => {
+    const { videoUrl, logoUrl, position = 'br', sizePct = 0.18, opacity = 1, marginPct = 0.03, userId } =
+      req.body || {};
+    if (!videoUrl || !logoUrl || !userId) {
+      return res.status(400).json({ error: 'videoUrl, logoUrl e userId são obrigatórios.' });
+    }
+    const size = Math.max(0.03, Math.min(0.6, Number(sizePct) || 0.18));
+    const op = Math.max(0.1, Math.min(1, Number(opacity) || 1));
+    const marginF = Math.max(0, Math.min(0.2, Number(marginPct) || 0.03));
+
+    const jobId = `wm_${Date.now()}`;
+    const workDir = path.join(GENERATED_DIR, jobId);
+    fs.mkdirSync(workDir, { recursive: true });
+    try {
+      const videoPath = path.join(workDir, 'video.mp4');
+      const logoPath = path.join(workDir, 'logo.png');
+      await downloadFile(videoUrl, videoPath);
+      await downloadFile(logoUrl, logoPath);
+
+      // Descobre a largura do vídeo pra dimensionar a logo (e a margem) em px.
+      const meta: any = await new Promise((resolve, reject) => {
+        ffmpeg.ffprobe(videoPath, (err, m) => (err ? reject(err) : resolve(m)));
+      });
+      const vStream = meta.streams.find((s: any) => s.codec_type === 'video');
+      const W = vStream?.width || 1080;
+      const logoW = Math.max(20, Math.round(W * size));
+      const m = Math.round(W * marginF);
+
+      // Posição do overlay via expressões (usa main_/overlay_ do ffmpeg).
+      const posMap: Record<string, string> = {
+        tl: `${m}:${m}`,
+        tr: `main_w-overlay_w-${m}:${m}`,
+        bl: `${m}:main_h-overlay_h-${m}`,
+        br: `main_w-overlay_w-${m}:main_h-overlay_h-${m}`,
+        center: `(main_w-overlay_w)/2:(main_h-overlay_h)/2`,
+      };
+      const xy = posMap[String(position)] || posMap.br;
+      const filterComplex =
+        `[1:v]scale=${logoW}:-1,format=rgba,colorchannelmixer=aa=${op}[wm];` +
+        `[0:v][wm]overlay=${xy}[v]`;
+
+      const finalFilename = `${jobId}.mp4`;
+      const finalPath = path.join(GENERATED_DIR, finalFilename);
+      await new Promise((resolve, reject) => {
+        ffmpeg()
+          .input(videoPath)
+          .input(logoPath)
+          .complexFilter(filterComplex)
+          .outputOptions(['-map', '[v]', '-map', '0:a?', ...ENCODE_FAST, '-movflags', '+faststart'])
+          .output(finalPath)
+          .on('end', () => resolve(null))
+          .on('error', reject)
+          .run();
+      });
+
+      const persistResult = await persistVideo({
+        buffer: fs.readFileSync(finalPath),
+        filename: finalFilename,
+        storageFolder: 'watermark',
+        userId,
+      });
+      log.info('watermark persisted', { url: persistResult.url.split('?')[0] });
+      res.json({ url: persistResult.url });
+    } catch (err: any) {
+      log.error('watermark failed:', err.message);
+      res.status(500).json({ error: `Watermark failed: ${err.message}` });
+    } finally {
+      try {
+        if (fs.existsSync(workDir)) fs.rmSync(workDir, { recursive: true, force: true });
+      } catch {
+        /* ignore */
+      }
+    }
+  })
+);
+
 // POST /api/video/broll
 // Insere clipes de B-roll (vindos do Pexels) DENTRO do vídeo do avatar, ANTES
 // das legendas. Cada clipe vira um "cutaway" full-frame na janela escolhida,

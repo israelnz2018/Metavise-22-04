@@ -11,6 +11,7 @@ import { triggerProjectSave } from '@/lib/autosave';
 import { logCreativeCost, COST_RATES } from '@/lib/creativeCost';
 import { EmptyState } from '@/components/EmptyState';
 import { useFileDrop } from '@/hooks/useFileDrop';
+import { WatermarkPanel } from '@/components/WatermarkPanel';
 
 interface Clip {
   url: string;
@@ -3389,6 +3390,18 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
               </div>
             </div>
           )}
+          <WatermarkPanel
+            videoUrl={resultUrl}
+            uid={uid}
+            onApplied={(url) => {
+              setResultUrl(url);
+              onAddUploadedVideo?.(
+                { url, uploaded: true, aspectRatio: aspect, createdAt: new Date().toISOString() },
+                false
+              );
+              triggerProjectSave('marca-dagua');
+            }}
+          />
           {onRemix && (
             <button
               onClick={onRemix}
