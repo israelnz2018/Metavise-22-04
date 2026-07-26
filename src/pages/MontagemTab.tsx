@@ -3393,6 +3393,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
           <WatermarkPanel
             videoUrl={resultUrl}
             uid={uid}
+            aspect={aspect}
             onApplied={(url) => {
               setResultUrl(url);
               onAddUploadedVideo?.(

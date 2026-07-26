@@ -13,6 +13,7 @@ type Pos = 'tl' | 'tr' | 'center' | 'bl' | 'br';
 interface Props {
   videoUrl: string;
   uid?: string;
+  aspect?: string;
   onApplied: (url: string) => void;
 }
 
@@ -24,7 +25,9 @@ const POS_STYLE: Record<Pos, string> = {
   br: 'bottom-[3%] right-[3%]',
 };
 
-export function WatermarkPanel({ videoUrl, uid, onApplied }: Props) {
+export function WatermarkPanel({ videoUrl, uid, aspect = '9:16', onApplied }: Props) {
+  const aspectClass =
+    aspect === '1:1' ? 'aspect-square' : aspect === '16:9' ? 'aspect-video' : 'aspect-[9/16]';
   const [logoUrl, setLogoUrl] = useState('');
   const [uploading, setUploading] = useState(false);
   const [pos, setPos] = useState<Pos>('br');
@@ -82,10 +85,11 @@ export function WatermarkPanel({ videoUrl, uid, onApplied }: Props) {
         </span>
       </div>
 
-      <div className="flex gap-3">
-        {/* Preview WYSIWYG */}
-        <div className="relative w-28 shrink-0 rounded-lg overflow-hidden bg-black aspect-[9/16]">
-          <video src={videoUrl} muted className="w-full h-full object-cover" />
+      {/* PRÉVIA WYSIWYG — vídeo real tocando com a logo sobreposta (posição e
+          tamanho iguais ao que o ffmpeg vai aplicar). Sem gastar render. */}
+      <div className="flex flex-col items-center">
+        <div className={`relative w-full max-w-[240px] rounded-xl overflow-hidden bg-black ${aspectClass}`}>
+          <video src={videoUrl} controls loop muted playsInline className="w-full h-full object-contain" />
           {logoUrl && (
             <img
               src={logoUrl}
@@ -95,7 +99,12 @@ export function WatermarkPanel({ videoUrl, uid, onApplied }: Props) {
             />
           )}
         </div>
+        <span className="mt-1 text-[10px] text-gray-400">
+          Prévia — é assim que a marca vai ficar no vídeo.
+        </span>
+      </div>
 
+      <div className="flex gap-3">
         <div className="flex-1 space-y-2">
           <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs font-bold px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-blue-400">
             {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
