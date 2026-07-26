@@ -269,6 +269,11 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
   const [uploading, setUploading] = useState(false);
   const [rendering, setRendering] = useState(false);
   const [resultUrl, setResultUrl] = useState<string>(draft.resultUrl || '');
+  // Histórico de versões do vídeo montado (rollback). Cada render/música/marca
+  // d'água entra aqui; o usuário pode voltar a uma versão anterior.
+  const [resultHistory, setResultHistory] = useState<{ url: string; at: number }[]>(
+    Array.isArray(draft.resultHistory) ? draft.resultHistory : []
+  );
   const [muted, setMuted] = useState<boolean>(!!draft.muted);
   const [audioUrl, setAudioUrl] = useState<string>(draft.audioUrl || '');
   const [audioDuration, setAudioDuration] = useState<number>(Number(draft.audioDuration) || 0);
@@ -593,10 +598,20 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
     if (clips.length === 0 && !resultUrl && !audioUrl) return;
     setConfig((prev: any) => ({
       ...prev,
-      montagem: { clips, items, texts, resultUrl, coverUrl, coverOptions, muted, audioUrl, audioDuration, aspect, fit, avatarUrl: avatarBase, avatarFraming, avatarStartSec, fullAudioUrl, blockSizeSec, blockEnds },
+      montagem: { clips, items, texts, resultUrl, resultHistory, coverUrl, coverOptions, muted, audioUrl, audioDuration, aspect, fit, avatarUrl: avatarBase, avatarFraming, avatarStartSec, fullAudioUrl, blockSizeSec, blockEnds },
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clips, items, texts, resultUrl, coverUrl, coverOptions, muted, audioUrl, audioDuration, aspect, fit]);
+  }, [clips, items, texts, resultUrl, resultHistory, coverUrl, coverOptions, muted, audioUrl, audioDuration, aspect, fit]);
+
+  // Toda vez que sai um vídeo montado novo, guarda no histórico (dedup, últimos 10).
+  useEffect(() => {
+    if (!resultUrl) return;
+    setResultHistory((prev) => {
+      if (prev[0]?.url === resultUrl) return prev;
+      const without = prev.filter((v) => v.url !== resultUrl);
+      return [{ url: resultUrl, at: Date.now() }, ...without].slice(0, 10);
+    });
+  }, [resultUrl]);
 
   // Preenche a duração de trechos que ainda não têm (1 por vez, sem travar).
   useEffect(() => {
@@ -3329,6 +3344,35 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
             </button>
           </div>
           <video src={resultUrl} controls className="w-full max-h-[420px] rounded-xl bg-black" />
+          {resultHistory.length > 1 && (
+            <div className="space-y-1">
+              <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+                Versões ({resultHistory.length})
+              </span>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {resultHistory.map((v, i) => {
+                  const atual = v.url === resultUrl;
+                  return (
+                    <div key={v.url} className="shrink-0 w-24 space-y-1">
+                      <video
+                        src={v.url}
+                        muted
+                        preload="metadata"
+                        className={`w-24 h-16 object-cover rounded-lg bg-black ring-2 ${atual ? 'ring-green-500' : 'ring-transparent'}`}
+                      />
+                      <button
+                        onClick={() => setResultUrl(v.url)}
+                        disabled={atual}
+                        className={`w-full text-[9px] font-black uppercase tracking-widest px-1 py-1 rounded ${atual ? 'bg-green-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200'}`}
+                      >
+                        {atual ? 'atual' : i === 0 ? 'mais nova' : 'usar'}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           <button
             onClick={gerarMusicaEColar}
             disabled={musicGen}

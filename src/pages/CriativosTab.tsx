@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { loadVariants } from '@/lib/variantStore';
-import { Star, Download, CheckSquare, Square, Rocket, Film, Smartphone } from 'lucide-react';
+import { Star, Download, CheckSquare, Square, Rocket, Film, Smartphone, X } from 'lucide-react';
 import { Skeleton } from '@/components/Skeleton';
 import { FeedMockup } from '@/components/FeedMockup';
 
@@ -25,6 +25,7 @@ interface Creative {
 
 const FAV_KEY = 'metavise-criativos-fav';
 const PUB_KEY = 'metavise-criativos-pub';
+const TAGS_KEY = 'metavise-criativos-tags';
 
 function loadSet(key: string): Set<string> {
   try {
@@ -40,6 +41,20 @@ function saveSet(key: string, s: Set<string>) {
     /* ignora */
   }
 }
+function loadTags(): Record<string, string[]> {
+  try {
+    return JSON.parse(localStorage.getItem(TAGS_KEY) || '{}');
+  } catch {
+    return {};
+  }
+}
+function saveTags(t: Record<string, string[]>) {
+  try {
+    localStorage.setItem(TAGS_KEY, JSON.stringify(t));
+  } catch {
+    /* ignora */
+  }
+}
 
 export function CriativosTab({ projectId, projectName }: Props) {
   const [loading, setLoading] = useState(false);
@@ -49,6 +64,8 @@ export function CriativosTab({ projectId, projectName }: Props) {
   const [filter, setFilter] = useState<'todos' | 'favoritos' | 'publicados'>('todos');
   const [fmtFilter, setFmtFilter] = useState<'todos' | '9:16' | '1:1' | '16:9'>('todos');
   const [srcFilter, setSrcFilter] = useState<string>('todos');
+  const [tags, setTags] = useState<Record<string, string[]>>(() => loadTags());
+  const [tagFilter, setTagFilter] = useState<string>('todos');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   // Checklist de publicação: abre ao marcar "no ar" um criativo ainda não publicado.
   const [pubModalUrl, setPubModalUrl] = useState<string | null>(null);
@@ -124,6 +141,24 @@ export function CriativosTab({ projectId, projectName }: Props) {
     setPubModalUrl(null);
     toast.success('Marcado como no ar.');
   };
+  const addTag = (url: string) => {
+    const raw = (window.prompt('Tag (ex.: persona, ângulo, campanha):') || '').trim();
+    if (!raw) return;
+    setTags((prev) => {
+      const cur = prev[url] || [];
+      if (cur.includes(raw)) return prev;
+      const next = { ...prev, [url]: [...cur, raw] };
+      saveTags(next);
+      return next;
+    });
+  };
+  const removeTag = (url: string, tag: string) => {
+    setTags((prev) => {
+      const next = { ...prev, [url]: (prev[url] || []).filter((t) => t !== tag) };
+      saveTags(next);
+      return next;
+    });
+  };
   const toggleSel = (url: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -137,6 +172,11 @@ export function CriativosTab({ projectId, projectName }: Props) {
     () => Array.from(new Set(creatives.map((c) => c.source))),
     [creatives]
   );
+  // Todas as tags em uso (pra o filtro).
+  const allTags = useMemo(
+    () => Array.from(new Set(Object.values(tags).flat())).sort(),
+    [tags]
+  );
 
   const shown = useMemo(() => {
     return creatives.filter((c) => {
@@ -144,9 +184,10 @@ export function CriativosTab({ projectId, projectName }: Props) {
       if (filter === 'publicados' && !pub.has(c.url)) return false;
       if (fmtFilter !== 'todos' && c.aspect !== fmtFilter) return false;
       if (srcFilter !== 'todos' && c.source !== srcFilter) return false;
+      if (tagFilter !== 'todos' && !(tags[c.url] || []).includes(tagFilter)) return false;
       return true;
     });
-  }, [creatives, filter, fav, pub, fmtFilter, srcFilter]);
+  }, [creatives, filter, fav, pub, fmtFilter, srcFilter, tagFilter, tags]);
 
   const baixarSelecionados = () => {
     const urls = shown.filter((c) => selected.has(c.url));
@@ -226,6 +267,20 @@ export function CriativosTab({ projectId, projectName }: Props) {
               </option>
             ))}
           </select>
+          {allTags.length > 0 && (
+            <select
+              value={tagFilter}
+              onChange={(e) => setTagFilter(e.target.value)}
+              className="px-2.5 py-1.5 rounded-lg text-xs font-black bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-none outline-none"
+            >
+              <option value="todos">Toda tag</option>
+              {allTags.map((t) => (
+                <option key={t} value={t}>
+                  #{t}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
         {selected.size > 0 && (
           <button
@@ -283,6 +338,27 @@ export function CriativosTab({ projectId, projectName }: Props) {
                     {c.variantName}
                   </p>
                   <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">{c.source}</p>
+                  {/* Tags */}
+                  <div className="flex flex-wrap items-center gap-1">
+                    {(tags[c.url] || []).map((t) => (
+                      <span
+                        key={t}
+                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 text-[9px] font-bold"
+                      >
+                        #{t}
+                        <button onClick={() => removeTag(c.url, t)} className="hover:text-red-500" title="Remover tag">
+                          <X size={9} />
+                        </button>
+                      </span>
+                    ))}
+                    <button
+                      onClick={() => addTag(c.url)}
+                      className="px-1.5 py-0.5 rounded-md border border-dashed border-gray-300 dark:border-gray-700 text-gray-400 hover:text-blue-600 hover:border-blue-400 text-[9px] font-bold"
+                      title="Adicionar tag"
+                    >
+                      + tag
+                    </button>
+                  </div>
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => toggleFav(c.url)}
