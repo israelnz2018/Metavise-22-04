@@ -317,7 +317,15 @@ export function CriativosTab({ projectId, projectName }: Props) {
                     src={c.url}
                     poster={c.cover}
                     controls
+                    muted
+                    playsInline
                     preload="metadata"
+                    onMouseEnter={(e) => (e.currentTarget as HTMLVideoElement).play().catch(() => {})}
+                    onMouseLeave={(e) => {
+                      const v = e.currentTarget as HTMLVideoElement;
+                      v.pause();
+                      v.currentTime = 0;
+                    }}
                     className="w-full aspect-[9/16] object-cover bg-black"
                   />
                   <button

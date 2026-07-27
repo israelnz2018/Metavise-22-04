@@ -5,7 +5,7 @@ import { storage, auth } from '@/lib/firebase';
 import { SoundLibraryModal } from '@/components/SoundLibraryModal';
 import { useSoundLibrary } from '@/hooks/useSoundLibrary';
 import { AvatarFramingModal, AvatarFraming, DEFAULT_AVATAR_FRAMING } from '@/components/AvatarFramingModal';
-import { Film, Upload, Loader2, Trash2, ArrowUp, ArrowDown, Check, Music, X, Plus, Maximize, Play, Pause, GripVertical, Undo2, Redo2, ImageIcon, Download } from 'lucide-react';
+import { Film, Upload, Loader2, Trash2, ArrowUp, ArrowDown, Check, Music, X, Plus, Minus, Maximize, Play, Pause, GripVertical, Undo2, Redo2, ImageIcon, Download } from 'lucide-react';
 import { useJobs } from '@/lib/jobsStore';
 import { triggerProjectSave } from '@/lib/autosave';
 import { logCreativeCost, COST_RATES } from '@/lib/creativeCost';
@@ -978,14 +978,25 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
 
   // Arrastar um trecho na horizontal pra reposicionar no tempo (mantém a duração).
   const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [snap, setSnap] = useState(true); // "imã": gruda na borda do vizinho / grade
+  const [zoom, setZoom] = useState(1); // precisão do arraste (zoom in = mais fino)
   const onDragStart = (idx: number, e: React.PointerEvent) => {
     e.preventDefault();
     pushHistory(items);
     const startX = e.clientX;
     const startAt = items[idx]?.atSec ?? 0;
-    const SENS = 0.04; // segundos por pixel (~25px = 1s)
+    const SENS = 0.04 / zoom; // segundos por pixel; zoom maior = arraste mais fino
+    // Bordas dos OUTROS trechos (início e fim) — pra o snap grudar nelas.
+    const edges = items
+      .filter((_, k) => k !== idx)
+      .flatMap((it) => [Number(it.atSec.toFixed(2)), Number(itemEnd(it).toFixed(2))]);
     const move = (ev: PointerEvent) => {
-      const newAt = Math.max(0, Number((startAt + (ev.clientX - startX) * SENS).toFixed(2)));
+      let newAt = Math.max(0, startAt + (ev.clientX - startX) * SENS);
+      if (snap) {
+        const near = edges.find((edge) => Math.abs(edge - newAt) < 0.3);
+        newAt = near != null ? near : Math.round(newAt * 4) / 4; // grade de 0,25s
+      }
+      newAt = Number(newAt.toFixed(2));
       setItems((prev) =>
         prev.map((it, k) => {
           if (k !== idx) return it;
@@ -2599,6 +2610,33 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
               Trechos na timeline (arraste ⠿ pra reposicionar; começa / termina em s)
             </span>
             <div className="flex items-center gap-1 shrink-0">
+              {/* Imã (snap) + zoom/precisão do arraste */}
+              <button
+                onClick={() => setSnap((s) => !s)}
+                title={snap ? 'Imã ligado — gruda na borda do vizinho / grade de 0,25s' : 'Imã desligado — arraste livre'}
+                className={`px-2 py-1.5 rounded-lg border text-[11px] font-black ${
+                  snap
+                    ? 'border-blue-400 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300'
+                    : 'border-gray-200 dark:border-gray-700 text-gray-500'
+                }`}
+              >
+                🧲 imã
+              </button>
+              <button
+                onClick={() => setZoom((z) => Math.max(0.5, Number((z - 0.5).toFixed(1))))}
+                title="Arraste mais grosso (zoom out)"
+                className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-blue-400"
+              >
+                <Minus size={14} />
+              </button>
+              <span className="text-[10px] font-black text-gray-400 w-8 text-center">{zoom}×</span>
+              <button
+                onClick={() => setZoom((z) => Math.min(4, Number((z + 0.5).toFixed(1))))}
+                title="Arraste mais fino (zoom in)"
+                className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-blue-400"
+              >
+                <Plus size={14} />
+              </button>
               <button
                 onClick={undo}
                 disabled={historyRef.current.past.length === 0}
