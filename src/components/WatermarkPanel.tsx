@@ -25,14 +25,27 @@ const POS_STYLE: Record<Pos, string> = {
   br: 'bottom-[3%] right-[3%]',
 };
 
+// Marca d'água PADRÃO salva (opcional): logo + posição/tamanho/opacidade pra
+// reusar nos próximos criativos sem reconfigurar.
+const DEFAULT_KEY = 'metavise-watermark-default';
+function loadDefault(): { logoUrl: string; pos: Pos; size: number; opacity: number } | null {
+  try {
+    return JSON.parse(localStorage.getItem(DEFAULT_KEY) || 'null');
+  } catch {
+    return null;
+  }
+}
+
 export function WatermarkPanel({ videoUrl, uid, aspect = '9:16', onApplied }: Props) {
   const aspectClass =
     aspect === '1:1' ? 'aspect-square' : aspect === '16:9' ? 'aspect-video' : 'aspect-[9/16]';
-  const [logoUrl, setLogoUrl] = useState('');
+  const saved = loadDefault();
+  const [logoUrl, setLogoUrl] = useState(saved?.logoUrl || '');
   const [uploading, setUploading] = useState(false);
-  const [pos, setPos] = useState<Pos>('br');
-  const [size, setSize] = useState(0.18);
-  const [opacity, setOpacity] = useState(1);
+  const [pos, setPos] = useState<Pos>(saved?.pos || 'br');
+  const [size, setSize] = useState(saved?.size ?? 0.18);
+  const [opacity, setOpacity] = useState(saved?.opacity ?? 1);
+  const [saveDefault, setSaveDefault] = useState(!!saved);
   const [applying, setApplying] = useState(false);
 
   const uploadLogo = async (file?: File | null) => {
@@ -67,6 +80,13 @@ export function WatermarkPanel({ videoUrl, uid, aspect = '9:16', onApplied }: Pr
       });
       const d = await r.json();
       if (!r.ok || !d.url) throw new Error(d.error || 'Falha ao aplicar.');
+      // Salva/limpa a marca padrão conforme a opção.
+      try {
+        if (saveDefault) localStorage.setItem(DEFAULT_KEY, JSON.stringify({ logoUrl, pos, size, opacity }));
+        else localStorage.removeItem(DEFAULT_KEY);
+      } catch {
+        /* ignora */
+      }
       onApplied(d.url);
       toast.success('Marca d’água aplicada!', { id: tid });
     } catch (e: any) {
@@ -138,6 +158,11 @@ export function WatermarkPanel({ videoUrl, uid, aspect = '9:16', onApplied }: Pr
           </label>
         </div>
       </div>
+
+      <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+        <input type="checkbox" checked={saveDefault} onChange={(e) => setSaveDefault(e.target.checked)} className="accent-blue-600" />
+        Salvar essa marca como padrão pros próximos criativos
+      </label>
 
       <button
         onClick={apply}
