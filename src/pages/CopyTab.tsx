@@ -965,6 +965,31 @@ export function CopyTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentProjectId, (config.copy as any)?.activeBriefId, config.copy.answers.awarenessLevel]);
 
+  // Força a aplicação dos campos RECOMENDADOS pro nível atual (estilo/ângulo/
+  // emoção), sobrescrevendo o que estiver lá — a "opção" de alinhar os outros
+  // campos ao novo nível de consciência sob demanda (sem overwrite silencioso).
+  const applyLevelRecommendations = () => {
+    const level = config.copy.answers.awarenessLevel || '';
+    if (!level) return toast.error('Escolha um nível de consciência primeiro.');
+    const estilo = getRecomendedEstilo(level)[0];
+    const angle = recommendedAnglesFor(level)[0];
+    const emotion = recommendedEmotionsFor(level, estilo || '')[0];
+    setConfig((prev: any) => ({
+      ...prev,
+      copy: {
+        ...prev.copy,
+        answers: {
+          ...prev.copy.answers,
+          ...(estilo ? { estiloAnuncio: estilo } : {}),
+          ...(angle ? { angleIdea: angle } : {}),
+          ...(emotion ? { emotion } : {}),
+        },
+      },
+    }));
+    setHasUnsavedCopyChanges(true);
+    toast.success(`Estilo, ângulo e emoção ajustados pro nível ${level}.`);
+  };
+
   // Auto-preenche a descrição do destino do clique via IA (~1s). Só roda quando
   // há productInfo e o campo está vazio; uma vez por subprojeto.
   const destFilledFor = React.useRef<string | null>(null);
@@ -1815,6 +1840,15 @@ export function CopyTab({
                     </button>
                   ))}
                 </div>
+                {config.copy.answers.awarenessLevel && (
+                  <button
+                    onClick={applyLevelRecommendations}
+                    className="mt-3 w-full py-2.5 rounded-2xl border-2 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 text-xs font-black uppercase tracking-widest hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors"
+                    title="Ajusta estilo, ângulo e emoção pros recomendados deste nível de consciência"
+                  >
+                    🔄 Aplicar recomendações do nível {config.copy.answers.awarenessLevel} (estilo · ângulo · emoção)
+                  </button>
+                )}
               </div>
 
               {/* SEÇÃO 3 — Configurações do Anúncio */}
