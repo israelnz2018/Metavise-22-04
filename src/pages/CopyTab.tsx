@@ -994,7 +994,9 @@ export function CopyTab({
   // Reescreve os campos da AUDIÊNCIA (Seção 1) pro nível de consciência atual via
   // IA — SOBRESCREVE o texto. Mantém quem é a audiência; muda o enquadramento.
   const [reframingAudience, setReframingAudience] = React.useState(false);
-  const AUDIENCE_FIELDS = ['audience', 'situation', 'painPoints', 'triedBefore', 'mainObjection', 'hiddenDesire'];
+  // Campos reenquadrados por nível: audiência (Seção 1) + SÓ o "problema que
+  // resolve" da Seção 4 (o resto do produto/oferta são fatos, não mexe).
+  const AUDIENCE_FIELDS = ['audience', 'situation', 'painPoints', 'triedBefore', 'mainObjection', 'hiddenDesire', 'productProblem'];
   const reframeAudience = async () => {
     const level = config.copy.answers.awarenessLevel || '';
     if (!level) return toast.error('Escolha um nível de consciência primeiro.');
@@ -1730,7 +1732,7 @@ export function CopyTab({
                     <button
                       onClick={reframeAudience}
                       disabled={reframingAudience}
-                      title="A IA reescreve os campos da audiência pro nível de consciência atual (sobrescreve o texto)"
+                      title="A IA reescreve a audiência + o 'problema que resolve' pro nível de consciência atual (sobrescreve o texto). Não toca em nome/mecanismo/prova/oferta."
                       className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border-2 border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 text-[10px] font-black uppercase tracking-widest hover:bg-purple-50 dark:hover:bg-purple-950/40 disabled:opacity-50"
                     >
                       {reframingAudience ? '⏳ Reescrevendo…' : `🔄 Reescrever pro nível ${config.copy.answers.awarenessLevel} (IA)`}
