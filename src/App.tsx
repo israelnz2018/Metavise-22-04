@@ -1251,16 +1251,32 @@ export default function App() {
   };
 
   const applyAwarenessLevelChange = (newLevel: string) => {
-    setConfig((prev) => ({
-      ...prev,
-      copy: {
-        ...prev.copy,
-        answers: {
-          ...prev.copy.answers,
-          awarenessLevel: newLevel,
+    // Na aba "Copy da VSL" o nível vive em config.copyVsl (a view usa copyVsl no
+    // lugar de copy). Sem rotear, a troca caía em config.copy e a VSL não mudava
+    // — parecia que "não acontecia nada" ao confirmar.
+    const isVslTab = currentStep === 'copy-vsl';
+    setConfig((prev) => {
+      if (isVslTab) {
+        const baseVsl: any = (prev as any).copyVsl || prev.copy;
+        return {
+          ...prev,
+          copyVsl: {
+            ...baseVsl,
+            answers: { ...baseVsl.answers, awarenessLevel: newLevel },
+          },
+        } as AdConfig;
+      }
+      return {
+        ...prev,
+        copy: {
+          ...prev.copy,
+          answers: {
+            ...prev.copy.answers,
+            awarenessLevel: newLevel,
+          },
         },
-      },
-    }));
+      };
+    });
     setHasUnsavedCopyChanges(true);
   };
 
