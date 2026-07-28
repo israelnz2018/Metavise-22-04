@@ -50,6 +50,7 @@ import {
   generateAdCopyVariants,
   analyzeCopyForLibrary,
   describeDestinationFromProduct,
+  reframeAudienceForLevel,
   preflightCheckCopy,
   detectHallucinations,
   detectNamedAuthorities,
@@ -990,6 +991,44 @@ export function CopyTab({
     toast.success(`Estilo, ângulo e emoção ajustados pro nível ${level}.`);
   };
 
+  // Reescreve os campos da AUDIÊNCIA (Seção 1) pro nível de consciência atual via
+  // IA — SOBRESCREVE o texto. Mantém quem é a audiência; muda o enquadramento.
+  const [reframingAudience, setReframingAudience] = React.useState(false);
+  const AUDIENCE_FIELDS = ['audience', 'situation', 'painPoints', 'triedBefore', 'mainObjection', 'hiddenDesire'];
+  const reframeAudience = async () => {
+    const level = config.copy.answers.awarenessLevel || '';
+    if (!level) return toast.error('Escolha um nível de consciência primeiro.');
+    const fields: Record<string, string> = {};
+    for (const id of AUDIENCE_FIELDS) {
+      const v = (config.copy.answers as any)[id];
+      if (typeof v === 'string' && v.trim()) fields[id] = v;
+    }
+    if (Object.keys(fields).length === 0) return toast.error('Preencha a audiência primeiro.');
+    setReframingAudience(true);
+    const tid = 'reframe-audience';
+    toast.loading('Reescrevendo a audiência pro nível…', { id: tid });
+    try {
+      const out = await reframeAudienceForLevel({
+        level,
+        language: config.copy.answers.language,
+        fields,
+      });
+      setConfig((prev: any) => {
+        const next = { ...prev.copy.answers };
+        for (const id of AUDIENCE_FIELDS) {
+          if (typeof out[id] === 'string' && out[id].trim()) next[id] = out[id].trim();
+        }
+        return { ...prev, copy: { ...prev.copy, answers: next } };
+      });
+      setHasUnsavedCopyChanges(true);
+      toast.success(`Audiência reescrita pro nível ${level}.`, { id: tid });
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao reescrever a audiência.', { id: tid });
+    } finally {
+      setReframingAudience(false);
+    }
+  };
+
   // Auto-preenche a descrição do destino do clique via IA (~1s). Só roda quando
   // há productInfo e o campo está vazio; uma vez por subprojeto.
   const destFilledFor = React.useRef<string | null>(null);
@@ -1680,13 +1719,23 @@ export function CopyTab({
             <div className="space-y-10">
               {/* SEÇÃO 1 — Sua Audiência */}
               <div className="space-y-6 bg-white dark:bg-gray-900/80 p-8 rounded-[40px] border-2 border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex items-center gap-3 mb-2">
+                <div className="flex items-center gap-3 mb-2 flex-wrap">
                   <div className="w-8 h-8 bg-blue-600 text-white rounded-xl flex items-center justify-center text-xs font-black">
                     1
                   </div>
                   <h4 className="font-black text-gray-900 dark:text-gray-50 text-lg tracking-tight uppercase">
                     1. Sua Audiência
                   </h4>
+                  {config.copy.answers.awarenessLevel && (
+                    <button
+                      onClick={reframeAudience}
+                      disabled={reframingAudience}
+                      title="A IA reescreve os campos da audiência pro nível de consciência atual (sobrescreve o texto)"
+                      className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border-2 border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 text-[10px] font-black uppercase tracking-widest hover:bg-purple-50 dark:hover:bg-purple-950/40 disabled:opacity-50"
+                    >
+                      {reframingAudience ? '⏳ Reescrevendo…' : `🔄 Reescrever pro nível ${config.copy.answers.awarenessLevel} (IA)`}
+                    </button>
+                  )}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {(sections[0]?.questions || []).map((q) => {

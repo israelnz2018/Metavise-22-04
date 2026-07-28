@@ -2387,6 +2387,38 @@ Include 1 final line starting with "AVOID:" listing 2-4 terms the copy should NE
   }
 }
 
+// Reenquadra os campos de AUDIÊNCIA pro NÍVEL DE CONSCIÊNCIA alvo (Eugene
+// Schwartz): mantém QUEM é a audiência (mesmo público/oferta) e muda só o
+// enquadramento de consciência (o quanto percebe o problema/solução, o que já
+// tentou, a objeção típica). Retorna as mesmas chaves reescritas.
+export async function reframeAudienceForLevel(input: {
+  level: string;
+  language?: string;
+  fields: Record<string, string>;
+}): Promise<Record<string, string>> {
+  const isPT = isPortuguese(input.language);
+  const lvl = (input.level || '3').charAt(0);
+  const levelDesc: Record<string, string> = {
+    '1': isPT ? 'Inconsciente (nem sabe que tem o problema)' : 'Unaware (doesn’t know they have the problem)',
+    '2': isPT ? 'Consciente do Problema (sente o problema, não conhece solução)' : 'Problem-aware',
+    '3': isPT ? 'Consciente da Solução (sabe que há soluções, não conhece a sua)' : 'Solution-aware',
+    '4': isPT ? 'Consciente do Produto (conhece seu produto, ainda em dúvida)' : 'Product-aware',
+    '5': isPT ? 'Totalmente Consciente (pronto pra comprar)' : 'Most aware (ready to buy)',
+  };
+  const cur = JSON.stringify(input.fields, null, 2);
+  const system = isPT
+    ? `Você é estrategista de copy. Recebe os campos de uma AUDIÊNCIA e um NÍVEL DE CONSCIÊNCIA alvo. Reescreva os campos pra refletir esse nível, MANTENDO quem é a audiência (mesmo público, mesma oferta, mesma dor de fundo) — muda SÓ o enquadramento de consciência: o quanto ela percebe o problema/solução, o que já tentou e a objeção típica desse nível. NÃO invente fatos novos; só reenquadre o tom. Responda SOMENTE com JSON válido, exatamente as mesmas chaves recebidas, valores curtos (1-2 frases), em português. Sem markdown, sem texto fora do JSON.`
+    : `You are a copy strategist. Given AUDIENCE fields and a target AWARENESS LEVEL, rewrite the fields to reflect that level, KEEPING who the audience is (same public, same offer, same underlying pain) — change ONLY the awareness framing. Do NOT invent new facts. Respond ONLY with valid JSON, exact same keys, short values (1-2 sentences). No markdown.`;
+  const user = `${isPT ? 'Nível alvo' : 'Target level'}: ${lvl} — ${levelDesc[lvl] || ''}\n\n${isPT ? 'Campos atuais' : 'Current fields'}:\n${cur}`;
+  const raw = await callClaude(system, user, 900);
+  const clean = (raw || '').replace(/```json/gi, '').replace(/```/g, '').trim();
+  const start = clean.indexOf('{');
+  const end = clean.lastIndexOf('}');
+  const jsonStr = start >= 0 && end > start ? clean.slice(start, end + 1) : clean;
+  const parsed = JSON.parse(jsonStr) as Record<string, string>;
+  return parsed;
+}
+
 // ─────────────────────────────────────────────
 // UX25-A2 — PRE-FLIGHT CHECK
 // ─────────────────────────────────────────────
