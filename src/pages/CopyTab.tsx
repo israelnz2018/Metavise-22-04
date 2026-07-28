@@ -2250,6 +2250,44 @@ export function CopyTab({
                 </div>
               </div>
 
+              {/* Timing do PITCH — só na VSL: quando a oferta/CTA entra no roteiro. */}
+              {isVsl && (
+                <div className="space-y-3 bg-white dark:bg-gray-900/80 p-8 rounded-[40px] border-2 border-gray-200 dark:border-gray-800 shadow-sm">
+                  <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">
+                    Quando entra o pitch (oferta + CTA)?
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {[
+                      { id: '50', label: '~50%', desc: 'Vende cedo — metade conteúdo, metade oferta' },
+                      { id: '75', label: '~75%', desc: 'Educa mais, vende no último quarto' },
+                      { id: '90', label: '~90%', desc: 'Quase tudo conteúdo, pitch curto no fim' },
+                      { id: 'end', label: 'Só no fim', desc: 'Padrão — oferta nos blocos finais' },
+                    ].map((opt) => {
+                      const cur = (config.copy.answers.pitchPosition || 'end').toString();
+                      const active = cur === opt.id;
+                      return (
+                        <button
+                          key={opt.id}
+                          onClick={() => updateConfig('copy', 'answers', 'pitchPosition', opt.id)}
+                          className={`p-3 rounded-2xl border-2 text-left transition-all ${
+                            active
+                              ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40'
+                              : 'border-gray-100 dark:border-gray-800 hover:border-blue-200 bg-gray-50/40 dark:bg-gray-800/50'
+                          }`}
+                        >
+                          <div className="text-sm font-black text-gray-900 dark:text-gray-50">{opt.label}</div>
+                          <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 leading-tight">{opt.desc}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500 italic">
+                    Antes do pitch a IA só entrega história/problema/mecanismo/prova; a partir do ponto
+                    escolhido é que entra o produto, objeções e o CTA.
+                  </p>
+                </div>
+              )}
+
               {/* SEÇÃO — Estratégia da Copy. Só no anúncio: a VSL SEMPRE vende o
                   produto nela mesma, então essa escolha não faz sentido. */}
               {!isVsl && (

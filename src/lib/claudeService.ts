@@ -591,7 +591,15 @@ This VSL SELLS the product inside the video and closes on the OFFER. The final b
 } Do NOT end on "watch a video" (this IS the video) — end on the purchase/enrollment action. You MAY reference the offer, what they get, and honest urgency/scarcity in the close (price/guarantee only if given in the context).
 
 --- STRUCTURE (the full VSL arc — narrate it continuously, no bracketed labels inside the prose) ---
-Move through this arc across the blocks: (1) HOOK/LEAD — a pattern-interrupt opening that stops the scroll and names the big promise or the intrigue; (2) STORY/EMPATHY — meet the person and the stakes, build identification; (3) THE PROBLEM & THE ENEMY — agitate the driver, name the real villain (a generic category); (4) THE EPIPHANY / UNIQUE MECHANISM — the turning point and WHY this works when other things failed; (5) HOW IT WORKS — make the mechanism clear and believable; (6) PROOF & CREDIBILITY — evidence, only real/grounded; (7) THE PRODUCT & THE OFFER — introduce it plainly, what they get; (8) OBJECTIONS — dissolve the top hesitations; (9) CLOSE — clear CTA with honest urgency.
+Move through this arc across the blocks: (1) HOOK/LEAD — a pattern-interrupt opening that stops the scroll and names the big promise or the intrigue; (2) STORY/EMPATHY — meet the person and the stakes, build identification; (3) THE PROBLEM & THE ENEMY — agitate the driver, name the real villain (a generic category); (4) THE EPIPHANY / UNIQUE MECHANISM — the turning point and WHY this works when other things failed; (5) HOW IT WORKS — make the mechanism clear and believable; (6) PROOF & CREDIBILITY — evidence, only real/grounded; (7) THE PRODUCT & THE OFFER — introduce it plainly, what they get; (8) OBJECTIONS — dissolve the top hesitations; (9) CLOSE — clear CTA with honest urgency.${
+  ((): string => {
+    const p = (answers.pitchPosition || '').toString();
+    if (!p || p === 'end') return '';
+    const pct = Number(p);
+    if (!(pct >= 30 && pct <= 95)) return '';
+    return `\n\n--- PITCH TIMING (mandatory) ---\nDo NOT introduce the product name, the offer, price, or any CTA before roughly ${pct}% of the way through the script. Spend the first ~${pct}% PURELY on story, problem/enemy, epiphany/mechanism, how-it-works and proof (arc steps 1-6) — keep the viewer hooked with value, no selling. Only after ~${pct}% do you bring in THE PRODUCT & THE OFFER, OBJECTIONS and the CLOSE (steps 7-9). So the whole pitch/sell occupies only the final ~${100 - pct}% of the video.`;
+  })()
+}
 VOICE: vivid and concrete; the first line IS the hook; never invent statistics. POV: ${povRule}
 
 --- LENGTH & BLOCKS ---
