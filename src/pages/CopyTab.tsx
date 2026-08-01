@@ -2250,6 +2250,26 @@ export function CopyTab({
                 </div>
               </div>
 
+              {/* Hook da VSL — frase de abertura que para o scroll (só na VSL). */}
+              {isVsl && (
+                <div className="space-y-2 bg-white dark:bg-gray-900/80 p-8 rounded-[40px] border-2 border-gray-200 dark:border-gray-800 shadow-sm">
+                  <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">
+                    Hook da VSL (frase de abertura que para o scroll) — opcional
+                  </label>
+                  <input
+                    type="text"
+                    value={config.copy.answers.vslHook || ''}
+                    onChange={(e: any) => updateConfig('copy', 'answers', 'vslHook', e.target.value)}
+                    placeholder='ex: "Essa arte feita em casa tá virando renda pra milhares de mães"'
+                    className="w-full p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-800 text-sm outline-none focus:border-blue-400"
+                  />
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500 italic">
+                    Se preenchido, a IA usa isso como a PRIMEIRA frase do roteiro (tipo abertura de
+                    curiosidade com voz/efeito diferentes). Deixe vazio pra a IA criar o hook.
+                  </p>
+                </div>
+              )}
+
               {/* Timing do PITCH — só na VSL: quando a oferta/CTA entra no roteiro. */}
               {isVsl && (
                 <div className="space-y-3 bg-white dark:bg-gray-900/80 p-8 rounded-[40px] border-2 border-gray-200 dark:border-gray-800 shadow-sm">

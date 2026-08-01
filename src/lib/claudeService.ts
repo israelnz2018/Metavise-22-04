@@ -582,7 +582,11 @@ Agitate the "Real emotional driver" from the context (read from the VSL) — wha
 
 --- ANGLE ---
 Angle: ${angle || 'Direto'} — the through-line of the whole VSL.
-
+${
+  (answers.vslHook || '').toString().trim().length > 0
+    ? `\n--- OPENING HOOK (mandatory, literal first line) ---\nThe script's VERY FIRST line must be this exact scroll-stopping hook, as a short punchy standalone opener (it may be delivered in a different, energetic "announcer" voice, distinct from the calm main narrator, with a sound effect): "${(answers.vslHook || '').toString().trim()}". Then transition naturally into the story/scene. Do NOT paraphrase it, do NOT bury it — it is literally the first thing said.\n`
+    : ''
+}
 --- CTA / OFFER (how the VSL closes) ---
 This VSL SELLS the product inside the video and closes on the OFFER. The final block must drive the viewer to ACT on the offer NOW — a confident, direct call to click the offer button and get access (e.g. "clique no botão abaixo e garanta seu acesso agora"). ${
   (answers.destinationDescription || '').toString().trim().length > 0
