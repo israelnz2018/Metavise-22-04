@@ -263,12 +263,14 @@ export function EditZapTab({
       url,
       label: `Montagem VSL${vslMontageResults.length > 1 ? ` ${i + 1}` : ''}`,
       aspectRatio: vslMontageAspect,
+      source: 'montagem' as const,
     })),
-    ...vslGroupVideos,
+    ...vslGroupVideos.map((g) => ({ ...g, source: 'montagem' as const })),
     ...vslAvatarVideos.map((v, i) => ({
       url: v.url as string,
       label: `Avatar VSL ${i + 1}${v.blockLabel ? ` · ${v.blockLabel}` : ''}`,
       aspectRatio: (v.aspectRatio as string) || vslMontageAspect,
+      source: 'avatar' as const,
     })),
   ].filter((o, i, a) => o.url && a.findIndex((x) => x.url === o.url) === i);
   const hasVslContent = vslSourceVideos.length > 0;
@@ -566,11 +568,26 @@ export function EditZapTab({
                   {v.aspectRatio || '9:16'}
                 </span>
                 <VideoDurationBadge src={v.url} />
-                {zapVideoUrl === v.url && (
-                  <span className="absolute top-2 left-2 px-2 py-0.5 bg-yellow-500 text-white text-[9px] font-black rounded uppercase tracking-widest pointer-events-none">
-                    ✓ Selecionado
-                  </span>
-                )}
+                <div className="absolute top-2 left-2 flex flex-col items-start gap-1 pointer-events-none">
+                  {/* Selo de origem: distingue vídeo da Montagem (azul) do
+                      vídeo do Avatar (roxo). Só no Editar VSL, onde as fontes
+                      se misturam. */}
+                  {v.source && (
+                    <span
+                      className={cn(
+                        'px-2 py-0.5 text-white text-[9px] font-black rounded uppercase tracking-widest shadow',
+                        v.source === 'avatar' ? 'bg-purple-600' : 'bg-blue-600'
+                      )}
+                    >
+                      {v.source === 'avatar' ? 'Avatar' : 'Montagem'}
+                    </span>
+                  )}
+                  {zapVideoUrl === v.url && (
+                    <span className="px-2 py-0.5 bg-yellow-500 text-white text-[9px] font-black rounded uppercase tracking-widest">
+                      ✓ Selecionado
+                    </span>
+                  )}
+                </div>
                 {/* Delete X — overlays the thumbnail. stopPropagation so it
                     doesn't trigger the "select" click on the wrapper. */}
                 <button
