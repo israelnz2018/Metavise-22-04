@@ -3049,6 +3049,46 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
                         </label>
                       );
                     })()}
+                    {/* Prévia AO VIVO do split (CSS) — reflete o pan sem renderizar. */}
+                    {it.layout && it.layout.startsWith('split') && avatarBase && clips[it.clipIdx]?.url && (() => {
+                      const vertical = it.layout === 'split-top' || it.layout === 'split-bottom';
+                      const avatarFirst = it.layout === 'split-left' || it.layout === 'split-top';
+                      const brCX = it.brollCX ?? 0.5;
+                      const brCY = it.brollCY ?? 0.5;
+                      const aspectClass =
+                        aspect === '1:1' ? 'aspect-square' : aspect === '16:9' ? 'aspect-video' : 'aspect-[9/16]';
+                      const av = (
+                        <video
+                          src={avatarBase}
+                          muted
+                          playsInline
+                          preload="metadata"
+                          className="w-full h-full object-cover"
+                          style={{ objectPosition: `${(framing.splitCX ?? 0.5) * 100}% ${(framing.splitCY ?? 0.4) * 100}%` }}
+                        />
+                      );
+                      const br = (
+                        <video
+                          src={clips[it.clipIdx]?.url}
+                          muted
+                          playsInline
+                          preload="metadata"
+                          className="w-full h-full object-cover"
+                          style={{ objectPosition: `${brCX * 100}% ${brCY * 100}%` }}
+                        />
+                      );
+                      return (
+                        <div className="basis-full flex items-center gap-2 pt-1">
+                          <span className="text-[9px] text-gray-400 uppercase tracking-widest">prévia</span>
+                          <div
+                            className={`w-28 ${aspectClass} rounded-lg overflow-hidden bg-black flex ${vertical ? 'flex-col' : 'flex-row'} ring-1 ring-violet-400`}
+                          >
+                            <div className="flex-1 min-w-0 min-h-0 overflow-hidden">{avatarFirst ? av : br}</div>
+                            <div className="flex-1 min-w-0 min-h-0 overflow-hidden">{avatarFirst ? br : av}</div>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 );
               })()}
