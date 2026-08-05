@@ -370,6 +370,20 @@ export function AvatarTab({
   const vslVideoUrl = (vslCfg.avatarVideoUrl as string | undefined) || '';
   // Existe VSL neste subprojeto? (mostra o toggle só quando há voz/roteiro VSL)
   const hasVsl = !!(vslAudioUrl || vslCfg.finalScript || vslCfg.generatedScript);
+
+  // Guarda qual bloco de voz está selecionado, pra a geração do avatar VSL gravar
+  // esse rótulo no vídeo (aí o nome vira "Vídeo N · Bloco M" nas abas).
+  useEffect(() => {
+    if (!isVslMode || !activeVslAudio?.label) return;
+    setConfig((prev: any) => {
+      if (prev?.copyVsl?.avatarPendingBlock === activeVslAudio.label) return prev;
+      return {
+        ...prev,
+        copyVsl: { ...(prev.copyVsl || {}), avatarPendingBlock: activeVslAudio.label },
+      };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isVslMode, activeVslAudio?.label]);
   const displayedAudioUrl = isVslMode ? vslAudioUrl : isHookMode ? hookAudioUrl : config.audioUrl;
   const displayedAudioStoragePath = isVslMode
     ? vslAudioStoragePath
@@ -925,6 +939,7 @@ export function AvatarTab({
                   <div className="space-y-0.5">
                     <p className="text-[10px] font-black text-gray-900 dark:text-gray-50 uppercase tracking-tight">
                       Vídeo {idx + 1}
+                      {(video as any).blockLabel ? ` · ${(video as any).blockLabel}` : ''}
                     </p>
                     <p className="text-[8px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest">
                       {new Date(video.createdAt).toLocaleDateString()} •{' '}

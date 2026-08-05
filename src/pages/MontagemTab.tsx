@@ -251,6 +251,12 @@ interface Props {
   onRemix?: () => void;
 }
 
+type MontageMode = 'creative' | 'vsl';
+
+function getMontagemDraft(config: any, mode: MontageMode) {
+  return mode === 'vsl' ? ((config?.montagemVsl as any) || {}) : ((config?.montagem as any) || {});
+}
+
 /**
  * MONTAGEM — usar os PRÓPRIOS vídeos (sem avatar IA).
  *  • COM áudio base → TIMELINE estilo "Mesclar": dá play no áudio, clica
@@ -260,7 +266,16 @@ interface Props {
  */
 export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoToEdit, onRemix }: Props) {
   const { addJob, updateJob } = useJobs();
-  const draft = (config?.montagem as any) || {};
+  const vslCfg = ((config as any)?.copyVsl || {}) as any;
+  const hasVslWorkflow = Boolean(
+    vslCfg.audioUrl ||
+      vslCfg.finalScript ||
+      vslCfg.generatedScript ||
+      ((vslCfg.blockAudios as any[]) || []).some((b) => b?.url && b?.status === 'done') ||
+      ((vslCfg.avatarVideos as any[]) || []).some((v) => v?.url)
+  );
+  const [montagemMode, setMontagemMode] = useState<MontageMode>('creative');
+  const draft = getMontagemDraft(config, montagemMode);
   const [clips, setClips] = useState<Clip[]>(() => (Array.isArray(draft.clips) ? draft.clips : []));
   const [items, setItems] = useState<TLItem[]>(() => (Array.isArray(draft.items) ? draft.items : []));
   const [texts, setTexts] = useState<TextItem[]>(() =>
@@ -520,17 +535,51 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
   const framing: AvatarFraming = (avatarBase && avatarFraming[avatarBase]) || DEFAULT_AVATAR_FRAMING;
   // Avatares JÁ GERADOS neste subprojeto (VSL + corpo) — pra usar de base sem
   // precisar reupload. Cada um: {url, aspectRatio, createdAt}.
+  // Cada opção ganha o MESMO nome da aba Avatar ("Vídeo N", cronológico por grupo)
+  // + o bloco de voz usado (blockLabel), quando gravado na geração.
   const avatarVideoOptions = [
-    ...(((config as any)?.copyVsl?.avatarVideos as any[]) || []).map((v) => ({ ...v, from: 'VSL' })),
-    ...(((config as any)?.videos as any[]) || []).map((v) => ({ ...v, from: 'Corpo' })),
+    ...(((config as any)?.copyVsl?.avatarVideos as any[]) || []).map((v, i) => ({
+      ...v,
+      from: 'VSL',
+      name: `Vídeo ${i + 1}`,
+    })),
+    ...(((config as any)?.videos as any[]) || []).map((v, i) => ({
+      ...v,
+      from: 'Corpo',
+      name: `Vídeo ${i + 1}`,
+    })),
   ].filter((v) => v?.url);
+  const avatarVideoOptionsForMode =
+    montagemMode === 'vsl'
+      ? avatarVideoOptions.filter((v) => v.from === 'VSL')
+      : avatarVideoOptions.filter((v) => v.from !== 'VSL');
+  // Probe de duração das opções de avatar (reusa myVidDur).
+  const needAvatarDurKey = avatarVideoOptions
+    .filter((v) => !v.duration && !myVidDur[v.url])
+    .map((v) => v.url)
+    .join('|');
+  useEffect(() => {
+    if (!needAvatarDurKey) return;
+    needAvatarDurKey.split('|').forEach((url) => {
+      if (!url) return;
+      const el = document.createElement('video');
+      el.preload = 'metadata';
+      el.muted = true;
+      el.onloadedmetadata = () => {
+        const d = el.duration;
+        if (d && isFinite(d)) setMyVidDur((prev) => (prev[url] ? prev : { ...prev, [url]: d }));
+      };
+      el.src = url;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needAvatarDurKey]);
 
   const uid = user?.uid || auth.currentUser?.uid;
   // Vozes já geradas no subprojeto (etapa Voz): corpo, gancho e VSL. Cada uma
   // vira uma opção de trilha base pra montar por cima.
   // Blocos da VSL já gerados (config.copyVsl.blockAudios) — cada um vira uma
   // voz-base própria, pra você montar UM bloco de cada vez (fluxo por bloco).
-  const vslBlockAudios = (((config as any)?.copyVsl?.blockAudios as any[]) || [])
+  const vslBlockAudios = ((vslCfg.blockAudios as any[]) || [])
     .map((b, i) => (b?.url && b?.status === 'done' ? { key: `vslbloco${i}`, label: `VSL — Bloco ${i + 1}`, url: b.url as string } : null))
     .filter(Boolean) as { key: string; label: string; url: string }[];
   const vozOptions = [
@@ -551,6 +600,10 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       .filter((a) => a?.voiceId === 'joined' && a?.url)
       .map((a, i) => ({ key: `joined-${i}`, label: `Áudio juntado #${i + 1}`, url: a.url as string })),
   ].filter((o) => !!o.url);
+  const vozOptionsForMode =
+    montagemMode === 'vsl'
+      ? vozOptions.filter((o) => o.key.startsWith('vsl'))
+      : vozOptions.filter((o) => !o.key.startsWith('vsl'));
   const isTimeline = !!audioUrl;
   // Double-buffer: dois <video> (A/B). Mantém o atual visível até o próximo
   // carregar → sem tela preta entre trechos colados.
@@ -563,6 +616,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
   const activeIdxRef = useRef<number>(-1);
   const exitDoneRef = useRef<number>(-1);
   const playingRef = useRef<boolean>(false);
+  const hydratingDraftRef = useRef(false);
 
   const frontEl = () => (aFrontRef.current ? vARef.current : vBRef.current);
   const backEl = () => (aFrontRef.current ? vBRef.current : vARef.current);
@@ -595,13 +649,105 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
   };
 
   useEffect(() => {
+    if (!hasVslWorkflow && montagemMode === 'vsl') setMontagemMode('creative');
+  }, [hasVslWorkflow, montagemMode]);
+
+  useEffect(() => {
+    hydratingDraftRef.current = true;
+    const nextDraft = getMontagemDraft(config, montagemMode);
+    setClips(Array.isArray(nextDraft.clips) ? nextDraft.clips : []);
+    setItems(Array.isArray(nextDraft.items) ? nextDraft.items : []);
+    setTexts(Array.isArray(nextDraft.texts) ? nextDraft.texts : []);
+    setResultUrl(nextDraft.resultUrl || '');
+    setResultHistory(Array.isArray(nextDraft.resultHistory) ? nextDraft.resultHistory : []);
+    setMuted(!!nextDraft.muted);
+    setAudioUrl(nextDraft.audioUrl || '');
+    setAudioDuration(Number(nextDraft.audioDuration) || 0);
+    setCoverUrl(nextDraft.coverUrl || '');
+    setCoverOptions(
+      Array.isArray(nextDraft.coverOptions)
+        ? nextDraft.coverOptions
+        : nextDraft.coverUrl
+          ? [nextDraft.coverUrl]
+          : []
+    );
+    setAspect((nextDraft.aspect as any) || ((config as any)?.format?.aspectRatio as any) || '1:1');
+    setFit((nextDraft.fit as any) || 'cover');
+    setAvatarBase((nextDraft.avatarUrl as any) || '');
+    setAvatarFraming(
+      nextDraft.avatarFraming && typeof nextDraft.avatarFraming === 'object'
+        ? nextDraft.avatarFraming
+        : {}
+    );
+    setAvatarStartSec(Number(nextDraft.avatarStartSec) || 0);
+    setFullAudioUrl((nextDraft.fullAudioUrl as any) || '');
+    setBlockSizeSec(Number(nextDraft.blockSizeSec) || 120);
+    setBlockEnds(Array.isArray(nextDraft.blockEnds) ? nextDraft.blockEnds : []);
+    setPreviewUrl('');
+    setPexQuery('');
+    setPexResults([]);
+    setPicking(null);
+    setAutoSlots([]);
+    setBrollSwap(null);
+    setActiveBlock(-1);
+    const release = window.setTimeout(() => {
+      hydratingDraftRef.current = false;
+    }, 0);
+    return () => window.clearTimeout(release);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [montagemMode]);
+
+  useEffect(() => {
+    if (hydratingDraftRef.current) return;
     if (clips.length === 0 && !resultUrl && !audioUrl) return;
+    const nextDraft = {
+      clips,
+      items,
+      texts,
+      resultUrl,
+      resultHistory,
+      coverUrl,
+      coverOptions,
+      muted,
+      audioUrl,
+      audioDuration,
+      aspect,
+      fit,
+      avatarUrl: avatarBase,
+      avatarFraming,
+      avatarStartSec,
+      fullAudioUrl,
+      blockSizeSec,
+      blockEnds,
+    };
     setConfig((prev: any) => ({
       ...prev,
-      montagem: { clips, items, texts, resultUrl, resultHistory, coverUrl, coverOptions, muted, audioUrl, audioDuration, aspect, fit, avatarUrl: avatarBase, avatarFraming, avatarStartSec, fullAudioUrl, blockSizeSec, blockEnds },
+      ...(montagemMode === 'vsl'
+        ? { montagemVsl: nextDraft }
+        : { montagem: nextDraft }),
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clips, items, texts, resultUrl, resultHistory, coverUrl, coverOptions, muted, audioUrl, audioDuration, aspect, fit]);
+  }, [
+    montagemMode,
+    clips,
+    items,
+    texts,
+    resultUrl,
+    resultHistory,
+    coverUrl,
+    coverOptions,
+    muted,
+    audioUrl,
+    audioDuration,
+    aspect,
+    fit,
+    avatarBase,
+    avatarFraming,
+    avatarStartSec,
+    fullAudioUrl,
+    blockSizeSec,
+    blockEnds,
+  ]);
 
   // Toda vez que sai um vídeo montado novo, guarda no histórico (dedup, últimos 10).
   useEffect(() => {
@@ -2241,13 +2387,48 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       `}</style>
       <div className="space-y-2">
         <div className="flex items-center gap-2">
-          <Film size={22} className="text-blue-600 dark:text-blue-400" />
-          <h2 className="text-2xl font-black text-gray-900 dark:text-gray-50">Montagem dos seus vídeos</h2>
+          <Film
+            size={22}
+            className={
+              montagemMode === 'vsl'
+                ? 'text-purple-600 dark:text-purple-400'
+                : 'text-blue-600 dark:text-blue-400'
+            }
+          />
+          <h2 className="text-2xl font-black text-gray-900 dark:text-gray-50">
+            {montagemMode === 'vsl' ? 'Montagem da VSL' : 'Montagem do criativo'}
+          </h2>
         </div>
+        {(hasVslWorkflow || montagemMode === 'vsl') && (
+          <div className="max-w-3xl">
+            <div className="bg-white dark:bg-gray-900/80 p-2 rounded-2xl border-2 border-gray-100 dark:border-gray-800 shadow-sm flex gap-1">
+              <button
+                onClick={() => setMontagemMode('creative')}
+                className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                  montagemMode === 'creative'
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'text-gray-500 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-950/40'
+                }`}
+              >
+                Montagem do Criativo
+              </button>
+              <button
+                onClick={() => setMontagemMode('vsl')}
+                className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                  montagemMode === 'vsl'
+                    ? 'bg-purple-600 text-white shadow-md'
+                    : 'text-gray-500 dark:text-gray-400 hover:bg-purple-50 dark:hover:bg-purple-950/40'
+                }`}
+              >
+                Montagem da VSL
+              </button>
+            </div>
+          </div>
+        )}
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          Sem avatar IA. Com um <strong>áudio base</strong> (a voz), dê play e clique{' '}
-          <strong>"Adicionar aqui"</strong> no segundo certo pra encaixar cada trecho. O resultado vai
-          pra Edição.
+          {montagemMode === 'vsl'
+            ? 'Monte a VSL sem mexer no workflow do criativo. Escolha a voz/bloco da VSL, encaixe os trechos no tempo da narração e o resultado segue separado.'
+            : 'Sem avatar IA. Com um áudio base (a voz), dê play e clique "Adicionar aqui" no segundo certo pra encaixar cada trecho. O resultado vai pra Edição.'}
         </p>
       </div>
 
@@ -2392,7 +2573,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
           </div>
         ) : (
           <div className="flex flex-wrap gap-2">
-            {vozOptions.map((o) => (
+            {vozOptionsForMode.map((o) => (
               <button
                 key={o.key}
                 onClick={() => setAudioUrl(o.url)}
@@ -2558,31 +2739,58 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
             </div>
           ) : (
             <div className="space-y-2">
-              {avatarVideoOptions.length > 0 && (
+              {avatarVideoOptionsForMode.length > 0 && (
                 <div className="space-y-1">
                   <span className="text-[10px] text-gray-500 dark:text-gray-400">
                     Escolha um avatar que você já gerou:
                   </span>
-                  <div className="flex flex-wrap gap-2">
-                    {avatarVideoOptions.map((v) => (
-                      <button
-                        key={v.url}
-                        onClick={() => setAvatarBase(v.url)}
-                        className="relative w-28 h-16 rounded-lg overflow-hidden ring-1 ring-violet-300 dark:ring-violet-700 hover:ring-2 hover:ring-violet-500 bg-black"
-                        title={`${v.from} · ${v.aspectRatio || ''}`}
-                      >
-                        <video src={v.url} muted className="w-full h-full object-cover" preload="metadata" />
-                        <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[8px] font-black uppercase tracking-widest px-1 py-0.5">
-                          {v.from} {v.aspectRatio || ''}
-                        </span>
-                      </button>
-                    ))}
+                  <div className="flex flex-wrap gap-2 items-end">
+                    {avatarVideoOptionsForMode.map((v) => {
+                      const ar = String(v.aspectRatio || '16:9').replace(':', '/');
+                      const durSec = v.duration || myVidDur[v.url];
+                      const nome = v.name + (v.blockLabel ? ` · ${v.blockLabel}` : '');
+                      const active = avatarBase === v.url;
+                      return (
+                        <button
+                          key={v.url}
+                          onClick={() => setAvatarBase(v.url)}
+                          style={{ aspectRatio: ar }}
+                          className={`relative h-20 rounded-lg overflow-hidden bg-black ring-1 hover:ring-2 hover:ring-violet-500 ${
+                            active ? 'ring-2 ring-violet-500' : 'ring-violet-300 dark:ring-violet-700'
+                          }`}
+                          title={nome}
+                        >
+                          <video
+                            src={v.url}
+                            muted
+                            playsInline
+                            loop
+                            preload="metadata"
+                            onMouseEnter={(e) => (e.currentTarget as HTMLVideoElement).play().catch(() => {})}
+                            onMouseLeave={(e) => {
+                              const el = e.currentTarget as HTMLVideoElement;
+                              el.pause();
+                              el.currentTime = 0;
+                            }}
+                            className="w-full h-full object-cover"
+                          />
+                          <span className="absolute top-0 left-0 bg-black/60 text-white text-[8px] font-black px-1 py-0.5">
+                            {nome}
+                          </span>
+                          {durSec ? (
+                            <span className="absolute bottom-0 right-0 bg-black/60 text-white text-[8px] font-black px-1 py-0.5 tabular-nums">
+                              {Math.round(durSec)}s
+                            </span>
+                          ) : null}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
               <label className="inline-flex items-center gap-1 px-3 py-2 rounded-xl border-2 border-violet-200 dark:border-violet-800 text-[10px] font-black uppercase tracking-widest text-violet-700 dark:text-violet-300 hover:border-violet-400 cursor-pointer">
                 {uploadingAvatar ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
-                {avatarVideoOptions.length > 0 ? 'ou enviar outro vídeo' : 'Enviar vídeo do avatar'}
+                {avatarVideoOptionsForMode.length > 0 ? 'ou enviar outro vídeo' : 'Enviar vídeo do avatar'}
                 <input
                   type="file"
                   accept="video/*"

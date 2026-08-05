@@ -888,11 +888,18 @@ export default function App() {
 
   const handleDeleteVideoFromArray = async (video: { url: string; storagePath: string | null }) => {
     // Hook-mode videos live on config.copy.hookVideos (not the top-level
-    // `videos` array). The trash button doesn't know which bucket it's
-    // in, so locate the video by URL and route the removal accordingly.
+    // `videos` array). VSL-mode videos live on config.copyVsl.avatarVideos.
+    // The trash button doesn't know which bucket it's in, so locate the
+    // video by URL and route the removal accordingly.
     const hookVideos = ((config.copy as any)?.hookVideos as typeof videos | undefined) || [];
+    const vslVideos =
+      (((config as any)?.copyVsl?.avatarVideos as typeof videos | undefined) || []);
     const isHookVideo =
       hookVideos.some((v) => v.url === video.url) && !videos.some((v) => v.url === video.url);
+    const isVslVideo =
+      vslVideos.some((v) => v.url === video.url) &&
+      !hookVideos.some((v) => v.url === video.url) &&
+      !videos.some((v) => v.url === video.url);
 
     try {
       if (video.storagePath) {
@@ -934,6 +941,45 @@ export default function App() {
             hookVideoStoragePath: newHookStoragePath,
           } as any,
         });
+        return;
+      }
+
+      if (isVslVideo) {
+        const vslCfg = ((config as any)?.copyVsl || {}) as any;
+        const newVslVideos = vslVideos.filter((v) => v.url !== video.url);
+        const currentVslUrl = vslCfg.avatarVideoUrl as string | undefined;
+        const wasActive = currentVslUrl === video.url;
+        const newVslUrl = wasActive
+          ? newVslVideos.length > 0
+            ? newVslVideos[newVslVideos.length - 1]!.url
+            : ''
+          : currentVslUrl;
+        const newVslStoragePath = wasActive
+          ? newVslVideos.length > 0
+            ? newVslVideos[newVslVideos.length - 1]!.storagePath
+            : null
+          : ((vslCfg.avatarVideoStoragePath as string | null | undefined) ?? null);
+
+        setConfig((prev) => ({
+          ...prev,
+          copyVsl: {
+            ...((prev as any).copyVsl || {}),
+            avatarVideos: newVslVideos,
+            avatarVideoUrl: newVslUrl,
+            avatarVideoStoragePath: newVslStoragePath,
+          } as any,
+        }));
+
+        toast.success('Vídeo da VSL deletado!');
+
+        handleSaveProject({
+          copyVsl: {
+            ...vslCfg,
+            avatarVideos: newVslVideos,
+            avatarVideoUrl: newVslUrl,
+            avatarVideoStoragePath: newVslStoragePath,
+          } as any,
+        } as any);
         return;
       }
 
@@ -4285,6 +4331,20 @@ export default function App() {
       pollIntervalRef.current = null;
     }
 
+    const extractHeyGenErrorMessage = (rawError: any): string => {
+      if (typeof rawError === 'string' && rawError.trim()) return rawError;
+      if (rawError && typeof rawError === 'object') {
+        return (
+          rawError.message ||
+          rawError.detail ||
+          rawError.error_message ||
+          rawError.exception_class ||
+          JSON.stringify(rawError)
+        );
+      }
+      return 'Erro desconhecido';
+    };
+
     const pollStatus = async () => {
       try {
         const now = Date.now();
@@ -4315,16 +4375,36 @@ export default function App() {
         }
 
         if (statusData.status === 'failed') {
+          const errorMsg = extractHeyGenErrorMessage(
+            statusData.error || statusData.error_message || statusData.data?.error
+          );
           console.error(
             `[HeyGen Polling] Job failed for ${videoId}:`,
-            statusData.error || 'Unknown error'
+            errorMsg
           );
           setVideoOp((prev: any) => ({
             ...prev,
             status: 'failed',
             displayStatus: 'Error',
-            error: statusData.error || 'Unknown error',
+            error: errorMsg,
           }));
+          if (
+            errorMsg.toLowerCase().includes('quota') ||
+            errorMsg.toLowerCase().includes('balance') ||
+            errorMsg.toLowerCase().includes('insufficient credit')
+          ) {
+            setProviderError({
+              provider: 'HeyGen',
+              message:
+                'HeyGen sem créditos suficientes para gerar este vídeo. Recargue os créditos de API e tente novamente.',
+            });
+          } else {
+            setProviderError({
+              provider: 'HeyGen',
+              message: `Geração falhou: ${errorMsg}`,
+            });
+          }
+          setLoading(false);
           if (pollIntervalRef.current) {
             clearInterval(pollIntervalRef.current);
             pollIntervalRef.current = null;
@@ -4474,6 +4554,10 @@ export default function App() {
                     aspectRatio: config.format.aspectRatio,
                     scale: config.avatar.scale || 1.0,
                     timelineEdits: [],
+                    blockLabel:
+                      avatarModeRef.current === 'vsl'
+                        ? (config as any)?.copyVsl?.avatarPendingBlock || undefined
+                        : undefined,
                   };
                   if (avatarModeRef.current === 'vsl') {
                     setConfig((prev) => {
@@ -4523,6 +4607,10 @@ export default function App() {
                   aspectRatio: config.format.aspectRatio,
                   scale: config.avatar.scale || 1.0,
                   timelineEdits: [],
+                  blockLabel:
+                    avatarModeRef.current === 'vsl'
+                      ? (config as any)?.copyVsl?.avatarPendingBlock || undefined
+                      : undefined,
                 };
 
                 // In hook mode, persist to config.copy.hookVideos and the
