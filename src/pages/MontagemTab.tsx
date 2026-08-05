@@ -76,6 +76,10 @@ interface TLItem {
    *  'split-left' | 'split-right'. Vazio/'full' = só o b-roll. Usa o "Avatar
    *  base" (sincronizado à narração). */
   layout?: 'full' | 'avatar' | 'pip' | 'split-left' | 'split-right' | 'split-top' | 'split-bottom';
+  /** Reposicionamento (pan) do b-roll na METADE do split, 0..1 (0.5 = centro).
+   *  Evita cortar/descentralizar o assunto quando o b-roll não cabe na metade. */
+  brollCX?: number;
+  brollCY?: number;
   atSec: number; // começa em (seg do áudio)
   endSec: number; // termina em (seg do áudio)
   showSec?: number; // legado (drafts antigos)
@@ -1701,6 +1705,8 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
         cropR: it.layout && it.layout !== 'full' && avatarBase ? framing.cropR : undefined,
         cropT: it.layout && it.layout !== 'full' && avatarBase ? framing.cropT : undefined,
         cropB: it.layout && it.layout !== 'full' && avatarBase ? framing.cropB : undefined,
+        brollCX: it.brollCX,
+        brollCY: it.brollCY,
         atSec: it.atSec,
         endSec: itemEnd(it),
         trimStart: 0,
@@ -3021,6 +3027,28 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
                       <option value="split-top">⬒ split avatar ↑ (cima)</option>
                       <option value="split-bottom">⬓ split avatar ↓ (baixo)</option>
                     </select>
+                    {/* Pan do b-roll no split — reposiciona pra não cortar o assunto. */}
+                    {it.layout && it.layout.startsWith('split') && (() => {
+                      const horiz = it.layout === 'split-left' || it.layout === 'split-right';
+                      const key = horiz ? 'brollCX' : 'brollCY';
+                      const val = ((it as any)[key] ?? 0.5) as number;
+                      return (
+                        <label
+                          className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-gray-500"
+                          title="Reposiciona o b-roll dentro da metade do split (pra não cortar/descentralizar o assunto)"
+                        >
+                          b-roll {horiz ? '⟷' : '↕'}
+                          <input
+                            type="range"
+                            min={0}
+                            max={100}
+                            value={Math.round(val * 100)}
+                            onChange={(e) => setItemField(idx, { [key]: Number(e.target.value) / 100 } as any)}
+                            className="w-20 accent-violet-600"
+                          />
+                        </label>
+                      );
+                    })()}
                   </div>
                 );
               })()}

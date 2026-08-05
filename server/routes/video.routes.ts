@@ -2762,7 +2762,12 @@ videoRouter.post(
                 const cx = Math.round(Math.min(SW - boxW, Math.max(0, SW * sCX - boxW / 2)));
                 const cy = Math.round(Math.min(SH - boxH, Math.max(0, SH * sCY - boxH / 2)));
                 const avF = `[1:v]${preCrop}crop=${boxW}:${boxH}:${cx}:${cy},scale=${avHalfW}:${avHalfH},setsar=1[avh]`;
-                const brF = `[0:v]scale=${brHalfW}:${brHalfH}:force_original_aspect_ratio=increase,crop=${brHalfW}:${brHalfH},setsar=1[brh]`;
+                // B-roll na metade: escala pra COBRIR e recorta com PAN (brollCX/CY,
+                // 0..1, 0.5=centro) — deixa o usuário reposicionar pra não cortar o
+                // assunto quando o b-roll (ex.: 16:9) não cabe na metade vertical.
+                const brCX = Math.min(1, Math.max(0, Number(list[i].brollCX ?? 0.5)));
+                const brCY = Math.min(1, Math.max(0, Number(list[i].brollCY ?? 0.5)));
+                const brF = `[0:v]scale=${brHalfW}:${brHalfH}:force_original_aspect_ratio=increase,crop=${brHalfW}:${brHalfH}:(iw-ow)*${brCX}:(ih-oh)*${brCY},setsar=1[brh]`;
                 const stack = vertical ? 'vstack' : 'hstack';
                 const order = avatarFirst ? `[avh][brh]` : `[brh][avh]`;
                 filters = [avF, brF, `${order}${stack}=inputs=2[v]`];
