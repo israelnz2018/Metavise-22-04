@@ -237,29 +237,33 @@ export function EditZapTab({
   const bodyZapVersions = (config.edit?.zapVersions as string[] | undefined) || [];
   const hookZapVersions = (config.edit?.zapHookVersions as string[] | undefined) || [];
   const vslZapVersions = (config.edit?.zapVslVersions as string[] | undefined) || [];
-  // Grupos da VSL vindos da Montagem (config.montagem.groupUrls). Cada grupo é
-  // um "vídeo fonte" editável separadamente; no fim junta os grupos editados.
-  const vslGroupUrls = (((config as any)?.montagem?.groupUrls as string[] | undefined) || []).filter(
-    Boolean
-  );
+  // A Montagem no modo VSL salva em config.montagemVsl (NÃO em config.montagem,
+  // que é o modo anúncio/creative). É de lá que vêm os vídeos da VSL.
+  const vslMontage = ((config as any)?.montagemVsl as any) || {};
+  const vslGroupUrls = ((vslMontage.groupUrls as string[] | undefined) || []).filter(Boolean);
   // Passa o formato escolhido na Montagem pra a caixa do picker não forçar 9:16.
-  const vslMontageAspect = ((config as any)?.montagem?.aspect as string | undefined) || '1:1';
+  const vslMontageAspect = (vslMontage.aspect as string | undefined) || '1:1';
   const vslGroupVideos = vslGroupUrls.map((url, i) => ({
     url,
     label: `Grupo ${i + 1}`,
     aspectRatio: vslMontageAspect,
   }));
   const hasVslGroups = vslGroupVideos.length > 0;
-  // Fontes VSL pro editor: vídeo montado da VSL (Montagem) + grupos + os vídeos
-  // do avatar VSL (aba Avatar). Assim o "Editar VSL" mostra tudo do modo VSL.
-  const vslMontageResult = ((config as any)?.montagem?.resultUrl as string) || '';
+  // Fontes VSL pro editor: vídeo(s) montado(s) da VSL (montagemVsl.resultUrl +
+  // histórico) + grupos + os vídeos do avatar VSL (aba Avatar).
+  const vslMontageResults = [
+    ...(vslMontage.resultUrl ? [vslMontage.resultUrl as string] : []),
+    ...(((vslMontage.resultHistory as { url: string }[] | undefined) || []).map((v) => v.url)),
+  ].filter((u, i, a) => u && a.indexOf(u) === i);
   const vslAvatarVideos = (((config as any)?.copyVsl?.avatarVideos as any[]) || []).filter(
     (v) => v?.url
   );
   const vslSourceVideos = [
-    ...(vslMontageResult
-      ? [{ url: vslMontageResult, label: 'Montagem VSL', aspectRatio: vslMontageAspect }]
-      : []),
+    ...vslMontageResults.map((url, i) => ({
+      url,
+      label: `Montagem VSL${vslMontageResults.length > 1 ? ` ${i + 1}` : ''}`,
+      aspectRatio: vslMontageAspect,
+    })),
     ...vslGroupVideos,
     ...vslAvatarVideos.map((v, i) => ({
       url: v.url as string,
