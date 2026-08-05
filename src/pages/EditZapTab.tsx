@@ -250,6 +250,24 @@ export function EditZapTab({
     aspectRatio: vslMontageAspect,
   }));
   const hasVslGroups = vslGroupVideos.length > 0;
+  // Fontes VSL pro editor: vídeo montado da VSL (Montagem) + grupos + os vídeos
+  // do avatar VSL (aba Avatar). Assim o "Editar VSL" mostra tudo do modo VSL.
+  const vslMontageResult = ((config as any)?.montagem?.resultUrl as string) || '';
+  const vslAvatarVideos = (((config as any)?.copyVsl?.avatarVideos as any[]) || []).filter(
+    (v) => v?.url
+  );
+  const vslSourceVideos = [
+    ...(vslMontageResult
+      ? [{ url: vslMontageResult, label: 'Montagem VSL', aspectRatio: vslMontageAspect }]
+      : []),
+    ...vslGroupVideos,
+    ...vslAvatarVideos.map((v, i) => ({
+      url: v.url as string,
+      label: `Avatar VSL ${i + 1}${v.blockLabel ? ` · ${v.blockLabel}` : ''}`,
+      aspectRatio: (v.aspectRatio as string) || vslMontageAspect,
+    })),
+  ].filter((o, i, a) => o.url && a.findIndex((x) => x.url === o.url) === i);
+  const hasVslContent = vslSourceVideos.length > 0;
   const activeZapVersions = isVslEdit ? vslZapVersions : isHookEdit ? hookZapVersions : bodyZapVersions;
   // Opções de CORPO pro "Juntar": versões normais + os vídeos MESCLADOS.
   const bodyJoinOptions: { url: string; label: string }[] = [
@@ -263,7 +281,7 @@ export function EditZapTab({
   // Source video picker pulls from hook, body, or the VSL groups depending on mode.
   const availableVideos = (
     isVslEdit
-      ? (vslGroupVideos as any)
+      ? (vslSourceVideos as any)
       : isHookEdit
         ? hookVideosForEdit
         : videos || []
@@ -363,7 +381,7 @@ export function EditZapTab({
 
       {/* Toggle: editing the body, the hook, or the VSL (em grupos)? Cada um
           guarda versões separadas. Aparece quando há gancho OU grupos de VSL. */}
-      {(useHookFlow || hasVslGroups) && (
+      {(useHookFlow || hasVslContent) && (
         <div className="bg-white dark:bg-gray-900/80 p-2 rounded-2xl border-2 border-gray-200 dark:border-gray-800 shadow-sm flex gap-1">
           <button
             onClick={() => {
@@ -399,7 +417,7 @@ export function EditZapTab({
               )}
             </button>
           )}
-          {hasVslGroups && (
+          {hasVslContent && (
             <button
               onClick={() => {
                 setEditZapMode('vsl');
