@@ -746,11 +746,8 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
     const modeDraft = getMontagemDraft(config, montagemMode);
     const bd =
       modeDraft.blockDrafts && typeof modeDraft.blockDrafts === 'object' ? modeDraft.blockDrafts : {};
-    const ai = Number.isFinite(modeDraft.activeBlock)
-      ? Number(modeDraft.activeBlock)
-      : montagemMode === 'vsl'
-        ? -1
-        : 0;
+    // -1 só quando persistido (VSL fatiada sem bloco preparado). Sem valor → 0.
+    const ai = Number.isFinite(modeDraft.activeBlock) ? Number(modeDraft.activeBlock) : 0;
     // Campos do workflow vêm do bloco ativo salvo; se não houver, do draft "flat"
     // (compat com montagens antigas de bloco único).
     const wf: BlockWorkflow = ai >= 0 && bd[ai] ? bd[ai] : modeDraft;
@@ -2552,6 +2549,93 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
         </p>
       </div>
 
+      {/* SELETOR DE BLOCO/CENA — troca o workflow inteiro (áudio, trechos,
+          resultado) sem perder o trabalho de cada bloco. VSL: um bloco por
+          parte da VSL (cada um com seu áudio). Creativo: cenas. */}
+      {(() => {
+        const usingSlices = montagemMode === 'vsl' && blockEnds.length > 0;
+        const noun = montagemMode === 'vsl' ? 'Bloco' : 'Cena';
+        const n = usingSlices ? blockEnds.length : blockCount;
+        return (
+          <div className="flex items-center gap-2 flex-wrap bg-white dark:bg-gray-900/70 p-2.5 rounded-2xl border-2 border-blue-200 dark:border-blue-900/50">
+            <span className="text-[11px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 shrink-0">
+              {montagemMode === 'vsl' ? '🧩 Blocos da VSL' : '🎬 Cenas'}
+            </span>
+            {Array.from({ length: n }, (_, i) => i).map((i) => {
+              const isActive = activeBlock === i;
+              const hasWork = blockHasWork(isActive ? currentWorkflow() : blockDrafts[i]);
+              return (
+                <button
+                  key={i}
+                  onClick={() => (usingSlices ? trabalharNoBloco(i) : selectBlock(i))}
+                  title={`Trocar pro ${noun.toLowerCase()} ${i + 1} — o workflow salvo vai junto`}
+                  className={`px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-widest border transition-all ${
+                    isActive
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-blue-300'
+                  }`}
+                >
+                  {`${noun} ${i + 1}`}
+                  {hasWork && (
+                    <span className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 align-middle" />
+                  )}
+                </button>
+              );
+            })}
+            {/* Blocos manuais (Creativo sempre; VSL quando não fatiou um áudio
+                longo — cada bloco recebe seu próprio áudio na base abaixo). */}
+            {!usingSlices && (
+              <>
+                <button
+                  onClick={() => {
+                    const next = blockCount;
+                    setBlockCount((c) => c + 1);
+                    selectBlock(next);
+                  }}
+                  className="px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-widest border border-dashed border-blue-300 dark:border-blue-700 text-blue-500 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+                >
+                  + {noun}
+                </button>
+                {blockCount > 1 && (
+                  <button
+                    onClick={() => {
+                      const removed = Math.max(0, activeBlock);
+                      if (
+                        !window.confirm(
+                          `Excluir ${noun} ${removed + 1}? A montagem dele será perdida.`
+                        )
+                      )
+                        return;
+                      const reindexed: Record<number, BlockWorkflow> = {};
+                      Object.keys(blockDrafts)
+                        .map(Number)
+                        .filter((k) => k !== removed)
+                        .forEach((k) => {
+                          reindexed[k > removed ? k - 1 : k] = blockDrafts[k]!;
+                        });
+                      const target = Math.min(removed, blockCount - 2);
+                      setBlockDrafts(reindexed);
+                      setBlockCount((c) => Math.max(1, c - 1));
+                      applyWorkflow(reindexed[target]);
+                      setActiveBlock(target);
+                    }}
+                    className="px-2 py-1.5 rounded-xl text-[11px] font-black text-red-500 border border-red-200 dark:border-red-900/60 hover:bg-red-50 dark:hover:bg-red-950/30"
+                    title={`Excluir ${noun.toLowerCase()} ativo`}
+                  >
+                    🗑
+                  </button>
+                )}
+              </>
+            )}
+            <span className="text-[10px] text-gray-400 ml-auto hidden sm:block">
+              {activeBlock < 0 && usingSlices
+                ? 'Clique num bloco pra começar a montá-lo.'
+                : '● = já montado · trocar não apaga'}
+            </span>
+          </div>
+        );
+      })()}
+
       {/* ÁUDIO BASE */}
       <div className="bg-white dark:bg-gray-900/70 p-4 rounded-2xl border-2 border-gray-200 dark:border-gray-800 space-y-3">
         <div className="flex items-center gap-2">
@@ -2934,90 +3018,6 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       {/* Seletor de bloco/cena — troca o workflow inteiro (clips, trechos,
           resultado) sem perder o trabalho de cada bloco. VSL: blocos = fatias
           do áudio. Creativo: cenas manuais. */}
-      {(montagemMode === 'creative' || (isTimeline && blockEnds.length > 0)) && (
-        <div className="flex items-center gap-2 flex-wrap bg-white dark:bg-gray-900/70 p-2 rounded-2xl border border-gray-200 dark:border-gray-800">
-          <span className="text-[11px] font-black uppercase tracking-widest text-gray-500 shrink-0">
-            {montagemMode === 'vsl' ? '🧩 Bloco' : '🎬 Cena'}
-          </span>
-          {(montagemMode === 'vsl'
-            ? blockEnds.map((_, i) => i)
-            : Array.from({ length: blockCount }, (_, i) => i)
-          ).map((i) => {
-            const isActive = activeBlock === i;
-            const hasWork = blockHasWork(isActive ? currentWorkflow() : blockDrafts[i]);
-            return (
-              <button
-                key={i}
-                onClick={() => (montagemMode === 'vsl' ? trabalharNoBloco(i) : selectBlock(i))}
-                title={
-                  montagemMode === 'vsl'
-                    ? 'Trocar pro bloco (o workflow salvo vai junto)'
-                    : 'Trocar pra cena (o workflow salvo vai junto)'
-                }
-                className={`px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-widest border transition-all ${
-                  isActive
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-blue-300'
-                }`}
-              >
-                {montagemMode === 'vsl' ? `Bloco ${i + 1}` : `Cena ${i + 1}`}
-                {hasWork && (
-                  <span className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 align-middle" />
-                )}
-              </button>
-            );
-          })}
-          {montagemMode === 'creative' && (
-            <>
-              <button
-                onClick={() => {
-                  const next = blockCount;
-                  setBlockCount((c) => c + 1);
-                  selectBlock(next);
-                }}
-                className="px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-widest border border-dashed border-gray-300 dark:border-gray-600 text-gray-500 hover:border-blue-400 hover:text-blue-500"
-              >
-                + Cena
-              </button>
-              {blockCount > 1 && (
-                <button
-                  onClick={() => {
-                    const removed = Math.max(0, activeBlock);
-                    if (
-                      !window.confirm(
-                        `Excluir a Cena ${removed + 1}? A montagem dela será perdida.`
-                      )
-                    )
-                      return;
-                    const reindexed: Record<number, BlockWorkflow> = {};
-                    Object.keys(blockDrafts)
-                      .map(Number)
-                      .filter((k) => k !== removed)
-                      .forEach((k) => {
-                        reindexed[k > removed ? k - 1 : k] = blockDrafts[k]!;
-                      });
-                    const target = Math.min(removed, blockCount - 2);
-                    setBlockDrafts(reindexed);
-                    setBlockCount((c) => Math.max(1, c - 1));
-                    applyWorkflow(reindexed[target]);
-                    setActiveBlock(target);
-                  }}
-                  className="px-2 py-1.5 rounded-xl text-[11px] font-black text-red-500 border border-red-200 dark:border-red-900/60 hover:bg-red-50 dark:hover:bg-red-950/30"
-                  title="Excluir cena ativa"
-                >
-                  🗑
-                </button>
-              )}
-            </>
-          )}
-          <span className="text-[10px] text-gray-400 ml-auto hidden sm:block">
-            {activeBlock < 0 && montagemMode === 'vsl'
-              ? 'Clique num bloco pra começar a montá-lo.'
-              : '● = já tem montagem. Trocar não apaga.'}
-          </span>
-        </div>
-      )}
-
       {isTimeline && displayItems.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2">
