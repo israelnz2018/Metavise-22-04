@@ -2934,7 +2934,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       {/* Seletor de bloco/cena — troca o workflow inteiro (clips, trechos,
           resultado) sem perder o trabalho de cada bloco. VSL: blocos = fatias
           do áudio. Creativo: cenas manuais. */}
-      {isTimeline && (montagemMode === 'creative' || blockEnds.length > 0) && (
+      {(montagemMode === 'creative' || (isTimeline && blockEnds.length > 0)) && (
         <div className="flex items-center gap-2 flex-wrap bg-white dark:bg-gray-900/70 p-2 rounded-2xl border border-gray-200 dark:border-gray-800">
           <span className="text-[11px] font-black uppercase tracking-widest text-gray-500 shrink-0">
             {montagemMode === 'vsl' ? '🧩 Bloco' : '🎬 Cena'}
