@@ -255,9 +255,11 @@ export function EditZapTab({
     ...(vslMontage.resultUrl ? [vslMontage.resultUrl as string] : []),
     ...(((vslMontage.resultHistory as { url: string }[] | undefined) || []).map((v) => v.url)),
   ].filter((u, i, a) => u && a.indexOf(u) === i);
-  const vslAvatarVideos = (((config as any)?.copyVsl?.avatarVideos as any[]) || []).filter(
-    (v) => v?.url
-  );
+  // Nome = idêntico ao da aba Avatar: "Vídeo {idx+1}" pelo índice no array
+  // COMPLETO (config.copyVsl.avatarVideos), por isso mapeamos antes de filtrar.
+  const vslAvatarVideos = (((config as any)?.copyVsl?.avatarVideos as any[]) || [])
+    .map((v, i) => ({ v, i }))
+    .filter(({ v }) => v?.url);
   const vslSourceVideos = [
     ...vslMontageResults.map((url, i) => ({
       url,
@@ -266,9 +268,9 @@ export function EditZapTab({
       source: 'montagem' as const,
     })),
     ...vslGroupVideos.map((g) => ({ ...g, source: 'montagem' as const })),
-    ...vslAvatarVideos.map((v, i) => ({
+    ...vslAvatarVideos.map(({ v, i }) => ({
       url: v.url as string,
-      label: `Avatar VSL ${i + 1}${v.blockLabel ? ` · ${v.blockLabel}` : ''}`,
+      label: `Vídeo ${i + 1}${v.blockLabel ? ` · ${v.blockLabel}` : ''}`,
       aspectRatio: (v.aspectRatio as string) || vslMontageAspect,
       source: 'avatar' as const,
     })),
@@ -580,6 +582,12 @@ export function EditZapTab({
                       )}
                     >
                       {v.source === 'avatar' ? 'Avatar' : 'Montagem'}
+                    </span>
+                  )}
+                  {/* Nome do vídeo — igual ao da aba de origem (ex.: "Vídeo 3"). */}
+                  {v.label && (
+                    <span className="px-2 py-0.5 bg-black/70 text-white text-[9px] font-black rounded shadow">
+                      {v.label}
                     </span>
                   )}
                   {zapVideoUrl === v.url && (
