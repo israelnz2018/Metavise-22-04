@@ -257,6 +257,22 @@ interface Props {
 
 type MontageMode = 'creative' | 'vsl';
 
+// Workflow de UM bloco/cena da montagem (o que troca ao mudar de bloco).
+type BlockWorkflow = {
+  clips?: any[];
+  items?: any[];
+  texts?: any[];
+  resultUrl?: string;
+  resultHistory?: { url: string; at: number }[];
+  coverUrl?: string;
+  coverOptions?: string[];
+  muted?: boolean;
+  audioUrl?: string;
+  audioDuration?: number;
+  avatarUrl?: string;
+  avatarStartSec?: number;
+};
+
 function getMontagemDraft(config: any, mode: MontageMode) {
   return mode === 'vsl' ? ((config?.montagemVsl as any) || {}) : ((config?.montagem as any) || {});
 }
@@ -444,7 +460,16 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
     Array.isArray(draft.blockEnds) ? draft.blockEnds : []
   );
   const [fatiando, setFatiando] = useState(false);
-  const [activeBlock, setActiveBlock] = useState<number>(-1);
+  const [activeBlock, setActiveBlock] = useState<number>(
+    Number.isFinite(draft.activeBlock) ? Number(draft.activeBlock) : 0
+  );
+  // Workflows por bloco/cena: cada um guarda sua própria montagem (clips,
+  // trechos, resultado, avatar, áudio). Trocar de bloco salva o atual e carrega
+  // o outro — sem perder trabalho. VSL: blocos = fatias do áudio. Creativo: cenas.
+  const [blockDrafts, setBlockDrafts] = useState<Record<number, BlockWorkflow>>(
+    draft.blockDrafts && typeof draft.blockDrafts === 'object' ? draft.blockDrafts : {}
+  );
+  const [blockCount, setBlockCount] = useState<number>(Math.max(1, Number(draft.blockCount) || 1));
   const fmtT = (s: number) =>
     `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
   // Fatia a VSL em blocos ~blockSizeSec, encaixando cada fim no SILÊNCIO mais
@@ -488,6 +513,8 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       setFullAudioUrl(audioUrl);
       setBlockEnds(ends);
       setActiveBlock(-1);
+      setBlockDrafts({}); // refatiar realinha tudo — zera os workflows por bloco
+      setBlockCount(ends.length);
       toast.success(`${ends.length} blocos criados (cortes nos silêncios). Ajuste os fins se quiser.`, {
         id: tid,
       });
@@ -497,13 +524,72 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       setFatiando(false);
     }
   };
-  // Prepara um bloco pra montar: corta o áudio [start,end], seta o offset do
-  // avatar e começa limpo. Depois é só Auto-editar + montar normal.
+  // Snapshot do workflow ao vivo (campos específicos da montagem do bloco ativo).
+  const currentWorkflow = (): BlockWorkflow => ({
+    clips,
+    items,
+    texts,
+    resultUrl,
+    resultHistory,
+    coverUrl,
+    coverOptions,
+    muted,
+    audioUrl,
+    audioDuration,
+    avatarUrl: avatarBase,
+    avatarStartSec,
+  });
+  // Carrega um workflow salvo nos campos ao vivo (ou limpa tudo, se vazio).
+  const applyWorkflow = (wf: BlockWorkflow | undefined) => {
+    const w = wf || {};
+    setClips(Array.isArray(w.clips) ? w.clips : []);
+    setItems(Array.isArray(w.items) ? w.items : []);
+    setTexts(Array.isArray(w.texts) ? w.texts : []);
+    setResultUrl(w.resultUrl || '');
+    setResultHistory(Array.isArray(w.resultHistory) ? w.resultHistory : []);
+    setCoverUrl(w.coverUrl || '');
+    setCoverOptions(
+      Array.isArray(w.coverOptions) ? w.coverOptions : w.coverUrl ? [w.coverUrl] : []
+    );
+    setMuted(!!w.muted);
+    setAudioUrl(w.audioUrl || '');
+    setAudioDuration(Number(w.audioDuration) || 0);
+    setAvatarBase(w.avatarUrl || '');
+    setAvatarStartSec(Number(w.avatarStartSec) || 0);
+  };
+  const blockHasWork = (wf: BlockWorkflow | undefined) =>
+    !!wf && ((Array.isArray(wf.clips) && wf.clips.length > 0) || !!wf.resultUrl || !!wf.audioUrl);
+  // Troca de cena preservando o workflow (Creativo): salva o atual e carrega o
+  // alvo. Sem preparo de áudio.
+  const selectBlock = (idx: number) => {
+    if (idx === activeBlock) return;
+    const from = Math.max(0, activeBlock);
+    const cur = currentWorkflow();
+    setBlockDrafts((prev) => ({ ...prev, [from]: cur }));
+    applyWorkflow(blockDrafts[idx]);
+    setActiveBlock(idx);
+  };
+  // Troca pro bloco da VSL preservando o workflow. Se o bloco já tem montagem
+  // salva, restaura. Se é novo, corta o áudio [start,end] e começa limpo.
   const trabalharNoBloco = async (idx: number) => {
+    if (idx === activeBlock) return;
     const start = idx === 0 ? 0 : blockEnds[idx - 1]!;
     const end = blockEnds[idx]!;
     const src = fullAudioUrl || audioUrl;
-    if (!src || end <= start) return;
+    if (end <= start) return;
+    const from = Math.max(0, activeBlock);
+    const cur = currentWorkflow();
+    const saved = blockDrafts[idx];
+    // Bloco já montado → só restaura (mantém áudio/clips/trechos salvos).
+    if (blockHasWork(saved)) {
+      if (activeBlock >= 0) setBlockDrafts((prev) => ({ ...prev, [from]: cur }));
+      applyWorkflow(saved);
+      setActiveBlock(idx);
+      toast.success(`Bloco ${idx + 1} — workflow salvo restaurado.`);
+      return;
+    }
+    // Bloco novo → corta o áudio e começa limpo.
+    if (!src) return;
     const tid = 'bloco';
     toast.loading(`Preparando Bloco ${idx + 1}…`, { id: tid });
     try {
@@ -514,12 +600,11 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       });
       const d = await r.json();
       if (!r.ok || !d.url) throw new Error(d.error || 'Falha ao cortar o áudio do bloco.');
+      if (activeBlock >= 0) setBlockDrafts((prev) => ({ ...prev, [from]: cur }));
+      applyWorkflow({});
       setAudioUrl(d.url);
       setAudioDuration(end - start);
       setAvatarStartSec(start); // avatar alinhado ao início do bloco no vídeo de 19 min
-      setItems([]);
-      setClips([]);
-      setResultUrl('');
       setActiveBlock(idx);
       toast.success(
         `Bloco ${idx + 1} pronto (${fmtT(start)}–${fmtT(end)}). Agora clique em Auto-editar.`,
@@ -658,42 +743,51 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
 
   useEffect(() => {
     hydratingDraftRef.current = true;
-    const nextDraft = getMontagemDraft(config, montagemMode);
-    setClips(Array.isArray(nextDraft.clips) ? nextDraft.clips : []);
-    setItems(Array.isArray(nextDraft.items) ? nextDraft.items : []);
-    setTexts(Array.isArray(nextDraft.texts) ? nextDraft.texts : []);
-    setResultUrl(nextDraft.resultUrl || '');
-    setResultHistory(Array.isArray(nextDraft.resultHistory) ? nextDraft.resultHistory : []);
-    setMuted(!!nextDraft.muted);
-    setAudioUrl(nextDraft.audioUrl || '');
-    setAudioDuration(Number(nextDraft.audioDuration) || 0);
-    setCoverUrl(nextDraft.coverUrl || '');
+    const modeDraft = getMontagemDraft(config, montagemMode);
+    const bd =
+      modeDraft.blockDrafts && typeof modeDraft.blockDrafts === 'object' ? modeDraft.blockDrafts : {};
+    const ai = Number.isFinite(modeDraft.activeBlock)
+      ? Number(modeDraft.activeBlock)
+      : montagemMode === 'vsl'
+        ? -1
+        : 0;
+    // Campos do workflow vêm do bloco ativo salvo; se não houver, do draft "flat"
+    // (compat com montagens antigas de bloco único).
+    const wf: BlockWorkflow = ai >= 0 && bd[ai] ? bd[ai] : modeDraft;
+    setClips(Array.isArray(wf.clips) ? wf.clips : []);
+    setItems(Array.isArray(wf.items) ? wf.items : []);
+    setTexts(Array.isArray(wf.texts) ? wf.texts : []);
+    setResultUrl(wf.resultUrl || '');
+    setResultHistory(Array.isArray(wf.resultHistory) ? wf.resultHistory : []);
+    setMuted(!!wf.muted);
+    setAudioUrl(wf.audioUrl || '');
+    setAudioDuration(Number(wf.audioDuration) || 0);
+    setCoverUrl(wf.coverUrl || '');
     setCoverOptions(
-      Array.isArray(nextDraft.coverOptions)
-        ? nextDraft.coverOptions
-        : nextDraft.coverUrl
-          ? [nextDraft.coverUrl]
-          : []
+      Array.isArray(wf.coverOptions) ? wf.coverOptions : wf.coverUrl ? [wf.coverUrl] : []
     );
-    setAspect((nextDraft.aspect as any) || ((config as any)?.format?.aspectRatio as any) || '1:1');
-    setFit((nextDraft.fit as any) || 'cover');
-    setAvatarBase((nextDraft.avatarUrl as any) || '');
+    setAvatarBase((wf.avatarUrl as any) || '');
+    setAvatarStartSec(Number(wf.avatarStartSec) || 0);
+    // Compartilhados entre blocos (formato, enquadramento, fatiamento).
+    setAspect((modeDraft.aspect as any) || ((config as any)?.format?.aspectRatio as any) || '1:1');
+    setFit((modeDraft.fit as any) || 'cover');
     setAvatarFraming(
-      nextDraft.avatarFraming && typeof nextDraft.avatarFraming === 'object'
-        ? nextDraft.avatarFraming
+      modeDraft.avatarFraming && typeof modeDraft.avatarFraming === 'object'
+        ? modeDraft.avatarFraming
         : {}
     );
-    setAvatarStartSec(Number(nextDraft.avatarStartSec) || 0);
-    setFullAudioUrl((nextDraft.fullAudioUrl as any) || '');
-    setBlockSizeSec(Number(nextDraft.blockSizeSec) || 120);
-    setBlockEnds(Array.isArray(nextDraft.blockEnds) ? nextDraft.blockEnds : []);
+    setFullAudioUrl((modeDraft.fullAudioUrl as any) || '');
+    setBlockSizeSec(Number(modeDraft.blockSizeSec) || 120);
+    setBlockEnds(Array.isArray(modeDraft.blockEnds) ? modeDraft.blockEnds : []);
+    setBlockDrafts(bd);
+    setBlockCount(Math.max(1, Number(modeDraft.blockCount) || 1));
     setPreviewUrl('');
     setPexQuery('');
     setPexResults([]);
     setPicking(null);
     setAutoSlots([]);
     setBrollSwap(null);
-    setActiveBlock(-1);
+    setActiveBlock(ai);
     const release = window.setTimeout(() => {
       hydratingDraftRef.current = false;
     }, 0);
@@ -703,8 +797,20 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
 
   useEffect(() => {
     if (hydratingDraftRef.current) return;
-    if (clips.length === 0 && !resultUrl && !audioUrl) return;
+    if (
+      clips.length === 0 &&
+      !resultUrl &&
+      !audioUrl &&
+      Object.keys(blockDrafts).length === 0 &&
+      blockCount <= 1
+    )
+      return;
+    // Bloco ativo (>=0) grava seu workflow no mapa; assim o draft carrega TODOS
+    // os blocos, não só o que está aberto.
+    const mergedBlockDrafts =
+      activeBlock >= 0 ? { ...blockDrafts, [activeBlock]: currentWorkflow() } : blockDrafts;
     const nextDraft = {
+      // "flat" = bloco ativo (compat com EditZap / montagens antigas)
       clips,
       items,
       texts,
@@ -715,14 +821,19 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       muted,
       audioUrl,
       audioDuration,
+      avatarUrl: avatarBase,
+      avatarStartSec,
+      // compartilhados
       aspect,
       fit,
-      avatarUrl: avatarBase,
       avatarFraming,
-      avatarStartSec,
       fullAudioUrl,
       blockSizeSec,
       blockEnds,
+      // por bloco/cena
+      blockDrafts: mergedBlockDrafts,
+      blockCount,
+      activeBlock,
     };
     setConfig((prev: any) => ({
       ...prev,
@@ -751,6 +862,9 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
     fullAudioUrl,
     blockSizeSec,
     blockEnds,
+    blockDrafts,
+    blockCount,
+    activeBlock,
   ]);
 
   // Toda vez que sai um vídeo montado novo, guarda no histórico (dedup, últimos 10).
@@ -2815,6 +2929,93 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
           title="Timeline vazia"
           hint="Dê play no áudio e clique em “Adicionar aqui” no segundo certo pra colocar um trecho — ou use o Auto-editar pra a IA montar sozinha. Buracos viram tela preta; a voz toca por cima."
         />
+      )}
+
+      {/* Seletor de bloco/cena — troca o workflow inteiro (clips, trechos,
+          resultado) sem perder o trabalho de cada bloco. VSL: blocos = fatias
+          do áudio. Creativo: cenas manuais. */}
+      {isTimeline && (montagemMode === 'creative' || blockEnds.length > 0) && (
+        <div className="flex items-center gap-2 flex-wrap bg-white dark:bg-gray-900/70 p-2 rounded-2xl border border-gray-200 dark:border-gray-800">
+          <span className="text-[11px] font-black uppercase tracking-widest text-gray-500 shrink-0">
+            {montagemMode === 'vsl' ? '🧩 Bloco' : '🎬 Cena'}
+          </span>
+          {(montagemMode === 'vsl'
+            ? blockEnds.map((_, i) => i)
+            : Array.from({ length: blockCount }, (_, i) => i)
+          ).map((i) => {
+            const isActive = activeBlock === i;
+            const hasWork = blockHasWork(isActive ? currentWorkflow() : blockDrafts[i]);
+            return (
+              <button
+                key={i}
+                onClick={() => (montagemMode === 'vsl' ? trabalharNoBloco(i) : selectBlock(i))}
+                title={
+                  montagemMode === 'vsl'
+                    ? 'Trocar pro bloco (o workflow salvo vai junto)'
+                    : 'Trocar pra cena (o workflow salvo vai junto)'
+                }
+                className={`px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-widest border transition-all ${
+                  isActive
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-blue-300'
+                }`}
+              >
+                {montagemMode === 'vsl' ? `Bloco ${i + 1}` : `Cena ${i + 1}`}
+                {hasWork && (
+                  <span className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 align-middle" />
+                )}
+              </button>
+            );
+          })}
+          {montagemMode === 'creative' && (
+            <>
+              <button
+                onClick={() => {
+                  const next = blockCount;
+                  setBlockCount((c) => c + 1);
+                  selectBlock(next);
+                }}
+                className="px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-widest border border-dashed border-gray-300 dark:border-gray-600 text-gray-500 hover:border-blue-400 hover:text-blue-500"
+              >
+                + Cena
+              </button>
+              {blockCount > 1 && (
+                <button
+                  onClick={() => {
+                    const removed = Math.max(0, activeBlock);
+                    if (
+                      !window.confirm(
+                        `Excluir a Cena ${removed + 1}? A montagem dela será perdida.`
+                      )
+                    )
+                      return;
+                    const reindexed: Record<number, BlockWorkflow> = {};
+                    Object.keys(blockDrafts)
+                      .map(Number)
+                      .filter((k) => k !== removed)
+                      .forEach((k) => {
+                        reindexed[k > removed ? k - 1 : k] = blockDrafts[k]!;
+                      });
+                    const target = Math.min(removed, blockCount - 2);
+                    setBlockDrafts(reindexed);
+                    setBlockCount((c) => Math.max(1, c - 1));
+                    applyWorkflow(reindexed[target]);
+                    setActiveBlock(target);
+                  }}
+                  className="px-2 py-1.5 rounded-xl text-[11px] font-black text-red-500 border border-red-200 dark:border-red-900/60 hover:bg-red-50 dark:hover:bg-red-950/30"
+                  title="Excluir cena ativa"
+                >
+                  🗑
+                </button>
+              )}
+            </>
+          )}
+          <span className="text-[10px] text-gray-400 ml-auto hidden sm:block">
+            {activeBlock < 0 && montagemMode === 'vsl'
+              ? 'Clique num bloco pra começar a montá-lo.'
+              : '● = já tem montagem. Trocar não apaga.'}
+          </span>
+        </div>
       )}
 
       {isTimeline && displayItems.length > 0 && (

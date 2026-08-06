@@ -251,22 +251,51 @@ export function EditZapTab({
   const hasVslGroups = vslGroupVideos.length > 0;
   // Fontes VSL pro editor: vídeo(s) montado(s) da VSL (montagemVsl.resultUrl +
   // histórico) + grupos + os vídeos do avatar VSL (aba Avatar).
-  const vslMontageResults = [
-    ...(vslMontage.resultUrl ? [vslMontage.resultUrl as string] : []),
-    ...(((vslMontage.resultHistory as { url: string }[] | undefined) || []).map((v) => v.url)),
-  ].filter((u, i, a) => u && a.indexOf(u) === i);
+  // A Montagem VSL agora guarda um workflow por BLOCO (montagemVsl.blockDrafts);
+  // cada bloco tem seu resultado. Listamos o de cada bloco como "Bloco N".
+  const vslBlockDrafts =
+    vslMontage.blockDrafts && typeof vslMontage.blockDrafts === 'object'
+      ? (vslMontage.blockDrafts as Record<string, any>)
+      : {};
+  const vslBlockKeys = Object.keys(vslBlockDrafts)
+    .map(Number)
+    .filter((n) => !Number.isNaN(n))
+    .sort((a, b) => a - b);
+  const vslMontageEntries =
+    vslBlockKeys.length > 0
+      ? vslBlockKeys.flatMap((k) => {
+          const b = vslBlockDrafts[k] || {};
+          const urls = [
+            b.resultUrl as string | undefined,
+            ...((b.resultHistory as { url: string }[] | undefined) || []).map((v) => v.url),
+          ].filter((u, i, a) => u && a.indexOf(u) === i) as string[];
+          return urls.map((url, j) => ({
+            url,
+            label: `Bloco ${k + 1}${urls.length > 1 ? ` · v${j + 1}` : ''}`,
+            aspectRatio: vslMontageAspect,
+            source: 'montagem' as const,
+          }));
+        })
+      : [
+          ...(vslMontage.resultUrl ? [vslMontage.resultUrl as string] : []),
+          ...(((vslMontage.resultHistory as { url: string }[] | undefined) || []).map(
+            (v) => v.url
+          )),
+        ]
+          .filter((u, i, a) => u && a.indexOf(u) === i)
+          .map((url, i, a) => ({
+            url,
+            label: `Montagem VSL${a.length > 1 ? ` ${i + 1}` : ''}`,
+            aspectRatio: vslMontageAspect,
+            source: 'montagem' as const,
+          }));
   // Nome = idêntico ao da aba Avatar: "Vídeo {idx+1}" pelo índice no array
   // COMPLETO (config.copyVsl.avatarVideos), por isso mapeamos antes de filtrar.
   const vslAvatarVideos = (((config as any)?.copyVsl?.avatarVideos as any[]) || [])
     .map((v, i) => ({ v, i }))
     .filter(({ v }) => v?.url);
   const vslSourceVideos = [
-    ...vslMontageResults.map((url, i) => ({
-      url,
-      label: `Montagem VSL${vslMontageResults.length > 1 ? ` ${i + 1}` : ''}`,
-      aspectRatio: vslMontageAspect,
-      source: 'montagem' as const,
-    })),
+    ...vslMontageEntries,
     ...vslGroupVideos.map((g) => ({ ...g, source: 'montagem' as const })),
     ...vslAvatarVideos.map(({ v, i }) => ({
       url: v.url as string,
