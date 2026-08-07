@@ -2479,6 +2479,14 @@ videoRouter.post(
     if (!audioUrl || !userId || !Array.isArray(clips) || clips.length === 0) {
       return res.status(400).json({ error: 'audioUrl, clips e userId são obrigatórios.' });
     }
+    // DIAGNÓSTICO TEMPORÁRIO — investigando relato de zoom que não aparece no
+    // render final. Loga layout/zoom por trecho (sem baixar nada ainda).
+    console.log(
+      `[Timeline DEBUG] draft=${!!(req.body || {}).draft} clips=${clips.length}: ` +
+        clips
+          .map((c: any, i: number) => `#${i} layout=${c?.layout} zoom=${JSON.stringify(c?.zoom)}`)
+          .join(' | ')
+    );
     // Janela opcional: renderiza só um GRUPO da timeline. `audioStartSec` é o
     // offset no áudio; `durationSec` vira a duração DA JANELA. Os clipes já vêm
     // rebaseados (atSec/endSec relativos ao início da janela). Permite montar um
