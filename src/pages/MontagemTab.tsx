@@ -635,7 +635,11 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
     const from = Math.max(0, activeBlock);
     const cur = currentWorkflow();
     setBlockDrafts((prev) => ({ ...prev, [from]: cur }));
-    applyWorkflow(blockDrafts[idx]);
+    // Cena NOVA (sem workflow salvo) carrega o MESMO avatar base da atual — sem
+    // isto o avatar sumia (virava '') ao criar uma cena, e reescolher errado na
+    // hora dava vídeo/lip-sync trocado. Cena já existente respeita o que tem
+    // salvo (pode legitimamente não ter avatar).
+    applyWorkflow(blockDrafts[idx] || { avatarUrl: avatarBase });
     setActiveBlock(idx);
   };
   // Troca pro bloco da VSL preservando o workflow. Se o bloco já tem montagem
@@ -670,7 +674,11 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       const d = await r.json();
       if (!r.ok || !d.url) throw new Error(d.error || 'Falha ao cortar o áudio do bloco.');
       if (activeBlock >= 0) setBlockDrafts((prev) => ({ ...prev, [from]: cur }));
-      applyWorkflow({});
+      // Bloco NOVO carrega o MESMO avatar base do bloco atual — é o mesmo
+      // avatar longo fatiado, só muda o offset (avatarStartSec abaixo). Sem
+      // isto o avatar base zerava a cada bloco novo (bug: causava lip-sync
+      // errado quando o usuário reescolhia o vídeo errado pra repor).
+      applyWorkflow({ avatarUrl: avatarBase });
       setAudioUrl(d.url);
       setAudioDuration(end - start);
       setAvatarStartSec(start); // avatar alinhado ao início do bloco no vídeo de 19 min
