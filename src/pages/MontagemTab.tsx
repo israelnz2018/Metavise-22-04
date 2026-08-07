@@ -412,10 +412,11 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
         out.push({ url: u, label, duration: duration && isFinite(duration) ? duration : undefined });
       }
     };
-    // SÓ os teus mesmo: clipes do Vídeo IA (label "IA …") — NÃO os Pexels
-    // (Auto/Split/trocados). Avatar (HeyGen) e ganchos vêm do config.
+    // SÓ os teus mesmo: clipes do Vídeo IA (label "IA …") e uploads manuais
+    // ("Subir trechos") — NÃO os Pexels (label "Auto N"/"Auto NB", vindos do
+    // Auto-editar). Avatar (HeyGen) e ganchos vêm do config.
     clips.forEach((c) => {
-      if (/^IA /.test(c.label || '')) push(c.url, c.label || 'IA', c.duration);
+      if (!/^Auto \d+B?$/.test(c.label || '')) push(c.url, c.label || 'Vídeo', c.duration);
     });
     (((config as any).videos as any[]) || []).forEach((v, i) => push(v?.url, `Avatar #${i + 1}`));
     (((config.copy as any)?.hookVideos as any[]) || []).forEach((v, i) => push(v?.url, `Gancho #${i + 1}`));
