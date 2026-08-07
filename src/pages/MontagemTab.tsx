@@ -83,8 +83,12 @@ interface TLItem {
   /** Enquadramento do avatar SÓ deste trecho (crop/split/pip/proporção) —
    *  quando ausente, usa o enquadramento global (avatarFraming[avatarBase]). */
   frameOverride?: AvatarFraming;
-  /** Ponto-alvo (0..1) do zoom Ken Burns (transIn 'zoomin'/'zoomout') — pra onde
-   *  o zoom mira em vez do centro do quadro. Ausente = centro (0.5/0.5). */
+  /** Zoom lento (Ken Burns) DURANTE o trecho inteiro — independente de
+   *  transição de entrada/saída (pode ter as duas coisas juntas, ou só uma).
+   *  '' / ausente = sem zoom. */
+  zoom?: 'in' | 'out' | '';
+  /** Ponto-alvo (0..1) do zoom — pra onde ele mira em vez do centro do quadro.
+   *  Ausente = centro (0.5/0.5). */
   zoomCX?: number;
   zoomCY?: number;
   atSec: number; // começa em (seg do áudio)
@@ -106,6 +110,16 @@ interface TLItem {
   bw?: boolean;
   /** Termo de b-roll usado pelo Auto-editar — reusado ao "trocar" o trecho. */
   keyword?: string;
+}
+
+// Migração: zoom já foi uma transição de entrada ('transIn' = 'zoomin'/
+// 'zoomout'), virou um controle próprio do trecho (campo `zoom`). Sem isto,
+// draft salvo antes desta mudança perderia o zoom (opção some do select).
+function migrateZoomItems(items: TLItem[]): TLItem[] {
+  return items.map((it) => {
+    if (it.zoom || (it.transIn !== 'zoomin' && it.transIn !== 'zoomout')) return it;
+    return { ...it, zoom: it.transIn === 'zoomin' ? 'in' : 'out', transIn: 'none' };
+  });
 }
 
 // Texto cinético na tela (palavra grande animada, estilo VSL).
@@ -260,8 +274,6 @@ const TRANSITIONS: { id: string; label: string; css: string }[] = [
   { id: 'slideright', label: 'Slide →', css: 'mv-slideright' },
   { id: 'slideup', label: 'Slide ↑', css: 'mv-slideup' },
   { id: 'slidedown', label: 'Slide ↓', css: 'mv-slidedown' },
-  { id: 'zoomin', label: 'Zoom in', css: 'mv-zoomin' },
-  { id: 'zoomout', label: 'Zoom out', css: 'mv-zoomout' },
   { id: 'whiteflash', label: 'Flash branco', css: 'mv-white' },
   { id: 'whip', label: 'Whip / Blur', css: 'mv-whip' },
   { id: 'glitch', label: 'Glitch', css: 'mv-glitch' },
@@ -278,8 +290,6 @@ const TRANSITION_SOUND: Record<string, string> = {
   slidedown: 'Swoosh 7',
   whip: 'Swoosh 7',
   dissolve: 'Swoosh 7',
-  zoomin: 'Swoosh 7',
-  zoomout: 'Swoosh 7',
 };
 function soundForTransition(type?: string): string {
   try {
@@ -353,7 +363,9 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
   const [montagemMode, setMontagemMode] = useState<MontageMode>('creative');
   const draft = getMontagemDraft(config, montagemMode);
   const [clips, setClips] = useState<Clip[]>(() => (Array.isArray(draft.clips) ? draft.clips : []));
-  const [items, setItems] = useState<TLItem[]>(() => (Array.isArray(draft.items) ? draft.items : []));
+  const [items, setItems] = useState<TLItem[]>(() =>
+    migrateZoomItems(Array.isArray(draft.items) ? draft.items : [])
+  );
   const [texts, setTexts] = useState<TextItem[]>(() =>
     Array.isArray(draft.texts) ? draft.texts : []
   );
@@ -600,7 +612,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
   const applyWorkflow = (wf: BlockWorkflow | undefined) => {
     const w = wf || {};
     setClips(Array.isArray(w.clips) ? w.clips : []);
-    setItems(Array.isArray(w.items) ? w.items : []);
+    setItems(migrateZoomItems(Array.isArray(w.items) ? w.items : []));
     setTexts(Array.isArray(w.texts) ? w.texts : []);
     setResultUrl(w.resultUrl || '');
     setResultHistory(Array.isArray(w.resultHistory) ? w.resultHistory : []);
@@ -812,7 +824,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
     // (compat com montagens antigas de bloco único).
     const wf: BlockWorkflow = ai >= 0 && bd[ai] ? bd[ai] : modeDraft;
     setClips(Array.isArray(wf.clips) ? wf.clips : []);
-    setItems(Array.isArray(wf.items) ? wf.items : []);
+    setItems(migrateZoomItems(Array.isArray(wf.items) ? wf.items : []));
     setTexts(Array.isArray(wf.texts) ? wf.texts : []);
     setResultUrl(wf.resultUrl || '');
     setResultHistory(Array.isArray(wf.resultHistory) ? wf.resultHistory : []);
@@ -1881,6 +1893,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
         cropB: it.layout && it.layout !== 'full' && avatarBase ? fr.cropB : undefined,
         brollCX: it.brollCX,
         brollCY: it.brollCY,
+        zoom: it.zoom || undefined,
         zoomCX: it.zoomCX,
         zoomCY: it.zoomCY,
         atSec: it.atSec,
@@ -2583,9 +2596,11 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
         .mv-card:hover .mv-slideright{animation:mvSR 1.6s ease-in-out infinite}
         .mv-card:hover .mv-slideup{animation:mvSU 1.6s ease-in-out infinite}
         .mv-card:hover .mv-slidedown{animation:mvSD 1.6s ease-in-out infinite}
-        .mv-card:hover .mv-zoomin{animation:mvZI 1.6s ease-in-out infinite}
-        .mv-card:hover .mv-zoomout{animation:mvZO 1.6s ease-in-out infinite}
         .mv-card:hover .mv-white{animation:mvWF 1.6s ease-in-out infinite}
+        /* Zoom (Ken Burns) não é mais transição — é um controle próprio do
+           trecho; o selo animado abaixo roda sempre, não só no hover. */
+        .mv-zoom-live-in{animation:mvZI 1.6s ease-in-out infinite}
+        .mv-zoom-live-out{animation:mvZO 1.6s ease-in-out infinite}
         .mv-card:hover .mv-whip{animation:mvWH 1.6s ease-in-out infinite}
         .mv-card:hover .mv-glitch{animation:mvGL 1.2s linear infinite}
         .mv-bw{filter:grayscale(1)}
@@ -3259,6 +3274,44 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
                     >
                       ◐ P&B
                     </button>
+                    {/* Zoom (Ken Burns) — DURANTE o trecho inteiro, independente
+                        de qualquer transição de entrada/saída. */}
+                    <span className="inline-flex items-center rounded-lg border border-orange-300 dark:border-orange-800 overflow-hidden">
+                      {(
+                        [
+                          { v: '', label: '— zoom' },
+                          { v: 'in', label: '🔍+' },
+                          { v: 'out', label: '🔍−' },
+                        ] as const
+                      ).map((opt) => (
+                        <button
+                          key={opt.v || 'none'}
+                          onClick={() => setItemField(idx, { zoom: opt.v })}
+                          title={
+                            opt.v === 'in'
+                              ? 'Zoom in lento durante o trecho todo'
+                              : opt.v === 'out'
+                                ? 'Zoom out lento durante o trecho todo'
+                                : 'Sem zoom'
+                          }
+                          className={`px-2 py-0.5 font-black uppercase tracking-widest inline-block ${
+                            (it.zoom || '') === opt.v
+                              ? `bg-orange-500 text-white ${opt.v === 'in' ? 'mv-zoom-live-in' : opt.v === 'out' ? 'mv-zoom-live-out' : ''}`
+                              : 'text-orange-700 dark:text-orange-300 hover:bg-orange-50 dark:hover:bg-orange-950/40'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </span>
+                    {(it.zoom === 'in' || it.zoom === 'out') && clips[it.clipIdx]?.url && (
+                      <ZoomTargetPicker
+                        src={clips[it.clipIdx]!.url}
+                        cx={it.zoomCX ?? 0.5}
+                        cy={it.zoomCY ?? 0.5}
+                        onChange={(zoomCX, zoomCY) => setItemField(idx, { zoomCX, zoomCY })}
+                      />
+                    )}
                     {/* Split de B-ROLL (2 b-rolls lado a lado) — add/trocar/remover */}
                     {it.clipIdx2 != null ? (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-cyan-100 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-300 font-black uppercase tracking-widest">
@@ -3459,25 +3512,12 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
                       }}
                       className="px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100"
                     >
-                      {TRANSITIONS
-                        // Zoom (Ken Burns) roda no clipe INTEIRO a partir da
-                        // entrada — a saída não tem efeito próprio, então some
-                        // do select de "saída" pra não parecer que faz algo.
-                        .filter((t) => side === 'In' || (t.id !== 'zoomin' && t.id !== 'zoomout'))
-                        .map((t) => (
-                          <option key={t.id} value={t.id}>
-                            {t.label}
-                          </option>
-                        ))}
+                      {TRANSITIONS.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.label}
+                        </option>
+                      ))}
                     </select>
-                    {side === 'In' && (type === 'zoomin' || type === 'zoomout') && clips[it.clipIdx]?.url && (
-                      <ZoomTargetPicker
-                        src={clips[it.clipIdx]!.url}
-                        cx={it.zoomCX ?? 0.5}
-                        cy={it.zoomCY ?? 0.5}
-                        onChange={(zoomCX, zoomCY) => setItemField(idx, { zoomCX, zoomCY })}
-                      />
-                    )}
                     {type !== 'none' && (
                       <>
                         · dur
