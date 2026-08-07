@@ -2744,9 +2744,13 @@ videoRouter.post(
                 //  - vertical  (split-top/bottom):  avatar numa METADE em cima/baixo → vstack
                 const vertical = layout === 'split-top' || layout === 'split-bottom';
                 const avatarFirst = layout === 'split-left' || layout === 'split-top';
+                // Proporção do split (fração que o AVATAR ocupa; 0.5 = metade/metade).
+                // Sobe pra caber mais coisa no lado do avatar (ex.: avatar + boneca)
+                // sem cortar; desce pra dar mais espaço ao b-roll.
+                const splitRatio = Math.min(0.7, Math.max(0.3, Number(list[i].splitRatio) || 0.5));
                 // Dimensões da metade do avatar e da metade do b-roll.
-                const avHalfW = vertical ? W : Math.floor(W / 2);
-                const avHalfH = vertical ? Math.floor(H / 2) : H;
+                const avHalfW = vertical ? W : Math.round(W * splitRatio);
+                const avHalfH = vertical ? Math.round(H * splitRatio) : H;
                 const brHalfW = vertical ? W : W - avHalfW;
                 const brHalfH = vertical ? H - avHalfH : H;
                 // CAIXA de recorte com a proporção da metade do avatar; TAMANHO

@@ -12,6 +12,10 @@ export interface AvatarFraming {
   splitCX: number;
   splitCY: number;
   splitSize: number;
+  /** Fração do split ocupada pelo AVATAR (0.3..0.7; 0.5 = metade/metade).
+   *  Sobe pra caber mais coisa no lado do avatar (ex.: ela + a boneca) sem
+   *  cortar; desce pra dar mais espaço ao b-roll. */
+  splitRatio: number;
   pipCX: number;
   pipCY: number;
   pipSize: number;
@@ -25,6 +29,7 @@ export const DEFAULT_AVATAR_FRAMING: AvatarFraming = {
   splitCX: 0.5,
   splitCY: 0.4,
   splitSize: 1,
+  splitRatio: 0.5,
   pipCX: 0.5,
   pipCY: 0.28,
   pipSize: 0.72,
@@ -46,13 +51,31 @@ interface Props {
   value: AvatarFraming;
   onSave: (f: AvatarFraming) => void;
   onClose: () => void;
+  /** Título do modal (ex.: "Enquadrar este trecho" quando é override individual). */
+  title?: string;
+  /** Some quando é um enquadramento por trecho (não faz sentido resetar pro
+   *  "vale pra todos"; o botão de remover override fica de fora, no card do trecho). */
+  perTrecho?: boolean;
+  /** Orientação REAL do split deste trecho (split-top/bottom = vertical;
+   *  split-left/right = horizontal). Sem isso, adivinha pelo formato de saída
+   *  (só correto quando todos os trechos usam a mesma orientação). */
+  verticalSplit?: boolean;
 }
 
 type Drag = 'move' | 'resize' | 'crop-l' | 'crop-r' | 'crop-t' | 'crop-b';
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
-export function AvatarFramingModal({ avatarUrl, aspect, value, onSave, onClose }: Props) {
+export function AvatarFramingModal({
+  avatarUrl,
+  aspect,
+  value,
+  onSave,
+  onClose,
+  title,
+  perTrecho,
+  verticalSplit,
+}: Props) {
   const [tab, setTab] = useState<'crop' | 'split' | 'pip'>('split');
   const [f, setF] = useState<AvatarFraming>({ ...DEFAULT_AVATAR_FRAMING, ...value });
   const [nat, setNat] = useState<{ w: number; h: number } | null>(null);
@@ -65,10 +88,12 @@ export function AvatarFramingModal({ avatarUrl, aspect, value, onSave, onClose }
   const dragRef = useRef<Drag | null>(null);
 
   const out = OUT_DIMS[aspect] || OUT_DIMS['1:1']!;
-  // Proporção da metade do split conforme o formato de saída: vertical → metade
-  // em cima/baixo (larga); demais → metade lateral (retrato). É só o PREVIEW —
-  // o render usa a orientação real de cada trecho, mas o centro/zoom valem igual.
-  const ar = aspect === '9:16' ? out.w / (out.h / 2) : out.w / 2 / out.h;
+  // Proporção da metade do split: usa a orientação REAL do trecho quando dada
+  // (verticalSplit); senão adivinha pelo formato de saída (só o PREVIEW — o
+  // render usa a orientação real de cada trecho). splitRatio = fração que o
+  // avatar ocupa (0.5 = metade/metade; sobe pra caber mais coisa no lado dele).
+  const vertical = verticalSplit ?? aspect === '9:16';
+  const ar = vertical ? out.w / (out.h * f.splitRatio) : (out.w * f.splitRatio) / out.h;
 
   // Caixa do split: escala da maior caixa (proporção ar) que cabe na fonte.
   const sbox = useMemo(() => {
@@ -170,7 +195,7 @@ export function AvatarFramingModal({ avatarUrl, aspect, value, onSave, onClose }
       >
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-black uppercase tracking-widest text-violet-600 dark:text-violet-400">
-            Enquadrar avatar
+            {title || 'Enquadrar avatar'}
           </h3>
           <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-lg leading-none">
             ✕
@@ -193,11 +218,30 @@ export function AvatarFramingModal({ avatarUrl, aspect, value, onSave, onClose }
 
         <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-snug">
           {tab === 'crop'
-            ? 'Arraste as bordas pra cortar faixas do vídeo (ex.: legenda embaixo). Some pra todos os trechos deste avatar.'
+            ? `Arraste as bordas pra cortar faixas do vídeo (ex.: legenda embaixo).${perTrecho ? '' : ' Vale pra todos os trechos deste avatar.'}`
             : tab === 'split'
-              ? 'Arraste a caixa pra posicionar e a alça pra mudar o tamanho do avatar no split. Vale pra todos os trechos.'
-              : 'Arraste o círculo pra centralizar no rosto; a alça muda o tamanho. Vale pra todos os trechos.'}
+              ? `Arraste a caixa pra posicionar e a alça pra mudar o zoom do avatar no split.${perTrecho ? '' : ' Vale pra todos os trechos.'}`
+              : `Arraste o círculo pra centralizar no rosto; a alça muda o tamanho.${perTrecho ? '' : ' Vale pra todos os trechos.'}`}
         </p>
+
+        {/* Proporção do split: quanto o avatar ocupa vs. o b-roll. Sobe pra
+            caber mais coisa (ex.: ela + a boneca) sem cortar. */}
+        {tab === 'split' && (
+          <label className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">
+            Proporção
+            <input
+              type="range"
+              min={30}
+              max={70}
+              value={Math.round(f.splitRatio * 100)}
+              onChange={(e) => setF((s) => ({ ...s, splitRatio: Number(e.target.value) / 100 }))}
+              className="flex-1 accent-violet-600"
+            />
+            <span className="w-20 text-right tabular-nums text-violet-600 dark:text-violet-400">
+              {Math.round(f.splitRatio * 100)}% / {100 - Math.round(f.splitRatio * 100)}%
+            </span>
+          </label>
+        )}
 
         {/* Frame do avatar (altura limitada pra caber) + overlay */}
         <div className="flex justify-center">

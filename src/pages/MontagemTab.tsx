@@ -80,6 +80,9 @@ interface TLItem {
    *  Evita cortar/descentralizar o assunto quando o b-roll não cabe na metade. */
   brollCX?: number;
   brollCY?: number;
+  /** Enquadramento do avatar SÓ deste trecho (crop/split/pip/proporção) —
+   *  quando ausente, usa o enquadramento global (avatarFraming[avatarBase]). */
+  frameOverride?: AvatarFraming;
   atSec: number; // começa em (seg do áudio)
   endSec: number; // termina em (seg do áudio)
   showSec?: number; // legado (drafts antigos)
@@ -622,6 +625,9 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
     draft.avatarFraming && typeof draft.avatarFraming === 'object' ? draft.avatarFraming : {}
   );
   const [framingModalOpen, setFramingModalOpen] = useState(false);
+  // Enquadramento POR TRECHO (opcional): idx do item sendo editado, ou null.
+  // Sobrepõe o enquadramento global só para esse trecho (it.frameOverride).
+  const [perTrechoFraming, setPerTrechoFraming] = useState<number | null>(null);
   const framing: AvatarFraming = (avatarBase && avatarFraming[avatarBase]) || DEFAULT_AVATAR_FRAMING;
   // Avatares JÁ GERADOS neste subprojeto (VSL + corpo) — pra usar de base sem
   // precisar reupload. Cada um: {url, aspectRatio, createdAt}.
@@ -1801,22 +1807,25 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       // Avatar contínuo → sem transição (nem som) no corte do meio.
       const inCut = i > 0 && avatarContinuousBoundary(arr[i - 1], it);
       const outCut = i < arr.length - 1 && avatarContinuousBoundary(it, arr[i + 1]);
+      // Enquadramento efetivo: override deste trecho, senão o global do avatar.
+      const fr = it.frameOverride || framing;
       return {
         url: clips[it.clipIdx]?.url,
         url2: it.clipIdx2 != null ? clips[it.clipIdx2]?.url : undefined,
         layout: it.layout && it.layout !== 'full' && avatarBase ? it.layout : undefined,
         avatarUrl: it.layout && it.layout !== 'full' && avatarBase ? avatarBase : undefined,
         avatarSeek: it.layout && it.layout !== 'full' && avatarBase ? avatarStartSec + it.atSec : undefined,
-        splitCX: it.layout && it.layout !== 'full' && avatarBase ? framing.splitCX : undefined,
-        splitCY: it.layout && it.layout !== 'full' && avatarBase ? framing.splitCY : undefined,
-        splitSize: it.layout && it.layout !== 'full' && avatarBase ? framing.splitSize : undefined,
-        pipCX: it.layout && it.layout !== 'full' && avatarBase ? framing.pipCX : undefined,
-        pipCY: it.layout && it.layout !== 'full' && avatarBase ? framing.pipCY : undefined,
-        pipSize: it.layout && it.layout !== 'full' && avatarBase ? framing.pipSize : undefined,
-        cropL: it.layout && it.layout !== 'full' && avatarBase ? framing.cropL : undefined,
-        cropR: it.layout && it.layout !== 'full' && avatarBase ? framing.cropR : undefined,
-        cropT: it.layout && it.layout !== 'full' && avatarBase ? framing.cropT : undefined,
-        cropB: it.layout && it.layout !== 'full' && avatarBase ? framing.cropB : undefined,
+        splitCX: it.layout && it.layout !== 'full' && avatarBase ? fr.splitCX : undefined,
+        splitCY: it.layout && it.layout !== 'full' && avatarBase ? fr.splitCY : undefined,
+        splitSize: it.layout && it.layout !== 'full' && avatarBase ? fr.splitSize : undefined,
+        splitRatio: it.layout && it.layout !== 'full' && avatarBase ? fr.splitRatio : undefined,
+        pipCX: it.layout && it.layout !== 'full' && avatarBase ? fr.pipCX : undefined,
+        pipCY: it.layout && it.layout !== 'full' && avatarBase ? fr.pipCY : undefined,
+        pipSize: it.layout && it.layout !== 'full' && avatarBase ? fr.pipSize : undefined,
+        cropL: it.layout && it.layout !== 'full' && avatarBase ? fr.cropL : undefined,
+        cropR: it.layout && it.layout !== 'full' && avatarBase ? fr.cropR : undefined,
+        cropT: it.layout && it.layout !== 'full' && avatarBase ? fr.cropT : undefined,
+        cropB: it.layout && it.layout !== 'full' && avatarBase ? fr.cropB : undefined,
         brollCX: it.brollCX,
         brollCY: it.brollCY,
         atSec: it.atSec,
@@ -2125,6 +2134,27 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
             setAvatarFraming((prev) => ({ ...prev, [avatarBase]: f }));
             setFramingModalOpen(false);
             toast.success('Enquadramento salvo — vale pra todos os trechos deste avatar.');
+          }}
+        />
+      )}
+
+      {/* Enquadrar SÓ este trecho — sobrepõe o enquadramento global. */}
+      {perTrechoFraming != null && avatarBase && items[perTrechoFraming] && (
+        <AvatarFramingModal
+          title={`Enquadrar — trecho ${perTrechoFraming + 1}`}
+          perTrecho
+          avatarUrl={avatarBase}
+          aspect={aspect}
+          value={items[perTrechoFraming]!.frameOverride || framing}
+          verticalSplit={
+            items[perTrechoFraming]!.layout === 'split-top' ||
+            items[perTrechoFraming]!.layout === 'split-bottom'
+          }
+          onClose={() => setPerTrechoFraming(null)}
+          onSave={(f) => {
+            setItemField(perTrechoFraming, { frameOverride: f });
+            setPerTrechoFraming(null);
+            toast.success('Enquadramento salvo só pra este trecho.');
           }}
         />
       )}
@@ -3229,6 +3259,33 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
                       <option value="split-top">⬒ split avatar ↑ (cima)</option>
                       <option value="split-bottom">⬓ split avatar ↓ (baixo)</option>
                     </select>
+                    {/* Enquadramento SÓ deste trecho — sobrepõe o global (crop/split/
+                        PiP/proporção). Útil quando um trecho precisa de mais espaço
+                        (ex.: avatar + boneca) e os outros não. */}
+                    {it.layout && it.layout !== 'full' && avatarBase && (
+                      <span className="inline-flex items-center gap-1">
+                        <button
+                          onClick={() => setPerTrechoFraming(idx)}
+                          className={`px-2 py-0.5 rounded-lg font-black uppercase tracking-widest ${
+                            it.frameOverride
+                              ? 'bg-fuchsia-600 text-white'
+                              : 'border border-fuchsia-300 dark:border-fuchsia-800 text-fuchsia-700 dark:text-fuchsia-300 hover:bg-fuchsia-50 dark:hover:bg-fuchsia-950/40'
+                          }`}
+                          title="Enquadramento (corte/split/PiP/proporção) só deste trecho, diferente do padrão"
+                        >
+                          🎯 {it.frameOverride ? 'enquadre próprio' : 'enquadrar'}
+                        </button>
+                        {it.frameOverride && (
+                          <button
+                            onClick={() => setItemField(idx, { frameOverride: undefined })}
+                            className="text-fuchsia-500 hover:text-red-500"
+                            title="Voltar ao enquadramento padrão"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </span>
+                    )}
                     {/* Pan do b-roll no split — reposiciona pra não cortar o assunto. */}
                     {it.layout && it.layout.startsWith('split') && (() => {
                       const horiz = it.layout === 'split-left' || it.layout === 'split-right';
@@ -3251,12 +3308,15 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
                         </label>
                       );
                     })()}
-                    {/* Prévia AO VIVO do split (CSS) — reflete o pan sem renderizar. */}
+                    {/* Prévia AO VIVO do split (CSS) — reflete o pan e a proporção
+                        efetiva (override do trecho, senão o global) sem renderizar. */}
                     {it.layout && it.layout.startsWith('split') && avatarBase && clips[it.clipIdx]?.url && (() => {
+                      const fr = it.frameOverride || framing;
                       const vertical = it.layout === 'split-top' || it.layout === 'split-bottom';
                       const avatarFirst = it.layout === 'split-left' || it.layout === 'split-top';
                       const brCX = it.brollCX ?? 0.5;
                       const brCY = it.brollCY ?? 0.5;
+                      const ratioPct = Math.round((fr.splitRatio ?? 0.5) * 100);
                       const aspectClass =
                         aspect === '1:1' ? 'aspect-square' : aspect === '16:9' ? 'aspect-video' : 'aspect-[9/16]';
                       const av = (
@@ -3266,7 +3326,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
                           playsInline
                           preload="metadata"
                           className="w-full h-full object-cover"
-                          style={{ objectPosition: `${(framing.splitCX ?? 0.5) * 100}% ${(framing.splitCY ?? 0.4) * 100}%` }}
+                          style={{ objectPosition: `${(fr.splitCX ?? 0.5) * 100}% ${(fr.splitCY ?? 0.4) * 100}%` }}
                         />
                       );
                       const br = (
@@ -3279,14 +3339,22 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
                           style={{ objectPosition: `${brCX * 100}% ${brCY * 100}%` }}
                         />
                       );
+                      const avStyle = { flex: `${ratioPct} 0 0%` };
+                      const brStyle = { flex: `${100 - ratioPct} 0 0%` };
                       return (
                         <div className="basis-full flex items-center gap-2 pt-1">
-                          <span className="text-[9px] text-gray-400 uppercase tracking-widest">prévia</span>
+                          <span className="text-[9px] text-gray-400 uppercase tracking-widest">
+                            prévia {it.frameOverride && <span className="text-fuchsia-500">(próprio)</span>}
+                          </span>
                           <div
                             className={`w-28 ${aspectClass} rounded-lg overflow-hidden bg-black flex ${vertical ? 'flex-col' : 'flex-row'} ring-1 ring-violet-400`}
                           >
-                            <div className="flex-1 min-w-0 min-h-0 overflow-hidden">{avatarFirst ? av : br}</div>
-                            <div className="flex-1 min-w-0 min-h-0 overflow-hidden">{avatarFirst ? br : av}</div>
+                            <div className="min-w-0 min-h-0 overflow-hidden" style={avatarFirst ? avStyle : brStyle}>
+                              {avatarFirst ? av : br}
+                            </div>
+                            <div className="min-w-0 min-h-0 overflow-hidden" style={avatarFirst ? brStyle : avStyle}>
+                              {avatarFirst ? br : av}
+                            </div>
                           </div>
                         </div>
                       );
