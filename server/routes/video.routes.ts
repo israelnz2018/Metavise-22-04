@@ -2479,14 +2479,6 @@ videoRouter.post(
     if (!audioUrl || !userId || !Array.isArray(clips) || clips.length === 0) {
       return res.status(400).json({ error: 'audioUrl, clips e userId são obrigatórios.' });
     }
-    // DIAGNÓSTICO TEMPORÁRIO — investigando relato de zoom que não aparece no
-    // render final. Loga layout/zoom por trecho (sem baixar nada ainda).
-    console.log(
-      `[Timeline DEBUG] draft=${!!(req.body || {}).draft} clips=${clips.length}: ` +
-        clips
-          .map((c: any, i: number) => `#${i} layout=${c?.layout} zoom=${JSON.stringify(c?.zoom)}`)
-          .join(' | ')
-    );
     // Janela opcional: renderiza só um GRUPO da timeline. `audioStartSec` é o
     // offset no áudio; `durationSec` vira a duração DA JANELA. Os clipes já vêm
     // rebaseados (atSec/endSec relativos ao início da janela). Permite montar um
@@ -2963,15 +2955,22 @@ videoRouter.post(
           // setpts pra não bagunçar o posicionamento no overlay. Mira o PONTO
           // escolhido (zoomCX/zoomCY, 0..1 — padrão 0.5/0.5 = centro), clampado
           // pra a janela de crop nunca estourar a borda da imagem.
+          //
+          // A rampa usa `on` (contador de frames de saída), NÃO o acumulador
+          // `zoom`: com d=1 o zoompan reinicia `zoom` a cada frame de entrada,
+          // então `zoom+inc` nunca acumulava e o zoom simplesmente não acontecia.
+          // O `fps=30` ANTES do zoompan garante que `on` avance no mesmo ritmo
+          // do tempo (a fonte pode ser 25fps), senão a rampa fica fora de escala.
           const winZ = crossIn ? win + dIn : win;
           const inc = (0.18 / Math.max(1, winZ * 30)).toFixed(6);
           const zCX = Math.min(1, Math.max(0, Number(c.zoomCX ?? 0.5)));
           const zCY = Math.min(1, Math.max(0, Number(c.zoomCY ?? 0.5)));
           const zp = `d=1:x='max(0,min(iw-iw/zoom,${zCX}*iw-(iw/zoom/2)))':y='max(0,min(ih-ih/zoom,${zCY}*ih-(ih/zoom/2)))':s=${W}x${H}:fps=30`;
           let zoomF = '';
-          if (c.zoom === 'in') zoomF = `,zoompan=z='min(zoom+${inc},1.18)':${zp},setsar=1`;
+          if (c.zoom === 'in')
+            zoomF = `,fps=30,zoompan=z='min(1+${inc}*on,1.18)':${zp},setsar=1`;
           else if (c.zoom === 'out')
-            zoomF = `,zoompan=z='if(eq(on,0),1.18,max(zoom-${inc},1.0))':${zp},setsar=1`;
+            zoomF = `,fps=30,zoompan=z='max(1.18-${inc}*on,1.0)':${zp},setsar=1`;
 
           // Ordem: trim → escala → tpad → [zoom] → setpts (posiciona) → [efeitos] → [fade].
           // tpad clona o ÚLTIMO frame se o b-roll for mais CURTO que a janela —
