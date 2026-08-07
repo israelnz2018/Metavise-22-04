@@ -83,6 +83,10 @@ interface TLItem {
   /** Enquadramento do avatar SÓ deste trecho (crop/split/pip/proporção) —
    *  quando ausente, usa o enquadramento global (avatarFraming[avatarBase]). */
   frameOverride?: AvatarFraming;
+  /** Ponto-alvo (0..1) do zoom Ken Burns (transIn 'zoomin'/'zoomout') — pra onde
+   *  o zoom mira em vez do centro do quadro. Ausente = centro (0.5/0.5). */
+  zoomCX?: number;
+  zoomCY?: number;
   atSec: number; // começa em (seg do áudio)
   endSec: number; // termina em (seg do áudio)
   showSec?: number; // legado (drafts antigos)
@@ -194,6 +198,55 @@ function NumInput({
       }}
       className={className}
     />
+  );
+}
+
+// Ponto-alvo do zoom Ken Burns: clique/arraste na miniatura pra escolher a
+// área que o zoom in/out mira (em vez de sempre o centro do quadro).
+function ZoomTargetPicker({
+  src,
+  cx,
+  cy,
+  onChange,
+}: {
+  src: string;
+  cx: number;
+  cy: number;
+  onChange: (cx: number, cy: number) => void;
+}) {
+  const boxRef = useRef<HTMLDivElement | null>(null);
+  const setFromEvent = (e: { clientX: number; clientY: number }) => {
+    const r = boxRef.current?.getBoundingClientRect();
+    if (!r) return;
+    const x = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+    const y = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
+    onChange(Number(x.toFixed(2)), Number(y.toFixed(2)));
+  };
+  return (
+    <div
+      ref={boxRef}
+      onPointerDown={(e) => {
+        (e.target as Element).setPointerCapture(e.pointerId);
+        setFromEvent(e);
+      }}
+      onPointerMove={(e) => {
+        if (e.buttons === 1) setFromEvent(e);
+      }}
+      title="Clique/arraste pra escolher o ponto que o zoom mira"
+      className="relative w-12 h-12 rounded-lg overflow-hidden bg-black cursor-crosshair shrink-0 ring-1 ring-amber-400 touch-none"
+    >
+      <video
+        src={src}
+        muted
+        playsInline
+        preload="metadata"
+        className="w-full h-full object-cover pointer-events-none"
+      />
+      <div
+        className="absolute w-2.5 h-2.5 rounded-full bg-amber-400 border border-white shadow -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+        style={{ left: `${cx * 100}%`, top: `${cy * 100}%` }}
+      />
+    </div>
   );
 }
 
@@ -1828,6 +1881,8 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
         cropB: it.layout && it.layout !== 'full' && avatarBase ? fr.cropB : undefined,
         brollCX: it.brollCX,
         brollCY: it.brollCY,
+        zoomCX: it.zoomCX,
+        zoomCY: it.zoomCY,
         atSec: it.atSec,
         endSec: itemEnd(it),
         trimStart: 0,
@@ -2129,6 +2184,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
           avatarUrl={avatarBase}
           aspect={aspect}
           value={framing}
+          uid={uid}
           onClose={() => setFramingModalOpen(false)}
           onSave={(f) => {
             setAvatarFraming((prev) => ({ ...prev, [avatarBase]: f }));
@@ -2146,6 +2202,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
           avatarUrl={avatarBase}
           aspect={aspect}
           value={items[perTrechoFraming]!.frameOverride || framing}
+          uid={uid}
           verticalSplit={
             items[perTrechoFraming]!.layout === 'split-top' ||
             items[perTrechoFraming]!.layout === 'split-bottom'
@@ -3402,12 +3459,25 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
                       }}
                       className="px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100"
                     >
-                      {TRANSITIONS.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.label}
-                        </option>
-                      ))}
+                      {TRANSITIONS
+                        // Zoom (Ken Burns) roda no clipe INTEIRO a partir da
+                        // entrada — a saída não tem efeito próprio, então some
+                        // do select de "saída" pra não parecer que faz algo.
+                        .filter((t) => side === 'In' || (t.id !== 'zoomin' && t.id !== 'zoomout'))
+                        .map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.label}
+                          </option>
+                        ))}
                     </select>
+                    {side === 'In' && (type === 'zoomin' || type === 'zoomout') && clips[it.clipIdx]?.url && (
+                      <ZoomTargetPicker
+                        src={clips[it.clipIdx]!.url}
+                        cx={it.zoomCX ?? 0.5}
+                        cy={it.zoomCY ?? 0.5}
+                        onChange={(zoomCX, zoomCY) => setItemField(idx, { zoomCX, zoomCY })}
+                      />
+                    )}
                     {type !== 'none' && (
                       <>
                         · dur

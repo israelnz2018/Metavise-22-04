@@ -1,4 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { toast } from 'react-hot-toast';
+import {
+  loadFramingLibrary,
+  addToFramingLibrary,
+  deleteFromFramingLibrary,
+  type SavedFraming,
+} from '@/lib/framingLibrary';
 
 // Enquadramento do avatar reaproveitado em todos os trechos do mesmo avatar.
 // CORTAR: cropL/R/T/B removem faixas do vídeo base (ex.: legenda no rodapé),
@@ -60,6 +67,9 @@ interface Props {
    *  split-left/right = horizontal). Sem isso, adivinha pelo formato de saída
    *  (só correto quando todos os trechos usam a mesma orientação). */
   verticalSplit?: boolean;
+  /** Com uid, mostra a biblioteca de enquadramentos salvos (global, entre
+   *  projetos) — salvar o atual com um nome e aplicar um já salvo. */
+  uid?: string;
 }
 
 type Drag = 'move' | 'resize' | 'crop-l' | 'crop-r' | 'crop-t' | 'crop-b';
@@ -75,6 +85,7 @@ export function AvatarFramingModal({
   title,
   perTrecho,
   verticalSplit,
+  uid,
 }: Props) {
   const [tab, setTab] = useState<'crop' | 'split' | 'pip'>('split');
   const [f, setF] = useState<AvatarFraming>({ ...DEFAULT_AVATAR_FRAMING, ...value });
@@ -82,6 +93,53 @@ export function AvatarFramingModal({
   const [playing, setPlaying] = useState(false);
   const [dur, setDur] = useState(0);
   const [cur, setCur] = useState(0);
+
+  // Biblioteca GLOBAL de enquadramentos salvos (entre projetos) — opt-in.
+  const [library, setLibrary] = useState<SavedFraming[]>([]);
+  const [savingName, setSavingName] = useState<string | null>(null); // input aberto
+  useEffect(() => {
+    if (!uid) return;
+    loadFramingLibrary(uid).then(setLibrary);
+  }, [uid]);
+  const applyPreset = (p: SavedFraming) => {
+    setF((s) => ({
+      ...s,
+      splitCX: p.splitCX,
+      splitCY: p.splitCY,
+      splitSize: p.splitSize,
+      splitRatio: p.splitRatio,
+      pipCX: p.pipCX,
+      pipCY: p.pipCY,
+      pipSize: p.pipSize,
+      cropL: p.cropL,
+      cropR: p.cropR,
+      cropT: p.cropT,
+      cropB: p.cropB,
+    }));
+    toast.success(`Enquadramento "${p.label}" aplicado.`);
+  };
+  const saveCurrentAsPreset = async () => {
+    const name = (savingName || '').trim();
+    if (!uid || !name) return;
+    try {
+      const id = await addToFramingLibrary(uid, name, f);
+      setLibrary((prev) => [{ ...f, id, label: name, createdAt: new Date().toISOString() }, ...prev]);
+      setSavingName(null);
+      toast.success('Enquadramento salvo na biblioteca.');
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao salvar.');
+    }
+  };
+  const removePreset = async (p: SavedFraming) => {
+    if (!uid) return;
+    if (!window.confirm(`Remover "${p.label}" da biblioteca?`)) return;
+    setLibrary((prev) => prev.filter((x) => x.id !== p.id));
+    try {
+      await deleteFromFramingLibrary(uid, p.id);
+    } catch {
+      /* ignora — já saiu da lista local */
+    }
+  };
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const boxRef = useRef<HTMLDivElement | null>(null);
@@ -201,6 +259,80 @@ export function AvatarFramingModal({
             ✕
           </button>
         </div>
+
+        {/* Biblioteca de enquadramentos salvos — global, entre projetos. Cada
+            preset é o objeto INTEIRO (corte+split+PiP+proporção); aplicar troca
+            tudo de uma vez. */}
+        {uid && (
+          <div className="space-y-1.5 pb-1 border-b border-gray-100 dark:border-gray-800">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                📚 Enquadramentos salvos
+              </span>
+              {savingName == null ? (
+                <button
+                  onClick={() => setSavingName('')}
+                  className="text-[10px] font-black uppercase tracking-widest text-violet-600 dark:text-violet-400 hover:underline"
+                >
+                  💾 salvar este
+                </button>
+              ) : (
+                <div className="flex items-center gap-1">
+                  <input
+                    autoFocus
+                    value={savingName}
+                    onChange={(e) => setSavingName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && saveCurrentAsPreset()}
+                    placeholder="nome (ex.: retrato 60/40)"
+                    className="px-2 py-1 rounded-lg border border-violet-300 dark:border-violet-700 bg-white dark:bg-gray-800 text-[11px] w-36"
+                  />
+                  <button
+                    onClick={saveCurrentAsPreset}
+                    disabled={!savingName.trim()}
+                    className="text-[10px] font-black uppercase text-violet-600 dark:text-violet-400 disabled:opacity-40"
+                  >
+                    ok
+                  </button>
+                  <button
+                    onClick={() => setSavingName(null)}
+                    className="text-[10px] font-black text-gray-400 hover:text-red-500"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+            </div>
+            {library.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {library.map((p) => (
+                  <span
+                    key={p.id}
+                    className="inline-flex items-center gap-1 pl-2 pr-1 py-1 rounded-lg bg-violet-50 dark:bg-violet-950/40 border border-violet-200 dark:border-violet-800"
+                  >
+                    <button
+                      onClick={() => applyPreset(p)}
+                      className="text-[10px] font-black text-violet-700 dark:text-violet-300 uppercase tracking-widest"
+                      title="Aplicar este enquadramento"
+                    >
+                      {p.label}
+                    </button>
+                    <button
+                      onClick={() => removePreset(p)}
+                      className="text-violet-300 hover:text-red-500 text-[10px] leading-none"
+                      title="Remover da biblioteca"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[10px] text-gray-400">
+                Nenhum salvo ainda — calibre e clique "salvar este" pra reusar em qualquer vídeo/projeto.
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="flex gap-1 p-1 rounded-xl bg-gray-100 dark:bg-gray-800">
           {(['crop', 'split', 'pip'] as const).map((t) => (

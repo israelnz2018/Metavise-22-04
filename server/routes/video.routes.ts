@@ -2951,10 +2951,14 @@ videoRouter.post(
 
           // ZOOM (Ken Burns) no clipe inteiro via zoompan. inc calibrado pra
           // alcançar ~1.18 no fim da janela. Aplicado ANTES do setpts pra não
-          // bagunçar o posicionamento no overlay.
+          // bagunçar o posicionamento no overlay. Mira o PONTO escolhido
+          // (zoomCX/zoomCY, 0..1 — padrão 0.5/0.5 = centro do quadro), clampado
+          // pra a janela de crop nunca estourar a borda da imagem.
           const winZ = crossIn ? win + dIn : win;
           const inc = (0.18 / Math.max(1, winZ * 30)).toFixed(6);
-          const zp = `d=1:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${W}x${H}:fps=30`;
+          const zCX = Math.min(1, Math.max(0, Number(c.zoomCX ?? 0.5)));
+          const zCY = Math.min(1, Math.max(0, Number(c.zoomCY ?? 0.5)));
+          const zp = `d=1:x='max(0,min(iw-iw/zoom,${zCX}*iw-(iw/zoom/2)))':y='max(0,min(ih-ih/zoom,${zCY}*ih-(ih/zoom/2)))':s=${W}x${H}:fps=30`;
           let zoomF = '';
           if (tIn === 'zoomin') zoomF = `,zoompan=z='min(zoom+${inc},1.18)':${zp},setsar=1`;
           else if (tIn === 'zoomout')
