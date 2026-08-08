@@ -66,6 +66,7 @@ import {
 // na geração de copy. Pega na hora — ~200ms, aceitável.
 import { loadPersonalLibrary } from './lib/personalCopyLibrary';
 import { auth, db, storage } from './lib/firebase';
+import { useAuthUser } from './hooks/useAuthUser';
 import { loadVariants, saveVariant, deleteVariantDoc } from './lib/variantStore';
 import firebaseConfig from '../firebase-applet-config.json';
 import { type CachedRecommendation } from './components/AIRecommendationPanel';
@@ -217,20 +218,10 @@ import {
   uploadBytesResumable,
   listAll,
 } from 'firebase/storage';
-import {
-  signInWithPopup,
-  GoogleAuthProvider,
-  onAuthStateChanged,
-  User as FirebaseUser,
-  signOut,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-} from 'firebase/auth';
+import { User as FirebaseUser } from 'firebase/auth';
 import {
   doc,
-  getDoc,
   setDoc,
-  onSnapshot,
   serverTimestamp,
   getDocFromServer,
   getDocs as fbGetDocs,
@@ -528,7 +519,6 @@ export default function App() {
   const [deleteProjectConfirmId, setDeleteProjectConfirmId] = useState<string | null>(null);
   const [voiceSource, setVoiceSource] = useState<'copy' | 'hook' | 'vsl'>('copy');
   const [previewAvatar, setPreviewAvatar] = useState<any>(null);
-  const [credits, setCredits] = useState<number>(0);
   // Gasto REAL da API da Claude (o servidor conta o próprio consumo). Poll leve
   // pra mostrar "quanto foi gasto" em tempo quase-real no header.
   const [apiSpend, setApiSpend] = useState<{
@@ -539,12 +529,6 @@ export default function App() {
     balanceBase: number | null;
     availableUSD: number | null;
   } | null>(null);
-  const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [userRole, setUserRole] = useState<'user' | 'admin'>('user');
-  const [isAuthReady, setIsAuthReady] = useState(false);
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [elevenLabsKey, setElevenLabsKey] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [testStatus, setTestStatus] = useState<{
@@ -1173,6 +1157,22 @@ export default function App() {
   const [currentVariantId, setCurrentVariantId] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [error, setError] = useState<string | null>(null);
+  const {
+    user,
+    userRole,
+    isAuthReady,
+    authMode,
+    setAuthMode,
+    email,
+    setEmail,
+    password,
+    setPassword,
+    credits,
+    setCredits,
+    handleEmailAuth,
+    handleLogin,
+    handleLogout,
+  } = useAuthUser({ setLoading, setError });
 
   // ─── Detecção de "mudanças não salvas" ───────────────────────────────────
   // Por CONTEÚDO (não por referência): só fica "sujo" se o conteúdo persistível
@@ -2097,62 +2097,6 @@ export default function App() {
       }
     };
     testConnection();
-
-    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser);
-      setIsAuthReady(true);
-
-      if (firebaseUser) {
-        // Ensure user document exists
-        const userRef = doc(db, 'users', firebaseUser.uid);
-        const userSnap = await getDoc(userRef);
-
-        if (!userSnap.exists()) {
-          const isAdmin = firebaseUser.email === 'israelnz2018@hotmail.com';
-          await setDoc(userRef, {
-            uid: firebaseUser.uid,
-            email: firebaseUser.email,
-            credits: 1000,
-            role: isAdmin ? 'admin' : 'user',
-            createdAt: serverTimestamp(),
-          });
-          setUserRole(isAdmin ? 'admin' : 'user');
-        } else {
-          const data = userSnap.data();
-          const isAdmin = firebaseUser.email === 'israelnz2018@hotmail.com';
-          setUserRole(isAdmin ? 'admin' : data.role || 'user');
-        }
-      }
-    });
-
-    return () => unsubscribeAuth();
-  }, []);
-
-  useEffect(() => {
-    if (!user) {
-      setCredits(0);
-      return;
-    }
-
-    const unsubscribeCredits = onSnapshot(
-      doc(db, 'users', user.uid),
-      (doc) => {
-        if (doc.exists()) {
-          setCredits(doc.data().credits);
-        }
-      },
-      (error) => {
-        console.error('Firestore Error (Credits):', error);
-      }
-    );
-
-    return () => unsubscribeCredits();
-  }, [user]);
-
-  useEffect(() => {
-    const handleCreditsUpdate = (e: any) => setCredits(e.detail);
-    window.addEventListener('credits-updated', handleCreditsUpdate);
-    return () => window.removeEventListener('credits-updated', handleCreditsUpdate);
   }, []);
 
   // Gasto REAL da API da Claude: poll a cada 10s + refetch imediato quando uma
@@ -6676,50 +6620,6 @@ export default function App() {
       toast.success('Download iniciado!', { id: 'download' });
     } catch (err) {
       toast.error('Erro ao baixar vídeo.', { id: 'download' });
-    }
-  };
-
-  const handleEmailAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    try {
-      if (authMode === 'signup') {
-        await createUserWithEmailAndPassword(auth, email, password);
-      } else {
-        await signInWithEmailAndPassword(auth, email, password);
-      }
-    } catch (err: any) {
-      console.error('Email Auth Error:', err);
-      let msg = 'Erro na autenticação.';
-      if (err.code === 'auth/email-already-in-use') msg = 'Este e-mail já está em uso.';
-      if (err.code === 'auth/invalid-email') msg = 'E-mail inválido.';
-      if (err.code === 'auth/weak-password') msg = 'Senha muito fraca.';
-      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password')
-        msg = 'E-mail ou senha incorretos.';
-      if (err.code === 'auth/operation-not-allowed')
-        msg = 'O login por e-mail/senha não está habilitado no Console do Firebase.';
-      setError(msg);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLogin = async () => {
-    try {
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
-    } catch (err) {
-      console.error('Login Error:', err);
-      setError('Falha ao entrar com Google.');
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-    } catch (err) {
-      console.error('Logout Error:', err);
     }
   };
 
