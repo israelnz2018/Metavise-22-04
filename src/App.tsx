@@ -67,7 +67,13 @@ import {
 import { loadPersonalLibrary } from './lib/personalCopyLibrary';
 import { auth, db, storage } from './lib/firebase';
 import { useAuthUser } from './hooks/useAuthUser';
-import { loadVariants, saveVariant, deleteVariantDoc } from './lib/variantStore';
+import { useVariantActions } from './hooks/useVariantActions';
+import {
+  buildWeightedPersonas,
+  hydrateProjectConfig,
+  ensurePersonaWeights,
+} from './lib/projectConfig';
+import { loadVariants, saveVariant } from './lib/variantStore';
 import firebaseConfig from '../firebase-applet-config.json';
 import { type CachedRecommendation } from './components/AIRecommendationPanel';
 import { STEPS, AD_STYLES } from './lib/constants';
@@ -637,89 +643,6 @@ export default function App() {
   // Quando o usuário clica numa aba com mudanças pendentes, guardamos o destino
   // aqui e abrimos o modal em vez de navegar direto.
   const [pendingStepChange, setPendingStepChange] = useState<Step | null>(null);
-
-  const hydrateProjectConfig = (loadedConfig: AdConfig) => {
-    // 0. Garantir hookVisual
-    if (!loadedConfig.hookVisual) {
-      loadedConfig.hookVisual = {
-        promptImagem: '',
-        imagensGeradas: [],
-        imagemEscolhida: '',
-        promptVideo: '',
-        videoGerado: '',
-        duracaoVideo: 4,
-        modeloImagem: 'imagen-4.0-generate-001',
-        modeloVideo: 'veo-3.1-fast-generate-preview',
-      };
-    }
-
-    // 0.1. Retrocompat: garantir format e avatar. Projetos antigos podem não
-    // ter esses campos — a AvatarTab lê config.format.aspectRatio / config.avatar
-    // sem guarda e quebrava a tela inteira.
-    if (!loadedConfig.format) {
-      (loadedConfig as any).format = { aspectRatio: '9:16', duration: 10 };
-    }
-    if (!loadedConfig.avatar) {
-      (loadedConfig as any).avatar = {
-        faceId: 'f1',
-        customFaceUrl: null,
-        voiceId: '',
-        scale: 1.0,
-      };
-    }
-
-    // 1. Retrocompatibilidade: Garantir campos básicos de edit
-    if (!loadedConfig.edit) {
-      loadedConfig.edit = {
-        transition: 'none',
-        backgroundMusic: 'none',
-        timelineEdits: [],
-      };
-    } else if (!loadedConfig.edit.timelineEdits) {
-      loadedConfig.edit.timelineEdits = [];
-    }
-
-    // 2. Retrocompatibilidade: Garantir campos de copy
-    if (!loadedConfig.copy) {
-      (loadedConfig as any).copy = {
-        mode: 'questions',
-        answers: {},
-        generatedScript: '',
-        generatedHooks: [],
-        discoveryMode: 'unknown',
-      };
-    }
-
-    // 3. Inferir discoveryMode se estiver faltando
-    if (!loadedConfig.copy.discoveryMode) {
-      if (loadedConfig.copy.finalScript) {
-        loadedConfig.copy.discoveryMode = 'done';
-      } else if (
-        loadedConfig.copy.answers?.audience ||
-        loadedConfig.copy.answers?.productName ||
-        Object.keys(loadedConfig.copy.answers || {}).length > 0
-      ) {
-        loadedConfig.copy.discoveryMode = 'known';
-      } else {
-        loadedConfig.copy.discoveryMode = 'unknown';
-      }
-    }
-
-    // 4. Garantir campos de answers (Bug 2)
-    const answers = loadedConfig.copy.answers || {};
-    const defaultAnswers: Record<string, any> = {
-      language: answers.language || 'Português (Brasileiro)',
-      awarenessLevel: answers.awarenessLevel || '',
-      estiloAnuncio: answers.estiloAnuncio || '',
-      clickDestination: answers.clickDestination || '',
-      primaryEmotion: answers.primaryEmotion || '',
-      angleIdea: answers.angleIdea || '',
-      businessModel: answers.businessModel || '',
-    };
-    loadedConfig.copy.answers = { ...defaultAnswers, ...answers };
-
-    return loadedConfig;
-  };
 
   // AISTUDIO: Effect to keep track of the selected API key for VEO authorization
   useEffect(() => {
@@ -1636,6 +1559,33 @@ export default function App() {
     setIntercutRendering,
   } = zap;
 
+  const { handleLoadVariant, handleDuplicateAsVariant, handleRenameVariant, handleDeleteVariant } =
+    useVariantActions({
+      projects,
+      setProjects,
+      currentProjectId,
+      setCurrentProjectId,
+      currentVariantId,
+      setCurrentVariantId,
+      config,
+      setConfig,
+      setCurrentStep,
+      setIsProjectLoading,
+      setError,
+      setAudioUrl,
+      setAudioStoragePath,
+      setAudios,
+      setVideoUrl,
+      setVideoStoragePath,
+      setVideos,
+      setGenerationStage,
+      setCopyDiscoveryMode,
+      setLastVideoMetadata,
+      setZapState,
+      setCopySubMode,
+      setHasUnsavedCopyChanges,
+    });
+
   // Project-level flag: does this project use a separate hook? Defaults to
   // true when the field is missing (backward-compat with older projects).
   // When false: hook-visual step is skipped in navigation, hook-mode
@@ -2357,49 +2307,6 @@ export default function App() {
   // Map raw LLM personas → WeightedPersona[] (back-compat defaults when
   // fields are missing). Stable IDs use rank-based slugs so they're
   // predictable across re-generations. Weights re-normalise to sum 1.0.
-  const buildWeightedPersonas = (personas: any[]) => {
-    const mapped = personas.map((p: any, idx: number) => {
-      const rank = (p.rank || '').toString().toLowerCase();
-      const id = rank
-        ? `persona_${rank}`
-        : `persona_${idx}_${p.name?.toLowerCase().replace(/\s+/g, '_').slice(0, 12) || 'unknown'}`;
-      const conf = typeof p.confidence === 'number' ? p.confidence : 0.6;
-      const weight =
-        typeof p.suggestedWeight === 'number'
-          ? p.suggestedWeight
-          : // Sensible default when LLM didn't return the field:
-            // ranked weights 0.55/0.30/0.15
-            idx === 0
-            ? 0.55
-            : idx === 1
-              ? 0.3
-              : 0.15;
-      return {
-        id,
-        name: p.name || `Persona ${idx + 1}`,
-        description: p.description || '',
-        awareness:
-          typeof p.awarenessLevel === 'string' || typeof p.awarenessLevel === 'number'
-            ? mapNumericAwarenessToString(p.awarenessLevel)
-            : 'solution_aware',
-        painPoints: [p.mainPain, p.dominantFear, p.hiddenDesire].filter(Boolean) as string[],
-        confidence: conf,
-        suggestedWeight: weight,
-        evidence: Array.isArray(p.evidence) ? p.evidence : [],
-        isStretch: p.isStretch === true,
-        // Stash the original LLM object so PlanTab/CopyTab can still
-        // access fields like recommendedVideoAngle, recommendedHookType,
-        // etc. when building briefs.
-        raw: p,
-      };
-    });
-
-    const total = mapped.reduce((acc, p) => acc + (p.suggestedWeight || 0), 0);
-    return total > 0
-      ? mapped.map((p) => ({ ...p, suggestedWeight: p.suggestedWeight / total }))
-      : mapped;
-  };
-
   const handleGoToPlan = (selectedPersonas: any[]) => {
     if (!Array.isArray(selectedPersonas) || selectedPersonas.length === 0) {
       toast.error('Selecione pelo menos 1 persona para montar o planejamento.');
@@ -2418,27 +2325,6 @@ export default function App() {
         block: 'start',
       });
     });
-  };
-
-  // Backfill: projetos antigos têm `savedPersonas` mas não
-  // `personasWithWeights` (esse campo só era setado pelo botão "Ir pro Plano",
-  // já removido). Sem ele, a seção de Plano de Marketing (isV2) não aparece.
-  // Deriva os pesos a partir dos personas salvos quando faltam. Muta e
-  // retorna o próprio config.
-  const ensurePersonaWeights = (cfg: any) => {
-    const existing = cfg?.copy?.personasWithWeights;
-    if (Array.isArray(existing) && existing.length > 0) return cfg;
-    const savedRaw = cfg?.copy?.answers?.savedPersonas;
-    if (!savedRaw) return cfg;
-    try {
-      const parsed = JSON.parse(savedRaw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        cfg.copy.personasWithWeights = buildWeightedPersonas(parsed) as any;
-      }
-    } catch {
-      /* savedPersonas malformado — ignora, segue sem plano */
-    }
-    return cfg;
   };
 
   // ─── Blueprint brief handlers ────────────────────────────────────
@@ -2886,24 +2772,6 @@ export default function App() {
     // Imediatamente dispara o popup de criar subprojeto.
     setPendingBriefExec(persisted);
   };
-
-  /** Maps the persona's awarenessLevel field (which can come back as
-   *  "1"-"5", "1=Inconsciente", or a string like "solution_aware") to
-   *  the canonical AwarenessLevel enum used by the blueprint shape. */
-  function mapNumericAwarenessToString(value: any): string {
-    const s = String(value).toLowerCase().trim();
-    if (s.startsWith('1')) return 'unaware';
-    if (s.startsWith('2')) return 'problem_aware';
-    if (s.startsWith('3')) return 'solution_aware';
-    if (s.startsWith('4')) return 'product_aware';
-    if (s.startsWith('5')) return 'most_aware';
-    if (s.includes('unaware')) return 'unaware';
-    if (s.includes('problem')) return 'problem_aware';
-    if (s.includes('solution')) return 'solution_aware';
-    if (s.includes('product')) return 'product_aware';
-    if (s.includes('most')) return 'most_aware';
-    return 'solution_aware';
-  }
 
   // Mapeamento de emotionalTrigger / hiddenDesire → emoção das 15 opções
   const mapToEmotion = (persona: any): string => {
@@ -3366,200 +3234,6 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projects, useHookFlow, currentProjectId]);
 
-  // Dado um config de variante, descobre a aba MAIS avançada que já tem
-  // conteúdo gerado — pra "Carregar Versão" cair direto onde o usuário parou,
-  // não na primeira etapa. Ordem do mais fundo pro mais raso.
-  const resolveDeepestStep = (cfg: any): Step => {
-    const edit = cfg?.edit || {};
-    const hasZap = Array.isArray(edit.zapVersions) && edit.zapVersions.length > 0;
-    const hasVideo = !!cfg?.videoUrl || (Array.isArray(cfg?.videos) && cfg.videos.length > 0);
-    const hasAudio = !!cfg?.audioUrl || (Array.isArray(cfg?.audios) && cfg.audios.length > 0);
-    const hasHooks = Array.isArray(cfg?.copy?.generatedHooks) && cfg.copy.generatedHooks.length > 0;
-    const hasScript = !!cfg?.copy?.generatedScript;
-
-    if (hasZap) return 'edit-zap';
-    if (hasVideo) return 'avatar';
-    if (hasAudio) return 'voz-premium';
-    if (hasHooks) return 'hook-visual';
-    if (hasScript) return 'copy';
-    return 'persona';
-  };
-
-  const handleLoadVariant = async (variant: ProjectVariant, step?: Step, projectId?: string) => {
-    if (process.env.NODE_ENV !== 'production') console.log('[Debug] Loading Variant:', variant.id);
-    setIsProjectLoading(true);
-
-    try {
-      // Set project context. CRÍTICO: resolver o projeto-pai pelo projectId
-      // EXPLÍCITO de quem chamou — NUNCA por `variants.some(v => v.id === variant.id)`,
-      // porque os ids de subprojeto (brief_1, brief_2…) SE REPETEM entre projetos,
-      // e a busca por id pegava o primeiro projeto da lista (errado), corrompendo
-      // currentProjectId e contaminando o config entre projetos. Ver memória
-      // bug-colisao-id-variant. Fallback por id só se nenhum projectId vier.
-      const parentProject =
-        (projectId ? projects.find((p) => p.id === projectId) : null) ||
-        projects.find((p) => p.variants?.some((v) => v.id === variant.id));
-      if (parentProject) {
-        setCurrentProjectId(parentProject.id);
-      }
-
-      // Reset local states before loading new ones
-      setAudioUrl(null);
-      setAudioStoragePath(null);
-      setAudios([]);
-      setVideoUrl(null);
-      setVideoStoragePath(null);
-      setVideos([]);
-      setGenerationStage('idle');
-
-      // Hydrate and set config
-      const loadedConfig = ensurePersonaWeights(hydrateProjectConfig({ ...variant.config }));
-
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('[Debug] Variant Config Hydrated:', {
-          discoveryMode: loadedConfig.copy.discoveryMode,
-          hasAnswers: Object.keys(loadedConfig.copy.answers || {}).length,
-          hasScript: !!loadedConfig.copy.generatedScript,
-        });
-      }
-
-      // Um subprojeto vindo do plano já tem persona/answers — nunca deve cair no
-      // gate "quem é o cliente". Se ficou 'unknown' mas há conteúdo, sobe pra
-      // 'done' (tem script) ou 'known' (tem answers/brief). Corrige os variants
-      // antigos, criados antes do fix na criação.
-      const ans = loadedConfig.copy.answers || {};
-      const hasContent =
-        !!loadedConfig.copy.finalScript ||
-        !!loadedConfig.copy.generatedScript ||
-        !!(loadedConfig.copy as any).activeBriefId ||
-        !!ans.audience ||
-        !!ans.productName ||
-        !!ans.awarenessLevel;
-      if (
-        (!loadedConfig.copy.discoveryMode || loadedConfig.copy.discoveryMode === 'unknown') &&
-        hasContent
-      ) {
-        loadedConfig.copy.discoveryMode =
-          loadedConfig.copy.finalScript || loadedConfig.copy.generatedScript ? 'done' : 'known';
-      }
-
-      setConfig(loadedConfig);
-      setCopyDiscoveryMode(loadedConfig.copy.discoveryMode as any);
-
-      // Restaurar states independentes do config se necessário
-      setVideoUrl(loadedConfig.videoUrl || null);
-      setVideoStoragePath(loadedConfig.videoStoragePath || null);
-      setVideos(loadedConfig.videos || []);
-      setLastVideoMetadata(loadedConfig.lastVideoMetadata || null);
-      setAudioUrl(loadedConfig.audioUrl || null);
-      setAudioStoragePath(loadedConfig.audioStoragePath || null);
-      setAudios(loadedConfig.audios || []);
-
-      // Restore the Edição Zap version gallery from config so previously
-      // edited videos show up after a reload.
-      const persistedZapVersions =
-        ((loadedConfig.edit as any)?.zapVersions as string[] | undefined) || [];
-      setZapState((prev) => ({
-        ...prev,
-        versions: persistedZapVersions,
-        status: persistedZapVersions.length > 0 ? 'completed' : prev.status,
-        finalVideoUrl: persistedZapVersions[persistedZapVersions.length - 1] || prev.finalVideoUrl,
-      }));
-
-      if (loadedConfig.generationStage) {
-        setGenerationStage(loadedConfig.generationStage as any);
-      }
-
-      if (loadedConfig.copy?.subMode) {
-        setCopySubMode(loadedConfig.copy.subMode as any);
-      }
-
-      setCurrentVariantId(variant.id);
-      setHasUnsavedCopyChanges(false);
-      // step explícito (botões "Voz", "Avatar", etc.) tem prioridade; sem ele
-      // ("Carregar Versão"), cai na aba mais avançada com conteúdo.
-      setCurrentStep(step || resolveDeepestStep(loadedConfig));
-      toast.success(`Versão "${variant.name}" carregada!`);
-    } catch (err) {
-      console.error('[Debug] Error loading variant:', err);
-      toast.error('Erro ao carregar versão.');
-    } finally {
-      setIsProjectLoading(false);
-    }
-  };
-
-  /**
-   * MM — Duplicate current project as an A/B variant.
-   *
-   * Clones the current in-memory config (copy, persona, plan, hook visual)
-   * but resets the avatar + generated outputs so the user can pick a
-   * different avatar on the same script. Saves the new variant onto the
-   * SAME parent project (variants[] grows), loads it as the active
-   * variant, then jumps to the Avatar tab where the actual A/B work
-   * happens.
-   *
-   * If there's no currentProjectId yet (the user hasn't created the
-   * project), we no-op and toast a friendlier prompt.
-   */
-  const handleDuplicateAsVariant = async () => {
-    if (!currentProjectId) {
-      toast.error('Salve o projeto antes de criar uma variante.');
-      return;
-    }
-    try {
-      const existingVariants =
-        (projects.find((p) => p.id === currentProjectId)?.variants as any[]) || [];
-      const variantNumber = existingVariants.length + 1;
-
-      // Strip generated outputs — the whole point is to re-render
-      // with a different avatar. Keep all the upstream creative work
-      // (copy, persona, plan, hook visual, format).
-      const clonedConfig: AdConfig = {
-        ...config,
-        // Reset render outputs so the user is forced to re-generate
-        // them against the new avatar choice.
-        videoUrl: null,
-        videoStoragePath: null,
-        videos: [],
-        lastVideoMetadata: null,
-        generationStage: 'idle',
-        edit: {
-          ...config.edit,
-          zapVersions: [],
-          zapHookVersions: [],
-          zapJoinedVersions: [],
-        },
-      };
-
-      const newVariant = {
-        id: `variant_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-        name: `Variante A/B ${variantNumber}`,
-        config: clonedConfig,
-        createdAt: new Date().toISOString(),
-      };
-
-      await saveVariant(currentProjectId, newVariant);
-      setProjects((prev) =>
-        prev.map((p) =>
-          p.id === currentProjectId
-            ? ({ ...p, variants: [...((p.variants as any[]) || []), newVariant] } as any)
-            : p
-        )
-      );
-
-      // Activate the new variant in the UI and navigate to the Avatar
-      // tab — that's where the A/B differentiation lives.
-      setCurrentVariantId(newVariant.id);
-      setConfig(clonedConfig);
-      setCurrentStep('avatar');
-
-      toast.success(`Variante criada! Escolha um avatar diferente pra rodar o A/B.`);
-    } catch (err) {
-      console.error('Error duplicating as variant:', err);
-      toast.error('Falha ao criar variante.');
-    }
-  };
-
   // REMIXAR criativo: duplica o subprojeto atual num novo, mantendo o trabalho
   // (timeline, clipes/b-roll, áudio, copy, voz, avatar) e zerando só os RESULTADOS
   // finais — pra trocar gancho/música/b-roll e re-montar sem começar do zero.
@@ -3612,41 +3286,6 @@ export default function App() {
     }
   };
 
-  const handleRenameVariant = async (projectId: string, variantId: string, newName: string) => {
-    if (!newName.trim()) {
-      toast.error('Nome não pode ser vazio.');
-      return;
-    }
-    try {
-      // Renomeia direto no doc do subprojeto (subcoleção). Acha o variant na
-      // memória pra reescrever só ele com o nome novo.
-      const proj = projects.find((p) => p.id === projectId);
-      const target = ((proj?.variants as any[]) || []).find((v) => v.id === variantId);
-      if (!target) {
-        toast.error('Subprojeto não encontrado.');
-        return;
-      }
-      const renamed = { ...target, name: newName.trim() };
-      await saveVariant(projectId, renamed);
-      setProjects((prev) =>
-        prev.map((p) =>
-          p.id === projectId
-            ? ({
-                ...p,
-                variants: ((p.variants as any[]) || []).map((v) =>
-                  v.id === variantId ? renamed : v
-                ),
-              } as any)
-            : p
-        )
-      );
-      toast.success('Subprojeto renomeado!');
-    } catch (err) {
-      console.error('Error renaming variant:', err);
-      toast.error('Falha ao renomear subprojeto.');
-    }
-  };
-
   const handleRenameProject = async (projectId: string, newName: string) => {
     if (!newName.trim()) {
       toast.error('Nome não pode ser vazio.');
@@ -3667,59 +3306,6 @@ export default function App() {
 
   // Exclui na hora e oferece DESFAZER no toast (~7s) — recupera delete por engano
   // sem a fricção do "tem certeza?". O subprojeto é re-salvável (temos o dado).
-  const handleDeleteVariant = async (projectId: string, variantId: string) => {
-    const proj = projects.find((p) => p.id === projectId);
-    const variant = ((proj?.variants as any[]) || []).find((v) => v.id === variantId);
-    if (!variant) return;
-    const wasCurrent = currentVariantId === variantId;
-    try {
-      await deleteVariantDoc(projectId, variantId);
-      setProjects((prev) =>
-        prev.map((p) =>
-          p.id === projectId
-            ? ({
-                ...p,
-                variants: ((p.variants as any[]) || []).filter((v) => v.id !== variantId),
-              } as any)
-            : p
-        )
-      );
-      if (wasCurrent) setCurrentVariantId(null);
-      toast(
-        (t) => (
-          <span className="flex items-center gap-3">
-            Versão excluída.
-            <button
-              onClick={async () => {
-                toast.dismiss(t.id);
-                try {
-                  await saveVariant(projectId, variant);
-                  setProjects((prev) =>
-                    prev.map((p) =>
-                      p.id === projectId
-                        ? ({ ...p, variants: [...((p.variants as any[]) || []), variant] } as any)
-                        : p
-                    )
-                  );
-                  toast.success('Versão restaurada.');
-                } catch {
-                  toast.error('Falha ao desfazer.');
-                }
-              }}
-              className="font-black underline text-blue-600"
-            >
-              Desfazer
-            </button>
-          </span>
-        ),
-        { duration: 7000 }
-      );
-    } catch (err) {
-      console.error('Error deleting variant:', err);
-      setError('Falha ao excluir versão.');
-    }
-  };
-
   // --- AUTO-SAVE REMOVIDO (pedido do usuário) ---
   // Antes havia um auto-save debounced que gravava no Firestore a cada 2s em
   // QUALQUER mudança de config/videos/audios. Isso deixava o app inteiro lento
@@ -3766,7 +3352,6 @@ export default function App() {
     void Promise.resolve(handleLoadProject(proj, saved.step as Step)).then(() => {
       if (saved?.step) setCurrentStep(saved.step as Step);
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, projects, currentProjectId]);
 
   const handleDeleteProject = (projectId: string) => {
