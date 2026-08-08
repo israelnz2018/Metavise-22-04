@@ -336,19 +336,36 @@ ${example.script}
   // (2) Instruções CURTAS por bloco — o contexto (dor, desejo, mecanismo,
   // estatística…) já está na seção CONTEXT; aqui é só o JOB do bloco.
   const BLOCKS: Record<number, { tag: string; instr: string }> = {
-    1: { tag: 'QUEBRA DE PADRÃO', instr: 'Scroll-stopping opener built on the REAL DRIVER of this offer (see below). First sentence. "This is me."' },
+    1: {
+      tag: 'QUEBRA DE PADRÃO',
+      instr:
+        'Scroll-stopping opener built on the REAL DRIVER of this offer (see below). First sentence. "This is me."',
+    },
     2: { tag: 'PROMESSA', instr: 'Promise the big result — a new, better way.' },
     3: { tag: 'HISTÓRIA', instr: 'Quick story of where the mechanism came from.' },
-    4: { tag: 'MECANISMO ÚNICO', instr: 'The unique mechanism (high level) and why it beats the usual. Never reveal its identity.' },
+    4: {
+      tag: 'MECANISMO ÚNICO',
+      instr:
+        'The unique mechanism (high level) and why it beats the usual. Never reveal its identity.',
+    },
     5: { tag: 'PROVA', instr: 'Proof it makes sense. Never invent numbers or testimonials.' },
     6: { tag: 'QUALIFICAÇÃO', instr: 'Who it is / is not for.' },
     7: { tag: 'QUEM SOU EU', instr: 'Who the narrator is (authority or "just like you").' },
     8: { tag: 'POR QUE CONTO ISSO', instr: 'Why the narrator is sharing this.' },
-    9: { tag: 'SOLUÇÕES QUE FALHAM', instr: 'The usual methods they tried and why they failed. Not their fault.' },
+    9: {
+      tag: 'SOLUÇÕES QUE FALHAM',
+      instr: 'The usual methods they tried and why they failed. Not their fault.',
+    },
     10: { tag: 'O DIA DO CHEGA', instr: 'The breaking-point moment, one concrete scene.' },
     11: { tag: 'A BUSCA', instr: 'The journey to finding the mechanism.' },
-    12: { tag: 'POR QUE FUNCIONA', instr: 'Why it finally works — conceptual, never the identity.' },
-    13: { tag: 'PONTE PRO CLIQUE', instr: "On their own it won't resolve — only the destination shows how." },
+    12: {
+      tag: 'POR QUE FUNCIONA',
+      instr: 'Why it finally works — conceptual, never the identity.',
+    },
+    13: {
+      tag: 'PONTE PRO CLIQUE',
+      instr: "On their own it won't resolve — only the destination shows how.",
+    },
   };
 
   const CTA: Record<'soft' | 'mid' | 'hard', string> = {
@@ -400,9 +417,7 @@ ${example.script}
   // narrativa — copy curta = poucos blocos DESENVOLVIDOS, não 11 fragmentos.
   const BLOCK_PRIORITY = [1, 4, 9, 5, 2, 12, 13, 10, 6, 7, 11, 3, 8];
   const maxBlocks = Math.max(3, Math.min(plan.blocks.length, Math.round(wordCount / 40)));
-  const keep = new Set(
-    BLOCK_PRIORITY.filter((id) => plan.blocks.includes(id)).slice(0, maxBlocks)
-  );
+  const keep = new Set(BLOCK_PRIORITY.filter((id) => plan.blocks.includes(id)).slice(0, maxBlocks));
   const chosenBlocks = plan.blocks.filter((id) => keep.has(id));
   // Arco LEVE (1 linha) — o EXEMPLO carrega a textura; o arco só dá a forma
   // certa pro nível de consciência. Não é checklist rígido.
@@ -476,10 +491,10 @@ ${
     ? `Named curiosity hook — the "innovative discovery" the video is about. Refer to it by THIS exact name to spark intrigue (the way "the yellow vitamin" or "the banana trick" does), but NEVER explain what it actually is or how it works — that payoff lives only in the video. The NAME is a teaser, not a spoiler: naming it is encouraged, explaining it is forbidden.\nName: "${(answers.innovativeProductName || '').toString().trim()}"`
     : ''
 }${
-  (answers.statistics || '').toString().trim().length > 0
-    ? `\nGROUNDED STATISTICS — facts the user supplied. These (together with any numbers already in the product source above) are the ONLY statistical or numeric claims you may state as fact. Weave them in where they strengthen the cause, the escalation, or the proof. Keep each number EXACT as given (do NOT round "48,217" to "nearly 50,000"). If an attribution/source is included with a number, attribute it that way; if none is given, state it plainly — never invent an institution to make it sound credible. Do NOT invent, extrapolate, or "improve" any statistic beyond what is here or in the source:\n"""\n${(answers.statistics || '').toString().trim()}\n"""`
-    : ''
-}
+    (answers.statistics || '').toString().trim().length > 0
+      ? `\nGROUNDED STATISTICS — facts the user supplied. These (together with any numbers already in the product source above) are the ONLY statistical or numeric claims you may state as fact. Weave them in where they strengthen the cause, the escalation, or the proof. Keep each number EXACT as given (do NOT round "48,217" to "nearly 50,000"). If an attribution/source is included with a number, attribute it that way; if none is given, state it plainly — never invent an institution to make it sound credible. Do NOT invent, extrapolate, or "improve" any statistic beyond what is here or in the source:\n"""\n${(answers.statistics || '').toString().trim()}\n"""`
+      : ''
+  }
 
 --- DRIVER (the real emotional engine of THIS offer) ---
 Agitate the "Real emotional driver" from the context above (read from the VSL) — that is what TRULY moves this buyer. If it wasn't given, infer it from the context. Different offers run on different drivers (a present pain, a deep desire, a fear of what could happen, the wish for autonomy/control/status/belonging, etc.); use the one THIS offer really leans on, don't assume a past personal hardship unless the source shows that.
@@ -520,18 +535,18 @@ ${
         .join('\n')}\n`
     : ''
 }${
-  (answers.avoidList || '').toString().trim().length > 0
-    ? `\nUSER-SPECIFIED AVOID LIST (these MUST NEVER appear in the output):\n${(
-        answers.avoidList || ''
-      )
-        .toString()
-        .split(/[,\n;]/)
-        .map((s: string) => s.trim())
-        .filter(Boolean)
-        .map((s: string) => `- "${s}"`)
-        .join('\n')}\n`
-    : ''
-}If no real proof exists → use MECHANISM PROOF or LOGICAL PROOF instead.
+    (answers.avoidList || '').toString().trim().length > 0
+      ? `\nUSER-SPECIFIED AVOID LIST (these MUST NEVER appear in the output):\n${(
+          answers.avoidList || ''
+        )
+          .toString()
+          .split(/[,\n;]/)
+          .map((s: string) => s.trim())
+          .filter(Boolean)
+          .map((s: string) => `- "${s}"`)
+          .join('\n')}\n`
+      : ''
+  }If no real proof exists → use MECHANISM PROOF or LOGICAL PROOF instead.
 
 --- CTA / DESTINATION ---
 ${
@@ -572,10 +587,10 @@ ${
     ? `Named curiosity hook — the "innovative discovery" the video is about: "${(answers.innovativeProductName || '').toString().trim()}". Use this name to build intrigue early, then PAY IT OFF later in the script (unlike an ad, the VSL delivers the answer).`
     : ''
 }${
-  (answers.statistics || '').toString().trim().length > 0
-    ? `\nGROUNDED STATISTICS — the ONLY numeric/statistical claims you may state as fact (together with numbers already in the source). Keep each number EXACT; never invent an institution:\n"""\n${(answers.statistics || '').toString().trim()}\n"""`
-    : ''
-}
+      (answers.statistics || '').toString().trim().length > 0
+        ? `\nGROUNDED STATISTICS — the ONLY numeric/statistical claims you may state as fact (together with numbers already in the source). Keep each number EXACT; never invent an institution:\n"""\n${(answers.statistics || '').toString().trim()}\n"""`
+        : ''
+    }
 
 --- DRIVER (the real emotional engine of THIS offer) ---
 Agitate the "Real emotional driver" from the context (read from the VSL) — what TRULY moves this buyer. If not given, infer from context. Different offers run on different drivers; use the one THIS offer really leans on.
@@ -589,21 +604,19 @@ ${
 }
 --- CTA / OFFER (how the VSL closes) ---
 This VSL SELLS the product inside the video and closes on the OFFER. The final block must drive the viewer to ACT on the offer NOW — a confident, direct call to click the offer button and get access (e.g. "clique no botão abaixo e garanta seu acesso agora"). ${
-  (answers.destinationDescription || '').toString().trim().length > 0
-    ? `The offer/destination the CTA points to (use it faithfully — do NOT invent format details):\n"""\n${(answers.destinationDescription || '').toString().trim()}\n"""`
-    : 'No destination described — close on a clear "click the button below and secure your access / your spot" toward the product offer.'
-} Do NOT end on "watch a video" (this IS the video) — end on the purchase/enrollment action. You MAY reference the offer, what they get, and honest urgency/scarcity in the close (price/guarantee only if given in the context).
+      (answers.destinationDescription || '').toString().trim().length > 0
+        ? `The offer/destination the CTA points to (use it faithfully — do NOT invent format details):\n"""\n${(answers.destinationDescription || '').toString().trim()}\n"""`
+        : 'No destination described — close on a clear "click the button below and secure your access / your spot" toward the product offer.'
+    } Do NOT end on "watch a video" (this IS the video) — end on the purchase/enrollment action. You MAY reference the offer, what they get, and honest urgency/scarcity in the close (price/guarantee only if given in the context).
 
 --- STRUCTURE (the full VSL arc — narrate it continuously, no bracketed labels inside the prose) ---
-Move through this arc across the blocks: (1) HOOK/LEAD — a pattern-interrupt opening that stops the scroll and names the big promise or the intrigue; (2) STORY/EMPATHY — meet the person and the stakes, build identification; (3) THE PROBLEM & THE ENEMY — agitate the driver, name the real villain (a generic category); (4) THE EPIPHANY / UNIQUE MECHANISM — the turning point and WHY this works when other things failed; (5) HOW IT WORKS — make the mechanism clear and believable; (6) PROOF & CREDIBILITY — evidence, only real/grounded; (7) THE PRODUCT & THE OFFER — introduce it plainly, what they get; (8) OBJECTIONS — dissolve the top hesitations; (9) CLOSE — clear CTA with honest urgency.${
-  ((): string => {
-    const p = (answers.pitchPosition || '').toString();
-    if (!p || p === 'end') return '';
-    const pct = Number(p);
-    if (!(pct >= 30 && pct <= 95)) return '';
-    return `\n\n--- PITCH TIMING (mandatory) ---\nDo NOT introduce the product name, the offer, price, or any CTA before roughly ${pct}% of the way through the script. Spend the first ~${pct}% PURELY on story, problem/enemy, epiphany/mechanism, how-it-works and proof (arc steps 1-6) — keep the viewer hooked with value, no selling. Only after ~${pct}% do you bring in THE PRODUCT & THE OFFER, OBJECTIONS and the CLOSE (steps 7-9). So the whole pitch/sell occupies only the final ~${100 - pct}% of the video.`;
-  })()
-}
+Move through this arc across the blocks: (1) HOOK/LEAD — a pattern-interrupt opening that stops the scroll and names the big promise or the intrigue; (2) STORY/EMPATHY — meet the person and the stakes, build identification; (3) THE PROBLEM & THE ENEMY — agitate the driver, name the real villain (a generic category); (4) THE EPIPHANY / UNIQUE MECHANISM — the turning point and WHY this works when other things failed; (5) HOW IT WORKS — make the mechanism clear and believable; (6) PROOF & CREDIBILITY — evidence, only real/grounded; (7) THE PRODUCT & THE OFFER — introduce it plainly, what they get; (8) OBJECTIONS — dissolve the top hesitations; (9) CLOSE — clear CTA with honest urgency.${((): string => {
+      const p = (answers.pitchPosition || '').toString();
+      if (!p || p === 'end') return '';
+      const pct = Number(p);
+      if (!(pct >= 30 && pct <= 95)) return '';
+      return `\n\n--- PITCH TIMING (mandatory) ---\nDo NOT introduce the product name, the offer, price, or any CTA before roughly ${pct}% of the way through the script. Spend the first ~${pct}% PURELY on story, problem/enemy, epiphany/mechanism, how-it-works and proof (arc steps 1-6) — keep the viewer hooked with value, no selling. Only after ~${pct}% do you bring in THE PRODUCT & THE OFFER, OBJECTIONS and the CLOSE (steps 7-9). So the whole pitch/sell occupies only the final ~${100 - pct}% of the video.`;
+    })()}
 VOICE: vivid and concrete; the first line IS the hook; never invent statistics. POV: ${povRule}
 
 --- LENGTH & BLOCKS ---
@@ -621,26 +634,28 @@ Respond with ONLY this JSON:
 - Villain only as a generic category ("big pharma", "the painkiller industry") — never a specific company or drug brand.
 - Disease only as an association ("linked to", "higher risk of"), and only if factual — never tell the viewer they have or will get a disease.
 - Skip clichés ("transform your life", "revolutionary", "game-changer").${
-  (answers.mandatoryTerms || '').toString().trim().length > 0
-    ? `\n\nREQUIRED TERMS (each MUST appear verbatim, woven in naturally):\n${(answers.mandatoryTerms || '')
-        .toString()
-        .split(/[,\n;]/)
-        .map((s: string) => s.trim())
-        .filter(Boolean)
-        .map((s: string) => `- "${s}"`)
-        .join('\n')}`
-    : ''
-}${
-  (answers.avoidList || '').toString().trim().length > 0
-    ? `\n\nUSER-SPECIFIED AVOID LIST (these MUST NEVER appear):\n${(answers.avoidList || '')
-        .toString()
-        .split(/[,\n;]/)
-        .map((s: string) => s.trim())
-        .filter(Boolean)
-        .map((s: string) => `- "${s}"`)
-        .join('\n')}`
-    : ''
-}`;
+      (answers.mandatoryTerms || '').toString().trim().length > 0
+        ? `\n\nREQUIRED TERMS (each MUST appear verbatim, woven in naturally):\n${(
+            answers.mandatoryTerms || ''
+          )
+            .toString()
+            .split(/[,\n;]/)
+            .map((s: string) => s.trim())
+            .filter(Boolean)
+            .map((s: string) => `- "${s}"`)
+            .join('\n')}`
+        : ''
+    }${
+      (answers.avoidList || '').toString().trim().length > 0
+        ? `\n\nUSER-SPECIFIED AVOID LIST (these MUST NEVER appear):\n${(answers.avoidList || '')
+            .toString()
+            .split(/[,\n;]/)
+            .map((s: string) => s.trim())
+            .filter(Boolean)
+            .map((s: string) => `- "${s}"`)
+            .join('\n')}`
+        : ''
+    }`;
   }
 
   // UX25-A4: modo rascunho usa Sonnet 4.6 (mais rápido, ~5x mais barato).
@@ -1654,7 +1669,10 @@ Reply to the LAST user message. Return: {"reply": "your message to the user${tar
   const chatMaxTokens = Math.max(20000, Math.ceil((script?.length || 0) / 3) + 14000);
   const raw = await callClaude(systemPrompt, userPrompt, chatMaxTokens);
   try {
-    const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const cleaned = raw
+      .replace(/```json\n?/g, '')
+      .replace(/```\n?/g, '')
+      .trim();
     const parsed = JSON.parse(cleaned);
     return {
       reply: (parsed.reply || '').toString().trim() || 'OK.',
@@ -1734,13 +1752,13 @@ ${script}
 Rewrite the script applying the skill. Keep the structure, the order, the facts, the narrator, the language and the firewall. It stays ONE flowing ad — no labels/brackets. Make it genuinely stronger.
 Return: {"improved": "the full improved ad copy${targetLang === 'pt' ? ', em português' : ''}"}`;
 
-  const maxTokens = Math.max(
-    20000,
-    Math.ceil(script.length / 3 + skillContent.length / 3) + 14000
-  );
+  const maxTokens = Math.max(20000, Math.ceil(script.length / 3 + skillContent.length / 3) + 14000);
   const raw = await callClaude(systemPrompt, userPrompt, maxTokens);
   try {
-    const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const cleaned = raw
+      .replace(/```json\n?/g, '')
+      .replace(/```\n?/g, '')
+      .trim();
     if (cleaned.startsWith('{')) {
       const parsed = JSON.parse(cleaned);
       return (parsed.improved || script).trim();
@@ -1781,7 +1799,10 @@ IMPORTANT: describe only WHO the narrator is. Do NOT reveal the solution, the pr
 Return: {"narrator": "one short sentence${targetLang === 'pt' ? ' em português' : ''}"}`;
   const raw = await callClaude(systemPrompt, userPrompt, 20000);
   try {
-    const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const cleaned = raw
+      .replace(/```json\n?/g, '')
+      .replace(/```\n?/g, '')
+      .trim();
     if (cleaned.startsWith('{')) return (JSON.parse(cleaned).narrator || '').toString().trim();
     return cleaned.trim();
   } catch {
@@ -1821,7 +1842,10 @@ Give ONE short curiosity-hook nickname (2-4 words) for the discovery, vivid and 
 Return: {"name": "the nickname${targetLang === 'pt' ? ' em português' : ''}", "fromSource": true|false}`;
   const raw = await callClaude(systemPrompt, userPrompt, 20000);
   try {
-    const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const cleaned = raw
+      .replace(/```json\n?/g, '')
+      .replace(/```\n?/g, '')
+      .trim();
     if (cleaned.startsWith('{')) return (JSON.parse(cleaned).name || '').toString().trim();
     return cleaned.trim();
   } catch {
@@ -1871,25 +1895,25 @@ PRESERVE what reads as human (do NOT strip): concrete, hard-to-fabricate specifi
   const rules: string[] = [];
   // <= 80 — a antítese repetida (o em-dash e os advérbios já estão no baseline)
   rules.push(
-    'The "it isn\'t X, it\'s Y" flip: use it ONCE at most in the whole copy, and NEVER as the opening line of the copy or of a beat. The model overuses it — watch for and remove repeats like "it isn\'t aging, it\'s…", "that isn\'t damage, that\'s…", "the cause was never X, it was Y".',
+    'The "it isn\'t X, it\'s Y" flip: use it ONCE at most in the whole copy, and NEVER as the opening line of the copy or of a beat. The model overuses it — watch for and remove repeats like "it isn\'t aging, it\'s…", "that isn\'t damage, that\'s…", "the cause was never X, it was Y".'
   );
   if (lvl <= 60)
     rules.push(
-      'RESTRAIN repeated parallelism — this is the #1 remaining AI tell and the copy keeps OVERDOING it. A "parallel series" = 3 or more consecutive clauses/sentences sharing the same opener or grammatical frame, e.g.: "the same numb hands, the same shuffling walk, the same shrug" · "You show up. You take the dose. You pay the co-pay." · "First it\'s the pills. Then the stronger pills. Then an injection." · "Not a painkiller. Not an injection." · "That is the burning. That is the tingling." Allow AT MOST TWO such series in the WHOLE piece — never two in the same paragraph, never back-to-back across beats, never longer than 3 items. Break all the rest: merge into one flowing sentence, cut to two items, or change the structure so consecutive sentences do NOT start the same way. Plain functional lists of symptoms/benefits (commas in one sentence) do not count and are fine.',
+      'RESTRAIN repeated parallelism — this is the #1 remaining AI tell and the copy keeps OVERDOING it. A "parallel series" = 3 or more consecutive clauses/sentences sharing the same opener or grammatical frame, e.g.: "the same numb hands, the same shuffling walk, the same shrug" · "You show up. You take the dose. You pay the co-pay." · "First it\'s the pills. Then the stronger pills. Then an injection." · "Not a painkiller. Not an injection." · "That is the burning. That is the tingling." Allow AT MOST TWO such series in the WHOLE piece — never two in the same paragraph, never back-to-back across beats, never longer than 3 items. Break all the rest: merge into one flowing sentence, cut to two items, or change the structure so consecutive sentences do NOT start the same way. Plain functional lists of symptoms/benefits (commas in one sentence) do not count and are fine.'
     );
   if (lvl <= 40)
     rules.push(
-      'Break the symmetry: paragraphs/beats of clearly UNEVEN length (one can be two short sentences, another a long winding one). Add spoken texture — a contraction, a quick aside, a repeated word for emphasis.',
+      'Break the symmetry: paragraphs/beats of clearly UNEVEN length (one can be two short sentences, another a long winding one). Add spoken texture — a contraction, a quick aside, a repeated word for emphasis.'
     );
   if (lvl <= 20)
     // Nível 20 = mirar o perfil da COPY RICA de referência: humano, oral,
     // específico — mas LIMPO (a imperfeição/run-on só entra no 0).
     rules.push(
-      'TARGET THE PROVEN "RICH ADVERTORIAL" VOICE (the reference winning copy). That means: plain, spoken words and ZERO literary/poetic flourishes written for emotional effect — kill lines like "a slow erasure of who you were", "independence quietly leaves the room", "your next good morning is waiting on the other side of that video"; say it plainly and concretely instead ("you stop trusting the stairs", "tap below and watch it now"). Talk DIRECTLY to the reader (you/your) in a calm, oral cadence ("Listen,", "Here\'s the problem,", "I hate to say it, but…"). Build belief from CONCRETE specifics — exact numbers wherever they are grounded in the inputs, plus vivid sensory/scene detail you MAY invent for realism (a time of day, a mundane object, an exact physical sensation) — NOT from rhythm or wordplay. Paragraphs of clearly uneven length. Keep the grammar CLEAN and tight — human but POLISHED, not messy. Never fabricate named people, testimonials, results, or statistics that are not in the inputs (that would be a fake testimonial).',
+      'TARGET THE PROVEN "RICH ADVERTORIAL" VOICE (the reference winning copy). That means: plain, spoken words and ZERO literary/poetic flourishes written for emotional effect — kill lines like "a slow erasure of who you were", "independence quietly leaves the room", "your next good morning is waiting on the other side of that video"; say it plainly and concretely instead ("you stop trusting the stairs", "tap below and watch it now"). Talk DIRECTLY to the reader (you/your) in a calm, oral cadence ("Listen,", "Here\'s the problem,", "I hate to say it, but…"). Build belief from CONCRETE specifics — exact numbers wherever they are grounded in the inputs, plus vivid sensory/scene detail you MAY invent for realism (a time of day, a mundane object, an exact physical sensation) — NOT from rhythm or wordplay. Paragraphs of clearly uneven length. Keep the grammar CLEAN and tight — human but POLISHED, not messy. Never fabricate named people, testimonials, results, or statistics that are not in the inputs (that would be a fake testimonial).'
     );
   if (lvl <= 0)
     rules.push(
-      'ONLY at this extreme: let it sound truly spoken — a slightly imperfect sentence, a mid-thought correction, or a short run-on is welcome where a real person would actually talk that way (every level above this keeps the grammar clean).',
+      'ONLY at this extreme: let it sound truly spoken — a slightly imperfect sentence, a mid-thought correction, or a short run-on is welcome where a real person would actually talk that way (every level above this keeps the grammar clean).'
     );
   const audit =
     lvl <= 80
@@ -1905,7 +1929,6 @@ PRESERVE what reads as human (do NOT strip): concrete, hard-to-fabricate specifi
 These take PRIORITY over any rhythmic instinct or stylistic example earlier in this prompt. Apply to STYLE / RHYTHM ONLY. Do NOT relax any content rule above (grounded statistics, the single held narrator, generic villain, never naming the destination format, no invented claims or people):
 ${rules.map((r) => `- ${r}`).join('\n')}${audit}`;
 }
-
 
 /**
  * Regenera APENAS um beat específico, mantendo encaixe com os adjacentes.
@@ -2185,6 +2208,151 @@ FORMATO (JSON apenas):
 }
 
 // ─────────────────────────────────────────────
+// 10. MODO CONCORRENTE — analisa o anúncio de um rival e sugere ângulo próprio
+// ─────────────────────────────────────────────
+/**
+ * Recebe o TEXTO de um anúncio concorrente (copiado/colado pelo usuário — não
+ * fazemos scraping de URL, é mais confiável pedir o texto direto) e devolve:
+ *   1. Uma leitura estratégica do que o concorrente está fazendo (ângulo,
+ *      fórmula de hook, driver emocional, estrutura).
+ *   2. 3 ângulos ORIGINAIS pro produto do usuário, inspirados no INSIGHT
+ *      estratégico do concorrente — nunca copiando frases.
+ *
+ * Instrução explícita no prompt pra nunca reproduzir texto do concorrente
+ * verbatim — o valor aqui é o ângulo/insight, não a cópia.
+ */
+export interface CompetitorAnalysis {
+  competitorAngle: string;
+  hookFormula: string;
+  emotionalDriver: string;
+  structureNotes: string;
+  suggestions: { angle: string; rationale: string; sampleHook: string }[];
+}
+
+export async function analyzeCompetitorAd(input: {
+  competitorText: string;
+  productInfo?: {
+    produto?: string;
+    oferta?: string;
+    dorPrincipal?: string;
+    [k: string]: any;
+  } | null;
+  persona?: {
+    name?: string;
+    mainPain?: string;
+    dominantFear?: string;
+    hiddenDesire?: string;
+    [k: string]: any;
+  } | null;
+  language?: string;
+}): Promise<CompetitorAnalysis | null> {
+  const { competitorText, productInfo, persona, language } = input;
+  const targetLang: 'pt' | 'en' = isPortuguese(language) ? 'pt' : 'en';
+  if (!competitorText?.trim()) return null;
+
+  const systemPrompt = `Você é um estrategista de anúncios sênior especializado em engenharia reversa de criativos. Você lê o anúncio de um concorrente e extrai o INSIGHT ESTRATÉGICO por trás dele (ângulo, gatilho emocional, fórmula de hook, estrutura) — não o texto em si.
+
+REGRA INEGOCIÁVEL: você NUNCA reproduz frases do concorrente. Cada sugestão que você gera é 100% ORIGINAL, escrita do zero pro produto do usuário — só o INSIGHT é reaproveitado (por que aquele ângulo funciona), nunca as palavras.
+
+${targetLang === 'pt' ? 'Responda em português brasileiro.' : 'Respond in English.'}
+
+Responda APENAS em JSON válido sem markdown.`;
+
+  const contextBlock = [
+    productInfo?.produto ? `Nosso produto: ${productInfo.produto}` : null,
+    productInfo?.oferta ? `Nossa oferta: ${productInfo.oferta}` : null,
+    productInfo?.dorPrincipal ? `Dor central do nosso público: ${productInfo.dorPrincipal}` : null,
+    persona?.name ? `Nossa persona: ${persona.name}` : null,
+    persona?.mainPain ? `Dor da persona: ${persona.mainPain}` : null,
+    persona?.dominantFear ? `Medo dominante: ${persona.dominantFear}` : null,
+    persona?.hiddenDesire ? `Desejo oculto: ${persona.hiddenDesire}` : null,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const userPrompt = `TEXTO DO ANÚNCIO DO CONCORRENTE (analise, NÃO copie):
+"""
+${competitorText.trim().slice(0, 6000)}
+"""
+
+${contextBlock ? `NOSSO CONTEXTO:\n${contextBlock}\n` : ''}
+TAREFA:
+1. Identifique o ângulo estratégico que o concorrente está usando (a promessa/crença por trás do anúncio).
+2. Identifique a fórmula de hook (ex.: curiosity gap, transformação, paradigm shift, prova social).
+3. Identifique o driver emocional principal (medo, desejo, urgência, pertencimento etc.).
+4. Note a estrutura (ordem: problema→agitação→solução? depoimento→prova→CTA? etc.).
+5. Gere 3 ângulos ORIGINAIS pro NOSSO produto, cada um inspirado num insight diferente do concorrente, mas com palavras 100% próprias — nunca frases dele.
+
+FORMATO (JSON apenas):
+{
+  "competitorAngle": "descrição curta do ângulo do concorrente",
+  "hookFormula": "nome da fórmula de hook identificada",
+  "emotionalDriver": "driver emocional principal",
+  "structureNotes": "estrutura do anúncio em 1 frase",
+  "suggestions": [
+    { "angle": "ângulo original 1 pro nosso produto", "rationale": "por que esse insight se aplica", "sampleHook": "1 hook de exemplo, original" },
+    { "angle": "ângulo original 2", "rationale": "...", "sampleHook": "..." },
+    { "angle": "ângulo original 3", "rationale": "...", "sampleHook": "..." }
+  ]
+}`;
+
+  const raw = await callClaude(systemPrompt, userPrompt, 2000);
+  try {
+    const cleaned = raw
+      .replace(/```json\n?/g, '')
+      .replace(/```\n?/g, '')
+      .trim();
+    const parsed = JSON.parse(cleaned);
+    if (!parsed || !Array.isArray(parsed.suggestions)) return null;
+    return {
+      competitorAngle: String(parsed.competitorAngle || ''),
+      hookFormula: String(parsed.hookFormula || ''),
+      emotionalDriver: String(parsed.emotionalDriver || ''),
+      structureNotes: String(parsed.structureNotes || ''),
+      suggestions: parsed.suggestions
+        .filter((s: any) => s && typeof s.angle === 'string')
+        .map((s: any) => ({
+          angle: s.angle,
+          rationale: String(s.rationale || ''),
+          sampleHook: String(s.sampleHook || ''),
+        })),
+    };
+  } catch (err: any) {
+    console.error('[analyzeCompetitorAd]', err?.message);
+    return null;
+  }
+}
+
+// ─────────────────────────────────────────────
+// 10b. MULTI-IDIOMA — traduz um criativo pronto pra redublar noutra língua
+// ─────────────────────────────────────────────
+/**
+ * Traduz um texto de anúncio (script ou hook) pra outra língua, preservando
+ * o TOM direto-resposta — não é tradução literal palavra-por-palavra, é
+ * adaptação: idiomas/expressões viram o equivalente natural na língua alvo,
+ * mantendo a mesma intenção persuasiva (mesmo copywriter, língua diferente).
+ */
+export async function translateScript(input: {
+  text: string;
+  targetLanguage: string;
+}): Promise<string> {
+  const { text, targetLanguage } = input;
+  if (!text?.trim() || !targetLanguage?.trim()) return '';
+
+  const systemPrompt = `Você é um copywriter bilíngue especialista em anúncios direto-resposta. Você TRADUZ e ADAPTA copy publicitária — não faz tradução literal. Expressões idiomáticas viram o equivalente natural na língua alvo. O tom persuasivo, o ritmo oral e a intenção de cada frase são preservados; as palavras exatas, não.
+
+Responda APENAS com o texto traduzido, sem comentários, sem aspas envolvendo o texto inteiro, sem markdown.`;
+
+  const userPrompt = `Traduza e adapte este texto de anúncio pra ${targetLanguage}, mantendo o tom direto-resposta e a intenção persuasiva de cada frase:
+"""
+${text.trim()}
+"""`;
+
+  const raw = await callClaude(systemPrompt, userPrompt, 2000, { thinking: false });
+  return raw.trim().replace(/^["']|["']$/g, '');
+}
+
+// ─────────────────────────────────────────────
 // 10. ANALYZE COPY FOR LIBRARY (UX20)
 // ─────────────────────────────────────────────
 /**
@@ -2411,9 +2579,13 @@ export async function reframeAudienceForLevel(input: {
   const isPT = isPortuguese(input.language);
   const lvl = (input.level || '3').charAt(0);
   const levelDesc: Record<string, string> = {
-    '1': isPT ? 'Inconsciente (nem sabe que tem o problema)' : 'Unaware (doesn’t know they have the problem)',
+    '1': isPT
+      ? 'Inconsciente (nem sabe que tem o problema)'
+      : 'Unaware (doesn’t know they have the problem)',
     '2': isPT ? 'Consciente do Problema (sente o problema, não conhece solução)' : 'Problem-aware',
-    '3': isPT ? 'Consciente da Solução (sabe que há soluções, não conhece a sua)' : 'Solution-aware',
+    '3': isPT
+      ? 'Consciente da Solução (sabe que há soluções, não conhece a sua)'
+      : 'Solution-aware',
     '4': isPT ? 'Consciente do Produto (conhece seu produto, ainda em dúvida)' : 'Product-aware',
     '5': isPT ? 'Totalmente Consciente (pronto pra comprar)' : 'Most aware (ready to buy)',
   };
@@ -2423,7 +2595,10 @@ export async function reframeAudienceForLevel(input: {
     : `You are a copy strategist. Given AUDIENCE fields and a target AWARENESS LEVEL, rewrite the fields to reflect that level, KEEPING who the audience is (same public, same offer, same underlying pain) — change ONLY the awareness framing. Do NOT invent new facts. Respond ONLY with valid JSON, exact same keys, short values (1-2 sentences). No markdown.`;
   const user = `${isPT ? 'Nível alvo' : 'Target level'}: ${lvl} — ${levelDesc[lvl] || ''}\n\n${isPT ? 'Campos atuais' : 'Current fields'}:\n${cur}`;
   const raw = await callClaude(system, user, 900);
-  const clean = (raw || '').replace(/```json/gi, '').replace(/```/g, '').trim();
+  const clean = (raw || '')
+    .replace(/```json/gi, '')
+    .replace(/```/g, '')
+    .trim();
   const start = clean.indexOf('{');
   const end = clean.lastIndexOf('}');
   const jsonStr = start >= 0 && end > start ? clean.slice(start, end + 1) : clean;

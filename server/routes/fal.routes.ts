@@ -12,8 +12,11 @@ import os from 'os';
 import path from 'path';
 import { spawn } from 'child_process';
 import ffmpegStatic from 'ffmpeg-static';
+// @ts-expect-error — ffprobe-static não tem types oficiais
+import ffprobeStatic from 'ffprobe-static';
 import { getFalKey, getFalAdminKey } from '../config/apiKeys.js';
 import { persistVideo } from '../utils/persistVideo.js';
+import { probeAudioDuration } from '../utils/audio.js';
 import { createLogger } from '../utils/logger.js';
 
 const log = createLogger('Fal');
@@ -97,7 +100,10 @@ falRouter.get('/balance', async (_req, res) => {
       const msg = d?.error?.message || `HTTP ${r.status}`;
       return res.status(r.status).json({ error: `fal billing: ${msg}` });
     }
-    res.json({ balance: d?.credits?.current_balance ?? null, currency: d?.credits?.currency || 'USD' });
+    res.json({
+      balance: d?.credits?.current_balance ?? null,
+      currency: d?.credits?.currency || 'USD',
+    });
   } catch (err: any) {
     log.error('[fal/balance] erro:', err.message);
     res.status(500).json({ error: err.message });
@@ -168,7 +174,18 @@ function grabFrame(videoUrl: string, atSec: number): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const bin = (ffmpegStatic as unknown as string) || 'ffmpeg';
     const out = path.join(os.tmpdir(), `cover_${Date.now()}_${Math.round(atSec * 100)}.png`);
-    const args = ['-y', '-ss', String(Math.max(0, atSec)), '-i', videoUrl, '-frames:v', '1', '-q:v', '2', out];
+    const args = [
+      '-y',
+      '-ss',
+      String(Math.max(0, atSec)),
+      '-i',
+      videoUrl,
+      '-frames:v',
+      '1',
+      '-q:v',
+      '2',
+      out,
+    ];
     const proc = spawn(bin, args);
     let errBuf = '';
     proc.stderr.on('data', (d) => (errBuf += d.toString()));
@@ -188,11 +205,214 @@ function grabFrame(videoUrl: string, atSec: number): Promise<Buffer> {
   });
 }
 
-// POST /api/fal/cover — CAPA/THUMBNAIL do criativo. Tira um frame do vídeo montado,
-// manda pro Nano Banana redesenhar como thumbnail que para o scroll (mantém o rosto
-// e a cena, aumenta contraste/foco e deixa espaço pra texto). Gera N variações
-// (estilos diferentes) do MESMO frame pra o usuário escolher a que para o scroll.
-// Body: { videoUrl, atSec?, count?, prompt?, aspectRatio?, userId } → { urls, url }.
+// Parseia a saída do filtro `metadata=print:file=...` (formato
+// "frame:N pts:N pts_time:T\nlavfi.signalstats.YAVG=V") em pares [tempo, valor].
+function parseSignalstatsFile(filePath: string): Array<{ t: number; v: number }> {
+  if (!fs.existsSync(filePath)) return [];
+  const lines = fs.readFileSync(filePath, 'utf8').split('\n');
+  const out: Array<{ t: number; v: number }> = [];
+  let pendingT: number | null = null;
+  for (const line of lines) {
+    const tm = line.match(/pts_time:([\d.]+)/);
+    if (tm) {
+      pendingT = Number(tm[1]);
+      continue;
+    }
+    const vm = line.match(/YAVG=([\d.]+)/);
+    if (vm && pendingT !== null) {
+      out.push({ t: pendingT, v: Number(vm[1]) });
+      pendingT = null;
+    }
+  }
+  return out;
+}
+
+// Escolhe os melhores instantes do vídeo pra virar capa, num ÚNICO passe de
+// ffmpeg (decode-only, sem reencode — barato). Pontua cada segundo por:
+//   - exposição (brilho perto do meio da faixa, nem estourado nem escuro)
+//   - nitidez (energia de borda via sobel — evita pegar frame borrado/em
+//     transição/em movimento)
+//   - posição (leve preferência pela primeira metade do vídeo, onde o gancho
+//     visual costuma estar)
+// Retorna até `count` timestamps distintos, espaçados entre si.
+async function pickBestFrames(
+  videoUrl: string,
+  durationSec: number,
+  count: number
+): Promise<number[]> {
+  const bin = (ffmpegStatic as unknown as string) || 'ffmpeg';
+  const stamp = Date.now();
+  const brightFile = path.join(os.tmpdir(), `cover_bright_${stamp}.txt`);
+  const sharpFile = path.join(os.tmpdir(), `cover_sharp_${stamp}.txt`);
+  // Amostra 1x/s, limitado aos primeiros 60s (capas costumam vir do gancho).
+  const sampleWindow = Math.min(durationSec, 60);
+  const filter =
+    `fps=1,scale=192:-2,signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=${escapeFilterPathLocal(brightFile)},` +
+    `sobel,signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=${escapeFilterPathLocal(sharpFile)}`;
+  await new Promise<void>((resolve, reject) => {
+    const args = [
+      '-y',
+      '-i',
+      videoUrl,
+      '-t',
+      String(sampleWindow),
+      '-an',
+      '-vf',
+      filter,
+      '-f',
+      'null',
+      '-',
+    ];
+    const proc = spawn(bin, args);
+    let errBuf = '';
+    proc.stderr.on('data', (d) => (errBuf += d.toString()));
+    proc.on('error', reject);
+    proc.on('close', (code) => {
+      // Mesmo com code!=0 tentamos ler o que foi escrito — só falha se nada saiu.
+      if (fs.existsSync(brightFile) || code === 0) return resolve();
+      reject(new Error(`ffmpeg score falhou (code ${code}): ${errBuf.slice(-300)}`));
+    });
+  });
+
+  const bright = parseSignalstatsFile(brightFile);
+  const sharp = parseSignalstatsFile(sharpFile);
+  fs.unlink(brightFile, () => {});
+  fs.unlink(sharpFile, () => {});
+  const sharpByT = new Map(sharp.map((s) => [s.t, s.v]));
+
+  const scored = bright
+    .filter((b) => b.t >= 0.4 && b.t <= sampleWindow - 0.4) // pula fade-in/out das bordas
+    .map((b) => {
+      const brightScore = Math.max(0, 1 - Math.abs(b.v - 130) / 130);
+      const sharpVal = sharpByT.get(b.t) ?? 0;
+      const sharpScore = Math.min(sharpVal / 45, 1);
+      const posBias = b.t < durationSec * 0.5 ? 1 : 0.75;
+      return { t: b.t, score: 0.45 * brightScore + 0.45 * sharpScore + 0.1 * posBias };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  if (scored.length === 0) return [Math.min(1, durationSec / 2)];
+
+  // Pega os top N garantindo espaçamento mínimo entre eles (opções visualmente distintas).
+  const minGap = Math.max(1.5, sampleWindow / 12);
+  const picked: number[] = [];
+  for (const s of scored) {
+    if (picked.every((p) => Math.abs(p - s.t) >= minGap)) picked.push(s.t);
+    if (picked.length >= count) break;
+  }
+  // Se o espaçamento mínimo deixou faltando opções, completa com os próximos melhores.
+  for (const s of scored) {
+    if (picked.length >= count) break;
+    if (!picked.includes(s.t)) picked.push(s.t);
+  }
+  return picked.slice(0, count);
+}
+
+function escapeFilterPathLocal(p: string): string {
+  return p.replace(/\\/g, '\\\\').replace(/:/g, '\\:').replace(/'/g, "\\'");
+}
+
+// Descobre a resolução de uma imagem local (pra escalar o texto certo na capa).
+function probeImageSize(filePath: string): Promise<{ w: number; h: number }> {
+  return new Promise((resolve, reject) => {
+    const bin = (ffprobeStatic as any)?.path || 'ffprobe';
+    const args = [
+      '-v',
+      'error',
+      '-select_streams',
+      'v:0',
+      '-show_entries',
+      'stream=width,height',
+      '-of',
+      'csv=p=0',
+      filePath,
+    ];
+    const proc = spawn(bin, args);
+    let out = '';
+    proc.stdout.on('data', (d) => (out += d.toString()));
+    proc.on('error', reject);
+    proc.on('close', () => {
+      const [w, h] = out.trim().split(',').map(Number);
+      if (!w || !h) return reject(new Error('Não foi possível ler as dimensões da capa.'));
+      resolve({ w, h });
+    });
+  });
+}
+
+const COVER_FONTS_DIR = path.resolve(process.cwd(), 'server', 'assets', 'fonts');
+
+// Queima o texto do gancho na capa via libass (ASS) — texto sempre legível e
+// com a grafia exata (evita o problema comum de IA de imagem "inventar"
+// letras ao gerar texto). Faixa preta translúcida no topo + fonte bold.
+async function burnCoverText(buffer: Buffer, text: string): Promise<Buffer> {
+  const stamp = `${Date.now()}_${Math.round(Math.random() * 1e6)}`;
+  const inPath = path.join(os.tmpdir(), `cover_in_${stamp}.png`);
+  const assPath = path.join(os.tmpdir(), `cover_text_${stamp}.ass`);
+  const outPath = path.join(os.tmpdir(), `cover_out_${stamp}.png`);
+  fs.writeFileSync(inPath, buffer);
+  try {
+    const { w, h } = await probeImageSize(inPath);
+    const fontSize = Math.round(h * 0.075);
+    const escaped = text
+      .toUpperCase()
+      .replace(/\\/g, '\\\\')
+      .replace(/\{/g, '\\{')
+      .replace(/\}/g, '\\}');
+    const ass = `[Script Info]
+ScriptType: v4.00+
+PlayResX: ${w}
+PlayResY: ${h}
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Cap,Anton,${fontSize},&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,${Math.round(fontSize * 0.09)},0,8,${Math.round(w * 0.06)},${Math.round(w * 0.06)},${Math.round(h * 0.05)},1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,9:59:59.99,Cap,,0,0,0,,${escaped}
+`;
+    fs.writeFileSync(assPath, ass, 'utf8');
+    const bin = (ffmpegStatic as unknown as string) || 'ffmpeg';
+    await new Promise<void>((resolve, reject) => {
+      const args = [
+        '-y',
+        '-i',
+        inPath,
+        '-vf',
+        `subtitles=${escapeFilterPathLocal(assPath)}:fontsdir=${escapeFilterPathLocal(COVER_FONTS_DIR)}`,
+        outPath,
+      ];
+      const proc = spawn(bin, args);
+      let errBuf = '';
+      proc.stderr.on('data', (d) => (errBuf += d.toString()));
+      proc.on('error', reject);
+      proc.on('close', (code) => {
+        if (code !== 0 || !fs.existsSync(outPath)) {
+          return reject(
+            new Error(`ffmpeg texto da capa falhou (code ${code}): ${errBuf.slice(-300)}`)
+          );
+        }
+        resolve();
+      });
+    });
+    return fs.readFileSync(outPath);
+  } finally {
+    fs.unlink(inPath, () => {});
+    fs.unlink(assPath, () => {});
+    fs.unlink(outPath, () => {});
+  }
+}
+
+// POST /api/fal/cover — CAPA/THUMBNAIL do criativo. Escolhe os melhores instantes
+// do vídeo montado (brilho + nitidez + posição, 1 passe de ffmpeg), manda cada um
+// pro Nano Banana redesenhar como thumbnail que para o scroll, e queima o texto
+// do gancho por cima (legível, grafia exata). Gera N variações — cada uma num
+// instante E estilo diferentes — pra escolha real.
+// Body: { videoUrl, atSec?, text?, count?, prompt?, aspectRatio?, userId } → { urls, url }.
+// atSec: se informado, força TODAS as variações nesse instante (override manual,
+// pula a escolha automática).
 
 // Estilos de thumbnail — cada variação puxa uma pegada visual diferente pra dar
 // escolha real (não 3 imagens quase iguais).
@@ -208,12 +428,13 @@ async function makeCover(
   aspectRatio: string,
   styleHint: string,
   extra: string,
+  hookText: string,
   userId?: string
 ): Promise<string> {
   const prompt =
     `Transforme este frame numa THUMBNAIL de anúncio que para o scroll: ` +
     `mantenha o rosto e a cena reconhecíveis, aumente o contraste e a nitidez, ` +
-    `foco no rosto/expressão, deixe uma área limpa no topo ou embaixo pra um texto curto. ` +
+    `foco no rosto/expressão, deixe uma área limpa no TOPO pra um texto curto. ` +
     `Sem adicionar texto/legenda. Estilo de thumbnail de vídeo de alta conversão. ` +
     styleHint +
     (extra ? ` ${extra}` : '');
@@ -221,7 +442,12 @@ async function makeCover(
   const r = await fetch(`https://fal.run/${model}`, {
     method: 'POST',
     headers: { Authorization: `Key ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, num_images: 1, aspect_ratio: aspectRatio, image_urls: [frameUrl] }),
+    body: JSON.stringify({
+      prompt,
+      num_images: 1,
+      aspect_ratio: aspectRatio,
+      image_urls: [frameUrl],
+    }),
   });
   const d: any = await r.json().catch(() => ({}));
   if (!r.ok) {
@@ -232,7 +458,10 @@ async function makeCover(
   if (!imgUrl) throw new Error(`fal não retornou capa: ${JSON.stringify(d).substring(0, 200)}`);
   const ir = await fetch(imgUrl);
   if (!ir.ok) throw new Error(`Falha ao baixar a capa do fal (HTTP ${ir.status}).`);
-  const buffer = Buffer.from(await ir.arrayBuffer());
+  let buffer = Buffer.from(await ir.arrayBuffer());
+  if (hookText.trim()) {
+    buffer = await burnCoverText(buffer, hookText.trim());
+  }
   const { url } = await persistVideo({
     buffer,
     filename: `fal_cover_${Date.now()}_${Math.round(Math.random() * 1e6)}.png`,
@@ -253,39 +482,69 @@ falRouter.post('/cover', async (req, res) => {
     }
     const b = (req.body || {}) as Record<string, any>;
     const videoUrl = String(b.videoUrl || '');
-    const atSec = Number.isFinite(b.atSec) ? Math.max(0, Number(b.atSec)) : 1;
+    const manualAtSec = Number.isFinite(b.atSec) ? Math.max(0, Number(b.atSec)) : null;
     const aspectRatio = String(b.aspectRatio || '9:16');
     const userId = b.userId ? String(b.userId) : undefined;
     const extra = String(b.prompt || '').trim();
+    const hookText = String(b.text || '').trim();
     const count = Math.max(1, Math.min(3, Number(b.count) || 3));
     if (!videoUrl) return res.status(400).json({ error: 'Informe o vídeo (videoUrl).' });
 
-    log.info(`[fal/cover] frame @${atSec}s ×${count} de ${videoUrl.slice(0, 60)}…`);
-    const frameBuf = await grabFrame(videoUrl, atSec);
-    // Sobe o frame UMA vez → URL pública que o Nano Banana baixa em cada variação.
-    const framePersist = await persistVideo({
-      buffer: frameBuf,
-      filename: `cover_src_${Date.now()}.png`,
-      storageFolder: 'fal-cover',
-      userId,
-      contentType: 'image/png',
-    });
+    // Escolhe os instantes: manual (playhead do usuário) ou automático (o
+    // melhor de cada, via pontuação de brilho/nitidez/posição).
+    let atSecs: number[];
+    if (manualAtSec !== null) {
+      atSecs = Array.from({ length: count }, () => manualAtSec);
+      log.info(`[fal/cover] frame manual @${manualAtSec}s ×${count} de ${videoUrl.slice(0, 60)}…`);
+    } else {
+      const duration = await probeAudioDuration(videoUrl).catch(() => 20);
+      atSecs = await pickBestFrames(videoUrl, duration, count);
+      log.info(
+        `[fal/cover] auto-pick @[${atSecs.map((t) => t.toFixed(1)).join(', ')}]s de ${videoUrl.slice(0, 60)}…`
+      );
+    }
 
-    // Gera as N variações em paralelo. Se uma falhar, mantém as que deram certo.
+    // Extrai um frame por instante escolhido e sobe cada um (URL pública que
+    // o Nano Banana baixa).
+    const framePersists = await Promise.all(
+      atSecs.map(async (atSec) => {
+        const buf = await grabFrame(videoUrl, atSec);
+        return persistVideo({
+          buffer: buf,
+          filename: `cover_src_${Date.now()}_${Math.round(atSec * 100)}.png`,
+          storageFolder: 'fal-cover',
+          userId,
+          contentType: 'image/png',
+        });
+      })
+    );
+
+    // Gera as N variações em paralelo (frame + estilo diferentes cada). Se
+    // uma falhar, mantém as que deram certo.
     const settled = await Promise.allSettled(
-      Array.from({ length: count }, (_, i) =>
-        makeCover(apiKey, framePersist.url, aspectRatio, COVER_STYLES[i % COVER_STYLES.length]!, extra, userId)
+      framePersists.map((fp, i) =>
+        makeCover(
+          apiKey,
+          fp.url,
+          aspectRatio,
+          COVER_STYLES[i % COVER_STYLES.length]!,
+          extra,
+          hookText,
+          userId
+        )
       )
     );
     const urls = settled
       .filter((s): s is PromiseFulfilledResult<string> => s.status === 'fulfilled')
       .map((s) => s.value);
     if (urls.length === 0) {
-      const firstErr = settled.find((s) => s.status === 'rejected') as PromiseRejectedResult | undefined;
+      const firstErr = settled.find((s) => s.status === 'rejected') as
+        | PromiseRejectedResult
+        | undefined;
       throw new Error(firstErr?.reason?.message || 'Nenhuma capa foi gerada.');
     }
     log.info(`[fal/cover] OK → ${urls.length} capa(s)`);
-    res.json({ urls, url: urls[0], frameUrl: framePersist.url });
+    res.json({ urls, url: urls[0], frameUrl: framePersists[0]?.url, atSecs });
   } catch (err: any) {
     log.error('[fal/cover] erro:', err.message);
     res.status(500).json({ error: err.message });
@@ -301,7 +560,10 @@ falRouter.get('/videos', async (req, res) => {
     if (admin.apps.length === 0) return res.json({ videos: [] });
     const bucket = admin.storage().bucket();
     const [files] = await bucket.getFiles({ prefix: `fal/${userId}/` });
-    const mp4s = files.filter((f) => f.name.endsWith('.mp4')).sort((a, b) => b.name.localeCompare(a.name)).slice(0, 60);
+    const mp4s = files
+      .filter((f) => f.name.endsWith('.mp4'))
+      .sort((a, b) => b.name.localeCompare(a.name))
+      .slice(0, 60);
     const videos = await Promise.all(
       mp4s.map(async (f) => {
         const [url] = await f.getSignedUrl({ action: 'read', expires: '03-09-2491' });

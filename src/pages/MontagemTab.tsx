@@ -1,11 +1,35 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage, auth } from '@/lib/firebase';
 import { SoundLibraryModal } from '@/components/SoundLibraryModal';
 import { useSoundLibrary } from '@/hooks/useSoundLibrary';
-import { AvatarFramingModal, AvatarFraming, DEFAULT_AVATAR_FRAMING } from '@/components/AvatarFramingModal';
-import { Film, Upload, Loader2, Trash2, ArrowUp, ArrowDown, Check, Music, X, Plus, Minus, Maximize, Play, Pause, GripVertical, Undo2, Redo2, ImageIcon, Download } from 'lucide-react';
+import {
+  AvatarFramingModal,
+  AvatarFraming,
+  DEFAULT_AVATAR_FRAMING,
+} from '@/components/AvatarFramingModal';
+import {
+  Film,
+  Upload,
+  Loader2,
+  Trash2,
+  ArrowUp,
+  ArrowDown,
+  Check,
+  Music,
+  X,
+  Plus,
+  Minus,
+  Maximize,
+  Play,
+  Pause,
+  GripVertical,
+  Undo2,
+  Redo2,
+  ImageIcon,
+  Download,
+} from 'lucide-react';
 import { useJobs } from '@/lib/jobsStore';
 import { triggerProjectSave } from '@/lib/autosave';
 import { logCreativeCost, COST_RATES } from '@/lib/creativeCost';
@@ -164,7 +188,6 @@ interface AutoSlot {
 
 // Fim do item (compat com drafts antigos que usavam showSec).
 const itemEnd = (it: TLItem) => it.endSec ?? it.atSec + (it.showSec || 5);
-
 
 // Campo numérico que guarda o TEXTO digitado localmente — evita o bug do
 // type="number" controlado, onde limpar mostra "0" e digitar vira "098.5".
@@ -332,6 +355,7 @@ type BlockWorkflow = {
   resultHistory?: { url: string; at: number }[];
   coverUrl?: string;
   coverOptions?: string[];
+  coverText?: string;
   muted?: boolean;
   audioUrl?: string;
   audioDuration?: number;
@@ -340,7 +364,7 @@ type BlockWorkflow = {
 };
 
 function getMontagemDraft(config: any, mode: MontageMode) {
-  return mode === 'vsl' ? ((config?.montagemVsl as any) || {}) : ((config?.montagem as any) || {});
+  return mode === 'vsl' ? (config?.montagemVsl as any) || {} : (config?.montagem as any) || {};
 }
 
 /**
@@ -350,15 +374,22 @@ function getMontagemDraft(config: any, mode: MontageMode) {
  *    Buracos = tela preta; a voz toca por cima.
  *  • SEM áudio → SEQUÊNCIA: cola os trechos em ordem.
  */
-export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoToEdit, onRemix }: Props) {
+export function MontagemTab({
+  config,
+  setConfig,
+  user,
+  onAddUploadedVideo,
+  onGoToEdit,
+  onRemix,
+}: Props) {
   const { addJob, updateJob } = useJobs();
   const vslCfg = ((config as any)?.copyVsl || {}) as any;
   const hasVslWorkflow = Boolean(
     vslCfg.audioUrl ||
-      vslCfg.finalScript ||
-      vslCfg.generatedScript ||
-      ((vslCfg.blockAudios as any[]) || []).some((b) => b?.url && b?.status === 'done') ||
-      ((vslCfg.avatarVideos as any[]) || []).some((v) => v?.url)
+    vslCfg.finalScript ||
+    vslCfg.generatedScript ||
+    ((vslCfg.blockAudios as any[]) || []).some((b) => b?.url && b?.status === 'done') ||
+    ((vslCfg.avatarVideos as any[]) || []).some((v) => v?.url)
   );
   const [montagemMode, setMontagemMode] = useState<MontageMode>('creative');
   const draft = getMontagemDraft(config, montagemMode);
@@ -387,6 +418,9 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
   const [pexQuery, setPexQuery] = useState('');
   const [pexResults, setPexResults] = useState<any[]>([]);
   const [pexSearching, setPexSearching] = useState(false);
+  // PRÉVIA RÁPIDA: render em baixa resolução (draft) só pra conferir o corte.
+  // NÃO vai pra Edição nem vira o vídeo final — abre num player à parte.
+  const [previewUrl, setPreviewUrl] = useState('');
   // Qual som (de qual trecho) está sendo escolhido na biblioteca de efeitos.
   const [soundPicker, setSoundPicker] = useState<{
     idx: number;
@@ -396,13 +430,13 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
   const [soundLibManage, setSoundLibManage] = useState(false);
   const { sounds: libSounds } = useSoundLibrary();
   const sfxAudioRef = useRef<HTMLAudioElement | null>(null);
-  const playSfx = (url: string) => {
+  const playSfx = useCallback((url: string) => {
     if (!sfxAudioRef.current) sfxAudioRef.current = new Audio();
     const a = sfxAudioRef.current;
     a.src = url;
     a.currentTime = 0;
     a.play().catch(() => {});
-  };
+  }, []);
   // Nome do efeito (biblioteca) a partir da URL — pra mostrar nos badges.
   const soundName = (url?: string) =>
     url ? libSounds.find((s) => s.url === url)?.name || 'efeito' : '';
@@ -437,6 +471,13 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
   const [coverOptions, setCoverOptions] = useState<string[]>(
     Array.isArray(draft.coverOptions) ? draft.coverOptions : draft.coverUrl ? [draft.coverUrl] : []
   );
+  // Texto do gancho a queimar na capa — pré-preenchido com o hook escolhido na
+  // Copy (editável; some deixa a capa sem texto). useAtPlayhead força o instante
+  // atual em vez da escolha automática (brilho/nitidez/posição).
+  const [coverText, setCoverText] = useState<string>(
+    draft.coverText || (config.copy as any)?.hookSelecionado || ''
+  );
+  const [coverUseAtPlayhead, setCoverUseAtPlayhead] = useState(false);
   // Trocar b-roll de um trecho JÁ aplicado na timeline (busca Pexels por item).
   const [brollSwap, setBrollSwap] = useState<{
     itemIdx: number;
@@ -477,7 +518,11 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       const u = String(url || '');
       if (u && !seen.has(u)) {
         seen.add(u);
-        out.push({ url: u, label, duration: duration && isFinite(duration) ? duration : undefined });
+        out.push({
+          url: u,
+          label,
+          duration: duration && isFinite(duration) ? duration : undefined,
+        });
       }
     };
     // SÓ os teus mesmo: clipes do Vídeo IA (label "IA …") e uploads manuais
@@ -487,7 +532,9 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       if (!/^Auto \d+B?$/.test(c.label || '')) push(c.url, c.label || 'Vídeo', c.duration);
     });
     (((config as any).videos as any[]) || []).forEach((v, i) => push(v?.url, `Avatar #${i + 1}`));
-    (((config.copy as any)?.hookVideos as any[]) || []).forEach((v, i) => push(v?.url, `Gancho #${i + 1}`));
+    (((config.copy as any)?.hookVideos as any[]) || []).forEach((v, i) =>
+      push(v?.url, `Gancho #${i + 1}`)
+    );
     return out;
   })();
   // Preenche a duração dos "Meus vídeos" que não vêm com ela (ex.: avatar) via
@@ -510,7 +557,6 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       };
       v.src = url;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [needDurKey]);
   // Vídeo do AVATAR (HeyGen), sincronizado à narração — usado no PiP/split.
   const [avatarBase, setAvatarBase] = useState<string>((draft.avatarUrl as any) || '');
@@ -574,8 +620,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
         const near = mids
           .filter((m) => m > start + blockSizeSec * 0.4 && m < dur - 1)
           .sort((a, b) => Math.abs(a - target) - Math.abs(b - target))[0];
-        const end =
-          near != null && Math.abs(near - target) < blockSizeSec * 0.5 ? near : target;
+        const end = near != null && Math.abs(near - target) < blockSizeSec * 0.5 ? near : target;
         ends.push(Math.min(Math.round(end * 10) / 10, dur));
         start = end;
       }
@@ -584,9 +629,12 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       setActiveBlock(-1);
       setBlockDrafts({}); // refatiar realinha tudo — zera os workflows por bloco
       setBlockCount(ends.length);
-      toast.success(`${ends.length} blocos criados (cortes nos silêncios). Ajuste os fins se quiser.`, {
-        id: tid,
-      });
+      toast.success(
+        `${ends.length} blocos criados (cortes nos silêncios). Ajuste os fins se quiser.`,
+        {
+          id: tid,
+        }
+      );
     } catch (e: any) {
       toast.error(e?.message || 'Falha ao fatiar.', { id: tid });
     } finally {
@@ -602,6 +650,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
     resultHistory,
     coverUrl,
     coverOptions,
+    coverText,
     muted,
     audioUrl,
     audioDuration,
@@ -620,6 +669,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
     setCoverOptions(
       Array.isArray(w.coverOptions) ? w.coverOptions : w.coverUrl ? [w.coverUrl] : []
     );
+    setCoverText(w.coverText || (config.copy as any)?.hookSelecionado || '');
     setMuted(!!w.muted);
     setAudioUrl(w.audioUrl || '');
     setAudioDuration(Number(w.audioDuration) || 0);
@@ -701,7 +751,8 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
   // Enquadramento POR TRECHO (opcional): idx do item sendo editado, ou null.
   // Sobrepõe o enquadramento global só para esse trecho (it.frameOverride).
   const [perTrechoFraming, setPerTrechoFraming] = useState<number | null>(null);
-  const framing: AvatarFraming = (avatarBase && avatarFraming[avatarBase]) || DEFAULT_AVATAR_FRAMING;
+  const framing: AvatarFraming =
+    (avatarBase && avatarFraming[avatarBase]) || DEFAULT_AVATAR_FRAMING;
   // Avatares JÁ GERADOS neste subprojeto (VSL + corpo) — pra usar de base sem
   // precisar reupload. Cada um: {url, aspectRatio, createdAt}.
   // Cada opção ganha o MESMO nome da aba Avatar ("Vídeo N", cronológico por grupo)
@@ -740,7 +791,6 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       };
       el.src = url;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [needAvatarDurKey]);
 
   const uid = user?.uid || auth.currentUser?.uid;
@@ -749,7 +799,11 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
   // Blocos da VSL já gerados (config.copyVsl.blockAudios) — cada um vira uma
   // voz-base própria, pra você montar UM bloco de cada vez (fluxo por bloco).
   const vslBlockAudios = ((vslCfg.blockAudios as any[]) || [])
-    .map((b, i) => (b?.url && b?.status === 'done' ? { key: `vslbloco${i}`, label: `VSL — Bloco ${i + 1}`, url: b.url as string } : null))
+    .map((b, i) =>
+      b?.url && b?.status === 'done'
+        ? { key: `vslbloco${i}`, label: `VSL — Bloco ${i + 1}`, url: b.url as string }
+        : null
+    )
     .filter(Boolean) as { key: string; label: string; url: string }[];
   const vozOptions = [
     { key: 'corpo', label: 'Voz do Corpo', url: (config?.audioUrl as string) || '' },
@@ -767,7 +821,11 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
     // Áudios JUNTADOS na Edição (gancho + corpo etc.) — voiceId 'joined'.
     ...(((config as any)?.audios as any[]) || [])
       .filter((a) => a?.voiceId === 'joined' && a?.url)
-      .map((a, i) => ({ key: `joined-${i}`, label: `Áudio juntado #${i + 1}`, url: a.url as string })),
+      .map((a, i) => ({
+        key: `joined-${i}`,
+        label: `Áudio juntado #${i + 1}`,
+        url: a.url as string,
+      })),
   ].filter((o) => !!o.url);
   const vozOptionsForMode =
     montagemMode === 'vsl'
@@ -825,7 +883,9 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
     hydratingDraftRef.current = true;
     const modeDraft = getMontagemDraft(config, montagemMode);
     const bd =
-      modeDraft.blockDrafts && typeof modeDraft.blockDrafts === 'object' ? modeDraft.blockDrafts : {};
+      modeDraft.blockDrafts && typeof modeDraft.blockDrafts === 'object'
+        ? modeDraft.blockDrafts
+        : {};
     // -1 só quando persistido (VSL fatiada sem bloco preparado). Sem valor → 0.
     const ai = Number.isFinite(modeDraft.activeBlock) ? Number(modeDraft.activeBlock) : 0;
     // Campos do workflow vêm do bloco ativo salvo; se não houver, do draft "flat"
@@ -843,6 +903,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
     setCoverOptions(
       Array.isArray(wf.coverOptions) ? wf.coverOptions : wf.coverUrl ? [wf.coverUrl] : []
     );
+    setCoverText(wf.coverText || (config.copy as any)?.hookSelecionado || '');
     setAvatarBase((wf.avatarUrl as any) || '');
     setAvatarStartSec(Number(wf.avatarStartSec) || 0);
     // Compartilhados entre blocos (formato, enquadramento, fatiamento).
@@ -895,6 +956,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       resultHistory,
       coverUrl,
       coverOptions,
+      coverText,
       muted,
       audioUrl,
       audioDuration,
@@ -914,9 +976,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
     };
     setConfig((prev: any) => ({
       ...prev,
-      ...(montagemMode === 'vsl'
-        ? { montagemVsl: nextDraft }
-        : { montagem: nextDraft }),
+      ...(montagemMode === 'vsl' ? { montagemVsl: nextDraft } : { montagem: nextDraft }),
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -928,6 +988,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
     resultHistory,
     coverUrl,
     coverOptions,
+    coverText,
     muted,
     audioUrl,
     audioDuration,
@@ -967,7 +1028,6 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clips]);
 
   // ── Preview: o áudio dirige o tempo; a tela mostra o item ativo (buraco=preto).
@@ -1153,7 +1213,9 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       setUploading(false);
     }
   };
-  const { dragging: dragUpload, dropHandlers: uploadDrop } = useFileDrop((files) => onUpload(files));
+  const { dragging: dragUpload, dropHandlers: uploadDrop } = useFileDrop((files) =>
+    onUpload(files)
+  );
 
   const onUploadAudio = async (file?: File | null) => {
     if (!file) return;
@@ -1214,7 +1276,11 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
   const addPexClip = (clip: any) => {
     setClips((prev) => [
       ...prev,
-      { url: clip.url, label: `Pexels ${prev.length + 1}`, duration: Number(clip.duration) || undefined },
+      {
+        url: clip.url,
+        label: `Pexels ${prev.length + 1}`,
+        duration: Number(clip.duration) || undefined,
+      },
     ]);
     toast.success('B-roll adicionado à biblioteca — agora posicione na timeline.');
   };
@@ -1233,7 +1299,8 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       const url = clips[clipIdx]?.url;
       dur = (url ? await readDurationFromUrl(url) : 0) || 5;
       // guarda no clipe pra próxima vez
-      if (clips[clipIdx]) setClips((prev) => prev.map((c, k) => (k === clipIdx ? { ...c, duration: dur } : c)));
+      if (clips[clipIdx])
+        setClips((prev) => prev.map((c, k) => (k === clipIdx ? { ...c, duration: dur } : c)));
     }
     pushHistory(items);
     setItems((prev) => [...prev, { clipIdx, atSec: at, endSec: Number((at + dur).toFixed(2)) }]);
@@ -1269,7 +1336,14 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       if (!before || !after || before === after) return remaining;
       // Re-linka: a SAÍDA do anterior casa com a ENTRADA do próximo (transição
       // linkável + whoosh), pra conectar smooth sem sobra da transição apagada.
-      const LINKABLE = new Set(['slideleft', 'slideright', 'slideup', 'slidedown', 'dissolve', 'whip']);
+      const LINKABLE = new Set([
+        'slideleft',
+        'slideright',
+        'slideup',
+        'slidedown',
+        'dissolve',
+        'whip',
+      ]);
       const whoosh = soundForTransition('slideleft');
       const link = LINKABLE.has(after.transIn || '') ? after.transIn! : 'dissolve';
       return remaining.map((it) => {
@@ -1288,13 +1362,15 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
   // Desfazer / refazer da timeline: pilha de snapshots dos trechos. Protege o
   // usuário de apagar/limpar/mesclar por engano (Ctrl+Z / Ctrl+Shift+Z também).
   const historyRef = useRef<{ past: TLItem[][]; future: TLItem[][] }>({ past: [], future: [] });
-  const [, setHistTick] = useState(0);
+  // Comprimentos espelhados em state (não o ref direto) — os botões de
+  // desfazer/refazer leem daqui, nunca de historyRef.current no render.
+  const [histLens, setHistLens] = useState({ past: 0, future: 0 });
   const pushHistory = (snap: TLItem[]) => {
     const h = historyRef.current;
     h.past.push(snap);
     if (h.past.length > 60) h.past.shift();
     h.future = [];
-    setHistTick((t) => t + 1);
+    setHistLens({ past: h.past.length, future: h.future.length });
   };
   const undo = () => {
     const h = historyRef.current;
@@ -1304,7 +1380,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       h.future.push(cur);
       return prev;
     });
-    setHistTick((t) => t + 1);
+    setHistLens({ past: h.past.length, future: h.future.length });
   };
   const redo = () => {
     const h = historyRef.current;
@@ -1314,7 +1390,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       h.past.push(cur);
       return nxt;
     });
-    setHistTick((t) => t + 1);
+    setHistLens({ past: h.past.length, future: h.future.length });
   };
 
   // Arrastar um trecho na horizontal pra reposicionar no tempo (mantém a duração).
@@ -1370,7 +1446,6 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Texto cinético na tela.
@@ -1557,15 +1632,22 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
           });
           if (Array.isArray(qd.effects)) {
             qd.effects.forEach((name: string, i: number) => {
-              if (name && libEffects.some((e) => e.name.trim().toLowerCase() === String(name).trim().toLowerCase()))
+              if (
+                name &&
+                libEffects.some(
+                  (e) => e.name.trim().toLowerCase() === String(name).trim().toLowerCase()
+                )
+              )
                 effectNames[i] = name;
             });
           }
-          if (Array.isArray(qd.styles)) qd.styles.forEach((v: string, i: number) => (styles[i] = v));
+          if (Array.isArray(qd.styles))
+            qd.styles.forEach((v: string, i: number) => (styles[i] = v));
           if (Array.isArray(qd.tones)) qd.tones.forEach((v: string, i: number) => (tones[i] = v));
           if (Array.isArray(qd.highlights))
             qd.highlights.forEach((v: string, i: number) => (highlights[i] = v || null));
-          if (Array.isArray(qd.splits)) qd.splits.forEach((v: boolean, i: number) => (splits[i] = !!v));
+          if (Array.isArray(qd.splits))
+            qd.splits.forEach((v: boolean, i: number) => (splits[i] = !!v));
           window.dispatchEvent(new Event('claude-usage-changed'));
         }
       } catch {
@@ -1605,7 +1687,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
           ? libEffects.find((e) => e.name.trim().toLowerCase() === effName.trim().toLowerCase())
           : undefined;
         const hlPhrase = highlights[i] || undefined;
-        const hlStart = hlPhrase ? phraseStartSec(s.words, hlPhrase) ?? s.start : undefined;
+        const hlStart = hlPhrase ? (phraseStartSec(s.words, hlPhrase) ?? s.start) : undefined;
         return {
           start: Number(s.start.toFixed(2)),
           end: Number(s.end.toFixed(2)),
@@ -1638,10 +1720,13 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
         { id: tid, duration: 7000 }
       );
       if (libEffects.length === 0)
-        toast('Dica: sua biblioteca não tem efeitos na categoria "Efeitos" — por isso 0 efeitos contextuais.', {
-          duration: 7000,
-          icon: '🔊',
-        });
+        toast(
+          'Dica: sua biblioteca não tem efeitos na categoria "Efeitos" — por isso 0 efeitos contextuais.',
+          {
+            duration: 7000,
+            icon: '🔊',
+          }
+        );
     } catch (e: any) {
       toast.error(e?.message || 'Erro no auto-edit.', { id: tid });
     } finally {
@@ -1688,9 +1773,25 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
     // Assim TODO corte tem transição de verdade (sem "vazio") e sem tela preta.
     // (Zoom/glitch/flash ficam no manual, por trecho.) Swoosh 7 em todo corte.
     const VARIETY = [
-      'slideleft', 'dissolve', 'whip', 'slideright', 'dissolve', 'slideup', 'whip', 'slideleft', 'dissolve', 'slideright',
+      'slideleft',
+      'dissolve',
+      'whip',
+      'slideright',
+      'dissolve',
+      'slideup',
+      'whip',
+      'slideleft',
+      'dissolve',
+      'slideright',
     ];
-    const LINKABLE = new Set(['slideleft', 'slideright', 'slideup', 'slidedown', 'dissolve', 'whip']);
+    const LINKABLE = new Set([
+      'slideleft',
+      'slideright',
+      'slideup',
+      'slidedown',
+      'dissolve',
+      'whip',
+    ]);
     const whoosh = soundForTransition('slideleft'); // Swoosh 7
     const base = clips.length;
     // Agrupa trechos SEGUIDOS com o MESMO clipe → vira 1 item CONTÍNUO (ex.: teu
@@ -1766,7 +1867,9 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
           ? {
               ...prev,
               loading: false,
-              candidates: list.slice(0, 12).map((c) => ({ url: c.url, thumb: c.thumb || c.image || '' })),
+              candidates: list
+                .slice(0, 12)
+                .map((c) => ({ url: c.url, thumb: c.thumb || c.image || '' })),
             }
           : prev
       );
@@ -1822,7 +1925,9 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       if (it.clipIdx2 != null) {
         // Troca o 2º b-roll que já existe.
         const idx2 = it.clipIdx2;
-        setClips((prev) => prev.map((c, k) => (k === idx2 ? { ...c, url, duration: undefined } : c)));
+        setClips((prev) =>
+          prev.map((c, k) => (k === idx2 ? { ...c, url, duration: undefined } : c))
+        );
         toast.success('2º b-roll do split trocado.');
       } else {
         // (fallback) cria o split apontando pro novo clipe.
@@ -1836,7 +1941,9 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       setBrollSwap(null);
       return;
     }
-    setClips((prev) => prev.map((c, k) => (k === it.clipIdx ? { ...c, url, duration: undefined } : c)));
+    setClips((prev) =>
+      prev.map((c, k) => (k === it.clipIdx ? { ...c, url, duration: undefined } : c))
+    );
     setBrollSwap(null);
     toast.success('B-roll trocado.');
   };
@@ -1887,7 +1994,8 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
         url2: it.clipIdx2 != null ? clips[it.clipIdx2]?.url : undefined,
         layout: it.layout && it.layout !== 'full' && avatarBase ? it.layout : undefined,
         avatarUrl: it.layout && it.layout !== 'full' && avatarBase ? avatarBase : undefined,
-        avatarSeek: it.layout && it.layout !== 'full' && avatarBase ? avatarStartSec + it.atSec : undefined,
+        avatarSeek:
+          it.layout && it.layout !== 'full' && avatarBase ? avatarStartSec + it.atSec : undefined,
         splitCX: it.layout && it.layout !== 'full' && avatarBase ? fr.splitCX : undefined,
         splitCY: it.layout && it.layout !== 'full' && avatarBase ? fr.splitCY : undefined,
         splitSize: it.layout && it.layout !== 'full' && avatarBase ? fr.splitSize : undefined,
@@ -1920,9 +2028,6 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
     });
   };
 
-  // PRÉVIA RÁPIDA: render em baixa resolução (draft) só pra conferir o corte.
-  // NÃO vai pra Edição nem vira o vídeo final — abre num player à parte.
-  const [previewUrl, setPreviewUrl] = useState('');
   const [previewing, setPreviewing] = useState(false);
   const composeDraft = async () => {
     if (!uid) return;
@@ -2058,7 +2163,12 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       const ar = await fetch('/api/video/add-music', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ videoUrl: resultUrl, musicUrl: gd.audioUrl, volume: 0.12, userId: uid }),
+        body: JSON.stringify({
+          videoUrl: resultUrl,
+          musicUrl: gd.audioUrl,
+          volume: 0.12,
+          userId: uid,
+        }),
       });
       const ad = await ar.json();
       if (!ar.ok || !ad.url) throw new Error(ad.error || 'Falha ao colar a música.');
@@ -2078,21 +2188,39 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
     }
   };
 
-  // Gera a CAPA/THUMBNAIL a partir de um frame do vídeo montado (Nano Banana).
-  // Pega o frame no playhead (ou 1s) — costuma ser onde o rosto está expressivo.
+  // Gera a CAPA/THUMBNAIL a partir do vídeo montado (Nano Banana). Por padrão
+  // escolhe sozinho os 3 melhores instantes (brilho + nitidez + posição no
+  // vídeo) e queima o texto do gancho por cima — legível, grafia exata.
+  // coverUseAtPlayhead força usar o instante atual (comportamento manual antigo).
   const gerarCapa = async () => {
     if (!uid) return toast.error('Faça login.');
     if (!resultUrl) return toast.error('Monte o vídeo primeiro.');
     setCoverGen(true);
     const tid = 'montagem-cover';
     const jid = addJob('Capa/thumbnail (Nano Banana)');
-    toast.loading('Gerando a capa a partir do vídeo…', { id: tid });
+    toast.loading(
+      coverUseAtPlayhead
+        ? 'Gerando a capa a partir do instante atual…'
+        : 'Escolhendo os melhores instantes e gerando a capa…',
+      { id: tid }
+    );
     try {
-      const atSec = playhead > 0.2 ? Number(playhead.toFixed(1)) : 1;
+      const atSec = coverUseAtPlayhead
+        ? playhead > 0.2
+          ? Number(playhead.toFixed(1))
+          : 1
+        : undefined;
       const r = await fetch('/api/fal/cover', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ videoUrl: resultUrl, atSec, aspectRatio: aspect, count: 3, userId: uid }),
+        body: JSON.stringify({
+          videoUrl: resultUrl,
+          atSec,
+          text: coverText,
+          aspectRatio: aspect,
+          count: 3,
+          userId: uid,
+        }),
       });
       const d = await r.json();
       const urls: string[] = Array.isArray(d.urls) ? d.urls : d.url ? [d.url] : [];
@@ -2122,7 +2250,10 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
   const saveTemplate = () => {
     const name = (window.prompt('Nome do molde (ex.: "VSL reborn 1:1"):') || '').trim();
     if (!name) return;
-    setTemplates((prev) => [...prev.filter((t) => t.name !== name), { name, aspect, fit, cutPace }]);
+    setTemplates((prev) => [
+      ...prev.filter((t) => t.name !== name),
+      { name, aspect, fit, cutPace },
+    ]);
     toast.success(`Molde "${name}" salvo.`);
   };
   const applyTemplate = (name: string) => {
@@ -2134,7 +2265,9 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
     toast.success(`Molde "${name}" aplicado — agora é só Auto-editar.`);
   };
 
-  const displayItems = items.map((it, idx) => ({ it, idx })).sort((a, b) => a.it.atSec - b.it.atSec);
+  const displayItems = items
+    .map((it, idx) => ({ it, idx }))
+    .sort((a, b) => a.it.atSec - b.it.atSec);
 
   // VALIDAÇÃO PRÉ-RENDER: aponta problemas ANTES de gastar um render — buracos na
   // timeline, trecho menor que o slot (congela/repete), sobreposição, áudio
@@ -2148,7 +2281,9 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
     const sorted = [...items].sort((a, b) => a.atSec - b.atSec);
     // Buraco no começo.
     if (sorted[0]!.atSec > GAP) {
-      w.push(`Os primeiros ${sorted[0]!.atSec.toFixed(1)}s ficam sem vídeo (tela pode ficar preta).`);
+      w.push(
+        `Os primeiros ${sorted[0]!.atSec.toFixed(1)}s ficam sem vídeo (tela pode ficar preta).`
+      );
     }
     for (let i = 0; i < sorted.length; i++) {
       const it = sorted[i]!;
@@ -2165,7 +2300,9 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       const next = sorted[i + 1];
       if (next) {
         if (next.atSec > end + GAP) {
-          w.push(`Buraco de ${(next.atSec - end).toFixed(1)}s entre os trechos ${i + 1} e ${i + 2}.`);
+          w.push(
+            `Buraco de ${(next.atSec - end).toFixed(1)}s entre os trechos ${i + 1} e ${i + 2}.`
+          );
         } else if (next.atSec < end - GAP) {
           w.push(`Trechos ${i + 1} e ${i + 2} se sobrepõem por ${(end - next.atSec).toFixed(1)}s.`);
         }
@@ -2275,7 +2412,10 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
                   🎬 Meus vídeos
                 </button>
               )}
-              <button onClick={() => setBrollSwap(null)} className="p-1.5 text-gray-400 hover:text-gray-700">
+              <button
+                onClick={() => setBrollSwap(null)}
+                className="p-1.5 text-gray-400 hover:text-gray-700"
+              >
                 <X size={18} />
               </button>
             </div>
@@ -2290,7 +2430,12 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
                       <button
                         key={mv.url}
                         onClick={() => pickSwap(mv.url)}
-                        onMouseEnter={(e) => e.currentTarget.querySelector('video')?.play().catch(() => {})}
+                        onMouseEnter={(e) =>
+                          e.currentTarget
+                            .querySelector('video')
+                            ?.play()
+                            .catch(() => {})
+                        }
                         onMouseLeave={(e) => e.currentTarget.querySelector('video')?.pause()}
                         title={mv.label}
                         className="relative aspect-video rounded-lg overflow-hidden border-2 border-blue-300/50 hover:border-blue-400"
@@ -2304,7 +2449,9 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
                           onLoadedMetadata={(e) => {
                             const d = (e.target as HTMLVideoElement).duration;
                             if (d && isFinite(d))
-                              setMyVidDur((prev) => (prev[mv.url] ? prev : { ...prev, [mv.url]: d }));
+                              setMyVidDur((prev) =>
+                                prev[mv.url] ? prev : { ...prev, [mv.url]: d }
+                              );
                           }}
                           className="w-full h-full object-cover"
                         />
@@ -2331,7 +2478,12 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
                     <button
                       key={c.url}
                       onClick={() => pickSwap(c.url)}
-                      onMouseEnter={(e) => e.currentTarget.querySelector('video')?.play().catch(() => {})}
+                      onMouseEnter={(e) =>
+                        e.currentTarget
+                          .querySelector('video')
+                          ?.play()
+                          .catch(() => {})
+                      }
                       onMouseLeave={(e) => e.currentTarget.querySelector('video')?.pause()}
                       className="relative aspect-video rounded-lg overflow-hidden border-2 border-transparent hover:border-blue-400"
                     >
@@ -2429,55 +2581,57 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
                         🎬 Meus vídeos ({myProjectVideos.length}) {myVidOpen[i] ? '▲' : '▼'}
                       </button>
                       {myVidOpen[i] && (
-                      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                        {myProjectVideos.map((mv) => (
-                          <button
-                            key={mv.url}
-                            onClick={() => chooseCandidate(i, mv.url)}
-                            onMouseEnter={(e) => {
-                              const v = e.currentTarget.querySelector('video');
-                              if (v) (v as HTMLVideoElement).play().catch(() => {});
-                            }}
-                            onMouseLeave={(e) => {
-                              const v = e.currentTarget.querySelector('video');
-                              if (v) (v as HTMLVideoElement).pause();
-                            }}
-                            title={mv.label}
-                            className={`relative aspect-video rounded-lg overflow-hidden border-2 ${
-                              s.chosen === mv.url
-                                ? 'border-purple-500 ring-2 ring-purple-300'
-                                : 'border-blue-300/50 hover:border-blue-400'
-                            }`}
-                          >
-                            <video
-                              src={mv.url}
-                              muted
-                              loop
-                              playsInline
-                              preload="metadata"
-                              onLoadedMetadata={(e) => {
-                                const d = (e.target as HTMLVideoElement).duration;
-                                if (d && isFinite(d))
-                                  setMyVidDur((prev) => (prev[mv.url] ? prev : { ...prev, [mv.url]: d }));
+                        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                          {myProjectVideos.map((mv) => (
+                            <button
+                              key={mv.url}
+                              onClick={() => chooseCandidate(i, mv.url)}
+                              onMouseEnter={(e) => {
+                                const v = e.currentTarget.querySelector('video');
+                                if (v) (v as HTMLVideoElement).play().catch(() => {});
                               }}
-                              className="w-full h-full object-cover"
-                            />
-                            <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[8px] px-1 flex items-center justify-between gap-1">
-                              <span className="truncate">{mv.label}</span>
-                              {(mv.duration ?? myVidDur[mv.url]) ? (
-                                <span className="tabular-nums shrink-0 font-black">
-                                  {(mv.duration ?? myVidDur[mv.url])!.toFixed(1)}s
-                                </span>
-                              ) : null}
-                            </span>
-                            {s.chosen === mv.url && (
-                              <span className="absolute top-1 right-1 bg-purple-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px]">
-                                ✓
+                              onMouseLeave={(e) => {
+                                const v = e.currentTarget.querySelector('video');
+                                if (v) (v as HTMLVideoElement).pause();
+                              }}
+                              title={mv.label}
+                              className={`relative aspect-video rounded-lg overflow-hidden border-2 ${
+                                s.chosen === mv.url
+                                  ? 'border-purple-500 ring-2 ring-purple-300'
+                                  : 'border-blue-300/50 hover:border-blue-400'
+                              }`}
+                            >
+                              <video
+                                src={mv.url}
+                                muted
+                                loop
+                                playsInline
+                                preload="metadata"
+                                onLoadedMetadata={(e) => {
+                                  const d = (e.target as HTMLVideoElement).duration;
+                                  if (d && isFinite(d))
+                                    setMyVidDur((prev) =>
+                                      prev[mv.url] ? prev : { ...prev, [mv.url]: d }
+                                    );
+                                }}
+                                className="w-full h-full object-cover"
+                              />
+                              <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[8px] px-1 flex items-center justify-between gap-1">
+                                <span className="truncate">{mv.label}</span>
+                                {(mv.duration ?? myVidDur[mv.url]) ? (
+                                  <span className="tabular-nums shrink-0 font-black">
+                                    {(mv.duration ?? myVidDur[mv.url])!.toFixed(1)}s
+                                  </span>
+                                ) : null}
                               </span>
-                            )}
-                          </button>
-                        ))}
-                      </div>
+                              {s.chosen === mv.url && (
+                                <span className="absolute top-1 right-1 bg-purple-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px]">
+                                  ✓
+                                </span>
+                              )}
+                            </button>
+                          ))}
+                        </div>
                       )}
                     </div>
                   )}
@@ -2768,14 +2922,30 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
                     : 'aspect-square max-w-[420px]'
               } [&:fullscreen]:max-h-none [&:fullscreen]:max-w-none [&:fullscreen]:aspect-auto [&:fullscreen]:rounded-none`}
             >
-              <video ref={vARef} className={`absolute inset-0 w-full h-full ${fit === 'cover' ? 'object-cover' : 'object-contain'}`} style={{ opacity: 0 }} muted playsInline />
-              <video ref={vBRef} className={`absolute inset-0 w-full h-full ${fit === 'cover' ? 'object-cover' : 'object-contain'}`} style={{ opacity: 0 }} muted playsInline />
+              <video
+                ref={vARef}
+                className={`absolute inset-0 w-full h-full ${fit === 'cover' ? 'object-cover' : 'object-contain'}`}
+                style={{ opacity: 0 }}
+                muted
+                playsInline
+              />
+              <video
+                ref={vBRef}
+                className={`absolute inset-0 w-full h-full ${fit === 'cover' ? 'object-cover' : 'object-contain'}`}
+                style={{ opacity: 0 }}
+                muted
+                playsInline
+              />
               {/* Barra de controle (fica dentro do container → funciona em tela cheia) */}
               <div
                 style={{ zIndex: 10 }}
                 className="absolute left-0 right-0 bottom-0 px-3 py-2 flex items-center gap-3 bg-gradient-to-t from-black/70 to-transparent"
               >
-                <button onClick={togglePlay} className="text-white shrink-0" title={isPlaying ? 'Pausar' : 'Tocar'}>
+                <button
+                  onClick={togglePlay}
+                  className="text-white shrink-0"
+                  title={isPlaying ? 'Pausar' : 'Tocar'}
+                >
                   {isPlaying ? <Pause size={18} /> : <Play size={18} />}
                 </button>
                 <div onClick={seekAudio} className="flex-1 h-2 bg-white/30 rounded cursor-pointer">
@@ -2787,7 +2957,11 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
                 <span className="text-[10px] text-white tabular-nums shrink-0">
                   {playhead.toFixed(0)}/{audioDuration.toFixed(0)}s
                 </span>
-                <button onClick={goFullscreen} className="text-white shrink-0" title="Tela cheia (entra/sai)">
+                <button
+                  onClick={goFullscreen}
+                  className="text-white shrink-0"
+                  title="Tela cheia (entra/sai)"
+                >
                   <Maximize size={16} />
                 </button>
               </div>
@@ -2806,7 +2980,10 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
                   <span className="text-[11px] font-black uppercase tracking-widest text-blue-700 dark:text-blue-300">
                     Escolha o trecho pra {picking.toFixed(1)}s
                   </span>
-                  <button onClick={() => setPicking(null)} className="text-gray-400 hover:text-gray-600">
+                  <button
+                    onClick={() => setPicking(null)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
                     <X size={14} />
                   </button>
                 </div>
@@ -2821,7 +2998,11 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
                       >
                         <button onClick={() => pickClip(ci)} className="block w-full text-left">
                           <div className="relative">
-                            <video src={c.url} preload="metadata" className="w-full h-20 object-cover bg-black" />
+                            <video
+                              src={c.url}
+                              preload="metadata"
+                              className="w-full h-20 object-cover bg-black"
+                            />
                             {c.duration ? (
                               <span className="absolute bottom-1 right-1 text-[9px] font-black bg-black/70 text-white px-1 rounded">
                                 {c.duration.toFixed(1)}s
@@ -2853,13 +3034,17 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
               ref={audioRef}
               src={audioUrl}
               controls
-              onLoadedMetadata={(e) => setAudioDuration((e.target as HTMLAudioElement).duration || 0)}
+              onLoadedMetadata={(e) =>
+                setAudioDuration((e.target as HTMLAudioElement).duration || 0)
+              }
               onTimeUpdate={(e) => syncPreview((e.target as HTMLAudioElement).currentTime, false)}
               onSeeked={(e) => syncPreview((e.target as HTMLAudioElement).currentTime, true)}
               onPlay={() => {
                 playingRef.current = true;
                 setIsPlaying(true);
-                frontEl()?.play().catch(() => {});
+                frontEl()
+                  ?.play()
+                  .catch(() => {});
                 startRaf();
               }}
               onPause={() => {
@@ -2906,11 +3091,22 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
               </button>
             ))}
             <label className="px-3 py-2 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-300 hover:border-blue-400 cursor-pointer flex items-center gap-1">
-              {uploadingAudio ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+              {uploadingAudio ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <Upload size={12} />
+              )}
               Enviar áudio
-              <input type="file" accept="audio/*" className="hidden" onChange={(e) => onUploadAudio(e.target.files?.[0])} />
+              <input
+                type="file"
+                accept="audio/*"
+                className="hidden"
+                onChange={(e) => onUploadAudio(e.target.files?.[0])}
+              />
             </label>
-            <span className="text-[11px] text-gray-400 self-center">(sem áudio = só cola em ordem)</span>
+            <span className="text-[11px] text-gray-400 self-center">
+              (sem áudio = só cola em ordem)
+            </span>
           </div>
         )}
       </div>
@@ -2926,7 +3122,9 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
               <div key={t.id} className="space-y-1">
                 <div className="mv-card relative w-full h-14 rounded-lg overflow-hidden ring-1 ring-gray-200 dark:ring-gray-700 cursor-pointer">
                   <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-500 to-rose-500" />
-                  <div className={`absolute inset-0 bg-gradient-to-br from-blue-500 to-cyan-400 ${t.css}`} />
+                  <div
+                    className={`absolute inset-0 bg-gradient-to-br from-blue-500 to-cyan-400 ${t.css}`}
+                  />
                 </div>
                 <span className="block text-[9px] text-center text-gray-500">{t.label}</span>
               </div>
@@ -2991,7 +3189,8 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
           </span>
           <p className="text-[11px] text-gray-500 dark:text-gray-400">
             <b>Obrigatório</b> pro avatar aparecer: escolha o vídeo do avatar (o que você gerou na
-            aba Avatar) da <b>mesma narração</b>. Só depois os layouts <b>tela cheia / PiP / split</b>
+            aba Avatar) da <b>mesma narração</b>. Só depois os layouts{' '}
+            <b>tela cheia / PiP / split</b>
             de cada trecho funcionam (o render encaixa o avatar no tempo certo, lip-sync na voz).
           </p>
           {avatarBase ? (
@@ -3071,7 +3270,9 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
                           onClick={() => setAvatarBase(v.url)}
                           style={{ aspectRatio: ar }}
                           className={`relative h-20 rounded-lg overflow-hidden bg-black ring-1 hover:ring-2 hover:ring-violet-500 ${
-                            active ? 'ring-2 ring-violet-500' : 'ring-violet-300 dark:ring-violet-700'
+                            active
+                              ? 'ring-2 ring-violet-500'
+                              : 'ring-violet-300 dark:ring-violet-700'
                           }`}
                           title={nome}
                         >
@@ -3081,7 +3282,9 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
                             playsInline
                             loop
                             preload="metadata"
-                            onMouseEnter={(e) => (e.currentTarget as HTMLVideoElement).play().catch(() => {})}
+                            onMouseEnter={(e) =>
+                              (e.currentTarget as HTMLVideoElement).play().catch(() => {})
+                            }
                             onMouseLeave={(e) => {
                               const el = e.currentTarget as HTMLVideoElement;
                               el.pause();
@@ -3104,8 +3307,14 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
                 </div>
               )}
               <label className="inline-flex items-center gap-1 px-3 py-2 rounded-xl border-2 border-violet-200 dark:border-violet-800 text-[10px] font-black uppercase tracking-widest text-violet-700 dark:text-violet-300 hover:border-violet-400 cursor-pointer">
-                {uploadingAvatar ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
-                {avatarVideoOptionsForMode.length > 0 ? 'ou enviar outro vídeo' : 'Enviar vídeo do avatar'}
+                {uploadingAvatar ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <Upload size={12} />
+                )}
+                {avatarVideoOptionsForMode.length > 0
+                  ? 'ou enviar outro vídeo'
+                  : 'Enviar vídeo do avatar'}
                 <input
                   type="file"
                   accept="video/*"
@@ -3139,7 +3348,11 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
               {/* Imã (snap) + zoom/precisão do arraste */}
               <button
                 onClick={() => setSnap((s) => !s)}
-                title={snap ? 'Imã ligado — gruda na borda do vizinho / grade de 0,25s' : 'Imã desligado — arraste livre'}
+                title={
+                  snap
+                    ? 'Imã ligado — gruda na borda do vizinho / grade de 0,25s'
+                    : 'Imã desligado — arraste livre'
+                }
                 className={`px-2 py-1.5 rounded-lg border text-[11px] font-black ${
                   snap
                     ? 'border-blue-400 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300'
@@ -3165,7 +3378,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
               </button>
               <button
                 onClick={undo}
-                disabled={historyRef.current.past.length === 0}
+                disabled={histLens.past === 0}
                 title="Desfazer (Ctrl+Z)"
                 className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-blue-400 disabled:opacity-30"
               >
@@ -3173,7 +3386,7 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
               </button>
               <button
                 onClick={redo}
-                disabled={historyRef.current.future.length === 0}
+                disabled={histLens.future === 0}
                 title="Refazer (Ctrl+Shift+Z)"
                 className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-blue-400 disabled:opacity-30"
               >
@@ -3231,12 +3444,26 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
                     <Play size={10} /> ouvir
                   </button>
                   começa em
-                  <NumInput value={it.atSec} min={0} onCommit={(n) => updateItem(idx, 'atSec', String(n))} className="w-16 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100" />
+                  <NumInput
+                    value={it.atSec}
+                    min={0}
+                    onCommit={(n) => updateItem(idx, 'atSec', String(n))}
+                    className="w-16 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100"
+                  />
                   s · termina em
-                  <NumInput value={itemEnd(it)} min={0.5} onCommit={(n) => updateItem(idx, 'endSec', String(n))} className="w-16 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100" />
+                  <NumInput
+                    value={itemEnd(it)}
+                    min={0.5}
+                    onCommit={(n) => updateItem(idx, 'endSec', String(n))}
+                    className="w-16 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100"
+                  />
                   s
                 </div>
-                <button onClick={() => removeItem(idx)} className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 shrink-0" title="Remover">
+                <button
+                  onClick={() => removeItem(idx)}
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 shrink-0"
+                  title="Remover"
+                >
                   <Trash2 size={14} />
                 </button>
               </div>
@@ -3255,14 +3482,26 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
                           onChange={(e) => updateText(hlI, { text: e.target.value })}
                           className="bg-transparent text-green-800 dark:text-green-200 font-black uppercase tracking-widest w-40 outline-none"
                         />
-                        <button onClick={() => removeText(hlI)} className="text-green-600 hover:text-red-500" title="Remover destaque">✕</button>
+                        <button
+                          onClick={() => removeText(hlI)}
+                          className="text-green-600 hover:text-red-500"
+                          title="Remover destaque"
+                        >
+                          ✕
+                        </button>
                       </span>
                     ) : (
                       <button
                         onClick={() =>
                           setTexts((prev) => [
                             ...prev,
-                            { text: 'DESTAQUE', atSec: Number(it.atSec.toFixed(2)), endSec: Number(Math.min(itemEnd(it), it.atSec + 2.5).toFixed(2)), color: '#39FF14', pos: 'middle' },
+                            {
+                              text: 'DESTAQUE',
+                              atSec: Number(it.atSec.toFixed(2)),
+                              endSec: Number(Math.min(itemEnd(it), it.atSec + 2.5).toFixed(2)),
+                              color: '#39FF14',
+                              pos: 'middle',
+                            },
                           ])
                         }
                         className="px-2 py-0.5 rounded-lg border border-green-300 dark:border-green-800 text-green-700 dark:text-green-300 font-black uppercase tracking-widest hover:bg-green-50 dark:hover:bg-green-950/40"
@@ -3324,8 +3563,20 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
                     {it.clipIdx2 != null ? (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-cyan-100 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-300 font-black uppercase tracking-widest">
                         ⊞ split
-                        <button onClick={() => openAddSplit(idx)} className="hover:text-blue-600" title="Trocar o 2º b-roll">⇄</button>
-                        <button onClick={() => setItemField(idx, { clipIdx2: undefined })} className="hover:text-red-500" title="Remover split">✕</button>
+                        <button
+                          onClick={() => openAddSplit(idx)}
+                          className="hover:text-blue-600"
+                          title="Trocar o 2º b-roll"
+                        >
+                          ⇄
+                        </button>
+                        <button
+                          onClick={() => setItemField(idx, { clipIdx2: undefined })}
+                          className="hover:text-red-500"
+                          title="Remover split"
+                        >
+                          ✕
+                        </button>
                       </span>
                     ) : (
                       <button
@@ -3340,9 +3591,27 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
                     {it.soundMid ? (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-black uppercase tracking-widest">
                         🔊 {soundName(it.soundMid)}
-                        <button onClick={() => playSfx(it.soundMid!)} className="hover:text-amber-600" title="Ouvir">▶</button>
-                        <button onClick={() => setSoundPicker({ idx, field: 'soundMid' })} className="hover:text-blue-600" title="Trocar efeito">⇄</button>
-                        <button onClick={() => setItemField(idx, { soundMid: '' })} className="hover:text-red-500" title="Remover efeito">✕</button>
+                        <button
+                          onClick={() => playSfx(it.soundMid!)}
+                          className="hover:text-amber-600"
+                          title="Ouvir"
+                        >
+                          ▶
+                        </button>
+                        <button
+                          onClick={() => setSoundPicker({ idx, field: 'soundMid' })}
+                          className="hover:text-blue-600"
+                          title="Trocar efeito"
+                        >
+                          ⇄
+                        </button>
+                        <button
+                          onClick={() => setItemField(idx, { soundMid: '' })}
+                          className="hover:text-red-500"
+                          title="Remover efeito"
+                        >
+                          ✕
+                        </button>
                       </span>
                     ) : (
                       <button
@@ -3405,78 +3674,101 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
                       </span>
                     )}
                     {/* Pan do b-roll no split — reposiciona pra não cortar o assunto. */}
-                    {it.layout && it.layout.startsWith('split') && (() => {
-                      const horiz = it.layout === 'split-left' || it.layout === 'split-right';
-                      const key = horiz ? 'brollCX' : 'brollCY';
-                      const val = ((it as any)[key] ?? 0.5) as number;
-                      return (
-                        <label
-                          className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-gray-500"
-                          title="Reposiciona o b-roll dentro da metade do split (pra não cortar/descentralizar o assunto)"
-                        >
-                          b-roll {horiz ? '⟷' : '↕'}
-                          <input
-                            type="range"
-                            min={0}
-                            max={100}
-                            value={Math.round(val * 100)}
-                            onChange={(e) => setItemField(idx, { [key]: Number(e.target.value) / 100 } as any)}
-                            className="w-20 accent-violet-600"
-                          />
-                        </label>
-                      );
-                    })()}
+                    {it.layout &&
+                      it.layout.startsWith('split') &&
+                      (() => {
+                        const horiz = it.layout === 'split-left' || it.layout === 'split-right';
+                        const key = horiz ? 'brollCX' : 'brollCY';
+                        const val = ((it as any)[key] ?? 0.5) as number;
+                        return (
+                          <label
+                            className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-gray-500"
+                            title="Reposiciona o b-roll dentro da metade do split (pra não cortar/descentralizar o assunto)"
+                          >
+                            b-roll {horiz ? '⟷' : '↕'}
+                            <input
+                              type="range"
+                              min={0}
+                              max={100}
+                              value={Math.round(val * 100)}
+                              onChange={(e) =>
+                                setItemField(idx, { [key]: Number(e.target.value) / 100 } as any)
+                              }
+                              className="w-20 accent-violet-600"
+                            />
+                          </label>
+                        );
+                      })()}
                     {/* Prévia AO VIVO do split (CSS) — reflete o pan e a proporção
                         efetiva (override do trecho, senão o global) sem renderizar. */}
-                    {it.layout && it.layout.startsWith('split') && avatarBase && clips[it.clipIdx]?.url && (() => {
-                      const fr = it.frameOverride || framing;
-                      const vertical = it.layout === 'split-top' || it.layout === 'split-bottom';
-                      const avatarFirst = it.layout === 'split-left' || it.layout === 'split-top';
-                      const brCX = it.brollCX ?? 0.5;
-                      const brCY = it.brollCY ?? 0.5;
-                      const ratioPct = Math.round((fr.splitRatio ?? 0.5) * 100);
-                      const aspectClass =
-                        aspect === '1:1' ? 'aspect-square' : aspect === '16:9' ? 'aspect-video' : 'aspect-[9/16]';
-                      const av = (
-                        <video
-                          src={avatarBase}
-                          muted
-                          playsInline
-                          preload="metadata"
-                          className="w-full h-full object-cover"
-                          style={{ objectPosition: `${(fr.splitCX ?? 0.5) * 100}% ${(fr.splitCY ?? 0.4) * 100}%` }}
-                        />
-                      );
-                      const br = (
-                        <video
-                          src={clips[it.clipIdx]?.url}
-                          muted
-                          playsInline
-                          preload="metadata"
-                          className="w-full h-full object-cover"
-                          style={{ objectPosition: `${brCX * 100}% ${brCY * 100}%` }}
-                        />
-                      );
-                      const avStyle = { flex: `${ratioPct} 0 0%` };
-                      const brStyle = { flex: `${100 - ratioPct} 0 0%` };
-                      return (
-                        <div className="basis-full flex items-center gap-2 pt-1">
-                          <span className="text-[9px] text-gray-400 uppercase tracking-widest">
-                            prévia {it.frameOverride && <span className="text-fuchsia-500">(próprio)</span>}
-                          </span>
-                          <div
-                            className={`w-28 ${aspectClass} rounded-lg overflow-hidden bg-black flex ${vertical ? 'flex-col' : 'flex-row'} ring-1 ring-violet-400`}
-                          >
-                            <div className="min-w-0 min-h-0 overflow-hidden" style={avatarFirst ? avStyle : brStyle}>
-                              {avatarFirst ? av : br}
-                            </div>
-                            <div className="min-w-0 min-h-0 overflow-hidden" style={avatarFirst ? brStyle : avStyle}>
-                              {avatarFirst ? br : av}
+                    {it.layout &&
+                      it.layout.startsWith('split') &&
+                      avatarBase &&
+                      clips[it.clipIdx]?.url &&
+                      (() => {
+                        const fr = it.frameOverride || framing;
+                        const vertical = it.layout === 'split-top' || it.layout === 'split-bottom';
+                        const avatarFirst = it.layout === 'split-left' || it.layout === 'split-top';
+                        const brCX = it.brollCX ?? 0.5;
+                        const brCY = it.brollCY ?? 0.5;
+                        const ratioPct = Math.round((fr.splitRatio ?? 0.5) * 100);
+                        const aspectClass =
+                          aspect === '1:1'
+                            ? 'aspect-square'
+                            : aspect === '16:9'
+                              ? 'aspect-video'
+                              : 'aspect-[9/16]';
+                        const av = (
+                          <video
+                            src={avatarBase}
+                            muted
+                            playsInline
+                            preload="metadata"
+                            className="w-full h-full object-cover"
+                            style={{
+                              objectPosition: `${(fr.splitCX ?? 0.5) * 100}% ${(fr.splitCY ?? 0.4) * 100}%`,
+                            }}
+                          />
+                        );
+                        const br = (
+                          <video
+                            src={clips[it.clipIdx]?.url}
+                            muted
+                            playsInline
+                            preload="metadata"
+                            className="w-full h-full object-cover"
+                            style={{ objectPosition: `${brCX * 100}% ${brCY * 100}%` }}
+                          />
+                        );
+                        const avStyle = { flex: `${ratioPct} 0 0%` };
+                        const brStyle = { flex: `${100 - ratioPct} 0 0%` };
+                        return (
+                          <div className="basis-full flex items-center gap-2 pt-1">
+                            <span className="text-[9px] text-gray-400 uppercase tracking-widest">
+                              prévia{' '}
+                              {it.frameOverride && (
+                                <span className="text-fuchsia-500">(próprio)</span>
+                              )}
+                            </span>
+                            <div
+                              className={`w-28 ${aspectClass} rounded-lg overflow-hidden bg-black flex ${vertical ? 'flex-col' : 'flex-row'} ring-1 ring-violet-400`}
+                            >
+                              <div
+                                className="min-w-0 min-h-0 overflow-hidden"
+                                style={avatarFirst ? avStyle : brStyle}
+                              >
+                                {avatarFirst ? av : br}
+                              </div>
+                              <div
+                                className="min-w-0 min-h-0 overflow-hidden"
+                                style={avatarFirst ? brStyle : avStyle}
+                              >
+                                {avatarFirst ? br : av}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })()}
+                        );
+                      })()}
                   </div>
                 );
               })()}
@@ -3496,14 +3788,20 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
                       avatarContinuousBoundary(it, displayItems[pos + 1]!.it);
                 if (cancelled) {
                   return (
-                    <div key={side} className="flex flex-wrap items-center gap-2 text-[10px] text-gray-400 pl-1">
+                    <div
+                      key={side}
+                      className="flex flex-wrap items-center gap-2 text-[10px] text-gray-400 pl-1"
+                    >
                       <span className="w-12 font-bold">{side === 'In' ? 'entrada' : 'saída'}</span>
                       <span className="italic">— sem transição (avatar contínuo)</span>
                     </div>
                   );
                 }
                 return (
-                  <div key={side} className="flex flex-wrap items-center gap-2 text-[10px] text-gray-500 pl-1">
+                  <div
+                    key={side}
+                    className="flex flex-wrap items-center gap-2 text-[10px] text-gray-500 pl-1"
+                  >
                     <span className="w-12 font-bold">{side === 'In' ? 'entrada' : 'saída'}</span>
                     <select
                       value={type}
@@ -3529,7 +3827,12 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
                     {type !== 'none' && (
                       <>
                         · dur
-                        <NumInput value={dur} min={0.1} onCommit={(n) => setItemField(idx, { [durKey]: Math.max(0.1, n) })} className="w-14 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100" />
+                        <NumInput
+                          value={dur}
+                          min={0.1}
+                          onCommit={(n) => setItemField(idx, { [durKey]: Math.max(0.1, n) })}
+                          className="w-14 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100"
+                        />
                         s ·
                         <button
                           type="button"
@@ -3551,7 +3854,11 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
                           </button>
                         )}
                         {snd && (
-                          <button onClick={() => setItemField(idx, { [sndKey]: '' })} className="text-gray-400 hover:text-red-500" title="Tirar som">
+                          <button
+                            onClick={() => setItemField(idx, { [sndKey]: '' })}
+                            className="text-gray-400 hover:text-red-500"
+                            title="Tirar som"
+                          >
                             <X size={11} />
                           </button>
                         )}
@@ -3584,16 +3891,24 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
               min={30}
               max={600}
               value={blockSizeSec}
-              onChange={(e) => setBlockSizeSec(Math.max(30, Math.min(600, Number(e.target.value) || 120)))}
+              onChange={(e) =>
+                setBlockSizeSec(Math.max(30, Math.min(600, Number(e.target.value) || 120)))
+              }
               className="w-16 px-2 py-1 rounded-lg border border-amber-300 dark:border-amber-800 bg-transparent"
             />
-            <span className="text-gray-500 dark:text-gray-400">seg (~{Math.round(blockSizeSec / 60)} min)</span>
+            <span className="text-gray-500 dark:text-gray-400">
+              seg (~{Math.round(blockSizeSec / 60)} min)
+            </span>
             <button
               onClick={fatiarEmBlocos}
               disabled={fatiando}
               className="px-3 py-1 rounded-lg bg-amber-500 text-white font-black uppercase tracking-widest hover:bg-amber-600 disabled:opacity-60"
             >
-              {fatiando ? 'Achando silêncios…' : blockEnds.length > 0 ? 'Refatiar' : 'Fatiar em blocos'}
+              {fatiando
+                ? 'Achando silêncios…'
+                : blockEnds.length > 0
+                  ? 'Refatiar'
+                  : 'Fatiar em blocos'}
             </button>
           </div>
           {blockEnds.length > 0 && (
@@ -3799,7 +4114,11 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
             placeholder="Ex: dry cracked earth, water tap, empty shelves…"
             className="flex-1 px-3 py-2 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm dark:text-gray-100"
           />
-          <button onClick={doPexSearch} disabled={pexSearching} className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-widest disabled:opacity-50">
+          <button
+            onClick={doPexSearch}
+            disabled={pexSearching}
+            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-widest disabled:opacity-50"
+          >
             {pexSearching ? <Loader2 size={14} className="animate-spin" /> : 'Buscar'}
           </button>
         </div>
@@ -3854,30 +4173,79 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
           : isTimeline
             ? 'Subir trechos (ou arraste aqui)'
             : 'Enviar trechos (ou arraste aqui)'}
-        <input type="file" accept="video/*" multiple className="hidden" onChange={(e) => onUpload(e.target.files)} />
+        <input
+          type="file"
+          accept="video/*"
+          multiple
+          className="hidden"
+          onChange={(e) => onUpload(e.target.files)}
+        />
       </label>
 
       {/* Em modo SEQUÊNCIA, a biblioteca É a ordem dos clipes */}
       {!isTimeline && clips.length > 0 && (
         <div className="space-y-3">
           {clips.map((c, i) => (
-            <div key={c.url + i} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-2xl ring-1 ring-gray-200 dark:ring-gray-700 bg-white dark:bg-gray-900/60">
+            <div
+              key={c.url + i}
+              className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-2xl ring-1 ring-gray-200 dark:ring-gray-700 bg-white dark:bg-gray-900/60"
+            >
               <span className="text-xs font-black text-gray-400 w-6 shrink-0">{i + 1}</span>
-              <video src={c.url} controls preload="metadata" className="w-36 h-24 object-cover rounded-lg bg-black shrink-0" />
+              <video
+                src={c.url}
+                controls
+                preload="metadata"
+                className="w-36 h-24 object-cover rounded-lg bg-black shrink-0"
+              />
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-gray-800 dark:text-gray-100 truncate">{c.label}</p>
+                <p className="text-xs font-bold text-gray-800 dark:text-gray-100 truncate">
+                  {c.label}
+                </p>
                 <div className="flex items-center gap-2 mt-1 text-[10px] text-gray-500">
                   usa de
-                  <input type="number" min={0} step={0.5} placeholder="início" value={c.startSec ?? ''} onChange={(e) => setTrim(i, 'startSec', e.target.value)} className="w-16 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100" />
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.5}
+                    placeholder="início"
+                    value={c.startSec ?? ''}
+                    onChange={(e) => setTrim(i, 'startSec', e.target.value)}
+                    className="w-16 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100"
+                  />
                   a
-                  <input type="number" min={0} step={0.5} placeholder="fim" value={c.endSec ?? ''} onChange={(e) => setTrim(i, 'endSec', e.target.value)} className="w-16 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100" />
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.5}
+                    placeholder="fim"
+                    value={c.endSec ?? ''}
+                    onChange={(e) => setTrim(i, 'endSec', e.target.value)}
+                    className="w-16 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100"
+                  />
                   s (vazio = inteiro)
                 </div>
               </div>
               <div className="flex items-center gap-1 shrink-0">
-                <button onClick={() => move(i, -1)} disabled={i === 0} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30"><ArrowUp size={14} /></button>
-                <button onClick={() => move(i, 1)} disabled={i === clips.length - 1} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30"><ArrowDown size={14} /></button>
-                <button onClick={() => removeClip(i)} className="p-1.5 rounded-lg text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
+                <button
+                  onClick={() => move(i, -1)}
+                  disabled={i === 0}
+                  className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30"
+                >
+                  <ArrowUp size={14} />
+                </button>
+                <button
+                  onClick={() => move(i, 1)}
+                  disabled={i === clips.length - 1}
+                  className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30"
+                >
+                  <ArrowDown size={14} />
+                </button>
+                <button
+                  onClick={() => removeClip(i)}
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-red-500"
+                >
+                  <Trash2 size={14} />
+                </button>
               </div>
             </div>
           ))}
@@ -3886,8 +4254,18 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
 
       {!isTimeline && clips.length > 0 && (
         <div className="flex flex-col sm:flex-row gap-2">
-          <button onClick={() => setMuted(false)} className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-widest border-2 transition-all ${!muted ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'}`}>🔊 Manter áudio dos trechos</button>
-          <button onClick={() => setMuted(true)} className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-widest border-2 transition-all ${muted ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'}`}>🔇 Mudo (voz + música depois)</button>
+          <button
+            onClick={() => setMuted(false)}
+            className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-widest border-2 transition-all ${!muted ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'}`}
+          >
+            🔊 Manter áudio dos trechos
+          </button>
+          <button
+            onClick={() => setMuted(true)}
+            className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-widest border-2 transition-all ${muted ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'}`}
+          >
+            🔇 Mudo (voz + música depois)
+          </button>
         </div>
       )}
 
@@ -3895,7 +4273,9 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
       <div className="bg-white dark:bg-gray-900/70 p-3 rounded-2xl border-2 border-gray-200 dark:border-gray-800 flex flex-wrap items-center gap-x-4 gap-y-2">
         {/* Moldes: salva formato+enquadramento+ritmo pra reaplicar num clique */}
         <div className="flex items-center gap-2">
-          <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">Molde</span>
+          <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">
+            Molde
+          </span>
           {templates.length > 0 && (
             <select
               value=""
@@ -3983,13 +4363,22 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
 
       <button
         onClick={compose}
-        disabled={rendering || (isTimeline ? items.length === 0 || !audioDuration : clips.length === 0)}
+        disabled={
+          rendering || (isTimeline ? items.length === 0 || !audioDuration : clips.length === 0)
+        }
         className="w-full py-3.5 bg-blue-700 text-white rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-blue-800 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
       >
         {rendering ? (
-          <><Loader2 size={16} className="animate-spin" /> Montando…</>
+          <>
+            <Loader2 size={16} className="animate-spin" /> Montando…
+          </>
         ) : (
-          <><Check size={16} /> {isTimeline ? `Montar no tempo do áudio (${items.length}) · ~1-2 min` : `Montar sequência (${clips.length})`}</>
+          <>
+            <Check size={16} />{' '}
+            {isTimeline
+              ? `Montar no tempo do áudio (${items.length}) · ~1-2 min`
+              : `Montar sequência (${clips.length})`}
+          </>
         )}
       </button>
 
@@ -4003,9 +4392,13 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
           title="Render rápido em baixa resolução só pra conferir o corte (não vai pra Edição)"
         >
           {previewing ? (
-            <><Loader2 size={14} className="animate-spin" /> Gerando prévia…</>
+            <>
+              <Loader2 size={14} className="animate-spin" /> Gerando prévia…
+            </>
           ) : (
-            <><Play size={14} /> Prévia rápida (rascunho)</>
+            <>
+              <Play size={14} /> Prévia rápida (rascunho)
+            </>
           )}
         </button>
       )}
@@ -4025,8 +4418,8 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
           </div>
           <video src={previewUrl} controls className="w-full max-h-[360px] rounded-xl bg-black" />
           <p className="text-[10px] text-gray-500">
-            É só rascunho pra conferir o corte. Quando estiver bom, clique em{' '}
-            <b>Montar</b> pra gerar o vídeo final em alta resolução.
+            É só rascunho pra conferir o corte. Quando estiver bom, clique em <b>Montar</b> pra
+            gerar o vídeo final em alta resolução.
           </p>
         </div>
       )}
@@ -4081,20 +4474,50 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
             className="w-full py-3 bg-purple-600 text-white rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-purple-700 disabled:opacity-60 flex items-center justify-center gap-2"
           >
             {musicGen ? (
-              <><Loader2 size={16} className="animate-spin" /> Gerando música…</>
+              <>
+                <Loader2 size={16} className="animate-spin" /> Gerando música…
+              </>
             ) : (
-              <><Music size={16} /> Gerar música (arco emocional) e colar</>
+              <>
+                <Music size={16} /> Gerar música (arco emocional) e colar
+              </>
             )}
           </button>
+          <div className="space-y-1.5">
+            <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">
+              Texto da capa (opcional — deixe vazio pra capa sem texto)
+            </span>
+            <input
+              type="text"
+              value={coverText}
+              onChange={(e) => setCoverText(e.target.value)}
+              placeholder="Ex.: ELE SUMIU EM 7 DIAS"
+              maxLength={60}
+              className="w-full px-3 py-2 rounded-xl ring-1 ring-gray-200 dark:ring-gray-800 bg-white dark:bg-gray-900 text-sm font-bold text-gray-800 dark:text-gray-100"
+            />
+            <label className="flex items-center gap-2 text-[11px] font-bold text-gray-500 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={coverUseAtPlayhead}
+                onChange={(e) => setCoverUseAtPlayhead(e.target.checked)}
+                className="rounded"
+              />
+              Usar o instante atual do vídeo em vez de escolher automaticamente
+            </label>
+          </div>
           <button
             onClick={gerarCapa}
             disabled={coverGen}
             className="w-full py-3 bg-pink-600 text-white rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-pink-700 disabled:opacity-60 flex items-center justify-center gap-2"
           >
             {coverGen ? (
-              <><Loader2 size={16} className="animate-spin" /> Gerando 3 capas…</>
+              <>
+                <Loader2 size={16} className="animate-spin" /> Gerando 3 capas…
+              </>
             ) : (
-              <><ImageIcon size={16} /> Gerar 3 capas/thumbnails · ≈ $0.12 · ~30s</>
+              <>
+                <ImageIcon size={16} /> Gerar 3 capas/thumbnails · ≈ $0.12 · ~30s
+              </>
             )}
           </button>
           {coverOptions.length > 0 && (
@@ -4102,7 +4525,9 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
               <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">
                 Escolha a capa (clique na que para o scroll)
               </span>
-              <div className={`grid gap-2 ${coverOptions.length > 1 ? 'grid-cols-3' : 'grid-cols-1'}`}>
+              <div
+                className={`grid gap-2 ${coverOptions.length > 1 ? 'grid-cols-3' : 'grid-cols-1'}`}
+              >
                 {coverOptions.map((u, i) => {
                   const chosen = u === coverUrl;
                   return (
@@ -4114,7 +4539,11 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
                         }`}
                         title={chosen ? 'Capa escolhida' : 'Usar esta capa'}
                       >
-                        <img src={u} alt={`capa ${i + 1}`} className="w-full object-contain bg-black max-h-[280px]" />
+                        <img
+                          src={u}
+                          alt={`capa ${i + 1}`}
+                          className="w-full object-contain bg-black max-h-[280px]"
+                        />
                         {chosen && (
                           <span className="absolute top-1 right-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-pink-600 text-white text-[9px] font-black uppercase">
                             <Check size={10} /> escolhida
@@ -4159,7 +4588,10 @@ export function MontagemTab({ config, setConfig, user, onAddUploadedVideo, onGoT
             </button>
           )}
           {onGoToEdit && (
-            <button onClick={onGoToEdit} className="w-full py-3 bg-gray-900 dark:bg-gray-50 text-white dark:text-gray-900 rounded-2xl font-black uppercase tracking-widest text-sm hover:opacity-90">
+            <button
+              onClick={onGoToEdit}
+              className="w-full py-3 bg-gray-900 dark:bg-gray-50 text-white dark:text-gray-900 rounded-2xl font-black uppercase tracking-widest text-sm hover:opacity-90"
+            >
               Ir pra Edição →
             </button>
           )}

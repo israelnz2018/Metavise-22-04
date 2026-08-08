@@ -61,7 +61,7 @@ interface Props {
     audioUrl: string,
     voiceId?: string,
     storagePath?: string | null,
-    voiceName?: string,
+    voiceName?: string
   ) => void;
   onDeleteAudioFromHistory?: (url: string, storagePath: string | null) => void;
   onGoToVideo?: () => void;
@@ -455,7 +455,10 @@ const VozPremium: React.FC<Props> = ({
     }
     setBlockAudios((prev) => prev.map((b, idx) => (idx === i ? { ...b, status: 'gen' } : b)));
     try {
-      const result = await generateAudio({ voiceId: selectedVoice.voice_id, script: scriptBlocks[i]! });
+      const result = await generateAudio({
+        voiceId: selectedVoice.voice_id,
+        script: scriptBlocks[i]!,
+      });
       const blob = await (await fetch(result.audioUrl)).blob();
       const { url, storagePath } = await uploadToFirebase(blob);
       const finalUrl = url || result.audioUrl;
@@ -511,7 +514,8 @@ const VozPremium: React.FC<Props> = ({
   };
 
   const allBlocksDone =
-    scriptBlocks.length > 0 && blockAudios.filter((b) => b.status === 'done').length === scriptBlocks.length;
+    scriptBlocks.length > 0 &&
+    blockAudios.filter((b) => b.status === 'done').length === scriptBlocks.length;
 
   const renderBlockPanel = () => (
     <div className="space-y-3 bg-white dark:bg-gray-900/80 rounded-2xl border-2 border-purple-200/60 dark:border-purple-800/50 p-5">
@@ -713,7 +717,7 @@ const VozPremium: React.FC<Props> = ({
           (v) =>
             v.category === 'cloned' ||
             v.category === 'generated' ||
-            (v.category === 'professional' && !v.sharing),
+            (v.category === 'professional' && !v.sharing)
         );
         setLibraryVoices(mine);
       })
@@ -882,6 +886,14 @@ const VozPremium: React.FC<Props> = ({
       : cloneFile;
     if (!audioSource) {
       toast.error('Grave ou envie um áudio.');
+      return;
+    }
+    // Mesma trava mínima do upload (30s) — sem isso dava pra clonar com 3s de
+    // gravação e sair um clone instável, sem nenhum aviso no momento de enviar.
+    if (recordedBlob && recordingSeconds < 30) {
+      toast.error(
+        'Gravação muito curta. Grave pelo menos 30s (ideal: 1 minuto) pra um clone estável.'
+      );
       return;
     }
     const finalName = cloneName || `Minha voz — ${new Date().toLocaleDateString('pt-BR')}`;
@@ -1521,7 +1533,7 @@ const VozPremium: React.FC<Props> = ({
                                       labels: v.labels,
                                     });
                                     toast.success(
-                                      wasFav ? 'Removida dos favoritos' : 'Voz favoritada',
+                                      wasFav ? 'Removida dos favoritos' : 'Voz favoritada'
                                     );
                                   }}
                                   className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"

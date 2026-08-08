@@ -892,8 +892,7 @@ export default function App() {
     // The trash button doesn't know which bucket it's in, so locate the
     // video by URL and route the removal accordingly.
     const hookVideos = ((config.copy as any)?.hookVideos as typeof videos | undefined) || [];
-    const vslVideos =
-      (((config as any)?.copyVsl?.avatarVideos as typeof videos | undefined) || []);
+    const vslVideos = ((config as any)?.copyVsl?.avatarVideos as typeof videos | undefined) || [];
     const isHookVideo =
       hookVideos.some((v) => v.url === video.url) && !videos.some((v) => v.url === video.url);
     const isVslVideo =
@@ -2740,7 +2739,9 @@ export default function App() {
       toast.success(`Subprojeto "${newVariant.name}" criado. Agora gere a copy.`);
     } catch (err) {
       console.error('Error executing brief:', err);
-      toast.error('Falha ao criar subprojeto: ' + String((err as any)?.message || err).slice(0, 220));
+      toast.error(
+        'Falha ao criar subprojeto: ' + String((err as any)?.message || err).slice(0, 220)
+      );
     }
   };
 
@@ -2872,7 +2873,9 @@ export default function App() {
       toast.success(`Subprojeto criado a partir da persona "${persona.name}".`);
     } catch (err) {
       console.error('Error creating persona-based variant:', err);
-      toast.error('Falha ao criar subprojeto: ' + String((err as any)?.message || err).slice(0, 220));
+      toast.error(
+        'Falha ao criar subprojeto: ' + String((err as any)?.message || err).slice(0, 220)
+      );
     }
   };
 
@@ -3314,7 +3317,11 @@ export default function App() {
       const detail = ((e as CustomEvent).detail || {}) as any;
       const amount = Number(detail.amount) || 0;
       if (!amount) return;
-      const entry = { label: String(detail.label || 'Geração'), amount, at: Number(detail.at) || Date.now() };
+      const entry = {
+        label: String(detail.label || 'Geração'),
+        amount,
+        at: Number(detail.at) || Date.now(),
+      };
       setConfig((prev: any) => ({
         ...prev,
         costs: [...(Array.isArray(prev.costs) ? prev.costs : []), entry].slice(-100),
@@ -3335,7 +3342,7 @@ export default function App() {
     let total = 0;
     const byLabel = new Map<string, number>();
     for (const p of projects) {
-      for (const v of ((p.variants as any[]) || [])) {
+      for (const v of (p.variants as any[]) || []) {
         const live = p.id === currentProjectId && v.id === currentVariantId;
         const costs = (live ? (config as any).costs : v.config?.costs) as any[] | undefined;
         for (const c of costs || []) {
@@ -3370,16 +3377,46 @@ export default function App() {
     for (const s of STEPS) {
       if (!navOK(s.id)) continue;
       if (!useHookFlow && s.id === 'hook-visual') continue;
-      cmds.push({ id: `step-${s.id}`, label: `Ir para ${s.label}`, sub: 'Aba', run: () => requestStepChange(s.id) });
+      cmds.push({
+        id: `step-${s.id}`,
+        label: `Ir para ${s.label}`,
+        sub: 'Aba',
+        run: () => requestStepChange(s.id),
+      });
     }
     if (currentProjectId) {
-      cmds.push({ id: 'go-hub', label: 'Ir para Resumo do subprojeto', sub: 'Aba', run: () => setCurrentStep('hub') });
-      cmds.push({ id: 'go-criativos', label: 'Ir para Criativos', sub: 'Aba', run: () => setCurrentStep('criativos') });
-      cmds.push({ id: 'go-performance', label: 'Ir para Performance', sub: 'Aba', run: () => setCurrentStep('performance') });
+      cmds.push({
+        id: 'go-hub',
+        label: 'Ir para Resumo do subprojeto',
+        sub: 'Aba',
+        run: () => setCurrentStep('hub'),
+      });
+      cmds.push({
+        id: 'go-criativos',
+        label: 'Ir para Criativos',
+        sub: 'Aba',
+        run: () => setCurrentStep('criativos'),
+      });
+      cmds.push({
+        id: 'go-performance',
+        label: 'Ir para Performance',
+        sub: 'Aba',
+        run: () => setCurrentStep('performance'),
+      });
     }
-    cmds.push({ id: 'new-project', label: 'Novo projeto', sub: 'Ação', run: () => setShowNewProjectModal(true) });
+    cmds.push({
+      id: 'new-project',
+      label: 'Novo projeto',
+      sub: 'Ação',
+      run: () => setShowNewProjectModal(true),
+    });
     for (const p of projects.slice(0, 20)) {
-      cmds.push({ id: `proj-${p.id}`, label: `Abrir ${p.name}`, sub: 'Projeto', run: () => void handleLoadProject(p) });
+      cmds.push({
+        id: `proj-${p.id}`,
+        label: `Abrir ${p.name}`,
+        sub: 'Projeto',
+        run: () => void handleLoadProject(p),
+      });
     }
     return cmds;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3393,8 +3430,7 @@ export default function App() {
     const hasZap = Array.isArray(edit.zapVersions) && edit.zapVersions.length > 0;
     const hasVideo = !!cfg?.videoUrl || (Array.isArray(cfg?.videos) && cfg.videos.length > 0);
     const hasAudio = !!cfg?.audioUrl || (Array.isArray(cfg?.audios) && cfg.audios.length > 0);
-    const hasHooks =
-      Array.isArray(cfg?.copy?.generatedHooks) && cfg.copy.generatedHooks.length > 0;
+    const hasHooks = Array.isArray(cfg?.copy?.generatedHooks) && cfg.copy.generatedHooks.length > 0;
     const hasScript = !!cfg?.copy?.generatedScript;
 
     if (hasZap) return 'edit-zap';
@@ -3528,7 +3564,7 @@ export default function App() {
     }
     try {
       const existingVariants =
-        ((projects.find((p) => p.id === currentProjectId)?.variants as any[]) || []);
+        (projects.find((p) => p.id === currentProjectId)?.variants as any[]) || [];
       const variantNumber = existingVariants.length + 1;
 
       // Strip generated outputs — the whole point is to re-render
@@ -3697,7 +3733,10 @@ export default function App() {
       setProjects((prev) =>
         prev.map((p) =>
           p.id === projectId
-            ? ({ ...p, variants: ((p.variants as any[]) || []).filter((v) => v.id !== variantId) } as any)
+            ? ({
+                ...p,
+                variants: ((p.variants as any[]) || []).filter((v) => v.id !== variantId),
+              } as any)
             : p
         )
       );
@@ -3817,10 +3856,7 @@ export default function App() {
       // REALMENTE existe no Firestore (não some ao recarregar).
       const newId = doc(collection(db, 'projects')).id;
       await setDoc(doc(db, 'projects', newId), dup);
-      setProjects((prev) => [
-        { id: newId, ...dup, createdAt: new Date() } as any,
-        ...prev,
-      ]);
+      setProjects((prev) => [{ id: newId, ...dup, createdAt: new Date() } as any, ...prev]);
       setCurrentProjectId(newId);
       setConfig(dup.config);
       setCurrentStep('copy');
@@ -4378,10 +4414,7 @@ export default function App() {
           const errorMsg = extractHeyGenErrorMessage(
             statusData.error || statusData.error_message || statusData.data?.error
           );
-          console.error(
-            `[HeyGen Polling] Job failed for ${videoId}:`,
-            errorMsg
-          );
+          console.error(`[HeyGen Polling] Job failed for ${videoId}:`, errorMsg);
           setVideoOp((prev: any) => ({
             ...prev,
             status: 'failed',
@@ -4441,8 +4474,7 @@ export default function App() {
             // mudar de status — e vídeos longos (3-4 min de fala) levam ~20 min.
             // Por isso o threshold antigo de 6 min dava falso alarme em todo
             // vídeo longo. Render ativo ganha 25 min; outros estados, 6 min.
-            const isActiveRender =
-              currentStatus === 'processing' || currentStatus === 'rendering';
+            const isActiveRender = currentStatus === 'processing' || currentStatus === 'rendering';
             const stuckThreshold = isActiveRender ? 1500 : 360;
             if (timeInStatus > stuckThreshold) {
               isStuck = true;
@@ -4619,7 +4651,8 @@ export default function App() {
                 if (avatarModeRef.current === 'vsl') {
                   setConfig((prev) => {
                     const prevVslVideos =
-                      ((prev as any)?.copyVsl?.avatarVideos as (typeof newVideo)[] | undefined) || [];
+                      ((prev as any)?.copyVsl?.avatarVideos as (typeof newVideo)[] | undefined) ||
+                      [];
                     return {
                       ...prev,
                       copyVsl: {
@@ -5109,9 +5142,7 @@ export default function App() {
   useEffect(() => {
     if (currentStep === 'copy-vsl' && !(config as any).copyVsl) {
       setConfig((prev) =>
-        (prev as any).copyVsl
-          ? prev
-          : ({ ...prev, copyVsl: seedVslCopy(prev.copy) } as AdConfig)
+        (prev as any).copyVsl ? prev : ({ ...prev, copyVsl: seedVslCopy(prev.copy) } as AdConfig)
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -5591,7 +5622,10 @@ export default function App() {
         ? err
         : err.message && err.message !== '[object Object]'
           ? err.message
-          : err.error || err.code || err.status || JSON.stringify(err, Object.getOwnPropertyNames(err));
+          : err.error ||
+            err.code ||
+            err.status ||
+            JSON.stringify(err, Object.getOwnPropertyNames(err));
     if (typeof msg === 'string' && msg.trim().startsWith('{')) {
       try {
         const parsed = JSON.parse(msg);
@@ -5662,9 +5696,7 @@ export default function App() {
       await new Promise((r) => setTimeout(r, 4000));
       let s: Response;
       try {
-        s = await fetch(
-          `/api/zapcap/status/${videoId}/${taskId}${uid ? `?userId=${uid}` : ''}`
-        );
+        s = await fetch(`/api/zapcap/status/${videoId}/${taskId}${uid ? `?userId=${uid}` : ''}`);
       } catch {
         continue;
       }
@@ -5711,7 +5743,11 @@ export default function App() {
       if (!splitRes.ok) throw new Error(splitData.error || 'Falha ao cortar o vídeo.');
       const { part1Url, part2Url } = splitData;
 
-      setZapState((prev) => ({ ...prev, step: 'Legendando a intro (sem b-roll)...', progress: 25 }));
+      setZapState((prev) => ({
+        ...prev,
+        step: 'Legendando a intro (sem b-roll)...',
+        progress: 25,
+      }));
       toast.loading('Legendando a intro (sem b-roll)...', { id: tid });
       const p1 = await renderZapAndWait(buildZapEditPayload(part1Url, 0));
 
@@ -6027,7 +6063,11 @@ export default function App() {
           // Mirror to config under the slot matching the mode that started
           // this render. Auto-save persists it across reloads.
           setConfig((prev) => {
-            const key = wasVslEdit ? 'zapVslVersions' : wasHookEdit ? 'zapHookVersions' : 'zapVersions';
+            const key = wasVslEdit
+              ? 'zapVslVersions'
+              : wasHookEdit
+                ? 'zapHookVersions'
+                : 'zapVersions';
             const current = ((prev.edit as any)[key] as string[] | undefined) || [];
             return {
               ...prev,
@@ -6813,7 +6853,11 @@ export default function App() {
   return (
     <div className="min-h-screen app-shell text-gray-900 dark:text-gray-100 font-sans selection:bg-blue-100 dark:selection:bg-blue-900 overflow-x-hidden">
       <JobsPanel />
-      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} commands={paletteCommands} />
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        commands={paletteCommands}
+      />
       {/* Header. Frosted-glass: semi-transparent + backdrop blur so
           the app-shell gradient bleeds through subtly. Industry-standard
           modern SaaS pattern (Stripe, Linear, Vercel, Raycast). */}
@@ -6963,7 +7007,7 @@ export default function App() {
               onAddCredits={handleAddCredits}
               apiSpend={apiSpend}
               onSetApiBalance={promptSetApiBalance}
-              creativeCosts={currentProjectId ? ((config as any).costs || []) : []}
+              creativeCosts={currentProjectId ? (config as any).costs || [] : []}
               monthlyTotal={monthlyCost.total}
               monthlyBreakdown={monthlyCost.breakdown}
             />
@@ -7045,1246 +7089,1261 @@ export default function App() {
           useHookFlow={useHookFlow}
         />
         <main className="flex-1 min-w-0 py-12 md:pl-4">
-        {!isOnline && (
-          <div className="mb-6 p-4 bg-red-50/80 dark:bg-red-950/30 ring-1 ring-red-200/60 dark:ring-red-900/40 rounded-2xl flex items-center gap-3 text-red-700 dark:text-red-300 font-bold text-sm">
-            <div className="w-2 h-2 bg-red-500 dark:bg-red-400 rounded-full animate-pulse shadow shadow-red-500/50" />
-            Você está offline. Verifique sua conexão.
-          </div>
-        )}
-
-        {error && (
-          <div className="mb-6 p-4 bg-red-50/80 dark:bg-red-950/30 ring-1 ring-red-200/60 dark:ring-red-900/40 rounded-2xl flex items-center justify-between gap-3 text-red-700 dark:text-red-300 text-sm">
-            <span className="font-medium">{error}</span>
-            <button
-              onClick={() => setError(null)}
-              className="text-red-400 dark:text-red-500 hover:text-red-600 dark:hover:text-red-300 transition-colors"
-              aria-label="Fechar"
-            >
-              ✕
-            </button>
-          </div>
-        )}
-
-        {providerError && (
-          <div className="mb-6 p-4 bg-amber-50/80 dark:bg-amber-950/30 ring-1 ring-amber-200/60 dark:ring-amber-900/40 rounded-2xl flex items-center justify-between gap-3 text-amber-800 dark:text-amber-300 text-sm shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="px-2 py-0.5 bg-amber-200 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 rounded-md text-[10px] font-black uppercase tracking-widest">
-                {providerError.provider} Error
-              </div>
-              <span className="font-medium">{providerError.message}</span>
+          {!isOnline && (
+            <div className="mb-6 p-4 bg-red-50/80 dark:bg-red-950/30 ring-1 ring-red-200/60 dark:ring-red-900/40 rounded-2xl flex items-center gap-3 text-red-700 dark:text-red-300 font-bold text-sm">
+              <div className="w-2 h-2 bg-red-500 dark:bg-red-400 rounded-full animate-pulse shadow shadow-red-500/50" />
+              Você está offline. Verifique sua conexão.
             </div>
-            <button
-              onClick={() => setProviderError(null)}
-              className="text-amber-500 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-200 transition-colors"
-              aria-label="Fechar"
-            >
-              ✕
-            </button>
-          </div>
-        )}
+          )}
 
-        {/* Step header: title + slim progress bar. Replaces the
+          {error && (
+            <div className="mb-6 p-4 bg-red-50/80 dark:bg-red-950/30 ring-1 ring-red-200/60 dark:ring-red-900/40 rounded-2xl flex items-center justify-between gap-3 text-red-700 dark:text-red-300 text-sm">
+              <span className="font-medium">{error}</span>
+              <button
+                onClick={() => setError(null)}
+                className="text-red-400 dark:text-red-500 hover:text-red-600 dark:hover:text-red-300 transition-colors"
+                aria-label="Fechar"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {providerError && (
+            <div className="mb-6 p-4 bg-amber-50/80 dark:bg-amber-950/30 ring-1 ring-amber-200/60 dark:ring-amber-900/40 rounded-2xl flex items-center justify-between gap-3 text-amber-800 dark:text-amber-300 text-sm shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="px-2 py-0.5 bg-amber-200 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 rounded-md text-[10px] font-black uppercase tracking-widest">
+                  {providerError.provider} Error
+                </div>
+                <span className="font-medium">{providerError.message}</span>
+              </div>
+              <button
+                onClick={() => setProviderError(null)}
+                className="text-amber-500 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-200 transition-colors"
+                aria-label="Fechar"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {/* Step header: title + slim progress bar. Replaces the
             previous "Passo X de Y" plain text — same info, more
             visual hierarchy. Counter sits to the right of the bar. */}
-        <div className="mb-12 max-w-2xl mx-auto">
-          <h2 className="text-3xl font-black text-gray-900 dark:text-gray-50 tracking-tight text-center mb-5">
-            {STEPS.find((s) => s.id === currentStep)?.label}
-          </h2>
-          <div className="flex items-center gap-3">
-            <div className="flex-1 h-1.5 bg-gray-200/70 dark:bg-gray-800/80 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-[width] duration-500 ease-out"
-                style={{
-                  width: `${
-                    ((STEPS.findIndex((s) => s.id === currentStep) + 1) / STEPS.length) * 100
-                  }%`,
-                }}
-              />
+          <div className="mb-12 max-w-2xl mx-auto">
+            <h2 className="text-3xl font-black text-gray-900 dark:text-gray-50 tracking-tight text-center mb-5">
+              {STEPS.find((s) => s.id === currentStep)?.label}
+            </h2>
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-1.5 bg-gray-200/70 dark:bg-gray-800/80 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-[width] duration-500 ease-out"
+                  style={{
+                    width: `${
+                      ((STEPS.findIndex((s) => s.id === currentStep) + 1) / STEPS.length) * 100
+                    }%`,
+                  }}
+                />
+              </div>
+              <span className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest tabular-nums shrink-0">
+                {STEPS.findIndex((s) => s.id === currentStep) + 1} / {STEPS.length}
+              </span>
             </div>
-            <span className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest tabular-nums shrink-0">
-              {STEPS.findIndex((s) => s.id === currentStep) + 1} / {STEPS.length}
-            </span>
           </div>
-        </div>
 
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentStep}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2 }}
-          >
-            {/* Per-step error boundary — a crash inside one tab shows a
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentStep}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+            >
+              {/* Per-step error boundary — a crash inside one tab shows a
                 friendly recovery screen instead of taking down the app.
                 Keyed by step so navigating away resets the error state. */}
-            <ErrorBoundary key={`eb-${currentStep}`} scope={currentStep}>
-              {currentStep === 'integrations' && (
-                <IntegrationsTab
-                  userRole={userRole}
-                  credits={credits}
-                  loading={loading}
-                  elevenlabs={{
-                    apiKey: elevenLabsKey,
-                    onApiKeyChange: setElevenLabsKey,
-                    showKey,
-                    onToggleShowKey: () => setShowKey(!showKey),
-                    testStatus,
-                    onSave: handleSaveElevenLabsKey,
-                    onTest: handleTestElevenLabsConnection,
-                  }}
-                  heygen={{
-                    apiKey: heygenKey,
-                    onApiKeyChange: setHeygenKey,
-                    showKey: heygenShowKey,
-                    onToggleShowKey: () => setHeygenShowKey(!heygenShowKey),
-                    testStatus: heygenTestStatus,
-                    onSave: handleSaveHeyGenKey,
-                    onTest: handleTestHeyGenConnection,
-                  }}
-                  runway={{
-                    apiKey: runwayKey,
-                    onApiKeyChange: setRunwayKey,
-                    showKey: runwayShowKey,
-                    onToggleShowKey: () => setRunwayShowKey(!runwayShowKey),
-                    testStatus: runwayTestStatus,
-                    onSave: handleSaveRunwayKey,
-                    onTest: handleTestRunwayConnection,
-                  }}
-                  gemini={{
-                    apiKey: geminiKey,
-                    onApiKeyChange: setGeminiKey,
-                    showKey: geminiShowKey,
-                    onToggleShowKey: () => setGeminiShowKey(!geminiShowKey),
-                    testStatus: geminiTestStatus,
-                    onSave: handleSaveGeminiKey,
-                    onTest: handleTestGeminiConnection,
-                  }}
-                  claude={{
-                    apiKey: claudeKey,
-                    onApiKeyChange: setClaudeKey,
-                    showKey: claudeShowKey,
-                    onToggleShowKey: () => setClaudeShowKey(!claudeShowKey),
-                    testStatus: claudeTestStatus,
-                    onSave: handleSaveClaudeKey,
-                    onTest: handleTestClaudeConnection,
-                  }}
-                  assemblyai={{
-                    apiKey: assemblyKey,
-                    onApiKeyChange: setAssemblyKey,
-                    showKey: assemblyShowKey,
-                    onToggleShowKey: () => setAssemblyShowKey(!assemblyShowKey),
-                    testStatus: assemblyTestStatus,
-                    onSave: handleSaveAssemblyAIKey,
-                    onTest: handleTestAssemblyAIConnection,
-                  }}
-                  zapcap={{
-                    apiKey: zapcapKey,
-                    onApiKeyChange: setZapcapKey,
-                    showKey: zapcapShowKey,
-                    onToggleShowKey: () => setZapcapShowKey(!zapcapShowKey),
-                    testStatus: zapcapTestStatus,
-                    onSave: handleSaveZapCapKey,
-                    onTest: handleTestZapCapConnection,
-                  }}
-                />
-              )}
-              {currentStep === 'recortar' && <RecortarTab user={user} />}
-              {currentStep === 'hub' && (
-                <HubTab
-                  config={config}
-                  projectName={
-                    ((projects.find((p) => p.id === currentProjectId)?.variants as any[]) || []).find(
-                      (v) => v.id === currentVariantId
-                    )?.name || projects.find((p) => p.id === currentProjectId)?.name
-                  }
-                  onGo={requestStepChange}
-                />
-              )}
-              {currentStep === 'criativos' && (
-                <CriativosTab
-                  projectId={currentProjectId}
-                  projectName={projects.find((p) => p.id === currentProjectId)?.name}
-                />
-              )}
-              {currentStep === 'performance' && (
-                <PerformanceTab
-                  projectId={currentProjectId}
-                  projectName={projects.find((p) => p.id === currentProjectId)?.name}
-                  plan={(config as any).monthlyPlan || null}
-                />
-              )}
-              {currentStep === 'projects' && (
-                <ProjectsTab
-                  projects={projects}
-                  currentProjectId={currentProjectId}
-                  viewingProjectId={viewingProjectId}
-                  setViewingProjectId={setViewingProjectId}
-                  viewingVariant={viewingVariant}
-                  setViewingVariant={setViewingVariant}
-                  platformApiKey={platformApiKey}
-                  setShowNewProjectModal={setShowNewProjectModal}
-                  onDeleteProject={handleDeleteProject}
-                  onLoadProject={handleLoadProject}
-                  onNewSubproject={handleNewSubproject}
-                  onLoadVariant={handleLoadVariant}
-                  onDeleteVariant={handleDeleteVariant}
-                  onRenameVariant={handleRenameVariant}
-                  onRenameProject={handleRenameProject}
-                  onDeleteAudio={(audio) => {
-                    setAudioToDelete(audio);
-                    setShowDeleteModal(true);
-                  }}
-                  onDeleteVideoFromArray={handleDeleteVideoFromArray}
-                  onDuplicateProject={handleDuplicateProject}
-                  onSelectBriefFromProject={handleSelectBriefFromProject}
-                  onSelectPersonaFromProject={handleSelectPersonaFromProject}
-                  heygenAvatars={heygenAvatars}
-                />
-              )}
-              {currentStep === 'source' && (
-                <LazyTab>
-                  <SourceTab
-                    // Blueprint Fase 4 — afiliado (sourceMode='vsl') já decidiu
-                    // que tem material no NewProjectModal. Pula a tela de
-                    // escolha "Manual vs Auto" e abre direto no modo auto.
-                    // Projetos legacy (sem sourceMode) caem no default 'choose'.
-                    initialMode={(config.copy as any)?.sourceMode === 'vsl' ? 'auto' : 'choose'}
-                    existingInfo={((config.copy as any)?.productInfo as ProductInfo | null) || null}
-                    onExtracted={(info, rawText) => {
-                      // Persist extracted info AND seed the persona/copy answers
-                      // so the user lands in the next tab pre-filled. Manual
-                      // edits in those tabs override these seeds.
+              <ErrorBoundary key={`eb-${currentStep}`} scope={currentStep}>
+                {currentStep === 'integrations' && (
+                  <IntegrationsTab
+                    userRole={userRole}
+                    credits={credits}
+                    loading={loading}
+                    elevenlabs={{
+                      apiKey: elevenLabsKey,
+                      onApiKeyChange: setElevenLabsKey,
+                      showKey,
+                      onToggleShowKey: () => setShowKey(!showKey),
+                      testStatus,
+                      onSave: handleSaveElevenLabsKey,
+                      onTest: handleTestElevenLabsConnection,
+                    }}
+                    heygen={{
+                      apiKey: heygenKey,
+                      onApiKeyChange: setHeygenKey,
+                      showKey: heygenShowKey,
+                      onToggleShowKey: () => setHeygenShowKey(!heygenShowKey),
+                      testStatus: heygenTestStatus,
+                      onSave: handleSaveHeyGenKey,
+                      onTest: handleTestHeyGenConnection,
+                    }}
+                    runway={{
+                      apiKey: runwayKey,
+                      onApiKeyChange: setRunwayKey,
+                      showKey: runwayShowKey,
+                      onToggleShowKey: () => setRunwayShowKey(!runwayShowKey),
+                      testStatus: runwayTestStatus,
+                      onSave: handleSaveRunwayKey,
+                      onTest: handleTestRunwayConnection,
+                    }}
+                    gemini={{
+                      apiKey: geminiKey,
+                      onApiKeyChange: setGeminiKey,
+                      showKey: geminiShowKey,
+                      onToggleShowKey: () => setGeminiShowKey(!geminiShowKey),
+                      testStatus: geminiTestStatus,
+                      onSave: handleSaveGeminiKey,
+                      onTest: handleTestGeminiConnection,
+                    }}
+                    claude={{
+                      apiKey: claudeKey,
+                      onApiKeyChange: setClaudeKey,
+                      showKey: claudeShowKey,
+                      onToggleShowKey: () => setClaudeShowKey(!claudeShowKey),
+                      testStatus: claudeTestStatus,
+                      onSave: handleSaveClaudeKey,
+                      onTest: handleTestClaudeConnection,
+                    }}
+                    assemblyai={{
+                      apiKey: assemblyKey,
+                      onApiKeyChange: setAssemblyKey,
+                      showKey: assemblyShowKey,
+                      onToggleShowKey: () => setAssemblyShowKey(!assemblyShowKey),
+                      testStatus: assemblyTestStatus,
+                      onSave: handleSaveAssemblyAIKey,
+                      onTest: handleTestAssemblyAIConnection,
+                    }}
+                    zapcap={{
+                      apiKey: zapcapKey,
+                      onApiKeyChange: setZapcapKey,
+                      showKey: zapcapShowKey,
+                      onToggleShowKey: () => setZapcapShowKey(!zapcapShowKey),
+                      testStatus: zapcapTestStatus,
+                      onSave: handleSaveZapCapKey,
+                      onTest: handleTestZapCapConnection,
+                    }}
+                  />
+                )}
+                {currentStep === 'recortar' && <RecortarTab user={user} />}
+                {currentStep === 'hub' && (
+                  <HubTab
+                    config={config}
+                    projectName={
+                      (
+                        (projects.find((p) => p.id === currentProjectId)?.variants as any[]) || []
+                      ).find((v) => v.id === currentVariantId)?.name ||
+                      projects.find((p) => p.id === currentProjectId)?.name
+                    }
+                    onGo={requestStepChange}
+                  />
+                )}
+                {currentStep === 'criativos' && (
+                  <CriativosTab
+                    projectId={currentProjectId}
+                    projectName={projects.find((p) => p.id === currentProjectId)?.name}
+                    uid={user?.uid}
+                  />
+                )}
+                {currentStep === 'performance' && (
+                  <PerformanceTab
+                    projectId={currentProjectId}
+                    projectName={projects.find((p) => p.id === currentProjectId)?.name}
+                    plan={(config as any).monthlyPlan || null}
+                    uid={user?.uid}
+                  />
+                )}
+                {currentStep === 'projects' && (
+                  <ProjectsTab
+                    projects={projects}
+                    currentProjectId={currentProjectId}
+                    viewingProjectId={viewingProjectId}
+                    setViewingProjectId={setViewingProjectId}
+                    viewingVariant={viewingVariant}
+                    setViewingVariant={setViewingVariant}
+                    platformApiKey={platformApiKey}
+                    setShowNewProjectModal={setShowNewProjectModal}
+                    onDeleteProject={handleDeleteProject}
+                    onLoadProject={handleLoadProject}
+                    onNewSubproject={handleNewSubproject}
+                    onLoadVariant={handleLoadVariant}
+                    onDeleteVariant={handleDeleteVariant}
+                    onRenameVariant={handleRenameVariant}
+                    onRenameProject={handleRenameProject}
+                    onDeleteAudio={(audio) => {
+                      setAudioToDelete(audio);
+                      setShowDeleteModal(true);
+                    }}
+                    onDeleteVideoFromArray={handleDeleteVideoFromArray}
+                    onDuplicateProject={handleDuplicateProject}
+                    onSelectBriefFromProject={handleSelectBriefFromProject}
+                    onSelectPersonaFromProject={handleSelectPersonaFromProject}
+                    heygenAvatars={heygenAvatars}
+                  />
+                )}
+                {currentStep === 'source' && (
+                  <LazyTab>
+                    <SourceTab
+                      // Blueprint Fase 4 — afiliado (sourceMode='vsl') já decidiu
+                      // que tem material no NewProjectModal. Pula a tela de
+                      // escolha "Manual vs Auto" e abre direto no modo auto.
+                      // Projetos legacy (sem sourceMode) caem no default 'choose'.
+                      initialMode={(config.copy as any)?.sourceMode === 'vsl' ? 'auto' : 'choose'}
+                      existingInfo={
+                        ((config.copy as any)?.productInfo as ProductInfo | null) || null
+                      }
+                      onExtracted={(info, rawText) => {
+                        // Persist extracted info AND seed the persona/copy answers
+                        // so the user lands in the next tab pre-filled. Manual
+                        // edits in those tabs override these seeds.
+                        setConfig((prev) => ({
+                          ...prev,
+                          copy: {
+                            ...prev.copy,
+                            productInfo: info,
+                            sourceText: rawText,
+                            answers: {
+                              ...prev.copy.answers,
+                              audience: prev.copy.answers?.audience || info.audience,
+                              situation: prev.copy.answers?.situation || info.mainPain,
+                              painPoints:
+                                prev.copy.answers?.painPoints ||
+                                [info.mainPain, ...(info.secondaryPains || [])]
+                                  .filter(Boolean)
+                                  .join('. '),
+                              awarenessLevel:
+                                prev.copy.answers?.awarenessLevel || info.awarenessLevel,
+                              productName: info.productName,
+                              offer: info.offer,
+                              promise: info.promise,
+                              differentiator: info.differentiator,
+                              tone: info.tone,
+                              guarantee: info.guarantee || '',
+                            },
+                          } as any,
+                        }));
+                        // (auto-save removido — salvar manualmente)
+                      }}
+                      onContinueManual={() => setCurrentStep('persona')}
+                      onContinueAuto={() => setCurrentStep('persona')}
+                    />
+                  </LazyTab>
+                )}
+                {currentStep === 'persona' && (
+                  <LazyTab>
+                    <PersonaTab
+                      config={config}
+                      updateConfig={updateConfig}
+                      setConfig={setConfig}
+                      generatedPersona={generatedPersona}
+                      personasSaved={personasSaved}
+                      loading={loading}
+                      onGeneratePersona={handleGeneratePersona}
+                      onSavePersonas={handleSavePersonas}
+                      onGoToPlan={handleGoToPlan}
+                    />
+                  </LazyTab>
+                )}
+                {currentStep === 'persona' &&
+                  Array.isArray((config.copy as any)?.personasWithWeights) &&
+                  (config.copy as any).personasWithWeights.length > 0 && (
+                    <div id="plan-section" className="mt-12">
+                      <LazyTab>
+                        <PlanTab
+                          projectName={
+                            projects.find((p) => p.id === currentProjectId)?.name || undefined
+                          }
+                          productInfo={
+                            ((config.copy as any)?.productInfo as ProductInfo | null) || undefined
+                          }
+                          persona={config.copy?.answers || {}}
+                          copyAnswers={config.copy?.answers || {}}
+                          sourceMode={
+                            ((config.copy as any)?.sourceMode as 'vsl' | 'product' | null) || null
+                          }
+                          onSourceModeChange={(next) => {
+                            setConfig((prev) => ({
+                              ...prev,
+                              copy: { ...prev.copy, sourceMode: next } as any,
+                            }));
+                          }}
+                          cached={((config.copy as any)?.marketingPlan as any) || null}
+                          // Blueprint v2 wiring
+                          personasWithWeights={
+                            ((config.copy as any)?.personasWithWeights as
+                              | WeightedPersona[]
+                              | null) || null
+                          }
+                          cachedBriefs={
+                            ((config.copy as any)?.creativeBriefs as CreativeBrief[] | null) || null
+                          }
+                          onBriefsChange={(briefs) => persistBriefs(briefs)}
+                          onBriefEdit={(b) => setEditingBrief(b)}
+                          onBriefClick={(b) => handleBriefClick(b)}
+                          onCreateVsl={(recommendedWords) => {
+                            // Abre a aba "Copy da VSL". Preserva uma VSL já começada;
+                            // só semeia/preenche a duração recomendada se ainda vazia.
+                            setConfig((prev) => {
+                              const base: any = (prev as any).copyVsl || seedVslCopy(prev.copy);
+                              return {
+                                ...prev,
+                                copyVsl: {
+                                  ...base,
+                                  targetWordCount: base.targetWordCount || recommendedWords,
+                                },
+                              } as AdConfig;
+                            });
+                            setCurrentStep('copy-vsl');
+                          }}
+                          briefToVariantMap={(() => {
+                            // Build the brief→variant map from the project's variants:
+                            // any variant whose id matches a brief id (or whose `brief.id`
+                            // field matches) is considered "executed".
+                            const project = projects.find((p) => p.id === currentProjectId);
+                            const map: Record<string, string> = {};
+                            for (const v of (project?.variants as any[]) || []) {
+                              if (v.brief?.id) map[v.brief.id] = v.id;
+                              else if (v.id) map[v.id] = v.id;
+                            }
+                            return map;
+                          })()}
+                          onChange={(plan) => {
+                            setConfig((prev) => ({
+                              ...prev,
+                              copy: { ...prev.copy, marketingPlan: plan } as any,
+                            }));
+                            // (auto-save removido — salvar manualmente)
+                          }}
+                          onContinue={() => setCurrentStep('copy')}
+                        />
+                      </LazyTab>
+                    </div>
+                  )}
+                {(currentStep === 'copy' || currentStep === 'copy-vsl') && (
+                  <LazyTab>
+                    <CopyTab
+                      isVsl={currentStep === 'copy-vsl'}
+                      config={currentStep === 'copy-vsl' ? vslView : config}
+                      updateConfig={currentStep === 'copy-vsl' ? updateConfigVsl : updateConfig}
+                      setConfig={currentStep === 'copy-vsl' ? setConfigVsl : setConfig}
+                      setCurrentStep={setCurrentStep}
+                      setVoiceSource={setVoiceSource}
+                      copyDiscoveryMode={
+                        currentStep === 'copy-vsl'
+                          ? (vslCopy.discoveryMode as any) || 'unknown'
+                          : copyDiscoveryMode
+                      }
+                      setCopyDiscoveryMode={
+                        currentStep === 'copy-vsl' ? setDiscoveryVsl : setCopyDiscoveryMode
+                      }
+                      discoveryStep={discoveryStep}
+                      setDiscoveryStep={setDiscoveryStep}
+                      discoveryAnswers={discoveryAnswers}
+                      setDiscoveryAnswers={setDiscoveryAnswers}
+                      generatedPersona={generatedPersona}
+                      onGeneratePersona={handleGeneratePersona}
+                      copyFieldsApplied={copyFieldsApplied}
+                      applyPersonaToCopy={applyPersonaToCopy}
+                      setShowEditPersonaModal={setShowEditPersonaModal}
+                      applyAwarenessLevelChange={applyAwarenessLevelChange}
+                      setPendingAwarenessLevel={setPendingAwarenessLevel}
+                      setShowAwarenessChangeModal={setShowAwarenessChangeModal}
+                      hasUnsavedCopyChanges={hasUnsavedCopyChanges}
+                      setHasUnsavedCopyChanges={setHasUnsavedCopyChanges}
+                      isSaving={isSaving}
+                      currentProjectId={currentProjectId}
+                      handleSaveProject={handleSaveProject}
+                      loading={loading}
+                      handleGenerateCopy={handleGenerateCopy}
+                      isProjectLoading={isProjectLoading}
+                      showRequiredErrors={showCopyRequiredErrors}
+                    />
+                  </LazyTab>
+                )}
+                {currentStep === 'hook-visual' && (
+                  <HookVisualGenerator
+                    approvedHook={config.copy.hookSelecionado || ''}
+                    projectId={currentProjectId || 'temp-project'}
+                    hookVisual={config.hookVisual}
+                    useHookFlow={useHookFlow}
+                    onToggleUseHook={setUseHookFlow}
+                    onSave={(data) => updateProjectHookVisual(currentProjectId || '', data)}
+                    language={config.copy?.answers?.language}
+                    awarenessLevel={config.copy?.answers?.awarenessLevel}
+                    approvedCopy={
+                      config.copy?.finalScript ||
+                      config.copy?.optimizedScript ||
+                      config.copy?.generatedScript ||
+                      ''
+                    }
+                    hooksHistorico={config.copy?.hooksHistorico || []}
+                    // UX4: contexto rico pra recomendação de hooks. Resolve
+                    // brief ativo + persona alvo do brief + productInfo, e passa
+                    // tudo pro HookChooser usar no prompt do Claude. Quando o
+                    // user veio de "criar subprojeto" no Plano, esses 3 vêm
+                    // populados; em fluxos legacy (sem brief), cai pro
+                    // comportamento antigo (só copy + awareness).
+                    selectionContext={(() => {
+                      const copyAny = config.copy as any;
+                      const activeBriefId: string | undefined = copyAny?.activeBriefId;
+                      const briefs: CreativeBrief[] = Array.isArray(copyAny?.creativeBriefs)
+                        ? copyAny.creativeBriefs
+                        : [];
+                      const personas: WeightedPersona[] = Array.isArray(
+                        copyAny?.personasWithWeights
+                      )
+                        ? copyAny.personasWithWeights
+                        : [];
+                      const activeBrief = activeBriefId
+                        ? briefs.find((b) => b.id === activeBriefId)
+                        : undefined;
+                      const targetPersona = activeBrief
+                        ? personas.find((p) => p.id === activeBrief.targetPersonaId)
+                        : undefined;
+                      const personaRaw = (targetPersona as any)?.raw || {};
+                      return {
+                        productInfo: copyAny?.productInfo
+                          ? {
+                              produto: copyAny.productInfo.produto || copyAny.productInfo.name,
+                              oferta: copyAny.productInfo.oferta || copyAny.productInfo.offer,
+                              dorPrincipal:
+                                copyAny.productInfo.dorPrincipal ||
+                                copyAny.productInfo.painPoint ||
+                                copyAny.productInfo.mainPain,
+                            }
+                          : null,
+                        persona: targetPersona
+                          ? {
+                              name: targetPersona.name,
+                              description: targetPersona.description,
+                              age: personaRaw.age,
+                              mainPain: personaRaw.mainPain || targetPersona.painPoints?.[0],
+                              dominantFear: personaRaw.dominantFear,
+                              hiddenDesire: personaRaw.hiddenDesire,
+                              mainObjection: personaRaw.mainObjection,
+                              currentSituation: personaRaw.currentSituation,
+                            }
+                          : null,
+                        brief: activeBrief
+                          ? {
+                              angle: String(activeBrief.angle || ''),
+                              emotion: String(activeBrief.emotion || ''),
+                              style: String(activeBrief.style || ''),
+                              painPoint: activeBrief.promiseFocus,
+                              hook: activeBrief.hook,
+                            }
+                          : null,
+                      };
+                    })()}
+                    onDeleteHookFromHistory={(hook) => {
+                      const newHistorico = (config.copy?.hooksHistorico || []).filter(
+                        (h) => h.hook !== hook
+                      );
+                      setConfig((prev) => ({
+                        ...prev,
+                        copy: { ...prev.copy, hooksHistorico: newHistorico },
+                      }));
+                      handleSaveProject({
+                        copy: { ...config.copy, hooksHistorico: newHistorico },
+                      } as any);
+                    }}
+                    onGoToVoz={() => {
+                      setVoiceSource('hook');
+                      setCurrentStep('voz-premium');
+                    }}
+                    onGoToAvatar={() => setCurrentStep('avatar')}
+                    onSaveHook={(hook) => {
+                      const existing = config.copy?.hooksHistorico || [];
+                      const alreadyInHistory = existing.some((h) => h.hook === hook);
+                      const newHistorico = alreadyInHistory
+                        ? existing
+                        : [{ hook, createdAt: new Date().toISOString() }, ...existing].slice(0, 50);
                       setConfig((prev) => ({
                         ...prev,
                         copy: {
                           ...prev.copy,
-                          productInfo: info,
-                          sourceText: rawText,
-                          answers: {
-                            ...prev.copy.answers,
-                            audience: prev.copy.answers?.audience || info.audience,
-                            situation: prev.copy.answers?.situation || info.mainPain,
-                            painPoints:
-                              prev.copy.answers?.painPoints ||
-                              [info.mainPain, ...(info.secondaryPains || [])]
-                                .filter(Boolean)
-                                .join('. '),
-                            awarenessLevel:
-                              prev.copy.answers?.awarenessLevel || info.awarenessLevel,
-                            productName: info.productName,
-                            offer: info.offer,
-                            promise: info.promise,
-                            differentiator: info.differentiator,
-                            tone: info.tone,
-                            guarantee: info.guarantee || '',
-                          },
-                        } as any,
+                          hookSelecionado: hook,
+                          hooksHistorico: newHistorico,
+                        },
                       }));
                       // (auto-save removido — salvar manualmente)
                     }}
-                    onContinueManual={() => setCurrentStep('persona')}
-                    onContinueAuto={() => setCurrentStep('persona')}
-                  />
-                </LazyTab>
-              )}
-              {currentStep === 'persona' && (
-                <LazyTab>
-                  <PersonaTab
-                    config={config}
-                    updateConfig={updateConfig}
-                    setConfig={setConfig}
-                    generatedPersona={generatedPersona}
-                    personasSaved={personasSaved}
-                    loading={loading}
-                    onGeneratePersona={handleGeneratePersona}
-                    onSavePersonas={handleSavePersonas}
-                    onGoToPlan={handleGoToPlan}
-                  />
-                </LazyTab>
-              )}
-              {currentStep === 'persona' &&
-                Array.isArray((config.copy as any)?.personasWithWeights) &&
-                (config.copy as any).personasWithWeights.length > 0 && (
-                <div id="plan-section" className="mt-12">
-                <LazyTab>
-                  <PlanTab
-                    projectName={
-                      projects.find((p) => p.id === currentProjectId)?.name || undefined
-                    }
-                    productInfo={
-                      ((config.copy as any)?.productInfo as ProductInfo | null) || undefined
-                    }
-                    persona={config.copy?.answers || {}}
-                    copyAnswers={config.copy?.answers || {}}
-                    sourceMode={((config.copy as any)?.sourceMode as 'vsl' | 'product' | null) || null}
-                    onSourceModeChange={(next) => {
-                      setConfig((prev) => ({
-                        ...prev,
-                        copy: { ...prev.copy, sourceMode: next } as any,
-                      }));
-                    }}
-                    cached={((config.copy as any)?.marketingPlan as any) || null}
-                    // Blueprint v2 wiring
-                    personasWithWeights={
-                      ((config.copy as any)?.personasWithWeights as WeightedPersona[] | null) ||
-                      null
-                    }
-                    cachedBriefs={
-                      ((config.copy as any)?.creativeBriefs as CreativeBrief[] | null) || null
-                    }
-                    onBriefsChange={(briefs) => persistBriefs(briefs)}
-                    onBriefEdit={(b) => setEditingBrief(b)}
-                    onBriefClick={(b) => handleBriefClick(b)}
-                    onCreateVsl={(recommendedWords) => {
-                      // Abre a aba "Copy da VSL". Preserva uma VSL já começada;
-                      // só semeia/preenche a duração recomendada se ainda vazia.
-                      setConfig((prev) => {
-                        const base: any = (prev as any).copyVsl || seedVslCopy(prev.copy);
-                        return {
-                          ...prev,
-                          copyVsl: {
-                            ...base,
-                            targetWordCount: base.targetWordCount || recommendedWords,
-                          },
-                        } as AdConfig;
-                      });
-                      setCurrentStep('copy-vsl');
-                    }}
-                    briefToVariantMap={(() => {
-                      // Build the brief→variant map from the project's variants:
-                      // any variant whose id matches a brief id (or whose `brief.id`
-                      // field matches) is considered "executed".
-                      const project = projects.find((p) => p.id === currentProjectId);
-                      const map: Record<string, string> = {};
-                      for (const v of (project?.variants as any[]) || []) {
-                        if (v.brief?.id) map[v.brief.id] = v.id;
-                        else if (v.id) map[v.id] = v.id;
+                    onProceedToVoice={() => {
+                      const generatedCopy =
+                        config.copy?.optimizedScript || config.copy?.generatedScript;
+                      const hook = (config.copy?.hookSelecionado || '').trim();
+                      let finalScriptToSave = config.copy?.finalScript || '';
+                      if (generatedCopy && hook) {
+                        const copyStart = generatedCopy
+                          .trim()
+                          .substring(0, hook.length + 5)
+                          .toLowerCase();
+                        const hookLower = hook.toLowerCase();
+                        const alreadyHasHook = copyStart.includes(
+                          hookLower.substring(0, Math.min(40, hookLower.length))
+                        );
+                        finalScriptToSave = alreadyHasHook
+                          ? generatedCopy.trim()
+                          : hook + '\n\n' + generatedCopy.trim();
+                      } else if (hook && !generatedCopy) {
+                        finalScriptToSave = hook;
                       }
-                      return map;
-                    })()}
-                    onChange={(plan) => {
-                      setConfig((prev) => ({
-                        ...prev,
-                        copy: { ...prev.copy, marketingPlan: plan } as any,
-                      }));
-                      // (auto-save removido — salvar manualmente)
+                      if (finalScriptToSave && finalScriptToSave !== config.copy?.finalScript) {
+                        setConfig((prev) => ({
+                          ...prev,
+                          copy: { ...prev.copy, finalScript: finalScriptToSave },
+                        }));
+                        // (auto-save removido — salvar manualmente)
+                      }
+                      setVoiceSource('hook');
+                      setCurrentStep('voz-premium');
                     }}
-                    onContinue={() => setCurrentStep('copy')}
                   />
-                </LazyTab>
-                </div>
-              )}
-              {(currentStep === 'copy' || currentStep === 'copy-vsl') && (
-                <LazyTab>
-                  <CopyTab
-                    isVsl={currentStep === 'copy-vsl'}
-                    config={currentStep === 'copy-vsl' ? vslView : config}
-                    updateConfig={currentStep === 'copy-vsl' ? updateConfigVsl : updateConfig}
-                    setConfig={currentStep === 'copy-vsl' ? setConfigVsl : setConfig}
-                    setCurrentStep={setCurrentStep}
-                    setVoiceSource={setVoiceSource}
-                    copyDiscoveryMode={
-                      currentStep === 'copy-vsl'
-                        ? (vslCopy.discoveryMode as any) || 'unknown'
-                        : copyDiscoveryMode
-                    }
-                    setCopyDiscoveryMode={
-                      currentStep === 'copy-vsl' ? setDiscoveryVsl : setCopyDiscoveryMode
-                    }
-                    discoveryStep={discoveryStep}
-                    setDiscoveryStep={setDiscoveryStep}
-                    discoveryAnswers={discoveryAnswers}
-                    setDiscoveryAnswers={setDiscoveryAnswers}
-                    generatedPersona={generatedPersona}
-                    onGeneratePersona={handleGeneratePersona}
-                    copyFieldsApplied={copyFieldsApplied}
-                    applyPersonaToCopy={applyPersonaToCopy}
-                    setShowEditPersonaModal={setShowEditPersonaModal}
-                    applyAwarenessLevelChange={applyAwarenessLevelChange}
-                    setPendingAwarenessLevel={setPendingAwarenessLevel}
-                    setShowAwarenessChangeModal={setShowAwarenessChangeModal}
-                    hasUnsavedCopyChanges={hasUnsavedCopyChanges}
-                    setHasUnsavedCopyChanges={setHasUnsavedCopyChanges}
-                    isSaving={isSaving}
-                    currentProjectId={currentProjectId}
-                    handleSaveProject={handleSaveProject}
-                    loading={loading}
-                    handleGenerateCopy={handleGenerateCopy}
-                    isProjectLoading={isProjectLoading}
-                    showRequiredErrors={showCopyRequiredErrors}
-                  />
-                </LazyTab>
-              )}
-              {currentStep === 'hook-visual' && (
-                <HookVisualGenerator
-                  approvedHook={config.copy.hookSelecionado || ''}
-                  projectId={currentProjectId || 'temp-project'}
-                  hookVisual={config.hookVisual}
-                  useHookFlow={useHookFlow}
-                  onToggleUseHook={setUseHookFlow}
-                  onSave={(data) => updateProjectHookVisual(currentProjectId || '', data)}
-                  language={config.copy?.answers?.language}
-                  awarenessLevel={config.copy?.answers?.awarenessLevel}
-                  approvedCopy={
-                    config.copy?.finalScript ||
-                    config.copy?.optimizedScript ||
-                    config.copy?.generatedScript ||
-                    ''
-                  }
-                  hooksHistorico={config.copy?.hooksHistorico || []}
-                  // UX4: contexto rico pra recomendação de hooks. Resolve
-                  // brief ativo + persona alvo do brief + productInfo, e passa
-                  // tudo pro HookChooser usar no prompt do Claude. Quando o
-                  // user veio de "criar subprojeto" no Plano, esses 3 vêm
-                  // populados; em fluxos legacy (sem brief), cai pro
-                  // comportamento antigo (só copy + awareness).
-                  selectionContext={(() => {
-                    const copyAny = config.copy as any;
-                    const activeBriefId: string | undefined = copyAny?.activeBriefId;
-                    const briefs: CreativeBrief[] = Array.isArray(copyAny?.creativeBriefs)
-                      ? copyAny.creativeBriefs
-                      : [];
-                    const personas: WeightedPersona[] = Array.isArray(copyAny?.personasWithWeights)
-                      ? copyAny.personasWithWeights
-                      : [];
-                    const activeBrief = activeBriefId
-                      ? briefs.find((b) => b.id === activeBriefId)
-                      : undefined;
-                    const targetPersona = activeBrief
-                      ? personas.find((p) => p.id === activeBrief.targetPersonaId)
-                      : undefined;
-                    const personaRaw = (targetPersona as any)?.raw || {};
-                    return {
-                      productInfo: copyAny?.productInfo
-                        ? {
-                            produto: copyAny.productInfo.produto || copyAny.productInfo.name,
-                            oferta: copyAny.productInfo.oferta || copyAny.productInfo.offer,
-                            dorPrincipal:
-                              copyAny.productInfo.dorPrincipal ||
-                              copyAny.productInfo.painPoint ||
-                              copyAny.productInfo.mainPain,
-                          }
-                        : null,
-                      persona: targetPersona
-                        ? {
-                            name: targetPersona.name,
-                            description: targetPersona.description,
-                            age: personaRaw.age,
-                            mainPain: personaRaw.mainPain || targetPersona.painPoints?.[0],
-                            dominantFear: personaRaw.dominantFear,
-                            hiddenDesire: personaRaw.hiddenDesire,
-                            mainObjection: personaRaw.mainObjection,
-                            currentSituation: personaRaw.currentSituation,
-                          }
-                        : null,
-                      brief: activeBrief
-                        ? {
-                            angle: String(activeBrief.angle || ''),
-                            emotion: String(activeBrief.emotion || ''),
-                            style: String(activeBrief.style || ''),
-                            painPoint: activeBrief.promiseFocus,
-                            hook: activeBrief.hook,
-                          }
-                        : null,
-                    };
-                  })()}
-                  onDeleteHookFromHistory={(hook) => {
-                    const newHistorico = (config.copy?.hooksHistorico || []).filter(
-                      (h) => h.hook !== hook
+                )}
+                {currentStep === 'voz-premium' &&
+                  (() => {
+                    const isHook = voiceSource === 'hook';
+                    const isVslVoice = voiceSource === 'vsl';
+                    const vslCopyCfg = (config as any).copyVsl as AdConfig['copy'] | undefined;
+                    const hasVslVoice = !!(
+                      vslCopyCfg &&
+                      (vslCopyCfg.finalScript || vslCopyCfg.generatedScript)
                     );
-                    setConfig((prev) => ({
-                      ...prev,
-                      copy: { ...prev.copy, hooksHistorico: newHistorico },
-                    }));
-                    handleSaveProject({
-                      copy: { ...config.copy, hooksHistorico: newHistorico },
-                    } as any);
-                  }}
-                  onGoToVoz={() => {
-                    setVoiceSource('hook');
-                    setCurrentStep('voz-premium');
-                  }}
-                  onGoToAvatar={() => setCurrentStep('avatar')}
-                  onSaveHook={(hook) => {
-                    const existing = config.copy?.hooksHistorico || [];
-                    const alreadyInHistory = existing.some((h) => h.hook === hook);
-                    const newHistorico = alreadyInHistory
-                      ? existing
-                      : [{ hook, createdAt: new Date().toISOString() }, ...existing].slice(0, 50);
-                    setConfig((prev) => ({
-                      ...prev,
-                      copy: {
-                        ...prev.copy,
-                        hookSelecionado: hook,
-                        hooksHistorico: newHistorico,
-                      },
-                    }));
-                    // (auto-save removido — salvar manualmente)
-                  }}
-                  onProceedToVoice={() => {
-                    const generatedCopy =
-                      config.copy?.optimizedScript || config.copy?.generatedScript;
-                    const hook = (config.copy?.hookSelecionado || '').trim();
-                    let finalScriptToSave = config.copy?.finalScript || '';
-                    if (generatedCopy && hook) {
-                      const copyStart = generatedCopy
-                        .trim()
-                        .substring(0, hook.length + 5)
-                        .toLowerCase();
-                      const hookLower = hook.toLowerCase();
-                      const alreadyHasHook = copyStart.includes(
-                        hookLower.substring(0, Math.min(40, hookLower.length))
-                      );
-                      finalScriptToSave = alreadyHasHook
-                        ? generatedCopy.trim()
-                        : hook + '\n\n' + generatedCopy.trim();
-                    } else if (hook && !generatedCopy) {
-                      finalScriptToSave = hook;
-                    }
-                    if (finalScriptToSave && finalScriptToSave !== config.copy?.finalScript) {
-                      setConfig((prev) => ({
-                        ...prev,
-                        copy: { ...prev.copy, finalScript: finalScriptToSave },
-                      }));
-                      // (auto-save removido — salvar manualmente)
-                    }
-                    setVoiceSource('hook');
-                    setCurrentStep('voz-premium');
-                  }}
-                />
-              )}
-              {currentStep === 'voz-premium' &&
-                (() => {
-                  const isHook = voiceSource === 'hook';
-                  const isVslVoice = voiceSource === 'vsl';
-                  const vslCopyCfg = (config as any).copyVsl as AdConfig['copy'] | undefined;
-                  const hasVslVoice = !!(
-                    vslCopyCfg &&
-                    (vslCopyCfg.finalScript || vslCopyCfg.generatedScript)
-                  );
-                  const bodyAudios = config.audios || [];
-                  const hookAudios =
-                    ((config.copy as any)?.hookAudios as typeof bodyAudios | undefined) || [];
-                  const vslAudios =
-                    ((vslCopyCfg as any)?.audios as typeof bodyAudios | undefined) || [];
-                  const lastBodyVoice =
-                    bodyAudios.length > 0 ? bodyAudios[bodyAudios.length - 1]!.voiceId : '';
-                  const lastHookVoice =
-                    hookAudios.length > 0 ? hookAudios[hookAudios.length - 1]!.voiceId : '';
-                  const lastVslVoice =
-                    vslAudios.length > 0 ? vslAudios[vslAudios.length - 1]!.voiceId : '';
-                  // Auto-preselect: prefer the mode's own last voice; fall back
-                  // to the OTHER mode's last voice so the user doesn't have to
-                  // reselect every time. Then they can override in the UI.
-                  const defaultVoiceId = isVslVoice
-                    ? lastVslVoice || lastBodyVoice || config.avatar?.voiceId || ''
-                    : isHook
-                      ? lastHookVoice || lastBodyVoice || config.avatar?.voiceId || ''
-                      : lastBodyVoice || lastHookVoice || config.avatar?.voiceId || '';
+                    const bodyAudios = config.audios || [];
+                    const hookAudios =
+                      ((config.copy as any)?.hookAudios as typeof bodyAudios | undefined) || [];
+                    const vslAudios =
+                      ((vslCopyCfg as any)?.audios as typeof bodyAudios | undefined) || [];
+                    const lastBodyVoice =
+                      bodyAudios.length > 0 ? bodyAudios[bodyAudios.length - 1]!.voiceId : '';
+                    const lastHookVoice =
+                      hookAudios.length > 0 ? hookAudios[hookAudios.length - 1]!.voiceId : '';
+                    const lastVslVoice =
+                      vslAudios.length > 0 ? vslAudios[vslAudios.length - 1]!.voiceId : '';
+                    // Auto-preselect: prefer the mode's own last voice; fall back
+                    // to the OTHER mode's last voice so the user doesn't have to
+                    // reselect every time. Then they can override in the UI.
+                    const defaultVoiceId = isVslVoice
+                      ? lastVslVoice || lastBodyVoice || config.avatar?.voiceId || ''
+                      : isHook
+                        ? lastHookVoice || lastBodyVoice || config.avatar?.voiceId || ''
+                        : lastBodyVoice || lastHookVoice || config.avatar?.voiceId || '';
 
-                  const activeAudioUrl = isVslVoice
-                    ? ((vslCopyCfg as any)?.audioUrl as string | undefined) || ''
-                    : isHook
-                      ? ((config.copy as any)?.hookAudioUrl as string | undefined) || ''
-                      : config.audioUrl || '';
-                  const activeAudios = isVslVoice ? vslAudios : isHook ? hookAudios : bodyAudios;
-                  const activeScript = isVslVoice
-                    ? vslCopyCfg?.finalScript || vslCopyCfg?.generatedScript || ''
-                    : isHook
-                      ? config.copy?.hookSelecionado ||
-                        config.copy?.finalScript ||
-                        config.copy?.generatedScript ||
-                        ''
-                      : config.copy?.finalScript || config.copy?.generatedScript || '';
+                    const activeAudioUrl = isVslVoice
+                      ? ((vslCopyCfg as any)?.audioUrl as string | undefined) || ''
+                      : isHook
+                        ? ((config.copy as any)?.hookAudioUrl as string | undefined) || ''
+                        : config.audioUrl || '';
+                    const activeAudios = isVslVoice ? vslAudios : isHook ? hookAudios : bodyAudios;
+                    const activeScript = isVslVoice
+                      ? vslCopyCfg?.finalScript || vslCopyCfg?.generatedScript || ''
+                      : isHook
+                        ? config.copy?.hookSelecionado ||
+                          config.copy?.finalScript ||
+                          config.copy?.generatedScript ||
+                          ''
+                        : config.copy?.finalScript || config.copy?.generatedScript || '';
 
-                  return (
-                    <>
-                      {/* Toggle: which audio are we working on? Aparece quando o
+                    return (
+                      <>
+                        {/* Toggle: which audio are we working on? Aparece quando o
                       projeto usa gancho separado OU quando existe uma VSL. */}
-                      {(useHookFlow || hasVslVoice) && (
-                        <div className="max-w-4xl mx-auto px-6 pt-6">
-                          <div className="bg-white dark:bg-gray-900/80 p-2 rounded-2xl border-2 border-gray-100 dark:border-gray-800 shadow-sm flex gap-1">
-                            <button
-                              onClick={() => setVoiceSource('copy')}
-                              className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-                                !isHook && !isVslVoice
-                                  ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 shadow-md'
-                                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60'
-                              }`}
-                            >
-                              Voz do Corpo
-                              {bodyAudios.length > 0 && (
-                                <span className="ml-2 text-[9px] opacity-70">
-                                  ({bodyAudios.length})
-                                </span>
+                        {(useHookFlow || hasVslVoice) && (
+                          <div className="max-w-4xl mx-auto px-6 pt-6">
+                            <div className="bg-white dark:bg-gray-900/80 p-2 rounded-2xl border-2 border-gray-100 dark:border-gray-800 shadow-sm flex gap-1">
+                              <button
+                                onClick={() => setVoiceSource('copy')}
+                                className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                                  !isHook && !isVslVoice
+                                    ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 shadow-md'
+                                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60'
+                                }`}
+                              >
+                                Voz do Corpo
+                                {bodyAudios.length > 0 && (
+                                  <span className="ml-2 text-[9px] opacity-70">
+                                    ({bodyAudios.length})
+                                  </span>
+                                )}
+                              </button>
+                              {useHookFlow && (
+                                <button
+                                  onClick={() => setVoiceSource('hook')}
+                                  className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                                    isHook
+                                      ? 'bg-amber-500 text-white shadow-md'
+                                      : 'text-gray-500 hover:bg-amber-50'
+                                  }`}
+                                >
+                                  Voz do Gancho
+                                  {hookAudios.length > 0 && (
+                                    <span className="ml-2 text-[9px] opacity-70">
+                                      ({hookAudios.length})
+                                    </span>
+                                  )}
+                                </button>
                               )}
-                            </button>
-                            {useHookFlow && (
-                              <button
-                                onClick={() => setVoiceSource('hook')}
-                                className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-                                  isHook
-                                    ? 'bg-amber-500 text-white shadow-md'
-                                    : 'text-gray-500 hover:bg-amber-50'
-                                }`}
-                              >
-                                Voz do Gancho
-                                {hookAudios.length > 0 && (
-                                  <span className="ml-2 text-[9px] opacity-70">
-                                    ({hookAudios.length})
-                                  </span>
-                                )}
-                              </button>
-                            )}
-                            {hasVslVoice && (
-                              <button
-                                onClick={() => setVoiceSource('vsl')}
-                                className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-                                  isVslVoice
-                                    ? 'bg-purple-600 text-white shadow-md'
-                                    : 'text-gray-500 hover:bg-purple-50'
-                                }`}
-                              >
-                                Voz da VSL
-                                {vslAudios.length > 0 && (
-                                  <span className="ml-2 text-[9px] opacity-70">
-                                    ({vslAudios.length})
-                                  </span>
-                                )}
-                              </button>
-                            )}
+                              {hasVslVoice && (
+                                <button
+                                  onClick={() => setVoiceSource('vsl')}
+                                  className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                                    isVslVoice
+                                      ? 'bg-purple-600 text-white shadow-md'
+                                      : 'text-gray-500 hover:bg-purple-50'
+                                  }`}
+                                >
+                                  Voz da VSL
+                                  {vslAudios.length > 0 && (
+                                    <span className="ml-2 text-[9px] opacity-70">
+                                      ({vslAudios.length})
+                                    </span>
+                                  )}
+                                </button>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-gray-500 mt-2 px-2">
+                              {isVslVoice
+                                ? 'Você está gerando o áudio da VSL (roteiro longo em blocos).'
+                                : isHook
+                                  ? 'Você está gerando o áudio do gancho (parte inicial curta).'
+                                  : 'Você está gerando o áudio do corpo do vídeo (script principal).'}
+                            </p>
                           </div>
-                          <p className="text-[10px] text-gray-500 mt-2 px-2">
-                            {isVslVoice
-                              ? 'Você está gerando o áudio da VSL (roteiro longo em blocos).'
-                              : isHook
-                                ? 'Você está gerando o áudio do gancho (parte inicial curta).'
-                                : 'Você está gerando o áudio do corpo do vídeo (script principal).'}
-                          </p>
-                        </div>
-                      )}
+                        )}
 
-                      <VozPremium
-                        key={isVslVoice ? 'voz-vsl' : isHook ? 'voz-hook' : 'voz-body'}
-                        approvedScript={activeScript}
-                        personaGender={config.copy?.answers?.personaGender || ''}
-                        personaAge={config.copy?.answers?.personaAgePrimary || ''}
-                        savedAudioUrl={activeAudioUrl || undefined}
-                        savedAudios={activeAudios}
-                        savedBlockAudios={
-                          isVslVoice ? ((vslCopyCfg as any)?.blockAudios as any) : undefined
-                        }
-                        onBlockAudiosChange={
-                          isVslVoice
-                            ? (arr) =>
+                        <VozPremium
+                          key={isVslVoice ? 'voz-vsl' : isHook ? 'voz-hook' : 'voz-body'}
+                          approvedScript={activeScript}
+                          personaGender={config.copy?.answers?.personaGender || ''}
+                          personaAge={config.copy?.answers?.personaAgePrimary || ''}
+                          savedAudioUrl={activeAudioUrl || undefined}
+                          savedAudios={activeAudios}
+                          savedBlockAudios={
+                            isVslVoice ? ((vslCopyCfg as any)?.blockAudios as any) : undefined
+                          }
+                          onBlockAudiosChange={
+                            isVslVoice
+                              ? (arr) =>
+                                  setConfig((prev) => ({
+                                    ...prev,
+                                    copyVsl: { ...(prev as any).copyVsl, blockAudios: arr } as any,
+                                  }))
+                              : undefined
+                          }
+                          copyAnswers={config.copy?.answers || {}}
+                          cachedRecommendation={avatarRecommendation}
+                          onRecommendationChange={setAvatarRecommendation}
+                          productInfo={
+                            ((config.copy as any)?.productInfo as ProductInfo | null) || undefined
+                          }
+                          // UX7: resolve brief ativo (quando subprojeto veio de
+                          // um brief do Plano) e passa pro painel de IA. Mesmo
+                          // padrão usado em AvatarTab logo abaixo — recomendação
+                          // fica alinhada ao ângulo/emoção/estilo do criativo.
+                          brief={(() => {
+                            const copyAny = config.copy as any;
+                            const activeId: string | undefined = copyAny?.activeBriefId;
+                            if (!activeId) return null;
+                            const briefs = Array.isArray(copyAny?.creativeBriefs)
+                              ? copyAny.creativeBriefs
+                              : [];
+                            const b = briefs.find((x: any) => x?.id === activeId);
+                            if (!b) return null;
+                            return {
+                              index: b.index,
+                              angle: String(b.angle || ''),
+                              emotion: String(b.emotion || ''),
+                              style: String(b.style || ''),
+                              promiseFocus: b.promiseFocus,
+                              hook: b.hook,
+                              rationale: b.rationale,
+                              durationTarget: b.durationTarget,
+                            };
+                          })()}
+                          savedOptimizedScript={
+                            isVslVoice
+                              ? (vslCopyCfg?.optimizedScript as string | undefined) || ''
+                              : isHook
+                                ? ((config.copy as any)?.hookOptimizedScript as
+                                    | string
+                                    | undefined) || ''
+                                : config.copy?.optimizedScript || ''
+                          }
+                          defaultVoiceId={defaultVoiceId || undefined}
+                          onApprovedScriptEdit={(edited) => {
+                            // The "approved script" is the editable source text shown
+                            // in VozPremium. Body edits go to finalScript (existing).
+                            // Hook edits go to hookSelecionado so the next render in
+                            // hook mode picks them up too. VSL edits go to copyVsl.
+                            if (isVslVoice) {
+                              setConfig((prev) => ({
+                                ...prev,
+                                copyVsl: { ...(prev as any).copyVsl, finalScript: edited },
+                              }));
+                            } else if (isHook) {
+                              setConfig((prev) => ({
+                                ...prev,
+                                copy: { ...prev.copy, hookSelecionado: edited },
+                              }));
+                              // (auto-save removido — salvar manualmente)
+                            } else {
+                              setConfig((prev) => ({
+                                ...prev,
+                                copy: { ...prev.copy, finalScript: edited },
+                              }));
+                              // (auto-save removido — salvar manualmente)
+                            }
+                          }}
+                          onOptimizedScript={(optimized) => {
+                            if (isVslVoice) {
+                              setConfig((prev) => ({
+                                ...prev,
+                                copyVsl: { ...(prev as any).copyVsl, optimizedScript: optimized },
+                              }));
+                            } else if (isHook) {
+                              setConfig((prev) => ({
+                                ...prev,
+                                copy: {
+                                  ...prev.copy,
+                                  hookOptimizedScript: optimized,
+                                } as any,
+                              }));
+                              // (auto-save removido — salvar manualmente)
+                            } else {
+                              setConfig((prev) => ({
+                                ...prev,
+                                copy: { ...prev.copy, optimizedScript: optimized },
+                              }));
+                              // (auto-save removido — salvar manualmente)
+                            }
+                          }}
+                          onGoToVideo={() => setCurrentStep('avatar')}
+                          onAudioReady={(audioUrl, voiceId, storagePath, voiceName) => {
+                            // Clearing the active audio.
+                            if (!audioUrl) {
+                              if (isVslVoice) {
                                 setConfig((prev) => ({
                                   ...prev,
-                                  copyVsl: { ...(prev as any).copyVsl, blockAudios: arr } as any,
-                                }))
-                            : undefined
-                        }
-                        copyAnswers={config.copy?.answers || {}}
-                        cachedRecommendation={avatarRecommendation}
-                        onRecommendationChange={setAvatarRecommendation}
-                        productInfo={
-                          ((config.copy as any)?.productInfo as ProductInfo | null) || undefined
-                        }
-                        // UX7: resolve brief ativo (quando subprojeto veio de
-                        // um brief do Plano) e passa pro painel de IA. Mesmo
-                        // padrão usado em AvatarTab logo abaixo — recomendação
-                        // fica alinhada ao ângulo/emoção/estilo do criativo.
-                        brief={(() => {
-                          const copyAny = config.copy as any;
-                          const activeId: string | undefined = copyAny?.activeBriefId;
-                          if (!activeId) return null;
-                          const briefs = Array.isArray(copyAny?.creativeBriefs)
-                            ? copyAny.creativeBriefs
-                            : [];
-                          const b = briefs.find((x: any) => x?.id === activeId);
-                          if (!b) return null;
-                          return {
-                            index: b.index,
-                            angle: String(b.angle || ''),
-                            emotion: String(b.emotion || ''),
-                            style: String(b.style || ''),
-                            promiseFocus: b.promiseFocus,
-                            hook: b.hook,
-                            rationale: b.rationale,
-                            durationTarget: b.durationTarget,
-                          };
-                        })()}
-                        savedOptimizedScript={
-                          isVslVoice
-                            ? (vslCopyCfg?.optimizedScript as string | undefined) || ''
-                            : isHook
-                              ? ((config.copy as any)?.hookOptimizedScript as
-                                  | string
-                                  | undefined) || ''
-                              : config.copy?.optimizedScript || ''
-                        }
-                        defaultVoiceId={defaultVoiceId || undefined}
-                        onApprovedScriptEdit={(edited) => {
-                          // The "approved script" is the editable source text shown
-                          // in VozPremium. Body edits go to finalScript (existing).
-                          // Hook edits go to hookSelecionado so the next render in
-                          // hook mode picks them up too. VSL edits go to copyVsl.
-                          if (isVslVoice) {
-                            setConfig((prev) => ({
-                              ...prev,
-                              copyVsl: { ...(prev as any).copyVsl, finalScript: edited },
-                            }));
-                          } else if (isHook) {
-                            setConfig((prev) => ({
-                              ...prev,
-                              copy: { ...prev.copy, hookSelecionado: edited },
-                            }));
-                            // (auto-save removido — salvar manualmente)
-                          } else {
-                            setConfig((prev) => ({
-                              ...prev,
-                              copy: { ...prev.copy, finalScript: edited },
-                            }));
-                            // (auto-save removido — salvar manualmente)
-                          }
-                        }}
-                        onOptimizedScript={(optimized) => {
-                          if (isVslVoice) {
-                            setConfig((prev) => ({
-                              ...prev,
-                              copyVsl: { ...(prev as any).copyVsl, optimizedScript: optimized },
-                            }));
-                          } else if (isHook) {
-                            setConfig((prev) => ({
-                              ...prev,
-                              copy: {
-                                ...prev.copy,
-                                hookOptimizedScript: optimized,
-                              } as any,
-                            }));
-                            // (auto-save removido — salvar manualmente)
-                          } else {
-                            setConfig((prev) => ({
-                              ...prev,
-                              copy: { ...prev.copy, optimizedScript: optimized },
-                            }));
-                            // (auto-save removido — salvar manualmente)
-                          }
-                        }}
-                        onGoToVideo={() => setCurrentStep('avatar')}
-                        onAudioReady={(audioUrl, voiceId, storagePath, voiceName) => {
-                          // Clearing the active audio.
-                          if (!audioUrl) {
+                                  copyVsl: {
+                                    ...(prev as any).copyVsl,
+                                    audioUrl: '',
+                                    audioStoragePath: null,
+                                  } as any,
+                                }));
+                                return;
+                              }
+                              if (isHook) {
+                                setConfig((prev) => ({
+                                  ...prev,
+                                  copy: {
+                                    ...prev.copy,
+                                    hookAudioUrl: '',
+                                    hookAudioStoragePath: null,
+                                  } as any,
+                                }));
+                                handleSaveProject({
+                                  copy: {
+                                    ...config.copy,
+                                    hookAudioUrl: '',
+                                    hookAudioStoragePath: null,
+                                  },
+                                } as any);
+                              } else {
+                                setAudioUrl('');
+                                setConfig((prev) => ({
+                                  ...prev,
+                                  audioUrl: '',
+                                  audioStoragePath: null,
+                                }));
+                                handleSaveProject({
+                                  audioUrl: '',
+                                  audioStoragePath: null,
+                                });
+                              }
+                              return;
+                            }
+
+                            const currentAudios = activeAudios;
+                            const existing = currentAudios.find((a) => a.url === audioUrl);
+                            const newAudio = {
+                              url: audioUrl,
+                              storagePath: storagePath || null,
+                              voiceId: voiceId || '',
+                              createdAt: new Date().toISOString(),
+                            };
+                            const newAudios = existing
+                              ? currentAudios
+                              : [...currentAudios, newAudio];
+
                             if (isVslVoice) {
                               setConfig((prev) => ({
                                 ...prev,
                                 copyVsl: {
                                   ...(prev as any).copyVsl,
-                                  audioUrl: '',
-                                  audioStoragePath: null,
+                                  audioUrl,
+                                  audioStoragePath: storagePath || null,
+                                  audios: newAudios,
                                 } as any,
+                                ...(voiceId
+                                  ? {
+                                      avatar: {
+                                        ...prev.avatar,
+                                        voiceId,
+                                        ...(voiceName ? { voiceName } : {}),
+                                      },
+                                    }
+                                  : {}),
                               }));
-                              return;
-                            }
-                            if (isHook) {
+                            } else if (isHook) {
                               setConfig((prev) => ({
                                 ...prev,
                                 copy: {
                                   ...prev.copy,
-                                  hookAudioUrl: '',
-                                  hookAudioStoragePath: null,
+                                  hookAudioUrl: audioUrl,
+                                  hookAudioStoragePath: storagePath || null,
+                                  hookAudios: newAudios,
                                 } as any,
                               }));
-                              handleSaveProject({
-                                copy: {
-                                  ...config.copy,
-                                  hookAudioUrl: '',
-                                  hookAudioStoragePath: null,
-                                },
-                              } as any);
+                              // (auto-save removido — salvar manualmente)
                             } else {
-                              setAudioUrl('');
+                              if (!existing) setAudios(newAudios);
+                              setAudioUrl(audioUrl);
                               setConfig((prev) => ({
                                 ...prev,
-                                audioUrl: '',
-                                audioStoragePath: null,
-                              }));
-                              handleSaveProject({
-                                audioUrl: '',
-                                audioStoragePath: null,
-                              });
-                            }
-                            return;
-                          }
-
-                          const currentAudios = activeAudios;
-                          const existing = currentAudios.find((a) => a.url === audioUrl);
-                          const newAudio = {
-                            url: audioUrl,
-                            storagePath: storagePath || null,
-                            voiceId: voiceId || '',
-                            createdAt: new Date().toISOString(),
-                          };
-                          const newAudios = existing ? currentAudios : [...currentAudios, newAudio];
-
-                          if (isVslVoice) {
-                            setConfig((prev) => ({
-                              ...prev,
-                              copyVsl: {
-                                ...(prev as any).copyVsl,
                                 audioUrl,
                                 audioStoragePath: storagePath || null,
                                 audios: newAudios,
-                              } as any,
-                              ...(voiceId
-                                ? {
-                                    avatar: {
-                                      ...prev.avatar,
-                                      voiceId,
-                                      ...(voiceName ? { voiceName } : {}),
-                                    },
-                                  }
-                                : {}),
-                            }));
-                          } else if (isHook) {
-                            setConfig((prev) => ({
-                              ...prev,
-                              copy: {
-                                ...prev.copy,
-                                hookAudioUrl: audioUrl,
-                                hookAudioStoragePath: storagePath || null,
-                                hookAudios: newAudios,
-                              } as any,
-                            }));
-                            // (auto-save removido — salvar manualmente)
-                          } else {
-                            if (!existing) setAudios(newAudios);
-                            setAudioUrl(audioUrl);
-                            setConfig((prev) => ({
-                              ...prev,
-                              audioUrl,
-                              audioStoragePath: storagePath || null,
-                              audios: newAudios,
-                              ...(voiceId
-                                ? {
-                                    avatar: {
-                                      ...prev.avatar,
-                                      voiceId,
-                                      // Guarda o nome legível pro painel de info.
-                                      ...(voiceName ? { voiceName } : {}),
-                                    },
-                                  }
-                                : {}),
-                            }));
-                          }
-                          // Save por evento: voz/áudio gerado → persiste o projeto.
-                          if (!existing) {
-                            triggerProjectSave('voz');
-                            logCreativeCost('Voz/narração (ElevenLabs)', COST_RATES.voice);
-                          }
-                        }}
-                        onDeleteAudioFromHistory={(
-                          urlToDelete: string,
-                          storagePathToDelete: string | null
-                        ) => {
-                          setAudioToDeleteFromHistory({
-                            url: urlToDelete,
-                            storagePath: storagePathToDelete,
-                          });
-                        }}
-                      />
+                                ...(voiceId
+                                  ? {
+                                      avatar: {
+                                        ...prev.avatar,
+                                        voiceId,
+                                        // Guarda o nome legível pro painel de info.
+                                        ...(voiceName ? { voiceName } : {}),
+                                      },
+                                    }
+                                  : {}),
+                              }));
+                            }
+                            // Save por evento: voz/áudio gerado → persiste o projeto.
+                            if (!existing) {
+                              triggerProjectSave('voz');
+                              logCreativeCost('Voz/narração (ElevenLabs)', COST_RATES.voice);
+                            }
+                          }}
+                          onDeleteAudioFromHistory={(
+                            urlToDelete: string,
+                            storagePathToDelete: string | null
+                          ) => {
+                            setAudioToDeleteFromHistory({
+                              url: urlToDelete,
+                              storagePath: storagePathToDelete,
+                            });
+                          }}
+                        />
 
-                      {/* Toggle voz gancho/corpo/VSL TAMBÉM no rodapé — pra trocar
+                        {/* Toggle voz gancho/corpo/VSL TAMBÉM no rodapé — pra trocar
                           de lado sem rolar até o topo. */}
-                      {(useHookFlow || hasVslVoice) && (
-                        <div className="max-w-4xl mx-auto px-6 pb-6">
-                          <div className="bg-white dark:bg-gray-900/80 p-2 rounded-2xl border-2 border-gray-100 dark:border-gray-800 shadow-sm flex gap-1">
-                            <button
-                              onClick={() => setVoiceSource('copy')}
-                              className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-                                !isHook && !isVslVoice
-                                  ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 shadow-md'
-                                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60'
-                              }`}
-                            >
-                              Voz do Corpo
-                              {bodyAudios.length > 0 && (
-                                <span className="ml-2 text-[9px] opacity-70">
-                                  ({bodyAudios.length})
-                                </span>
+                        {(useHookFlow || hasVslVoice) && (
+                          <div className="max-w-4xl mx-auto px-6 pb-6">
+                            <div className="bg-white dark:bg-gray-900/80 p-2 rounded-2xl border-2 border-gray-100 dark:border-gray-800 shadow-sm flex gap-1">
+                              <button
+                                onClick={() => setVoiceSource('copy')}
+                                className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                                  !isHook && !isVslVoice
+                                    ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 shadow-md'
+                                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60'
+                                }`}
+                              >
+                                Voz do Corpo
+                                {bodyAudios.length > 0 && (
+                                  <span className="ml-2 text-[9px] opacity-70">
+                                    ({bodyAudios.length})
+                                  </span>
+                                )}
+                              </button>
+                              {useHookFlow && (
+                                <button
+                                  onClick={() => setVoiceSource('hook')}
+                                  className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                                    isHook
+                                      ? 'bg-amber-500 text-white shadow-md'
+                                      : 'text-gray-500 hover:bg-amber-50'
+                                  }`}
+                                >
+                                  Voz do Gancho
+                                  {hookAudios.length > 0 && (
+                                    <span className="ml-2 text-[9px] opacity-70">
+                                      ({hookAudios.length})
+                                    </span>
+                                  )}
+                                </button>
                               )}
-                            </button>
-                            {useHookFlow && (
-                              <button
-                                onClick={() => setVoiceSource('hook')}
-                                className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-                                  isHook
-                                    ? 'bg-amber-500 text-white shadow-md'
-                                    : 'text-gray-500 hover:bg-amber-50'
-                                }`}
-                              >
-                                Voz do Gancho
-                                {hookAudios.length > 0 && (
-                                  <span className="ml-2 text-[9px] opacity-70">
-                                    ({hookAudios.length})
-                                  </span>
-                                )}
-                              </button>
-                            )}
-                            {hasVslVoice && (
-                              <button
-                                onClick={() => setVoiceSource('vsl')}
-                                className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-                                  isVslVoice
-                                    ? 'bg-purple-600 text-white shadow-md'
-                                    : 'text-gray-500 hover:bg-purple-50'
-                                }`}
-                              >
-                                Voz da VSL
-                                {vslAudios.length > 0 && (
-                                  <span className="ml-2 text-[9px] opacity-70">
-                                    ({vslAudios.length})
-                                  </span>
-                                )}
-                              </button>
-                            )}
+                              {hasVslVoice && (
+                                <button
+                                  onClick={() => setVoiceSource('vsl')}
+                                  className={`flex-1 py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                                    isVslVoice
+                                      ? 'bg-purple-600 text-white shadow-md'
+                                      : 'text-gray-500 hover:bg-purple-50'
+                                  }`}
+                                >
+                                  Voz da VSL
+                                  {vslAudios.length > 0 && (
+                                    <span className="ml-2 text-[9px] opacity-70">
+                                      ({vslAudios.length})
+                                    </span>
+                                  )}
+                                </button>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </>
-                  );
-                })()}
-              {currentStep === 'remotion' && (
-                <LazyTab>
-                  <RemotionTab
-                    config={config}
-                    setConfig={setConfig}
-                    setCurrentStep={setCurrentStep}
-                  />
-                </LazyTab>
-              )}
-              {currentStep === 'avatar' && (
-                <LazyTab>
-                  <AvatarTab
-                    config={config}
-                    setConfig={setConfig}
-                    setCurrentStep={setCurrentStep}
-                    loading={loading}
-                    setLoading={setLoading}
-                    avatarMode={avatarMode}
-                    setAvatarMode={setAvatarMode}
-                    useHookFlow={useHookFlow}
-                    heygenAvatars={heygenAvatars}
-                    setHeygenAvatars={setHeygenAvatars}
-                    avatarFilters={avatarFilters}
-                    setAvatarFilters={setAvatarFilters}
-                    avatarSearch={avatarSearch}
-                    setAvatarSearch={setAvatarSearch}
-                    previewAvatar={previewAvatar}
-                    setPreviewAvatar={setPreviewAvatar}
-                    avatarRecommendation={avatarRecommendation}
-                    setAvatarRecommendation={setAvatarRecommendation}
-                    videos={videos}
-                    videoUrl={videoUrl}
-                    setVideoUrl={setVideoUrl}
-                    setVideoStoragePath={setVideoStoragePath}
-                    platformApiKey={platformApiKey}
-                    videoOp={videoOp}
-                    setVideoOp={setVideoOp}
-                    setGenerationStage={setGenerationStage}
-                    isTestMode={isTestMode}
-                    setIsTestMode={setIsTestMode}
-                    useNativeFallback={useNativeFallback}
-                    setUseNativeFallback={setUseNativeFallback}
-                    logs={logs}
-                    pollIntervalRef={pollIntervalRef}
-                    isTestingKey={isTestingKey}
-                    isUpdatingKey={isUpdatingKey}
-                    audioUrl={audioUrl}
-                    isVideoUpToDate={isVideoUpToDate}
-                    loadingAvatars={loadingAvatars}
-                    avatarError={avatarError}
-                    newElevenLabsKey={newElevenLabsKey}
-                    setNewElevenLabsKey={setNewElevenLabsKey}
-                    showElevenLabsConfig={showElevenLabsConfig}
-                    setShowElevenLabsConfig={setShowElevenLabsConfig}
-                    setShowDeleteModal={setShowDeleteModal}
-                    videoToDelete={videoToDelete}
-                    setVideoToDelete={setVideoToDelete}
-                    setAudioToDelete={setAudioToDelete}
-                    showDeleteVideoModal={showDeleteVideoModal}
-                    setShowDeleteVideoModal={setShowDeleteVideoModal}
-                    showDeleteHistoryVideoModal={showDeleteHistoryVideoModal}
-                    setShowDeleteHistoryVideoModal={setShowDeleteHistoryVideoModal}
-                    handleGenerateVideo={handleGenerateVideo}
-                    handleCancelGeneration={handleCancelGeneration}
-                    handleDeleteVideo={handleDeleteVideo}
-                    handleDeleteVideoFromArray={handleDeleteVideoFromArray}
-                    handleTestElevenLabsKey={handleTestElevenLabsKey}
-                    handleUpdateElevenLabsKey={handleUpdateElevenLabsKey}
-                  />
-                </LazyTab>
-              )}
-              {currentStep === 'video-ia' && (
-                <LazyTab>
-                  <VideoIATab
-                    user={user}
-                    onAddClip={(clip) => {
-                      // Clipe do fal entra na BIBLIOTECA da Montagem
-                      // (config.montagem.clips) — de onde a timeline puxa os
-                      // b-rolls. A Montagem lê isso no mount (draft.clips).
-                      setConfig((prev) => {
-                        const montagem = ((prev as any).montagem || {}) as any;
-                        const clips = Array.isArray(montagem.clips) ? montagem.clips : [];
-                        return {
-                          ...prev,
-                          montagem: { ...montagem, clips: [...clips, clip] },
-                        } as any;
-                      });
-                      triggerProjectSave('clipe-ia');
-                    }}
-                    onPlaceOnTimeline={(clip, atSec) => {
-                      // Coloca DIRETO na timeline no segundo certo (clipe recortado
-                      // + lip-sync): adiciona o clipe E um item na posição atSec.
-                      setConfig((prev) => {
-                        const montagem = ((prev as any).montagem || {}) as any;
-                        const clips = Array.isArray(montagem.clips) ? montagem.clips : [];
-                        const items = Array.isArray(montagem.items) ? montagem.items : [];
-                        const clipIdx = clips.length;
-                        return {
-                          ...prev,
-                          montagem: {
-                            ...montagem,
-                            clips: [...clips, clip],
-                            items: [
-                              ...items,
-                              {
-                                clipIdx,
-                                atSec,
-                                endSec: atSec + (clip.duration || 5),
-                                transIn: 'none',
-                                transInDur: 0.15,
-                                soundIn: '',
-                                transOut: 'none',
-                                transOutDur: 0.15,
-                                soundOut: '',
-                                soundMid: '',
-                                soundMidAlign: '',
-                                bw: false,
-                              },
-                            ],
-                          },
-                        } as any;
-                      });
-                      triggerProjectSave('clipe-ia-timeline');
-                    }}
-                    onGoToMontagem={() => setCurrentStep('montagem')}
-                    audios={[
-                      ...(((config as any).audios as any[]) || []).map((a, i) => ({
-                        url: a?.url,
-                        label: `🎙 Corpo #${i + 1}`,
-                      })),
-                      ...(((config.copy as any)?.hookAudios as any[]) || []).map((a, i) => ({
-                        url: a?.url,
-                        label: `🎣 Gancho #${i + 1}`,
-                      })),
-                    ].filter((a) => a.url)}
-                    initialImages={((config as any).imagensIA as string[]) || []}
-                  />
-                </LazyTab>
-              )}
-              {currentStep === 'imagem-ia' && (
-                <LazyTab>
-                  <ImagemIATab
-                    user={user}
-                    onUseInVideo={(url) => {
-                      setConfig((prev) => ({
-                        ...prev,
-                        imagensIA: [...(((prev as any).imagensIA as string[]) || []), url],
-                      }));
-                      triggerProjectSave('imagem-ia');
-                    }}
-                  />
-                </LazyTab>
-              )}
-              {currentStep === 'edit-zap' && (
-                <LazyTab>
-                  <EditZapTab
-                    zap={zap}
-                    config={config}
-                    setConfig={setConfig}
-                    videos={videos}
-                    platformApiKey={platformApiKey}
-                    user={user}
-                    useHookFlow={useHookFlow}
-                    loading={loading}
-                    handleRenderZapSimple={handleRenderZapSimple}
-                    handleRenderZapSplit={handleRenderZapSplit}
-                    handleDeleteVideoFromArray={handleDeleteVideoFromArray}
-                    handleRenderHeadline={handleRenderHeadline}
-                    handleRenderIntercut={handleRenderIntercut}
-                    fetchZapCapTemplates={fetchZapCapTemplates}
-                    zapCapTemplates={zapCapTemplates}
-                    onAddUploadedVideo={(newVideo: any, isHook: boolean) => {
-                      // Vídeo enviado pelo user vira fonte do pipeline de edição,
-                      // exatamente como um vídeo gerado pelo avatar. Corpo: state
-                      // `videos` (alimenta o picker) + config.videos (persiste).
-                      // Gancho: config.copy.hookVideos.
-                      if (isHook) {
-                        setConfig((prev) => {
-                          const prevHook =
-                            ((prev.copy as any)?.hookVideos as any[] | undefined) || [];
-                          return {
-                            ...prev,
-                            copy: { ...prev.copy, hookVideos: [...prevHook, newVideo] } as any,
-                          };
-                        });
-                      } else {
-                        setVideos((prev) => [...prev, newVideo]);
-                        setConfig((prev) => ({
-                          ...prev,
-                          videos: [...((prev.videos as any[]) || []), newVideo],
-                        }));
-                      }
-                      triggerProjectSave('edicao-upload');
-                    }}
-                  />
-                </LazyTab>
-              )}
-              {currentStep === 'merge' && (
-                <LazyTab>
-                  <MergeTab config={config} setConfig={setConfig} user={user} />
-                </LazyTab>
-              )}
-              {currentStep === 'montagem' && (
-                <LazyTab>
-                  <MontagemTab
-                    config={config}
-                    setConfig={setConfig}
-                    user={user}
-                    onAddUploadedVideo={(newVideo: any, isHook: boolean) => {
-                      if (isHook) {
-                        setConfig((prev) => {
-                          const prevHook =
-                            ((prev.copy as any)?.hookVideos as any[] | undefined) || [];
-                          return {
-                            ...prev,
-                            copy: { ...prev.copy, hookVideos: [...prevHook, newVideo] } as any,
-                          };
-                        });
-                      } else {
-                        setVideos((prev) => [...prev, newVideo]);
-                        setConfig((prev) => ({
-                          ...prev,
-                          videos: [...((prev.videos as any[]) || []), newVideo],
-                        }));
-                      }
-                      triggerProjectSave('montagem');
-                    }}
-                    onGoToEdit={() => setCurrentStep('edit-zap')}
-                    onRemix={handleRemixCurrent}
-                  />
-                </LazyTab>
-              )}
-              {currentStep === 'edit2' && (
-                <LazyTab>
-                  <Edit2Tab
-                    videoUrl={videoUrl}
-                    setVideoUrl={setVideoUrl}
-                    uploadProgress={uploadProgress}
-                    userVideos={userVideos}
-                    platformApiKey={platformApiKey}
-                    autoEditState={autoEditState}
-                    setAutoEditState={setAutoEditState}
-                    brollPercent={brollPercent}
-                    setBrollPercent={setBrollPercent}
-                    recommendedBrollPercent={recommendedBrollPercent}
-                    zapCapTemplates={zapCapTemplates}
-                    zapCapRenderConfig={zapCapRenderConfig}
-                    setZapCapRenderConfig={setZapCapRenderConfig}
-                    loading={loading}
-                    isDragging={isDragging}
-                    setIsDragging={setIsDragging}
-                    isRenderingRef={isRenderingRef}
-                    handleUploadVideo={handleUploadVideo}
-                    handleStartAutoEdit={handleStartAutoEdit}
-                    handleRenderZapCap={handleRenderZapCap}
-                    handleApproveAndDownload={handleApproveAndDownload}
-                    toggleBrollSelection={toggleBrollSelection}
-                  />
-                </LazyTab>
-              )}
-
-              {currentStep === 'final' && (
-                <LazyTab>
-                  <FinalTab
-                    config={config}
-                    videoUrl={videoUrl}
-                    audioUrl={audioUrl}
-                    videoOp={videoOp}
-                    loading={loading}
-                    currentTime={currentTime}
-                    setCurrentTime={setCurrentTime}
-                    isExpanded={isExpanded}
-                    generationStage={generationStage}
-                    heygenAvatars={heygenAvatars}
-                    platformApiKey={platformApiKey}
-                    videoRef={videoRef}
-                    logs={logs}
-                    handleGenerateVideo={handleGenerateVideo}
-                    handleGenerateSubtitles={handleGenerateSubtitles}
-                    onDuplicateAsVariant={handleDuplicateAsVariant}
-                  />
-                </LazyTab>
-              )}
-            </ErrorBoundary>
-          </motion.div>
-        </AnimatePresence>
-
-        {/* Footer Navigation */}
-        <div className="mt-16 flex items-center justify-between pt-8 border-t border-gray-200/60 dark:border-gray-800/60">
-          <button
-            onClick={prevStep}
-            disabled={currentStep === STEPS[0]?.id}
-            className="group flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/60 disabled:opacity-0 transition-all"
-          >
-            <ChevronLeft size={18} className="group-hover:-translate-x-0.5 transition-transform" />
-            Voltar
-          </button>
-
-          {currentStep !== 'copy' && (
-            <div className="flex items-center gap-3">
-              <button
-                // UX2: silent:false → este é o ÚNICO save com toast.
-                // Auto-save e saves programáticos rodam silenciosos.
-                onClick={() => handleSaveProject(undefined, { silent: false })}
-                disabled={isSaving}
-                className="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-gray-900/80 ring-1 ring-gray-200/60 dark:ring-gray-800/60 text-gray-700 dark:text-gray-200 rounded-xl font-bold hover:bg-gray-50 dark:hover:bg-gray-800 hover:ring-gray-300 dark:hover:ring-gray-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isSaving ? (
-                  <Loader2 className="animate-spin" size={16} />
-                ) : currentProjectId ? (
-                  <CheckCircle2 size={16} className="text-green-500" />
-                ) : (
-                  <Download size={16} className="text-blue-500" />
+                        )}
+                      </>
+                    );
+                  })()}
+                {currentStep === 'remotion' && (
+                  <LazyTab>
+                    <RemotionTab
+                      config={config}
+                      setConfig={setConfig}
+                      setCurrentStep={setCurrentStep}
+                    />
+                  </LazyTab>
                 )}
-                {currentProjectId ? 'Salvar' : 'Salvar Projeto'}
-              </button>
+                {currentStep === 'avatar' && (
+                  <LazyTab>
+                    <AvatarTab
+                      config={config}
+                      setConfig={setConfig}
+                      setCurrentStep={setCurrentStep}
+                      loading={loading}
+                      setLoading={setLoading}
+                      avatarMode={avatarMode}
+                      setAvatarMode={setAvatarMode}
+                      useHookFlow={useHookFlow}
+                      heygenAvatars={heygenAvatars}
+                      setHeygenAvatars={setHeygenAvatars}
+                      avatarFilters={avatarFilters}
+                      setAvatarFilters={setAvatarFilters}
+                      avatarSearch={avatarSearch}
+                      setAvatarSearch={setAvatarSearch}
+                      previewAvatar={previewAvatar}
+                      setPreviewAvatar={setPreviewAvatar}
+                      avatarRecommendation={avatarRecommendation}
+                      setAvatarRecommendation={setAvatarRecommendation}
+                      videos={videos}
+                      videoUrl={videoUrl}
+                      setVideoUrl={setVideoUrl}
+                      setVideoStoragePath={setVideoStoragePath}
+                      platformApiKey={platformApiKey}
+                      videoOp={videoOp}
+                      setVideoOp={setVideoOp}
+                      setGenerationStage={setGenerationStage}
+                      isTestMode={isTestMode}
+                      setIsTestMode={setIsTestMode}
+                      useNativeFallback={useNativeFallback}
+                      setUseNativeFallback={setUseNativeFallback}
+                      logs={logs}
+                      pollIntervalRef={pollIntervalRef}
+                      isTestingKey={isTestingKey}
+                      isUpdatingKey={isUpdatingKey}
+                      audioUrl={audioUrl}
+                      isVideoUpToDate={isVideoUpToDate}
+                      loadingAvatars={loadingAvatars}
+                      avatarError={avatarError}
+                      newElevenLabsKey={newElevenLabsKey}
+                      setNewElevenLabsKey={setNewElevenLabsKey}
+                      showElevenLabsConfig={showElevenLabsConfig}
+                      setShowElevenLabsConfig={setShowElevenLabsConfig}
+                      setShowDeleteModal={setShowDeleteModal}
+                      videoToDelete={videoToDelete}
+                      setVideoToDelete={setVideoToDelete}
+                      setAudioToDelete={setAudioToDelete}
+                      showDeleteVideoModal={showDeleteVideoModal}
+                      setShowDeleteVideoModal={setShowDeleteVideoModal}
+                      showDeleteHistoryVideoModal={showDeleteHistoryVideoModal}
+                      setShowDeleteHistoryVideoModal={setShowDeleteHistoryVideoModal}
+                      handleGenerateVideo={handleGenerateVideo}
+                      handleCancelGeneration={handleCancelGeneration}
+                      handleDeleteVideo={handleDeleteVideo}
+                      handleDeleteVideoFromArray={handleDeleteVideoFromArray}
+                      handleTestElevenLabsKey={handleTestElevenLabsKey}
+                      handleUpdateElevenLabsKey={handleUpdateElevenLabsKey}
+                    />
+                  </LazyTab>
+                )}
+                {currentStep === 'video-ia' && (
+                  <LazyTab>
+                    <VideoIATab
+                      user={user}
+                      onAddClip={(clip) => {
+                        // Clipe do fal entra na BIBLIOTECA da Montagem
+                        // (config.montagem.clips) — de onde a timeline puxa os
+                        // b-rolls. A Montagem lê isso no mount (draft.clips).
+                        setConfig((prev) => {
+                          const montagem = ((prev as any).montagem || {}) as any;
+                          const clips = Array.isArray(montagem.clips) ? montagem.clips : [];
+                          return {
+                            ...prev,
+                            montagem: { ...montagem, clips: [...clips, clip] },
+                          } as any;
+                        });
+                        triggerProjectSave('clipe-ia');
+                      }}
+                      onPlaceOnTimeline={(clip, atSec) => {
+                        // Coloca DIRETO na timeline no segundo certo (clipe recortado
+                        // + lip-sync): adiciona o clipe E um item na posição atSec.
+                        setConfig((prev) => {
+                          const montagem = ((prev as any).montagem || {}) as any;
+                          const clips = Array.isArray(montagem.clips) ? montagem.clips : [];
+                          const items = Array.isArray(montagem.items) ? montagem.items : [];
+                          const clipIdx = clips.length;
+                          return {
+                            ...prev,
+                            montagem: {
+                              ...montagem,
+                              clips: [...clips, clip],
+                              items: [
+                                ...items,
+                                {
+                                  clipIdx,
+                                  atSec,
+                                  endSec: atSec + (clip.duration || 5),
+                                  transIn: 'none',
+                                  transInDur: 0.15,
+                                  soundIn: '',
+                                  transOut: 'none',
+                                  transOutDur: 0.15,
+                                  soundOut: '',
+                                  soundMid: '',
+                                  soundMidAlign: '',
+                                  bw: false,
+                                },
+                              ],
+                            },
+                          } as any;
+                        });
+                        triggerProjectSave('clipe-ia-timeline');
+                      }}
+                      onGoToMontagem={() => setCurrentStep('montagem')}
+                      audios={[
+                        ...(((config as any).audios as any[]) || []).map((a, i) => ({
+                          url: a?.url,
+                          label: `🎙 Corpo #${i + 1}`,
+                        })),
+                        ...(((config.copy as any)?.hookAudios as any[]) || []).map((a, i) => ({
+                          url: a?.url,
+                          label: `🎣 Gancho #${i + 1}`,
+                        })),
+                      ].filter((a) => a.url)}
+                      initialImages={((config as any).imagensIA as string[]) || []}
+                    />
+                  </LazyTab>
+                )}
+                {currentStep === 'imagem-ia' && (
+                  <LazyTab>
+                    <ImagemIATab
+                      user={user}
+                      onUseInVideo={(url) => {
+                        setConfig((prev) => ({
+                          ...prev,
+                          imagensIA: [...(((prev as any).imagensIA as string[]) || []), url],
+                        }));
+                        triggerProjectSave('imagem-ia');
+                      }}
+                    />
+                  </LazyTab>
+                )}
+                {currentStep === 'edit-zap' && (
+                  <LazyTab>
+                    <EditZapTab
+                      zap={zap}
+                      config={config}
+                      setConfig={setConfig}
+                      videos={videos}
+                      platformApiKey={platformApiKey}
+                      user={user}
+                      useHookFlow={useHookFlow}
+                      loading={loading}
+                      handleRenderZapSimple={handleRenderZapSimple}
+                      handleRenderZapSplit={handleRenderZapSplit}
+                      handleDeleteVideoFromArray={handleDeleteVideoFromArray}
+                      handleRenderHeadline={handleRenderHeadline}
+                      handleRenderIntercut={handleRenderIntercut}
+                      fetchZapCapTemplates={fetchZapCapTemplates}
+                      zapCapTemplates={zapCapTemplates}
+                      onAddUploadedVideo={(newVideo: any, isHook: boolean) => {
+                        // Vídeo enviado pelo user vira fonte do pipeline de edição,
+                        // exatamente como um vídeo gerado pelo avatar. Corpo: state
+                        // `videos` (alimenta o picker) + config.videos (persiste).
+                        // Gancho: config.copy.hookVideos.
+                        if (isHook) {
+                          setConfig((prev) => {
+                            const prevHook =
+                              ((prev.copy as any)?.hookVideos as any[] | undefined) || [];
+                            return {
+                              ...prev,
+                              copy: { ...prev.copy, hookVideos: [...prevHook, newVideo] } as any,
+                            };
+                          });
+                        } else {
+                          setVideos((prev) => [...prev, newVideo]);
+                          setConfig((prev) => ({
+                            ...prev,
+                            videos: [...((prev.videos as any[]) || []), newVideo],
+                          }));
+                        }
+                        triggerProjectSave('edicao-upload');
+                      }}
+                    />
+                  </LazyTab>
+                )}
+                {currentStep === 'merge' && (
+                  <LazyTab>
+                    <MergeTab config={config} setConfig={setConfig} user={user} />
+                  </LazyTab>
+                )}
+                {currentStep === 'montagem' && (
+                  <LazyTab>
+                    <MontagemTab
+                      config={config}
+                      setConfig={setConfig}
+                      user={user}
+                      onAddUploadedVideo={(newVideo: any, isHook: boolean) => {
+                        if (isHook) {
+                          setConfig((prev) => {
+                            const prevHook =
+                              ((prev.copy as any)?.hookVideos as any[] | undefined) || [];
+                            return {
+                              ...prev,
+                              copy: { ...prev.copy, hookVideos: [...prevHook, newVideo] } as any,
+                            };
+                          });
+                        } else {
+                          setVideos((prev) => [...prev, newVideo]);
+                          setConfig((prev) => ({
+                            ...prev,
+                            videos: [...((prev.videos as any[]) || []), newVideo],
+                          }));
+                        }
+                        triggerProjectSave('montagem');
+                      }}
+                      onGoToEdit={() => setCurrentStep('edit-zap')}
+                      onRemix={handleRemixCurrent}
+                    />
+                  </LazyTab>
+                )}
+                {currentStep === 'edit2' && (
+                  <LazyTab>
+                    <Edit2Tab
+                      videoUrl={videoUrl}
+                      setVideoUrl={setVideoUrl}
+                      uploadProgress={uploadProgress}
+                      userVideos={userVideos}
+                      platformApiKey={platformApiKey}
+                      autoEditState={autoEditState}
+                      setAutoEditState={setAutoEditState}
+                      brollPercent={brollPercent}
+                      setBrollPercent={setBrollPercent}
+                      recommendedBrollPercent={recommendedBrollPercent}
+                      zapCapTemplates={zapCapTemplates}
+                      zapCapRenderConfig={zapCapRenderConfig}
+                      setZapCapRenderConfig={setZapCapRenderConfig}
+                      loading={loading}
+                      isDragging={isDragging}
+                      setIsDragging={setIsDragging}
+                      isRenderingRef={isRenderingRef}
+                      handleUploadVideo={handleUploadVideo}
+                      handleStartAutoEdit={handleStartAutoEdit}
+                      handleRenderZapCap={handleRenderZapCap}
+                      handleApproveAndDownload={handleApproveAndDownload}
+                      toggleBrollSelection={toggleBrollSelection}
+                    />
+                  </LazyTab>
+                )}
 
-              <button
-                onClick={nextStep}
-                disabled={currentStep === 'final'}
-                className="group flex items-center gap-2 px-7 py-2.5 bg-gradient-to-br from-gray-900 to-gray-800 dark:from-blue-500 dark:to-blue-600 text-white rounded-xl font-bold hover:from-black hover:to-gray-900 dark:hover:from-blue-600 dark:hover:to-blue-700 active:scale-[0.98] transition-all shadow-lg shadow-gray-900/20 dark:shadow-blue-900/40 ring-1 ring-inset ring-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Continuar
-                <ChevronRight
-                  size={18}
-                  className="group-hover:translate-x-0.5 transition-transform"
-                />
-              </button>
-            </div>
-          )}
-        </div>
+                {currentStep === 'final' && (
+                  <LazyTab>
+                    <FinalTab
+                      config={config}
+                      videoUrl={videoUrl}
+                      audioUrl={audioUrl}
+                      videoOp={videoOp}
+                      loading={loading}
+                      currentTime={currentTime}
+                      setCurrentTime={setCurrentTime}
+                      isExpanded={isExpanded}
+                      generationStage={generationStage}
+                      heygenAvatars={heygenAvatars}
+                      platformApiKey={platformApiKey}
+                      videoRef={videoRef}
+                      logs={logs}
+                      handleGenerateVideo={handleGenerateVideo}
+                      handleGenerateSubtitles={handleGenerateSubtitles}
+                      onDuplicateAsVariant={handleDuplicateAsVariant}
+                    />
+                  </LazyTab>
+                )}
+              </ErrorBoundary>
+            </motion.div>
+          </AnimatePresence>
+
+          {/* Footer Navigation */}
+          <div className="mt-16 flex items-center justify-between pt-8 border-t border-gray-200/60 dark:border-gray-800/60">
+            <button
+              onClick={prevStep}
+              disabled={currentStep === STEPS[0]?.id}
+              className="group flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/60 disabled:opacity-0 transition-all"
+            >
+              <ChevronLeft
+                size={18}
+                className="group-hover:-translate-x-0.5 transition-transform"
+              />
+              Voltar
+            </button>
+
+            {currentStep !== 'copy' && (
+              <div className="flex items-center gap-3">
+                <button
+                  // UX2: silent:false → este é o ÚNICO save com toast.
+                  // Auto-save e saves programáticos rodam silenciosos.
+                  onClick={() => handleSaveProject(undefined, { silent: false })}
+                  disabled={isSaving}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-gray-900/80 ring-1 ring-gray-200/60 dark:ring-gray-800/60 text-gray-700 dark:text-gray-200 rounded-xl font-bold hover:bg-gray-50 dark:hover:bg-gray-800 hover:ring-gray-300 dark:hover:ring-gray-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSaving ? (
+                    <Loader2 className="animate-spin" size={16} />
+                  ) : currentProjectId ? (
+                    <CheckCircle2 size={16} className="text-green-500" />
+                  ) : (
+                    <Download size={16} className="text-blue-500" />
+                  )}
+                  {currentProjectId ? 'Salvar' : 'Salvar Projeto'}
+                </button>
+
+                <button
+                  onClick={nextStep}
+                  disabled={currentStep === 'final'}
+                  className="group flex items-center gap-2 px-7 py-2.5 bg-gradient-to-br from-gray-900 to-gray-800 dark:from-blue-500 dark:to-blue-600 text-white rounded-xl font-bold hover:from-black hover:to-gray-900 dark:hover:from-blue-600 dark:hover:to-blue-700 active:scale-[0.98] transition-all shadow-lg shadow-gray-900/20 dark:shadow-blue-900/40 ring-1 ring-inset ring-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Continuar
+                  <ChevronRight
+                    size={18}
+                    className="group-hover:translate-x-0.5 transition-transform"
+                  />
+                </button>
+              </div>
+            )}
+          </div>
         </main>
       </div>
       <NewProjectModal

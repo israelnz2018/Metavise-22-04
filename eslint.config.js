@@ -57,6 +57,14 @@ export default [
       // cascading render, but the cascade is exactly what we want for
       // data loading. Demoted to warn.
       'react-hooks/set-state-in-effect': 'warn',
+      // react-hooks/purity flags Date.now()/crypto calls used only inside
+      // event-handler bodies (e.g. building a filename on click) — those
+      // never run during render, the rule just can't prove it statically.
+      // react-hooks/refs has the same false-positive shape for refs used as
+      // plain mutable instance boxes (not DOM refs) read inside a handler.
+      // Both demoted to warn, same reasoning as set-state-in-effect above.
+      'react-hooks/purity': 'warn',
+      'react-hooks/refs': 'warn',
     },
   },
 

@@ -63,7 +63,11 @@ import {
   type StatisticFinding,
 } from '@/lib/claudeService';
 // UX25-A2 + A3: pre-flight check + hallucination banner
-import { PreflightCheckPanel, HallucinationBanner, AuthorityAnchorBanner } from '@/components/CopyQualityPanels';
+import {
+  PreflightCheckPanel,
+  HallucinationBanner,
+  AuthorityAnchorBanner,
+} from '@/components/CopyQualityPanels';
 import { getRecomendedEstilo, getRecomendacaoTempo, countWords } from '@/lib/helpers';
 // UX13: content risk scanner — detecta medicamentos concorrentes, slurs,
 // celebridades, alegações médicas. Banner aparece acima da textarea da
@@ -91,6 +95,8 @@ import { Library, BookmarkPlus } from 'lucide-react';
 import ReferenceSimilarityPanel from '@/components/ReferenceSimilarityPanel';
 import LastUsedReferencesModal from '@/components/LastUsedReferencesModal';
 import type { LastUsedReference } from '@/components/ReferenceSimilarityPanel';
+import CompetitorAngleModal from '@/components/CompetitorAngleModal';
+import { Swords } from 'lucide-react';
 // UX25-C1: debug modal "Ver prompt enviado ao Claude"
 import DebugPromptModal from '@/components/DebugPromptModal';
 import { Terminal, Zap, History } from 'lucide-react';
@@ -470,7 +476,6 @@ export function CopyTab({
     }));
   };
 
-
   // UX15: Variants A/B. Gera 2 versões em paralelo. User escolhe.
   const [isGeneratingVariants, setIsGeneratingVariants] = useState(false);
   const [variants, setVariants] = useState<{ script: string }[] | null>(null);
@@ -643,6 +648,9 @@ export function CopyTab({
   const lastUsedReferences: LastUsedReference[] | undefined =
     ((config.copy as any)?.lastUsedReferences as LastUsedReference[] | undefined) || undefined;
   const [showLastUsedModal, setShowLastUsedModal] = useState(false);
+
+  // Modo concorrente — cola o texto do anúncio de um rival, IA sugere ângulo próprio.
+  const [showCompetitorModal, setShowCompetitorModal] = useState(false);
 
   // UX25-C1: snapshot do prompt enviado + modal de debug
   const lastDebug = (config.copy as any)?.lastDebug as
@@ -846,7 +854,9 @@ export function CopyTab({
         copy: { ...prev.copy, generatedScript: text, optimizedScript: '' },
       }));
       setHasUnsavedCopyChanges(true);
-      toast.success(`${applied} ${applied === 1 ? 'âncora generalizada' : 'âncoras generalizadas'}.`);
+      toast.success(
+        `${applied} ${applied === 1 ? 'âncora generalizada' : 'âncoras generalizadas'}.`
+      );
     }
     setAuthorityFlags(remaining.length ? remaining : null);
   };
@@ -873,7 +883,9 @@ export function CopyTab({
       if (stats.length === 0) {
         toast('Não achei estatísticas com fonte confiável pra esse nicho.', { icon: '🔍' });
       } else {
-        toast.success(`${stats.length} estatística${stats.length > 1 ? 's' : ''} com fonte — revise e adicione.`);
+        toast.success(
+          `${stats.length} estatística${stats.length > 1 ? 's' : ''} com fonte — revise e adicione.`
+        );
       }
     } catch (err: any) {
       toast.error(err?.message || 'Erro ao buscar estatísticas.');
@@ -996,7 +1008,15 @@ export function CopyTab({
   const [reframingAudience, setReframingAudience] = React.useState(false);
   // Campos reenquadrados por nível: audiência (Seção 1) + SÓ o "problema que
   // resolve" da Seção 4 (o resto do produto/oferta são fatos, não mexe).
-  const AUDIENCE_FIELDS = ['audience', 'situation', 'painPoints', 'triedBefore', 'mainObjection', 'hiddenDesire', 'productProblem'];
+  const AUDIENCE_FIELDS = [
+    'audience',
+    'situation',
+    'painPoints',
+    'triedBefore',
+    'mainObjection',
+    'hiddenDesire',
+    'productProblem',
+  ];
   const reframeAudience = async () => {
     const level = config.copy.answers.awarenessLevel || '';
     if (!level) return toast.error('Escolha um nível de consciência primeiro.');
@@ -1194,7 +1214,9 @@ export function CopyTab({
       : '';
   // Âmbar de seção: aplicado no container enquanto `filled` for falso.
   const amberRing = (filled: boolean) =>
-    !filled ? ' ring-2 ring-amber-400/80 dark:ring-amber-500/70 ring-offset-4 dark:ring-offset-gray-900' : '';
+    !filled
+      ? ' ring-2 ring-amber-400/80 dark:ring-amber-500/70 ring-offset-4 dark:ring-offset-gray-900'
+      : '';
 
   return (
     <div className="space-y-8 max-w-[1600px] mx-auto pb-20 overflow-x-hidden w-full">
@@ -1269,6 +1291,22 @@ export function CopyTab({
         onClose={() => setShowLastUsedModal(false)}
         references={lastUsedReferences}
         generatedScript={config.copy.generatedScript || ''}
+      />
+
+      {/* Modo concorrente — cola anúncio rival, IA sugere ângulo próprio */}
+      <CompetitorAngleModal
+        open={showCompetitorModal}
+        onClose={() => setShowCompetitorModal(false)}
+        productInfo={
+          productInfo
+            ? {
+                produto: productInfo.productName,
+                oferta: productInfo.offer,
+                dorPrincipal: productInfo.mainPain,
+              }
+            : null
+        }
+        language={config.copy?.answers?.language}
       />
 
       {/* UX25-C1: modal "Ver prompt enviado" — debug */}
@@ -1735,7 +1773,9 @@ export function CopyTab({
                       title="A IA reescreve a audiência + o 'problema que resolve' pro nível de consciência atual (sobrescreve o texto). Não toca em nome/mecanismo/prova/oferta."
                       className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border-2 border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 text-[10px] font-black uppercase tracking-widest hover:bg-purple-50 dark:hover:bg-purple-950/40 disabled:opacity-50"
                     >
-                      {reframingAudience ? '⏳ Reescrevendo…' : `🔄 Reescrever pro nível ${config.copy.answers.awarenessLevel} (IA)`}
+                      {reframingAudience
+                        ? '⏳ Reescrevendo…'
+                        : `🔄 Reescrever pro nível ${config.copy.answers.awarenessLevel} (IA)`}
                     </button>
                   )}
                 </div>
@@ -1897,7 +1937,8 @@ export function CopyTab({
                     className="mt-3 w-full py-2.5 rounded-2xl border-2 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 text-xs font-black uppercase tracking-widest hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors"
                     title="Ajusta estilo, ângulo e emoção pros recomendados deste nível de consciência"
                   >
-                    🔄 Aplicar recomendações do nível {config.copy.answers.awarenessLevel} (estilo · ângulo · emoção)
+                    🔄 Aplicar recomendações do nível {config.copy.answers.awarenessLevel} (estilo ·
+                    ângulo · emoção)
                   </button>
                 )}
               </div>
@@ -2204,48 +2245,48 @@ export function CopyTab({
                       "apresentação curta", "vídeo rápido", etc.
                       Escondido na VSL: lá o destino é sempre o botão da oferta. */}
                   {!isVsl && (
-                  <div className="mt-4 space-y-2">
-                    <div className="flex items-center justify-between gap-3">
-                      <label className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">
-                        Descreva o destino do clique
-                        <span className="ml-2 text-amber-600 dark:text-amber-400 normal-case tracking-normal">
-                          (recomendado — evita IA inventar formato)
-                        </span>
-                      </label>
-                      {productInfo && (
-                        <button
-                          type="button"
-                          onClick={handleAutoFillDestination}
-                          disabled={isAutoFillingDestination}
-                          className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-[10px] font-black uppercase tracking-widest transition-all"
-                          title="Usa a Fonte do Produto pra descrever o destino"
-                        >
-                          {isAutoFillingDestination ? (
-                            <Loader2 size={12} className="animate-spin" />
-                          ) : (
-                            <Sparkles size={12} />
-                          )}
-                          Preencher do projeto
-                        </button>
-                      )}
+                    <div className="mt-4 space-y-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <label className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">
+                          Descreva o destino do clique
+                          <span className="ml-2 text-amber-600 dark:text-amber-400 normal-case tracking-normal">
+                            (recomendado — evita IA inventar formato)
+                          </span>
+                        </label>
+                        {productInfo && (
+                          <button
+                            type="button"
+                            onClick={handleAutoFillDestination}
+                            disabled={isAutoFillingDestination}
+                            className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-[10px] font-black uppercase tracking-widest transition-all"
+                            title="Usa a Fonte do Produto pra descrever o destino"
+                          >
+                            {isAutoFillingDestination ? (
+                              <Loader2 size={12} className="animate-spin" />
+                            ) : (
+                              <Sparkles size={12} />
+                            )}
+                            Preencher do projeto
+                          </button>
+                        )}
+                      </div>
+                      <AutoResizeTextarea
+                        placeholder={
+                          isVsl
+                            ? 'Ex: Botão logo abaixo do vídeo escrito "QUERO ACESSO AO CURSO". Leva pro checkout do produto (curso completo + bônus). CTA da VSL deve mandar a pessoa clicar no botão da oferta e garantir a vaga agora.'
+                            : "Ex: Live gratuita de 1h onde um pesquisador conta como criou a vitamina amarela pra ajudar a mãe com neuropatia. Aparecem ele, a mãe e um host. Tom: depoimento de família. NÃO chamar de 'apresentação curta', 'vídeo rápido' ou 'audio'."
+                        }
+                        value={config.copy.answers.destinationDescription || ''}
+                        onChange={(e: any) =>
+                          updateConfig('copy', 'answers', 'destinationDescription', e.target.value)
+                        }
+                        className="w-full p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-800 text-sm outline-none focus:border-blue-400 min-h-[80px]"
+                      />
+                      <p className="text-[10px] text-gray-400 dark:text-gray-500 italic">
+                        A IA vai usar essa descrição literalmente pra falar do destino. Diga
+                        formato, quem aparece, sobre o que falam, e o que NÃO chamar.
+                      </p>
                     </div>
-                    <AutoResizeTextarea
-                      placeholder={
-                        isVsl
-                          ? 'Ex: Botão logo abaixo do vídeo escrito "QUERO ACESSO AO CURSO". Leva pro checkout do produto (curso completo + bônus). CTA da VSL deve mandar a pessoa clicar no botão da oferta e garantir a vaga agora.'
-                          : "Ex: Live gratuita de 1h onde um pesquisador conta como criou a vitamina amarela pra ajudar a mãe com neuropatia. Aparecem ele, a mãe e um host. Tom: depoimento de família. NÃO chamar de 'apresentação curta', 'vídeo rápido' ou 'audio'."
-                      }
-                      value={config.copy.answers.destinationDescription || ''}
-                      onChange={(e: any) =>
-                        updateConfig('copy', 'answers', 'destinationDescription', e.target.value)
-                      }
-                      className="w-full p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-800 text-sm outline-none focus:border-blue-400 min-h-[80px]"
-                    />
-                    <p className="text-[10px] text-gray-400 dark:text-gray-500 italic">
-                      A IA vai usar essa descrição literalmente pra falar do destino. Diga formato,
-                      quem aparece, sobre o que falam, e o que NÃO chamar.
-                    </p>
-                  </div>
                   )}
                 </div>
               </div>
@@ -2259,7 +2300,9 @@ export function CopyTab({
                   <input
                     type="text"
                     value={config.copy.answers.vslHook || ''}
-                    onChange={(e: any) => updateConfig('copy', 'answers', 'vslHook', e.target.value)}
+                    onChange={(e: any) =>
+                      updateConfig('copy', 'answers', 'vslHook', e.target.value)
+                    }
                     placeholder='ex: "Essa arte feita em casa tá virando renda pra milhares de mães"'
                     className="w-full p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-800 text-sm outline-none focus:border-blue-400"
                   />
@@ -2278,7 +2321,11 @@ export function CopyTab({
                   </label>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {[
-                      { id: '50', label: '~50%', desc: 'Vende cedo — metade conteúdo, metade oferta' },
+                      {
+                        id: '50',
+                        label: '~50%',
+                        desc: 'Vende cedo — metade conteúdo, metade oferta',
+                      },
                       { id: '75', label: '~75%', desc: 'Educa mais, vende no último quarto' },
                       { id: '90', label: '~90%', desc: 'Quase tudo conteúdo, pitch curto no fim' },
                       { id: 'end', label: 'Só no fim', desc: 'Padrão — oferta nos blocos finais' },
@@ -2295,15 +2342,19 @@ export function CopyTab({
                               : 'border-gray-100 dark:border-gray-800 hover:border-blue-200 bg-gray-50/40 dark:bg-gray-800/50'
                           }`}
                         >
-                          <div className="text-sm font-black text-gray-900 dark:text-gray-50">{opt.label}</div>
-                          <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 leading-tight">{opt.desc}</div>
+                          <div className="text-sm font-black text-gray-900 dark:text-gray-50">
+                            {opt.label}
+                          </div>
+                          <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 leading-tight">
+                            {opt.desc}
+                          </div>
                         </button>
                       );
                     })}
                   </div>
                   <p className="text-[10px] text-gray-400 dark:text-gray-500 italic">
-                    Antes do pitch a IA só entrega história/problema/mecanismo/prova; a partir do ponto
-                    escolhido é que entra o produto, objeções e o CTA.
+                    Antes do pitch a IA só entrega história/problema/mecanismo/prova; a partir do
+                    ponto escolhido é que entra o produto, objeções e o CTA.
                   </p>
                 </div>
               )}
@@ -2311,88 +2362,89 @@ export function CopyTab({
               {/* SEÇÃO — Estratégia da Copy. Só no anúncio: a VSL SEMPRE vende o
                   produto nela mesma, então essa escolha não faz sentido. */}
               {!isVsl && (
-              <div
-                className={
-                  'space-y-6 bg-white dark:bg-gray-900/80 p-8 rounded-[40px] border-2 border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow' +
-                  amberRing(!!config.copy.answers.copyStrategy)
-                }
-              >
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-8 h-8 bg-blue-600 text-white rounded-xl flex items-center justify-center text-xs font-black">
-                    {sections.length + 4}
+                <div
+                  className={
+                    'space-y-6 bg-white dark:bg-gray-900/80 p-8 rounded-[40px] border-2 border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow' +
+                    amberRing(!!config.copy.answers.copyStrategy)
+                  }
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-8 h-8 bg-blue-600 text-white rounded-xl flex items-center justify-center text-xs font-black">
+                      {sections.length + 4}
+                    </div>
+                    <h4 className="font-black text-gray-900 dark:text-gray-50 text-lg tracking-tight uppercase">
+                      {sections.length + 4}. Estratégia da Copy
+                    </h4>
                   </div>
-                  <h4 className="font-black text-gray-900 dark:text-gray-50 text-lg tracking-tight uppercase">
-                    {sections.length + 4}. Estratégia da Copy
-                  </h4>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">
-                    O ad vai vender ou só fazer o viewer clicar?
-                  </label>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {[
-                      {
-                        id: 'vsl-curiosity',
-                        emoji: '🎯',
-                        label: 'Criar curiosidade',
-                        desc: 'Pro funil com VSL, webinar ou conteúdo longo. O ad só convence a clicar — quem vende é o vídeo.',
-                        bullets: [
-                          'Não revela produto / mecanismo',
-                          'Sem garantia, preço ou oferta',
-                          'Abre loop, fecha no vídeo',
-                        ],
-                      },
-                      {
-                        id: 'direct-sale',
-                        emoji: '💰',
-                        label: 'Vender no próprio ad',
-                        desc: 'Pro funil direto: ad → página de vendas / checkout. O ad já apresenta o produto, mecanismo e oferta.',
-                        bullets: [
-                          'Apresenta produto e mecanismo',
-                          'Pode usar prova social e garantia',
-                          'Fecha com CTA direto',
-                        ],
-                      },
-                    ].map((strat) => (
-                      <button
-                        key={strat.id}
-                        onClick={() => updateConfig('copy', 'answers', 'copyStrategy', strat.id)}
-                        className={`p-4 rounded-2xl border-2 text-left transition-all ${
-                          config.copy.answers.copyStrategy === strat.id
-                            ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40'
-                            : 'border-gray-200 dark:border-gray-800 hover:border-blue-200'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3 mb-2">
-                          <span className="text-2xl">{strat.emoji}</span>
-                          <p className="font-black text-gray-900 dark:text-gray-50 uppercase tracking-tight text-sm">
-                            {strat.label}
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">
+                      O ad vai vender ou só fazer o viewer clicar?
+                    </label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {[
+                        {
+                          id: 'vsl-curiosity',
+                          emoji: '🎯',
+                          label: 'Criar curiosidade',
+                          desc: 'Pro funil com VSL, webinar ou conteúdo longo. O ad só convence a clicar — quem vende é o vídeo.',
+                          bullets: [
+                            'Não revela produto / mecanismo',
+                            'Sem garantia, preço ou oferta',
+                            'Abre loop, fecha no vídeo',
+                          ],
+                        },
+                        {
+                          id: 'direct-sale',
+                          emoji: '💰',
+                          label: 'Vender no próprio ad',
+                          desc: 'Pro funil direto: ad → página de vendas / checkout. O ad já apresenta o produto, mecanismo e oferta.',
+                          bullets: [
+                            'Apresenta produto e mecanismo',
+                            'Pode usar prova social e garantia',
+                            'Fecha com CTA direto',
+                          ],
+                        },
+                      ].map((strat) => (
+                        <button
+                          key={strat.id}
+                          onClick={() => updateConfig('copy', 'answers', 'copyStrategy', strat.id)}
+                          className={`p-4 rounded-2xl border-2 text-left transition-all ${
+                            config.copy.answers.copyStrategy === strat.id
+                              ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40'
+                              : 'border-gray-200 dark:border-gray-800 hover:border-blue-200'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3 mb-2">
+                            <span className="text-2xl">{strat.emoji}</span>
+                            <p className="font-black text-gray-900 dark:text-gray-50 uppercase tracking-tight text-sm">
+                              {strat.label}
+                            </p>
+                          </div>
+                          <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium mb-3 leading-relaxed">
+                            {strat.desc}
                           </p>
-                        </div>
-                        <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium mb-3 leading-relaxed">
-                          {strat.desc}
-                        </p>
-                        <ul className="space-y-1">
-                          {strat.bullets.map((b) => (
-                            <li
-                              key={b}
-                              className="text-[10px] text-gray-400 dark:text-gray-500 font-bold flex items-start gap-1.5"
-                            >
-                              <span className="text-blue-500 mt-0.5">•</span>
-                              <span>{b}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </button>
-                    ))}
+                          <ul className="space-y-1">
+                            {strat.bullets.map((b) => (
+                              <li
+                                key={b}
+                                className="text-[10px] text-gray-400 dark:text-gray-500 font-bold flex items-start gap-1.5"
+                              >
+                                <span className="text-blue-500 mt-0.5">•</span>
+                                <span>{b}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </button>
+                      ))}
+                    </div>
+                    {!config.copy.answers.copyStrategy && (
+                      <p className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-widest mt-2 ml-1">
+                        Padrão: Criar curiosidade (tráfego pra VSL). Escolha "Vender no próprio ad"
+                        só se o ad leva direto pra página de vendas.
+                      </p>
+                    )}
                   </div>
-                  {!config.copy.answers.copyStrategy && (
-                    <p className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-widest mt-2 ml-1">
-                      Padrão: Criar curiosidade (tráfego pra VSL). Escolha "Vender no próprio ad" só se o ad leva direto pra página de vendas.
-                    </p>
-                  )}
                 </div>
-              </div>
               )}
 
               {/* UX24-B: SEÇÃO — Evite mencionar (avoid list)
@@ -2475,8 +2527,8 @@ export function CopyTab({
                     className="w-full p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-800 text-sm outline-none focus:border-emerald-400 min-h-[60px]"
                   />
                   <p className="text-[10px] text-gray-400 dark:text-gray-500 italic">
-                    Separe por vírgula. Vira regra dura no prompt — a IA é obrigada a usar cada termo
-                    no texto final (encaixados de forma natural).
+                    Separe por vírgula. Vira regra dura no prompt — a IA é obrigada a usar cada
+                    termo no texto final (encaixados de forma natural).
                   </p>
                 </div>
 
@@ -2513,8 +2565,8 @@ export function CopyTab({
                     className="w-full p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-800 text-sm outline-none focus:border-emerald-400"
                   />
                   <p className="text-[10px] text-gray-400 dark:text-gray-500 italic">
-                    A IA vai usar esse nome como gancho de curiosidade — cita o nome pra intrigar, mas
-                    NUNCA explica o que é (isso fica no vídeo).
+                    A IA vai usar esse nome como gancho de curiosidade — cita o nome pra intrigar,
+                    mas NUNCA explica o que é (isso fica no vídeo).
                   </p>
                 </div>
               </div>
@@ -2563,7 +2615,9 @@ export function CopyTab({
                     Quem narra — quem é, idade, relação com o problema (não precisa ser 1ª pessoa)
                   </label>
                   <AutoResizeTextarea
-                    placeholder={'Ex: Sofredor de 58 anos que conviveu 6 anos com a dor até achar a resposta\nEx: Filha que cuidou do pai com neuropatia e foi atrás da causa\nEx: Um pesquisador que reúne histórias de quem viveu isso (3ª pessoa)'}
+                    placeholder={
+                      'Ex: Sofredor de 58 anos que conviveu 6 anos com a dor até achar a resposta\nEx: Filha que cuidou do pai com neuropatia e foi atrás da causa\nEx: Um pesquisador que reúne histórias de quem viveu isso (3ª pessoa)'
+                    }
                     value={config.copy.answers.narrator || ''}
                     onChange={(e: any) =>
                       updateConfig('copy', 'answers', 'narrator', e.target.value)
@@ -2607,7 +2661,9 @@ export function CopyTab({
                     Números reais que a copy pode usar (com a fonte, se tiver)
                   </label>
                   <AutoResizeTextarea
-                    placeholder={'Ex: 90% dos adultos 50+ têm algum grau de degeneração nervosa (fonte: ...)\n48.000 pessoas já usam\nligado a maior risco de demência e doença cardíaca (estudo X)'}
+                    placeholder={
+                      'Ex: 90% dos adultos 50+ têm algum grau de degeneração nervosa (fonte: ...)\n48.000 pessoas já usam\nligado a maior risco de demência e doença cardíaca (estudo X)'
+                    }
                     value={config.copy.answers.statistics || ''}
                     onChange={(e: any) =>
                       updateConfig('copy', 'answers', 'statistics', e.target.value)
@@ -2615,9 +2671,9 @@ export function CopyTab({
                     className="w-full p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-800 text-sm outline-none focus:border-indigo-400 min-h-[80px]"
                   />
                   <p className="text-[10px] text-gray-400 dark:text-gray-500 italic">
-                    Um por linha. A IA só pode afirmar números que estejam aqui ou na fonte do produto
-                    — sem isso, ela não inventa estatística. Ligação com doença sai só como "ligado
-                    a / aumenta o risco", nunca "você tem / vai ter".
+                    Um por linha. A IA só pode afirmar números que estejam aqui ou na fonte do
+                    produto — sem isso, ela não inventa estatística. Ligação com doença sai só como
+                    "ligado a / aumenta o risco", nunca "você tem / vai ter".
                   </p>
                 </div>
 
@@ -2630,7 +2686,9 @@ export function CopyTab({
                     disabled={isFindingStats}
                     className="text-xs font-bold px-4 py-2 rounded-xl border-2 border-indigo-200 dark:border-indigo-900 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors disabled:opacity-50"
                   >
-                    {isFindingStats ? '🔍 Buscando na web...' : '🔍 Não tenho números — buscar com fonte'}
+                    {isFindingStats
+                      ? '🔍 Buscando na web...'
+                      : '🔍 Não tenho números — buscar com fonte'}
                   </button>
 
                   {statFindings && statFindings.length > 0 && (
@@ -2665,7 +2723,8 @@ export function CopyTab({
                         </div>
                       ))}
                       <p className="text-[10px] text-gray-400 dark:text-gray-500 italic">
-                        Confira a fonte antes de adicionar. Só números com fonte real aparecem aqui — nada inventado.
+                        Confira a fonte antes de adicionar. Só números com fonte real aparecem aqui
+                        — nada inventado.
                       </p>
                     </div>
                   )}
@@ -2772,7 +2831,8 @@ export function CopyTab({
                       </h5>
                       <p className="text-sm font-medium text-purple-800 dark:text-purple-300/70 leading-relaxed italic">
                         "Este criativo do seu plano foi pensado para {activeBrief.durationTarget}s —
-                        ângulo {activeBrief.angle}. Manter a duração alinha o roteiro com a estratégia."
+                        ângulo {activeBrief.angle}. Manter a duração alinha o roteiro com a
+                        estratégia."
                       </p>
                     </div>
                   </div>
@@ -2804,7 +2864,9 @@ export function CopyTab({
                     {isVsl ? 'Duração da VSL' : 'Selecione a Duração Alvo'}
                   </label>
 
-                  <div className={`grid grid-cols-4 ${isVsl ? 'sm:grid-cols-8' : 'sm:grid-cols-9'} gap-2`}>
+                  <div
+                    className={`grid grid-cols-4 ${isVsl ? 'sm:grid-cols-8' : 'sm:grid-cols-9'} gap-2`}
+                  >
                     {(isVsl ? VSL_DURATION_OPTIONS : DURATION_OPTIONS).map((opt: any) => {
                       // Marca a duração recomendada pelo brief do plano (★). Só no
                       // modo anúncio — o brief planeja durações de anúncio (em s).
@@ -2917,6 +2979,14 @@ export function CopyTab({
                 >
                   <Library size={18} />
                   Biblioteca ({personalLibrary.length})
+                </button>
+                <button
+                  onClick={() => setShowCompetitorModal(true)}
+                  className="px-6 py-6 bg-white dark:bg-gray-900/80 text-gray-900 dark:text-gray-100 border-2 border-gray-300 dark:border-gray-700 rounded-[32px] font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
+                  title="Cola o anúncio de um concorrente — a IA sugere um ângulo próprio inspirado nele"
+                >
+                  <Swords size={18} />
+                  Concorrente
                 </button>
               </div>
 

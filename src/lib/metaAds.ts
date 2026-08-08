@@ -14,6 +14,8 @@ export interface CreativeMetrics {
   cpa: number; // US$ por resultado
   roas: number; // retorno sobre gasto
   purchases: number;
+  /** Frequência média (impressões/alcance) — sinal de fadiga quando alta. */
+  frequency?: number;
 }
 
 export interface MetaConnection {
@@ -29,7 +31,8 @@ export const META_CONNECTED = false;
 export function getMetaConnection(): MetaConnection {
   return {
     connected: META_CONNECTED,
-    reason: 'Conexão desativada de propósito — relatos de contas do Meta caindo ao linkar com o Claude.',
+    reason:
+      'Conexão desativada de propósito — relatos de contas do Meta caindo ao linkar com o Claude.',
   };
 }
 

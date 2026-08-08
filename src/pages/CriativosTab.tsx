@@ -1,9 +1,35 @@
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-hot-toast';
-import { loadVariants } from '@/lib/variantStore';
-import { Star, Download, CheckSquare, Square, Rocket, Film, Smartphone, X } from 'lucide-react';
+import { loadVariants, saveVariant } from '@/lib/variantStore';
+import type { ProjectVariant } from '@/types/project';
+import {
+  Star,
+  Download,
+  CheckSquare,
+  Square,
+  Rocket,
+  Film,
+  Smartphone,
+  X,
+  ShieldAlert,
+  ShieldCheck,
+  GitBranch,
+  Loader2,
+  Check,
+  Languages,
+  Package,
+  Copy as CopyIcon,
+} from 'lucide-react';
 import { Skeleton } from '@/components/Skeleton';
 import { FeedMockup } from '@/components/FeedMockup';
+import { scanForRisks } from '@/lib/contentRiskScanner';
+import { CATEGORY_LABELS, SEVERITY_META } from '@/data/contentRiskTerms';
+import {
+  generateOriginalHooks,
+  translateScript,
+  type OriginalHookGroup,
+} from '@/lib/claudeService';
+import { generateAudio } from '@/lib/vozPremiumService';
 
 // BIBLIOTECA DE CRIATIVOS: junta os vídeos PRONTOS de todos os subprojetos do
 // projeto atual num só lugar. Favoritar e marcar "publicado" (localStorage, como
@@ -12,6 +38,7 @@ import { FeedMockup } from '@/components/FeedMockup';
 interface Props {
   projectId?: string | null;
   projectName?: string;
+  uid?: string;
 }
 
 interface Creative {
@@ -21,6 +48,9 @@ interface Creative {
   source: string;
   cover?: string;
   aspect?: string;
+  /** Texto do subprojeto (script + hook + texto da capa) — pra checagem de
+   *  compliance antes de publicar. */
+  riskText: string;
 }
 
 const FAV_KEY = 'metavise-criativos-fav';
@@ -56,9 +86,12 @@ function saveTags(t: Record<string, string[]>) {
   }
 }
 
-export function CriativosTab({ projectId, projectName }: Props) {
+export function CriativosTab({ projectId, projectName, uid }: Props) {
   const [loading, setLoading] = useState(false);
   const [creatives, setCreatives] = useState<Creative[]>([]);
+  // Variants crus (não só os vídeos prontos) — precisamos do config completo
+  // pra clonar em "Criar variações A/B".
+  const [variants, setVariants] = useState<ProjectVariant[]>([]);
   const [fav, setFav] = useState<Set<string>>(() => loadSet(FAV_KEY));
   const [pub, setPub] = useState<Set<string>>(() => loadSet(PUB_KEY));
   const [filter, setFilter] = useState<'todos' | 'favoritos' | 'publicados'>('todos');
@@ -70,46 +103,80 @@ export function CriativosTab({ projectId, projectName }: Props) {
   // Checklist de publicação: abre ao marcar "no ar" um criativo ainda não publicado.
   const [pubModalUrl, setPubModalUrl] = useState<string | null>(null);
   const [checks, setChecks] = useState<boolean[]>([false, false, false, false]);
+  const [riskAck, setRiskAck] = useState(false);
   const [mockupUrl, setMockupUrl] = useState<string | null>(null);
 
-  useEffect(() => {
+  const refresh = async () => {
     if (!projectId) return;
     setLoading(true);
-    (async () => {
-      try {
-        const variants = await loadVariants(projectId);
-        const out: Creative[] = [];
-        const seen = new Set<string>();
-        const push = (url: string, variantId: string, variantName: string, source: string, cover?: string, aspect?: string) => {
-          if (!url || seen.has(url)) return;
-          seen.add(url);
-          out.push({ url, variantId, variantName, source, cover, aspect });
-        };
-        for (const v of variants) {
-          const cfg = (v.config || {}) as any;
-          const name = v.name || 'Sem nome';
-          const cover = cfg?.montagem?.coverUrl || cfg?.montagem?.coverOptions?.[0];
-          const aspect = cfg?.montagem?.aspect; // formato do subprojeto (proxy)
-          const edit = cfg?.edit || {};
-          (edit.zapVersions || []).forEach((u: string) => push(u, v.id, name, 'Edição', cover, aspect));
-          (edit.zapVslVersions || []).forEach((u: string) => push(u, v.id, name, 'Edição VSL', cover, aspect));
-          (edit.zapHookVersions || []).forEach((u: string) => push(u, v.id, name, 'Gancho', cover, aspect));
-          if (cfg?.montagem?.resultUrl) push(cfg.montagem.resultUrl, v.id, name, 'Montagem', cover, aspect);
-          if (cfg?.videoUrl) push(cfg.videoUrl, v.id, name, 'Avatar', cover, aspect);
-        }
-        setCreatives(out);
-      } catch (e: any) {
-        toast.error(e?.message || 'Falha ao carregar os criativos.');
-      } finally {
-        setLoading(false);
+    try {
+      const vs = await loadVariants(projectId);
+      setVariants(vs);
+      const out: Creative[] = [];
+      const seen = new Set<string>();
+      const push = (
+        url: string,
+        variantId: string,
+        variantName: string,
+        source: string,
+        cover: string | undefined,
+        aspect: string | undefined,
+        riskText: string
+      ) => {
+        if (!url || seen.has(url)) return;
+        seen.add(url);
+        out.push({ url, variantId, variantName, source, cover, aspect, riskText });
+      };
+      for (const v of vs) {
+        const cfg = (v.config || {}) as any;
+        const name = v.name || 'Sem nome';
+        const cover = cfg?.montagem?.coverUrl || cfg?.montagem?.coverOptions?.[0];
+        const aspect = cfg?.montagem?.aspect; // formato do subprojeto (proxy)
+        // Junta todo texto do subprojeto que vai pro público — script final,
+        // hook escolhido e o texto queimado na capa — pra escanear risco
+        // ANTES de marcar o criativo como publicado (não só na Copy).
+        const riskText = [
+          cfg?.copy?.hookSelecionado,
+          cfg?.copy?.finalScript,
+          cfg?.copy?.optimizedScript,
+          cfg?.copy?.generatedScript,
+          cfg?.montagem?.coverText,
+          cfg?.montagemVsl?.coverText,
+        ]
+          .filter(Boolean)
+          .join('\n');
+        const edit = cfg?.edit || {};
+        (edit.zapVersions || []).forEach((u: string) =>
+          push(u, v.id, name, 'Edição', cover, aspect, riskText)
+        );
+        (edit.zapVslVersions || []).forEach((u: string) =>
+          push(u, v.id, name, 'Edição VSL', cover, aspect, riskText)
+        );
+        (edit.zapHookVersions || []).forEach((u: string) =>
+          push(u, v.id, name, 'Gancho', cover, aspect, riskText)
+        );
+        if (cfg?.montagem?.resultUrl)
+          push(cfg.montagem.resultUrl, v.id, name, 'Montagem', cover, aspect, riskText);
+        if (cfg?.videoUrl) push(cfg.videoUrl, v.id, name, 'Avatar', cover, aspect, riskText);
       }
-    })();
+      setCreatives(out);
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao carregar os criativos.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
   const toggleFav = (url: string) => {
     setFav((prev) => {
       const next = new Set(prev);
-      next.has(url) ? next.delete(url) : next.add(url);
+      if (next.has(url)) next.delete(url);
+      else next.add(url);
       saveSet(FAV_KEY, next);
       return next;
     });
@@ -126,12 +193,21 @@ export function CriativosTab({ projectId, projectName }: Props) {
     } else {
       // Vai publicar → abre o checklist antes.
       setChecks([false, false, false, false]);
+      setRiskAck(false);
       setPubModalUrl(url);
     }
   };
+  const activePub = useMemo(
+    () => creatives.find((c) => c.url === pubModalUrl),
+    [creatives, pubModalUrl]
+  );
+  // Compliance por nicho — mesmo scanner da Copy (medicamento, celebridade,
+  // discriminação, alegação médica, promessa financeira etc.), mas rodado
+  // aqui no PORTÃO de publicação, não só durante a edição do texto.
+  const riskScan = useMemo(() => scanForRisks(activePub?.riskText || ''), [activePub]);
   const confirmPublish = (force = false) => {
     if (!pubModalUrl) return;
-    if (!force && !checks.every(Boolean)) return;
+    if (!force && (!checks.every(Boolean) || (riskScan.hasRisk && !riskAck))) return;
     setPub((prev) => {
       const next = new Set(prev);
       next.add(pubModalUrl);
@@ -162,21 +238,330 @@ export function CriativosTab({ projectId, projectName }: Props) {
   const toggleSel = (url: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
-      next.has(url) ? next.delete(url) : next.add(url);
+      if (next.has(url)) next.delete(url);
+      else next.add(url);
       return next;
     });
   };
 
+  // Variações A/B automáticas — a partir de um criativo aprovado, gera N hooks
+  // originais (mesmo motor do Hook Lab) e cria um subprojeto novo por hook
+  // escolhido (clone do original, resultados zerados). O usuário ainda monta
+  // cada um manualmente — só automatiza a parte chata de duplicar N vezes.
+  const [abVariantUrl, setAbVariantUrl] = useState<string | null>(null);
+  const [abGenerating, setAbGenerating] = useState(false);
+  const [abGroups, setAbGroups] = useState<OriginalHookGroup[]>([]);
+  const [abSelected, setAbSelected] = useState<Set<string>>(new Set());
+  const [abCreating, setAbCreating] = useState(false);
+
+  const abSourceVariant = useMemo(
+    () => variants.find((v) => v.id === creatives.find((c) => c.url === abVariantUrl)?.variantId),
+    [variants, creatives, abVariantUrl]
+  );
+
+  const openAbModal = (url: string) => {
+    setAbVariantUrl(url);
+    setAbGroups([]);
+    setAbSelected(new Set());
+  };
+
+  const handleGenerateAbHooks = async () => {
+    const cfg = (abSourceVariant?.config || {}) as any;
+    const approvedCopy: string =
+      cfg?.copy?.finalScript || cfg?.copy?.optimizedScript || cfg?.copy?.generatedScript || '';
+    if (!approvedCopy) {
+      toast.error('Este subprojeto não tem copy aprovada pra gerar hooks a partir dela.');
+      return;
+    }
+    setAbGenerating(true);
+    try {
+      const copyAny = cfg?.copy || {};
+      const activeBriefId: string | undefined = copyAny?.activeBriefId;
+      const briefs: any[] = Array.isArray(copyAny?.creativeBriefs) ? copyAny.creativeBriefs : [];
+      const personas: any[] = Array.isArray(copyAny?.personasWithWeights)
+        ? copyAny.personasWithWeights
+        : [];
+      const activeBrief = activeBriefId ? briefs.find((b) => b.id === activeBriefId) : undefined;
+      const targetPersona = activeBrief
+        ? personas.find((p) => p.id === activeBrief.targetPersonaId)
+        : undefined;
+      const personaRaw = (targetPersona as any)?.raw || {};
+      const groups = await generateOriginalHooks({
+        productInfo: copyAny?.productInfo
+          ? {
+              produto: copyAny.productInfo.produto || copyAny.productInfo.name,
+              oferta: copyAny.productInfo.oferta || copyAny.productInfo.offer,
+              dorPrincipal:
+                copyAny.productInfo.dorPrincipal ||
+                copyAny.productInfo.painPoint ||
+                copyAny.productInfo.mainPain,
+            }
+          : null,
+        persona: targetPersona
+          ? {
+              name: targetPersona.name,
+              mainPain: personaRaw.mainPain || targetPersona.painPoints?.[0],
+              dominantFear: personaRaw.dominantFear,
+              hiddenDesire: personaRaw.hiddenDesire,
+              mainObjection: personaRaw.mainObjection,
+              currentSituation: personaRaw.currentSituation,
+            }
+          : null,
+        brief: activeBrief
+          ? {
+              angle: String(activeBrief.angle || ''),
+              emotion: String(activeBrief.emotion || ''),
+              style: String(activeBrief.style || ''),
+              promiseFocus: activeBrief.promiseFocus,
+            }
+          : null,
+        approvedCopy,
+        language: copyAny?.answers?.language,
+        awarenessLevel: String(copyAny?.answers?.awarenessLevel || ''),
+      });
+      if (groups.length === 0) {
+        toast.error('A IA não conseguiu gerar hooks. Tente de novo.');
+        return;
+      }
+      setAbGroups(groups);
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao gerar hooks.');
+    } finally {
+      setAbGenerating(false);
+    }
+  };
+
+  const toggleAbHook = (hook: string) => {
+    setAbSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(hook)) next.delete(hook);
+      else next.add(hook);
+      return next;
+    });
+  };
+
+  const handleCreateAbVariants = async () => {
+    if (!projectId || !abSourceVariant || abSelected.size === 0) return;
+    setAbCreating(true);
+    try {
+      const hooks = Array.from(abSelected);
+      for (const hook of hooks) {
+        // Clone profundo — não pode compartilhar referência com o original.
+        const cloned = JSON.parse(JSON.stringify(abSourceVariant.config || {}));
+        cloned.costs = [];
+        cloned.montagem = {
+          ...(cloned.montagem || {}),
+          resultUrl: '',
+          coverUrl: '',
+          coverOptions: [],
+          coverText: '',
+        };
+        cloned.edit = {
+          ...(cloned.edit || {}),
+          zapVersions: [],
+          zapHookVersions: [],
+          zapVslVersions: [],
+          zapJoinedVersions: [],
+        };
+        cloned.copy = { ...(cloned.copy || {}) };
+        cloned.copy.hookSelecionado = hook;
+        const existingHistorico = Array.isArray(cloned.copy.hooksHistorico)
+          ? cloned.copy.hooksHistorico
+          : [];
+        cloned.copy.hooksHistorico = [
+          { hook, createdAt: new Date().toISOString() },
+          ...existingHistorico,
+        ].slice(0, 50);
+        const newVariant: ProjectVariant = {
+          id: `variant_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+          name: `${abSourceVariant.name || 'Criativo'} · A/B: ${hook.slice(0, 28)}${hook.length > 28 ? '…' : ''}`,
+          config: cloned,
+          createdAt: new Date().toISOString(),
+        };
+        await saveVariant(projectId, newVariant);
+      }
+      toast.success(
+        `${hooks.length} variante(s) A/B criada(s). Abra cada uma pra montar e testar.`
+      );
+      setAbVariantUrl(null);
+      await refresh();
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao criar as variantes.');
+    } finally {
+      setAbCreating(false);
+    }
+  };
+
+  // Multi-idioma — traduz o script + hook (Claude) e reduble com a MESMA voz
+  // (ElevenLabs multilingual). Entrega um subprojeto novo já com o áudio
+  // dublado carregado como "áudio cheio" — o corte/legenda/b-roll é refeito
+  // pelo Fatiar automático já existente na Montagem (ele re-transcreve o
+  // áudio novo, então o timing sai certo pra língua nova).
+  const COMMON_LANGUAGES = [
+    'English',
+    'Español',
+    'Français',
+    'Deutsch',
+    'Italiano',
+    '中文',
+    '日本語',
+  ];
+  const [translateUrl, setTranslateUrl] = useState<string | null>(null);
+  const [targetLang, setTargetLang] = useState('');
+  const [translating, setTranslating] = useState(false);
+  const [translateResult, setTranslateResult] = useState<{
+    script: string;
+    hook: string;
+    audioUrl: string;
+  } | null>(null);
+  const [creatingTranslated, setCreatingTranslated] = useState(false);
+
+  const translateSourceVariant = useMemo(
+    () => variants.find((v) => v.id === creatives.find((c) => c.url === translateUrl)?.variantId),
+    [variants, creatives, translateUrl]
+  );
+
+  const openTranslateModal = (url: string) => {
+    setTranslateUrl(url);
+    setTargetLang('');
+    setTranslateResult(null);
+  };
+
+  const handleTranslate = async () => {
+    const cfg = (translateSourceVariant?.config || {}) as any;
+    const approvedCopy: string =
+      cfg?.copy?.finalScript || cfg?.copy?.optimizedScript || cfg?.copy?.generatedScript || '';
+    const hook: string = cfg?.copy?.hookSelecionado || '';
+    const voiceId: string = cfg?.avatar?.voiceId || '';
+    if (!approvedCopy) {
+      toast.error('Este subprojeto não tem copy aprovada pra traduzir.');
+      return;
+    }
+    if (!targetLang.trim()) {
+      toast.error('Escolha ou digite a língua alvo.');
+      return;
+    }
+    setTranslating(true);
+    try {
+      const [script, translatedHook] = await Promise.all([
+        translateScript({ text: approvedCopy, targetLanguage: targetLang }),
+        hook ? translateScript({ text: hook, targetLanguage: targetLang }) : Promise.resolve(''),
+      ]);
+      if (!script) {
+        toast.error('A tradução falhou. Tente de novo.');
+        return;
+      }
+      let audioUrl = '';
+      if (voiceId) {
+        try {
+          const audio = await generateAudio({
+            voiceId,
+            script,
+            modelId: 'eleven_multilingual_v2',
+            userId: uid,
+          });
+          audioUrl = audio.audioUrl;
+        } catch (e: any) {
+          toast.error(`Texto traduzido, mas a dublagem falhou: ${e?.message || 'erro'}`);
+        }
+      } else {
+        toast.error('Sem voz salva neste subprojeto — traduzi o texto, mas não gerei áudio.');
+      }
+      setTranslateResult({ script, hook: translatedHook, audioUrl });
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao traduzir.');
+    } finally {
+      setTranslating(false);
+    }
+  };
+
+  const handleCreateTranslatedVariant = async () => {
+    if (!projectId || !translateSourceVariant || !translateResult) return;
+    setCreatingTranslated(true);
+    try {
+      const cloned = JSON.parse(JSON.stringify(translateSourceVariant.config || {}));
+      cloned.costs = [];
+      cloned.copy = { ...(cloned.copy || {}) };
+      cloned.copy.generatedScript = translateResult.script;
+      cloned.copy.finalScript = translateResult.script;
+      cloned.copy.optimizedScript = translateResult.script;
+      if (translateResult.hook) cloned.copy.hookSelecionado = translateResult.hook;
+      cloned.copy.answers = { ...(cloned.copy.answers || {}), language: targetLang };
+      // Reseta a montagem inteira — cortes/legendas antigos são do timing da
+      // língua original e não valem pro áudio novo. fullAudioUrl carrega o
+      // áudio dublado pronto pro Fatiar automático re-transcrever do zero.
+      cloned.montagem = {
+        resultUrl: '',
+        coverUrl: '',
+        coverOptions: [],
+        coverText: '',
+        fullAudioUrl: translateResult.audioUrl,
+      };
+      cloned.montagemVsl = {
+        resultUrl: '',
+        coverUrl: '',
+        coverOptions: [],
+        coverText: '',
+        fullAudioUrl: translateResult.audioUrl,
+      };
+      cloned.edit = {
+        ...(cloned.edit || {}),
+        zapVersions: [],
+        zapHookVersions: [],
+        zapVslVersions: [],
+        zapJoinedVersions: [],
+      };
+      const newVariant: ProjectVariant = {
+        id: `variant_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        name: `${translateSourceVariant.name || 'Criativo'} · ${targetLang}`,
+        config: cloned,
+        createdAt: new Date().toISOString(),
+      };
+      await saveVariant(projectId, newVariant);
+      toast.success(
+        `Subprojeto em ${targetLang} criado. Abra e use "Fatiar automático" na Montagem.`
+      );
+      setTranslateUrl(null);
+      await refresh();
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao criar o subprojeto traduzido.');
+    } finally {
+      setCreatingTranslated(false);
+    }
+  };
+
+  // Pacote de publicação — a conexão direta com o Meta Ads está desligada de
+  // propósito (contas caindo ao linkar com o Claude), então em vez de publicar
+  // sozinho, juntamos tudo que o Meta Ads Manager pede num painel de
+  // copiar/colar: vídeo, capa, texto principal, título e CTA sugerido.
+  const [pkgUrl, setPkgUrl] = useState<string | null>(null);
+  const pkgCreative = useMemo(() => creatives.find((c) => c.url === pkgUrl), [creatives, pkgUrl]);
+  const pkgSourceVariant = useMemo(
+    () => variants.find((v) => v.id === pkgCreative?.variantId),
+    [variants, pkgCreative]
+  );
+  const pkgCopy = (() => {
+    const cfg = (pkgSourceVariant?.config || {}) as any;
+    const headline = cfg?.copy?.hookSelecionado || '';
+    const primaryText =
+      cfg?.copy?.finalScript || cfg?.copy?.optimizedScript || cfg?.copy?.generatedScript || '';
+    const offer = cfg?.copy?.productInfo?.oferta || cfg?.copy?.productInfo?.offer || '';
+    return { headline, primaryText, offer };
+  })();
+
+  const copyText = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(`${label} copiado!`);
+    } catch {
+      toast.error('Não foi possível copiar.');
+    }
+  };
+
   // Fontes presentes (pra montar o filtro dinamicamente).
-  const sources = useMemo(
-    () => Array.from(new Set(creatives.map((c) => c.source))),
-    [creatives]
-  );
+  const sources = useMemo(() => Array.from(new Set(creatives.map((c) => c.source))), [creatives]);
   // Todas as tags em uso (pra o filtro).
-  const allTags = useMemo(
-    () => Array.from(new Set(Object.values(tags).flat())).sort(),
-    [tags]
-  );
+  const allTags = useMemo(() => Array.from(new Set(Object.values(tags).flat())).sort(), [tags]);
 
   const shown = useMemo(() => {
     return creatives.filter((c) => {
@@ -220,7 +605,9 @@ export function CriativosTab({ projectId, projectName }: Props) {
     <button
       onClick={() => setFilter(id)}
       className={`px-3 py-1.5 rounded-lg text-xs font-black ${
-        filter === id ? 'bg-blue-700 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'
+        filter === id
+          ? 'bg-blue-700 text-white'
+          : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'
       }`}
     >
       {label} ({n})
@@ -236,8 +623,8 @@ export function CriativosTab({ projectId, projectName }: Props) {
         </h2>
       </div>
       <p className="text-sm text-gray-500 dark:text-gray-400 -mt-2">
-        Todos os vídeos prontos dos seus subprojetos num só lugar. Favorite, marque{' '}
-        <b>publicado</b> e baixe em lote.
+        Todos os vídeos prontos dos seus subprojetos num só lugar. Favorite, marque <b>publicado</b>{' '}
+        e baixe em lote.
       </p>
 
       <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -296,8 +683,8 @@ export function CriativosTab({ projectId, projectName }: Props) {
         <Skeleton.GalleryGrid count={8} />
       ) : shown.length === 0 ? (
         <div className="p-10 text-center text-gray-400 text-sm">
-          Nenhum criativo {filter !== 'todos' ? `em "${filter}"` : 'pronto ainda'}. Gere uma montagem
-          ou edição e ele aparece aqui.
+          Nenhum criativo {filter !== 'todos' ? `em "${filter}"` : 'pronto ainda'}. Gere uma
+          montagem ou edição e ele aparece aqui.
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
@@ -320,7 +707,9 @@ export function CriativosTab({ projectId, projectName }: Props) {
                     muted
                     playsInline
                     preload="metadata"
-                    onMouseEnter={(e) => (e.currentTarget as HTMLVideoElement).play().catch(() => {})}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget as HTMLVideoElement).play().catch(() => {})
+                    }
                     onMouseLeave={(e) => {
                       const v = e.currentTarget as HTMLVideoElement;
                       v.pause();
@@ -342,10 +731,15 @@ export function CriativosTab({ projectId, projectName }: Props) {
                   )}
                 </div>
                 <div className="p-2 space-y-1.5">
-                  <p className="text-[11px] font-bold text-gray-800 dark:text-gray-100 truncate" title={c.variantName}>
+                  <p
+                    className="text-[11px] font-bold text-gray-800 dark:text-gray-100 truncate"
+                    title={c.variantName}
+                  >
                     {c.variantName}
                   </p>
-                  <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">{c.source}</p>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">
+                    {c.source}
+                  </p>
                   {/* Tags */}
                   <div className="flex flex-wrap items-center gap-1">
                     {(tags[c.url] || []).map((t) => (
@@ -354,7 +748,11 @@ export function CriativosTab({ projectId, projectName }: Props) {
                         className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 text-[9px] font-bold"
                       >
                         #{t}
-                        <button onClick={() => removeTag(c.url, t)} className="hover:text-red-500" title="Remover tag">
+                        <button
+                          onClick={() => removeTag(c.url, t)}
+                          className="hover:text-red-500"
+                          title="Remover tag"
+                        >
                           <X size={9} />
                         </button>
                       </span>
@@ -383,6 +781,27 @@ export function CriativosTab({ projectId, projectName }: Props) {
                       <Rocket size={14} />
                     </button>
                     <button
+                      onClick={() => openAbModal(c.url)}
+                      className="p-1.5 rounded-lg text-gray-300 hover:text-indigo-600"
+                      title="Criar variações A/B (novos hooks)"
+                    >
+                      <GitBranch size={14} />
+                    </button>
+                    <button
+                      onClick={() => openTranslateModal(c.url)}
+                      className="p-1.5 rounded-lg text-gray-300 hover:text-teal-600"
+                      title="Traduzir e redublar noutra língua"
+                    >
+                      <Languages size={14} />
+                    </button>
+                    <button
+                      onClick={() => setPkgUrl(c.url)}
+                      className="p-1.5 rounded-lg text-gray-300 hover:text-blue-600"
+                      title="Pacote de publicação (vídeo + capa + texto pra colar no Ads Manager)"
+                    >
+                      <Package size={14} />
+                    </button>
+                    <button
                       onClick={() => setMockupUrl(c.url)}
                       className="p-1.5 rounded-lg text-gray-400 hover:text-purple-600 ml-auto"
                       title="Ver no feed (Instagram/Facebook)"
@@ -409,9 +828,12 @@ export function CriativosTab({ projectId, projectName }: Props) {
 
       {/* Checklist de publicação — nudge pra conferir antes de marcar "no ar". */}
       {pubModalUrl && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4" onClick={() => setPubModalUrl(null)}>
+        <div
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setPubModalUrl(null)}
+        >
           <div
-            className="w-full max-w-md bg-white dark:bg-gray-900 rounded-2xl border-2 border-gray-200 dark:border-gray-800 shadow-2xl p-5 space-y-3"
+            className="w-full max-w-md max-h-[85vh] overflow-y-auto bg-white dark:bg-gray-900 rounded-2xl border-2 border-gray-200 dark:border-gray-800 shadow-2xl p-5 space-y-3"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-2">
@@ -420,6 +842,54 @@ export function CriativosTab({ projectId, projectName }: Props) {
                 Antes de colocar no ar
               </h3>
             </div>
+
+            {/* Compliance por nicho — mesmo scanner da Copy, rodado aqui de novo
+                (o texto pode ter mudado, ou nunca ter passado por lá). Não
+                bloqueia — só avisa; "publicar assim mesmo" sempre disponível. */}
+            {riskScan.hasRisk ? (
+              <div className="rounded-xl border-2 border-amber-300 dark:border-amber-800/60 bg-amber-50/80 dark:bg-amber-950/30 p-3 space-y-2">
+                <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300">
+                  <ShieldAlert size={16} />
+                  <span className="text-xs font-black uppercase tracking-widest">
+                    {riskScan.hits.length}{' '}
+                    {riskScan.hits.length === 1 ? 'termo de risco' : 'termos de risco'} no texto
+                    deste criativo
+                  </span>
+                </div>
+                <ul className="space-y-1">
+                  {riskScan.hits.map((h, idx) => (
+                    <li
+                      key={`${h.term.pattern}-${idx}`}
+                      className="text-xs text-amber-900 dark:text-amber-200"
+                    >
+                      <span className="font-bold">"{h.matched}"</span>
+                      <span className="text-amber-700/80 dark:text-amber-300/70">
+                        {' '}
+                        · {CATEGORY_LABELS[h.term.category]} ({SEVERITY_META[h.term.severity].label}
+                        ) — {h.term.reason}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <label className="flex items-start gap-2 cursor-pointer pt-1">
+                  <input
+                    type="checkbox"
+                    checked={riskAck}
+                    onChange={(e) => setRiskAck(e.target.checked)}
+                    className="mt-0.5 accent-amber-600"
+                  />
+                  <span className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                    Revisei os termos acima e quero publicar assim
+                  </span>
+                </label>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-xs font-bold text-green-700 dark:text-green-400">
+                <ShieldCheck size={14} />
+                Nenhum termo de risco encontrado no texto deste criativo.
+              </div>
+            )}
+
             <p className="text-xs text-gray-500 dark:text-gray-400">
               Confira o básico pra não rodar mídia num criativo furado:
             </p>
@@ -457,7 +927,7 @@ export function CriativosTab({ projectId, projectName }: Props) {
                 </button>
                 <button
                   onClick={() => confirmPublish(false)}
-                  disabled={!checks.every(Boolean)}
+                  disabled={!checks.every(Boolean) || (riskScan.hasRisk && !riskAck)}
                   className="px-4 py-2 rounded-xl bg-green-600 text-white text-xs font-black hover:bg-green-700 disabled:opacity-40"
                 >
                   Marcar no ar
@@ -468,7 +938,344 @@ export function CriativosTab({ projectId, projectName }: Props) {
         </div>
       )}
 
-      <FeedMockup open={!!mockupUrl} onClose={() => setMockupUrl(null)} videoUrl={mockupUrl || ''} />
+      {/* Variações A/B — gera hooks originais e cria um subprojeto clonado por
+          hook escolhido, pronto pra montar e testar. */}
+      {abVariantUrl && (
+        <div
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4"
+          onClick={() => !abCreating && setAbVariantUrl(null)}
+        >
+          <div
+            className="w-full max-w-lg max-h-[85vh] overflow-y-auto bg-white dark:bg-gray-900 rounded-2xl border-2 border-gray-200 dark:border-gray-800 shadow-2xl p-5 space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <GitBranch size={18} className="text-indigo-600" />
+                <h3 className="text-base font-black text-gray-900 dark:text-gray-100">
+                  Criar variações A/B
+                </h3>
+              </div>
+              <button
+                onClick={() => setAbVariantUrl(null)}
+                className="p-1 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Gera hooks 100% originais a partir da copy deste subprojeto. Escolha os que quiser
+              testar — cada um vira um subprojeto novo, já com o hook aplicado, pronto pra você
+              montar.
+            </p>
+
+            {abGroups.length === 0 ? (
+              <button
+                onClick={handleGenerateAbHooks}
+                disabled={abGenerating}
+                className="w-full py-3 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-indigo-700 disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {abGenerating ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" /> Gerando hooks…
+                  </>
+                ) : (
+                  <>Gerar hooks originais</>
+                )}
+              </button>
+            ) : (
+              <>
+                <div className="space-y-3 max-h-[45vh] overflow-y-auto pr-1">
+                  {abGroups.map((g) => (
+                    <div key={g.formula} className="space-y-1.5">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+                        {g.formula}
+                      </p>
+                      {g.hooks.map((hook, i) => {
+                        const isSel = abSelected.has(hook);
+                        return (
+                          <button
+                            key={`${g.formula}-${i}`}
+                            onClick={() => toggleAbHook(hook)}
+                            className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold flex items-start gap-2 ring-1 ${
+                              isSel
+                                ? 'bg-indigo-50 dark:bg-indigo-950/30 ring-indigo-400 text-indigo-900 dark:text-indigo-200'
+                                : 'bg-gray-50 dark:bg-gray-800/50 ring-gray-200 dark:ring-gray-800 text-gray-700 dark:text-gray-300 hover:ring-gray-300'
+                            }`}
+                          >
+                            <span
+                              className={`mt-0.5 w-4 h-4 shrink-0 rounded flex items-center justify-center ${
+                                isSel
+                                  ? 'bg-indigo-600 text-white'
+                                  : 'ring-1 ring-gray-300 dark:ring-gray-600'
+                              }`}
+                            >
+                              {isSel && <Check size={11} />}
+                            </span>
+                            {hook}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  <button
+                    onClick={handleGenerateAbHooks}
+                    disabled={abGenerating}
+                    className="text-[11px] font-bold text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  >
+                    gerar outros
+                  </button>
+                  <button
+                    onClick={handleCreateAbVariants}
+                    disabled={abSelected.size === 0 || abCreating}
+                    className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-black hover:bg-indigo-700 disabled:opacity-40 flex items-center gap-2"
+                  >
+                    {abCreating ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <GitBranch size={14} />
+                    )}
+                    Criar {abSelected.size > 0 ? abSelected.size : ''} variante
+                    {abSelected.size === 1 ? '' : 's'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Multi-idioma — traduz o script e reduble com a mesma voz, cria um
+          subprojeto novo já com o áudio pronto pra Fatiar automático. */}
+      {translateUrl && (
+        <div
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4"
+          onClick={() => !translating && !creatingTranslated && setTranslateUrl(null)}
+        >
+          <div
+            className="w-full max-w-lg max-h-[85vh] overflow-y-auto bg-white dark:bg-gray-900 rounded-2xl border-2 border-gray-200 dark:border-gray-800 shadow-2xl p-5 space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Languages size={18} className="text-teal-600" />
+                <h3 className="text-base font-black text-gray-900 dark:text-gray-100">
+                  Traduzir e redublar
+                </h3>
+              </div>
+              <button
+                onClick={() => setTranslateUrl(null)}
+                className="p-1 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Traduz o script e gera a narração na MESMA voz, noutra língua. Cria um subprojeto novo
+              — depois é só usar <b>Fatiar automático</b> na Montagem pra recortar o b-roll e
+              legendar no timing certo do áudio novo.
+            </p>
+
+            {!translateResult ? (
+              <>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+                    Língua alvo
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {COMMON_LANGUAGES.map((l) => (
+                      <button
+                        key={l}
+                        onClick={() => setTargetLang(l)}
+                        className={`px-2.5 py-1.5 rounded-lg text-xs font-black ${
+                          targetLang === l
+                            ? 'bg-teal-600 text-white'
+                            : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'
+                        }`}
+                      >
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    type="text"
+                    value={targetLang}
+                    onChange={(e) => setTargetLang(e.target.value)}
+                    placeholder="Ou digite a língua (ex.: Português de Portugal)"
+                    className="w-full px-3 py-2 rounded-xl ring-1 ring-gray-200 dark:ring-gray-800 bg-white dark:bg-gray-900 text-sm font-bold text-gray-800 dark:text-gray-100"
+                  />
+                </div>
+                <button
+                  onClick={handleTranslate}
+                  disabled={translating || !targetLang.trim()}
+                  className="w-full py-3 bg-teal-600 text-white rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-teal-700 disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  {translating ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" /> Traduzindo e dublando…
+                    </>
+                  ) : (
+                    <>Traduzir e dublar</>
+                  )}
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="rounded-xl bg-teal-50/60 dark:bg-teal-950/20 ring-1 ring-teal-200 dark:ring-teal-900/40 p-3 space-y-2 max-h-[35vh] overflow-y-auto">
+                  {translateResult.hook && (
+                    <p className="text-sm font-black text-gray-900 dark:text-gray-100">
+                      {translateResult.hook}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                    {translateResult.script}
+                  </p>
+                </div>
+                {translateResult.audioUrl ? (
+                  <audio src={translateResult.audioUrl} controls className="w-full h-9" />
+                ) : (
+                  <p className="text-xs text-amber-700 dark:text-amber-400">
+                    Sem áudio dublado — o subprojeto novo vai só com o texto traduzido.
+                  </p>
+                )}
+                <button
+                  onClick={handleCreateTranslatedVariant}
+                  disabled={creatingTranslated}
+                  className="w-full py-3 bg-teal-600 text-white rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-teal-700 disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  {creatingTranslated ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" /> Criando…
+                    </>
+                  ) : (
+                    <>Criar subprojeto em {targetLang}</>
+                  )}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Pacote de publicação — junta vídeo, capa, texto e título prontos pra
+          colar no Ads Manager. Alternativa segura à publicação direta (a
+          conexão com a API do Meta está desligada de propósito). */}
+      {pkgUrl && pkgCreative && (
+        <div
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setPkgUrl(null)}
+        >
+          <div
+            className="w-full max-w-lg max-h-[85vh] overflow-y-auto bg-white dark:bg-gray-900 rounded-2xl border-2 border-gray-200 dark:border-gray-800 shadow-2xl p-5 space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Package size={18} className="text-blue-600" />
+                <h3 className="text-base font-black text-gray-900 dark:text-gray-100">
+                  Pacote de publicação
+                </h3>
+              </div>
+              <button
+                onClick={() => setPkgUrl(null)}
+                className="p-1 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              A conexão direta com o Meta Ads está desligada de propósito. Aqui vai tudo pronto pra
+              colar manualmente ao criar o anúncio no Ads Manager.
+            </p>
+
+            <div className="grid grid-cols-2 gap-2">
+              <a
+                href={pkgCreative.url}
+                target="_blank"
+                rel="noreferrer"
+                download
+                className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs font-black"
+              >
+                <Download size={13} /> Vídeo
+              </a>
+              {pkgCreative.cover ? (
+                <a
+                  href={pkgCreative.cover}
+                  target="_blank"
+                  rel="noreferrer"
+                  download
+                  className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100 text-xs font-black"
+                >
+                  <Download size={13} /> Capa/thumbnail
+                </a>
+              ) : (
+                <span className="flex items-center justify-center py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800/50 text-gray-400 text-[10px] font-bold">
+                  sem capa gerada
+                </span>
+              )}
+            </div>
+
+            {[
+              {
+                label: 'Título / headline',
+                value: pkgCopy.headline || '(nenhum hook salvo neste subprojeto)',
+              },
+              {
+                label: 'Texto principal',
+                value: pkgCopy.primaryText || '(nenhuma copy aprovada neste subprojeto)',
+              },
+            ].map(({ label, value }) => (
+              <div key={label} className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+                    {label}
+                  </span>
+                  <button
+                    onClick={() => copyText(value, label)}
+                    className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-blue-600"
+                    title={`Copiar ${label.toLowerCase()}`}
+                  >
+                    <CopyIcon size={12} />
+                  </button>
+                </div>
+                <p className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap bg-gray-50 dark:bg-gray-800/50 rounded-lg p-2.5 max-h-32 overflow-y-auto">
+                  {value}
+                </p>
+              </div>
+            ))}
+
+            <div className="rounded-xl bg-blue-50/60 dark:bg-blue-950/20 ring-1 ring-blue-200/60 dark:ring-blue-900/40 p-3 space-y-1">
+              <span className="text-[10px] font-black uppercase tracking-widest text-blue-700 dark:text-blue-300">
+                CTA sugerido
+              </span>
+              <p className="text-xs text-blue-900 dark:text-blue-200">
+                "Saiba mais" funciona bem pra maioria — use "Comprar agora" se o link já for de
+                checkout{pkgCopy.offer ? ` (oferta: ${pkgCopy.offer})` : ''}.
+              </p>
+            </div>
+
+            <button
+              onClick={() =>
+                copyText(
+                  `TÍTULO:\n${pkgCopy.headline}\n\nTEXTO PRINCIPAL:\n${pkgCopy.primaryText}\n\nVÍDEO: ${pkgCreative.url}\nCAPA: ${pkgCreative.cover || '(sem capa)'}`,
+                  'Pacote completo'
+                )
+              }
+              className="w-full py-3 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-blue-700 flex items-center justify-center gap-2"
+            >
+              <CopyIcon size={16} /> Copiar tudo
+            </button>
+          </div>
+        </div>
+      )}
+
+      <FeedMockup
+        open={!!mockupUrl}
+        onClose={() => setMockupUrl(null)}
+        videoUrl={mockupUrl || ''}
+      />
     </div>
   );
 }
