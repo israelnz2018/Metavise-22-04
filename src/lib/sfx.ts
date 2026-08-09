@@ -13,7 +13,7 @@ export function setSfxEnabled(v: boolean) {
   enabled = v;
 }
 
-// Multiplicador de volume (0-2, default 1 = já 30% mais alto que o volume
+// Multiplicador de volume (0-2, default 1 = já bem mais alto que o volume
 // fixo original — pedido do usuário). O slider em Preferências manda 0-2;
 // cada tone() abaixo já usa "gain" como o volume-base NOVO (mais alto), e
 // esse multiplicador ajusta a partir dali.
@@ -63,20 +63,20 @@ function tone(
 
 export function playClickSound() {
   if (!enabled) return;
-  tone(1000, 35, { type: 'sine', gain: 0.065 });
+  tone(1000, 35, { type: 'sine', gain: 0.22 });
 }
 
 export function playSuccessSound() {
   if (!enabled) return;
   // Duas notas subindo (dó→sol-ish) — soa como confirmação, não alarme.
-  tone(660, 90, { gain: 0.091 });
-  setTimeout(() => tone(880, 140, { gain: 0.091 }), 80);
+  tone(660, 90, { gain: 0.2 });
+  setTimeout(() => tone(880, 140, { gain: 0.2 }), 80);
 }
 
 export function playErrorSound() {
   if (!enabled) return;
   // Uma nota baixa, tipo quadrada — soa "errado" sem ser agressivo.
-  tone(220, 160, { type: 'triangle', gain: 0.091 });
+  tone(220, 160, { type: 'triangle', gain: 0.2 });
 }
 
 // Delegação de clique: UM listener no document em vez de instrumentar cada

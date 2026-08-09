@@ -48,7 +48,7 @@ function readAccent(): AccentColor {
 
 export function useAppPreferences() {
   const [sfxEnabled, setSfxEnabledState] = useState(() => readBool(KEYS.sfx, true));
-  // Escala 0-2 (não 0-1): 1 já É o volume-base novo (30% mais alto que o
+  // Escala 0-2 (não 0-1): 1 já É o volume-base novo (bem mais alto que o
   // original) — o slider deixa o usuário ir além disso se quiser mais.
   const [sfxVolume, setSfxVolumeState] = useState(() => readNumber(KEYS.sfxVolume, 1, 2));
   const [bgMusicEnabled, setBgMusicEnabledState] = useState(() => readBool(KEYS.music, false));
