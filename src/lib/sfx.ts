@@ -63,20 +63,20 @@ function tone(
 
 export function playClickSound() {
   if (!enabled) return;
-  tone(1000, 35, { type: 'sine', gain: 0.22 });
+  tone(1000, 35, { type: 'sine', gain: 0.37 });
 }
 
 export function playSuccessSound() {
   if (!enabled) return;
   // Duas notas subindo (dó→sol-ish) — soa como confirmação, não alarme.
-  tone(660, 90, { gain: 0.2 });
-  setTimeout(() => tone(880, 140, { gain: 0.2 }), 80);
+  tone(660, 90, { gain: 0.34 });
+  setTimeout(() => tone(880, 140, { gain: 0.34 }), 80);
 }
 
 export function playErrorSound() {
   if (!enabled) return;
   // Uma nota baixa, tipo quadrada — soa "errado" sem ser agressivo.
-  tone(220, 160, { type: 'triangle', gain: 0.2 });
+  tone(220, 160, { type: 'triangle', gain: 0.34 });
 }
 
 // Delegação de clique: UM listener no document em vez de instrumentar cada
