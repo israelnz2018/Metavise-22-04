@@ -1,5 +1,6 @@
-import { Volume2, Music, Palette, Check, Compass } from 'lucide-react';
+import { Volume2, Music, Palette, Check, Compass, Languages } from 'lucide-react';
 import { ACCENT_COLORS, type AccentColor } from '@/hooks/useAppPreferences';
+import { useLanguage, type Language } from '@/lib/i18n/LanguageContext';
 
 interface Props {
   sfxEnabled: boolean;
@@ -31,6 +32,47 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
         }`}
       />
     </button>
+  );
+}
+
+// Idioma da CASCA do app — não a língua da copy gerada pela IA (essa segue
+// a VSL, tem seletor próprio dentro do fluxo de Copy). Fase 0 da tradução:
+// infraestrutura + tela de login + header já traduzidos; o resto do app
+// segue em português até ser migrado nas próximas fases.
+const LANGUAGES: { id: Language; label: string; flag: string }[] = [
+  { id: 'pt', label: 'Português', flag: '🇧🇷' },
+  { id: 'en', label: 'English', flag: '🇺🇸' },
+];
+
+function LanguageSection() {
+  const { language, setLanguage } = useLanguage();
+  return (
+    <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/50 ring-1 ring-gray-200/60 dark:ring-gray-800/60 space-y-3">
+      <div className="flex items-center gap-3">
+        <Languages size={18} className="text-gray-500 dark:text-gray-400 shrink-0" />
+        <div>
+          <p className="text-sm font-bold text-gray-800 dark:text-gray-100">Idioma do app</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Em tradução aos poucos — telas ainda não traduzidas continuam em português.
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 pl-9">
+        {LANGUAGES.map((l) => (
+          <button
+            key={l.id}
+            onClick={() => setLanguage(l.id)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-black flex items-center gap-1.5 ring-1 transition-colors ${
+              language === l.id
+                ? 'bg-blue-600 text-white ring-blue-600'
+                : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 ring-gray-200 dark:ring-gray-700 hover:ring-gray-300'
+            }`}
+          >
+            <span>{l.flag}</span> {l.label}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -158,6 +200,8 @@ export function PreferencesSection({
             ))}
           </div>
         </div>
+
+        <LanguageSection />
 
         <button
           onClick={onReplayTour}

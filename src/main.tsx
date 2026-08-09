@@ -4,12 +4,15 @@ import App from './App.tsx';
 import './index.css';
 import { initWebVitals } from './lib/webVitals';
 import { JobsProvider } from './lib/jobsStore';
+import { LanguageProvider } from './lib/i18n/LanguageContext';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <JobsProvider>
-      <App />
-    </JobsProvider>
+    <LanguageProvider>
+      <JobsProvider>
+        <App />
+      </JobsProvider>
+    </LanguageProvider>
   </StrictMode>
 );
 

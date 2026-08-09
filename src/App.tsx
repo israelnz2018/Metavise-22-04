@@ -106,6 +106,7 @@ import { CommandPalette, type Command } from './components/CommandPalette';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { OnboardingTour, hasSeenTour } from './components/OnboardingTour';
 import { AchievementsModal } from './components/AchievementsModal';
+import { useLanguage } from './lib/i18n/LanguageContext';
 import { trackVideoGenerated } from './lib/achievements';
 import { triggerProjectSave } from './lib/autosave';
 import { COST_RATES, logCreativeCost } from './lib/creativeCost';
@@ -356,6 +357,7 @@ export default function App() {
   // exactly once when the user toggles. `.dark` class is set on <html>
   // by the hook; Tailwind's `dark:` variant takes care of the rest.
   const { isDark, toggle: toggleDarkMode } = useDarkMode();
+  const { t } = useLanguage();
   const {
     sfxEnabled,
     setSfx,
@@ -5699,27 +5701,27 @@ export default function App() {
           <div className="space-y-1">
             <h1 className="text-3xl font-black text-gray-900 tracking-tight uppercase">Metavise</h1>
             <p className="text-sm text-gray-500 font-medium">
-              {authMode === 'login' ? 'Entre na sua conta' : 'Crie sua conta gratuita'}
+              {authMode === 'login' ? t.auth.loginTitle : t.auth.signupTitle}
             </p>
           </div>
 
           <form onSubmit={handleEmailAuth} className="space-y-4 text-left">
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">
-                E-mail
+                {t.auth.emailLabel}
               </label>
               <input
                 type="email"
                 required
                 value={email || ''}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="seu@email.com"
+                placeholder={t.auth.emailPlaceholder}
                 className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none text-sm"
               />
             </div>
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">
-                Senha
+                {t.auth.passwordLabel}
               </label>
               <input
                 type="password"
@@ -5745,9 +5747,9 @@ export default function App() {
               {loading ? (
                 <Loader2 className="animate-spin" size={20} />
               ) : authMode === 'login' ? (
-                'Entrar'
+                t.auth.enterButton
               ) : (
-                'Cadastrar'
+                t.auth.signupButton
               )}
             </button>
           </form>
@@ -5757,7 +5759,7 @@ export default function App() {
               <div className="w-full border-t border-gray-100"></div>
             </div>
             <div className="relative flex justify-center text-[10px] uppercase font-bold text-gray-300 bg-white px-4">
-              Ou continue com
+              {t.auth.orContinueWith}
             </div>
           </div>
 
@@ -5773,12 +5775,12 @@ export default function App() {
           </button>
 
           <p className="text-xs text-gray-500">
-            {authMode === 'login' ? 'Não tem uma conta?' : 'Já tem uma conta?'}
+            {authMode === 'login' ? t.auth.noAccount : t.auth.hasAccount}
             <button
               onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')}
               className="ml-1 text-blue-600 font-bold hover:underline"
             >
-              {authMode === 'login' ? 'Cadastre-se' : 'Faça Login'}
+              {authMode === 'login' ? t.auth.signupLink : t.auth.loginLink}
             </button>
           </p>
         </div>
@@ -5988,16 +5990,16 @@ export default function App() {
             <button
               onClick={() => setShortcutsModalOpen(true)}
               className="w-10 h-10 flex items-center justify-center rounded-xl border border-gray-100 bg-gray-50 text-gray-500 hover:text-gray-900 hover:border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:text-white dark:hover:border-gray-600 transition-all"
-              title="Atalhos de teclado (?)"
-              aria-label="Atalhos de teclado"
+              title={t.header.shortcutsTitle}
+              aria-label={t.header.shortcutsLabel}
             >
               <Keyboard size={16} />
             </button>
             <button
               onClick={() => setAchievementsModalOpen(true)}
               className="w-10 h-10 flex items-center justify-center rounded-xl border border-gray-100 bg-gray-50 text-gray-500 hover:text-amber-600 hover:border-amber-200 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:text-amber-400 dark:hover:border-amber-800 transition-all"
-              title="Conquistas"
-              aria-label="Conquistas"
+              title={t.header.achievements}
+              aria-label={t.header.achievements}
             >
               <Trophy size={16} />
             </button>
@@ -6008,8 +6010,8 @@ export default function App() {
                   ? 'text-blue-600 dark:text-blue-400'
                   : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-500 dark:hover:text-gray-300'
               }`}
-              title="Configurações"
-              aria-label="Configurações"
+              title={t.header.settings}
+              aria-label={t.header.settings}
             >
               <Settings size={20} />
             </button>
@@ -6021,8 +6023,8 @@ export default function App() {
                   ? 'text-blue-600 dark:text-blue-400'
                   : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
               }`}
-              title="Criativos (biblioteca de vídeos prontos)"
-              aria-label="Criativos"
+              title={t.header.criativos}
+              aria-label={t.header.criativos}
             >
               <Clapperboard size={20} />
             </button>
@@ -6034,15 +6036,15 @@ export default function App() {
                   ? 'text-blue-600 dark:text-blue-400'
                   : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
               }`}
-              title="Performance (Meta Ads)"
-              aria-label="Performance"
+              title={t.header.performance}
+              aria-label={t.header.performance}
             >
               <BarChart3 size={20} />
             </button>
             <button
               onClick={handleLogout}
               className="p-2 text-gray-400 hover:text-red-500 dark:hover:text-gray-500 dark:hover:text-red-400 transition-colors"
-              title="Sair"
+              title={t.header.logout}
             >
               <LogOut size={20} />
             </button>
