@@ -4,6 +4,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage, auth } from '@/lib/firebase';
 import { Loader2, Upload, Play, Trash2, X, Music, Scissors } from 'lucide-react';
 import { useSoundLibrary, type LibSound } from '@/hooks/useSoundLibrary';
+import { WaveformTrimmer } from '@/components/WaveformTrimmer';
 
 interface Props {
   open: boolean;
@@ -42,7 +43,8 @@ export function SoundLibraryModal({ open, userId, onClose, onPick }: Props) {
     // Precisa dos metadados carregados pra conseguir dar seek pro `start`.
     if (a.src !== url) {
       a.src = url;
-      a.onerror = () => toast.error('Não consegui tocar esse efeito (link quebrado). Reenvie o arquivo.');
+      a.onerror = () =>
+        toast.error('Não consegui tocar esse efeito (link quebrado). Reenvie o arquivo.');
       if (a.readyState >= 1) startPlay();
       else a.addEventListener('loadedmetadata', startPlay, { once: true });
     } else if (a.readyState >= 1) {
@@ -233,46 +235,58 @@ export function SoundLibraryModal({ open, userId, onClose, onPick }: Props) {
                       </button>
                     </div>
                     {trim?.id === s.id && (
-                      <div className="flex flex-wrap items-center gap-2 p-2.5 bg-purple-50/60 dark:bg-purple-950/30 border-t border-purple-100 dark:border-purple-900 text-[11px]">
-                        <span className="font-black uppercase tracking-widest text-purple-700 dark:text-purple-300">
-                          Aparar
-                        </span>
-                        início
-                        <input
-                          type="number"
-                          step={0.1}
-                          min={0}
-                          value={trim.start}
-                          onChange={(e) =>
-                            setTrim((t) => (t ? { ...t, start: Math.max(0, Number(e.target.value) || 0) } : t))
-                          }
-                          className="w-16 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 dark:text-gray-100"
+                      <div className="p-2.5 bg-purple-50/60 dark:bg-purple-950/30 border-t border-purple-100 dark:border-purple-900 space-y-2">
+                        <WaveformTrimmer
+                          url={s.origUrl || s.url}
+                          start={trim.start}
+                          end={trim.end}
+                          onChange={(a, b) => setTrim((t) => (t ? { ...t, start: a, end: b } : t))}
                         />
-                        fim
-                        <input
-                          type="number"
-                          step={0.1}
-                          min={0}
-                          value={trim.end}
-                          onChange={(e) =>
-                            setTrim((t) => (t ? { ...t, end: Math.max(0, Number(e.target.value) || 0) } : t))
-                          }
-                          className="w-16 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 dark:text-gray-100"
-                        />
-                        s
-                        <button
-                          onClick={() => playRange(s.url, trim.start, trim.end)}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300 font-black uppercase tracking-widest"
-                        >
-                          <Play size={11} /> Ouvir trecho
-                        </button>
-                        <button
-                          onClick={() => saveTrim(s)}
-                          disabled={trimSaving}
-                          className="ml-auto px-3 py-1.5 rounded-lg bg-purple-600 text-white font-black uppercase tracking-widest disabled:opacity-50"
-                        >
-                          {trimSaving ? 'Salvando…' : 'Salvar trecho'}
-                        </button>
+                        <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                          <span className="font-black uppercase tracking-widest text-purple-700 dark:text-purple-300">
+                            Aparar
+                          </span>
+                          início
+                          <input
+                            type="number"
+                            step={0.1}
+                            min={0}
+                            value={trim.start}
+                            onChange={(e) =>
+                              setTrim((t) =>
+                                t ? { ...t, start: Math.max(0, Number(e.target.value) || 0) } : t
+                              )
+                            }
+                            className="w-16 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 dark:text-gray-100"
+                          />
+                          fim
+                          <input
+                            type="number"
+                            step={0.1}
+                            min={0}
+                            value={trim.end}
+                            onChange={(e) =>
+                              setTrim((t) =>
+                                t ? { ...t, end: Math.max(0, Number(e.target.value) || 0) } : t
+                              )
+                            }
+                            className="w-16 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 dark:text-gray-100"
+                          />
+                          s
+                          <button
+                            onClick={() => playRange(s.url, trim.start, trim.end)}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300 font-black uppercase tracking-widest"
+                          >
+                            <Play size={11} /> Ouvir trecho
+                          </button>
+                          <button
+                            onClick={() => saveTrim(s)}
+                            disabled={trimSaving}
+                            className="ml-auto px-3 py-1.5 rounded-lg bg-purple-600 text-white font-black uppercase tracking-widest disabled:opacity-50"
+                          >
+                            {trimSaving ? 'Salvando…' : 'Salvar trecho'}
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
