@@ -1320,6 +1320,10 @@ export function MontagemTab({
       })
     );
   };
+  // RIPPLE DELETE: apaga o trecho e desliza pra trás tudo que começa depois
+  // dele, fechando o buraco automaticamente. Antes ficava um vazio (tela
+  // preta, ver "Timeline vazia" acima) até o usuário reposicionar cada
+  // trecho seguinte na mão — igual editor de vídeo de verdade faz.
   const removeItem = (idx: number) => {
     pushHistory(items);
     setItems((prev) => {
@@ -1333,24 +1337,39 @@ export function MontagemTab({
       const after = remaining
         .filter((it) => it.atSec >= target.atSec)
         .sort((a, b) => a.atSec - b.atSec)[0];
-      if (!before || !after || before === after) return remaining;
-      // Re-linka: a SAÍDA do anterior casa com a ENTRADA do próximo (transição
-      // linkável + whoosh), pra conectar smooth sem sobra da transição apagada.
-      const LINKABLE = new Set([
-        'slideleft',
-        'slideright',
-        'slideup',
-        'slidedown',
-        'dissolve',
-        'whip',
-      ]);
-      const whoosh = soundForTransition('slideleft');
-      const link = LINKABLE.has(after.transIn || '') ? after.transIn! : 'dissolve';
-      return remaining.map((it) => {
-        if (it === before)
-          return { ...it, transOut: link, transOutDur: it.transOutDur || 0.15, soundOut: whoosh };
-        if (it === after) return { ...it, transIn: link, transInDur: it.transInDur || 0.15 };
-        return it;
+      let relinked = remaining;
+      if (before && after && before !== after) {
+        // Re-linka: a SAÍDA do anterior casa com a ENTRADA do próximo (transição
+        // linkável + whoosh), pra conectar smooth sem sobra da transição apagada.
+        const LINKABLE = new Set([
+          'slideleft',
+          'slideright',
+          'slideup',
+          'slidedown',
+          'dissolve',
+          'whip',
+        ]);
+        const whoosh = soundForTransition('slideleft');
+        const link = LINKABLE.has(after.transIn || '') ? after.transIn! : 'dissolve';
+        relinked = remaining.map((it) => {
+          if (it === before)
+            return { ...it, transOut: link, transOutDur: it.transOutDur || 0.15, soundOut: whoosh };
+          if (it === after) return { ...it, transIn: link, transInDur: it.transInDur || 0.15 };
+          return it;
+        });
+      }
+      const targetEnd = itemEnd(target);
+      const gap = targetEnd - target.atSec;
+      if (gap <= 0) return relinked;
+      return relinked.map((it) => {
+        // Tolerância de 1ms pra arredondamento de float não deixar de fora
+        // um trecho que colava exatamente na borda do apagado.
+        if (it.atSec < targetEnd - 0.001) return it;
+        return {
+          ...it,
+          atSec: Number((it.atSec - gap).toFixed(2)),
+          endSec: it.endSec !== undefined ? Number((it.endSec - gap).toFixed(2)) : it.endSec,
+        };
       });
     });
   };
