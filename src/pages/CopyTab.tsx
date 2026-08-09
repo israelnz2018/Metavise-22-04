@@ -670,7 +670,7 @@ export function CopyTab({
   //   Cmd/Ctrl + B    → abrir Biblioteca
   //   Cmd/Ctrl + H    → abrir Histórico (quando tem)
   //   Cmd/Ctrl + D    → ver Prompt enviado (debug)
-  //   ?                → mostrar atalhos (toast)
+  // "?" mostra o painel global de atalhos (App.tsx) — não duplica aqui.
   React.useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       // Ignora quando está digitando em input/textarea
@@ -704,12 +704,6 @@ export function CopyTab({
         e.preventDefault();
         setShowDebugModal(true);
         return;
-      }
-      if (e.key === '?' && !mod) {
-        e.preventDefault();
-        toast('⌨️ Atalhos: ⌘+↵ gerar · ⌘+B biblioteca · ⌘+H histórico · ⌘+D debug', {
-          duration: 5000,
-        });
       }
     }
     window.addEventListener('keydown', handleKey);

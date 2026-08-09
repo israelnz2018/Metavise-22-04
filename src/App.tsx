@@ -53,6 +53,7 @@ import {
   Settings,
   Clapperboard,
   BarChart3,
+  Keyboard,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Toaster, toast } from 'react-hot-toast';
@@ -101,6 +102,7 @@ import { SubprojectProgress } from './components/SubprojectProgress';
 import { SaveIndicator } from './components/SaveIndicator';
 import { Sidebar } from './components/Sidebar';
 import { CommandPalette, type Command } from './components/CommandPalette';
+import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { triggerProjectSave } from './lib/autosave';
 import { COST_RATES, logCreativeCost } from './lib/creativeCost';
 import { BriefEditModal } from './components/BriefEditModal';
@@ -2826,11 +2828,23 @@ export default function App() {
 
   // COMMAND PALETTE (Cmd/Ctrl+K): saltar pra qualquer aba/projeto/ação.
   const [paletteOpen, setPaletteOpen] = useState(false);
+  // Painel de atalhos (?) — global, mas ignora "?" enquanto o foco está num
+  // campo de texto (senão digitar "?" numa mensagem abriria o painel à toa).
+  const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setPaletteOpen((o) => !o);
+        return;
+      }
+      if (e.key === '?' && !e.metaKey && !e.ctrlKey) {
+        const el = e.target as HTMLElement | null;
+        if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) {
+          return;
+        }
+        e.preventDefault();
+        setShortcutsModalOpen((o) => !o);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -5792,6 +5806,10 @@ export default function App() {
         onClose={() => setPaletteOpen(false)}
         commands={paletteCommands}
       />
+      <KeyboardShortcutsModal
+        open={shortcutsModalOpen}
+        onClose={() => setShortcutsModalOpen(false)}
+      />
       {/* Header. Frosted-glass: semi-transparent + backdrop blur so
           the app-shell gradient bleeds through subtly. Industry-standard
           modern SaaS pattern (Stripe, Linear, Vercel, Raycast). */}
@@ -5951,6 +5969,14 @@ export default function App() {
               onPick={(p) => handleLoadProject(p)}
             />
             <DarkModeToggle isDark={isDark} onToggle={toggleDarkMode} />
+            <button
+              onClick={() => setShortcutsModalOpen(true)}
+              className="w-10 h-10 flex items-center justify-center rounded-xl border border-gray-100 bg-gray-50 text-gray-500 hover:text-gray-900 hover:border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:text-white dark:hover:border-gray-600 transition-all"
+              title="Atalhos de teclado (?)"
+              aria-label="Atalhos de teclado"
+            >
+              <Keyboard size={16} />
+            </button>
             <button
               onClick={() => setCurrentStep('integrations')}
               className={`p-2 transition-colors ${
