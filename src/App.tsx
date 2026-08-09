@@ -353,6 +353,8 @@ export default function App() {
   const {
     sfxEnabled,
     setSfx,
+    sfxVolume,
+    setSfxVolume,
     bgMusicEnabled,
     setBgMusic,
     bgMusicVolume,
@@ -6166,6 +6168,8 @@ export default function App() {
                     preferences={{
                       sfxEnabled,
                       onToggleSfx: setSfx,
+                      sfxVolume,
+                      onChangeSfxVolume: setSfxVolume,
                       bgMusicEnabled,
                       onToggleBgMusic: setBgMusic,
                       bgMusicVolume,

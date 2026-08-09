@@ -4,6 +4,8 @@ import { ACCENT_COLORS, type AccentColor } from '@/hooks/useAppPreferences';
 interface Props {
   sfxEnabled: boolean;
   onToggleSfx: (v: boolean) => void;
+  sfxVolume: number;
+  onChangeSfxVolume: (v: number) => void;
   bgMusicEnabled: boolean;
   onToggleBgMusic: (v: boolean) => void;
   bgMusicVolume: number;
@@ -34,6 +36,8 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
 export function PreferencesSection({
   sfxEnabled,
   onToggleSfx,
+  sfxVolume,
+  onChangeSfxVolume,
   bgMusicEnabled,
   onToggleBgMusic,
   bgMusicVolume,
@@ -58,19 +62,37 @@ export function PreferencesSection({
       </div>
 
       <div className="space-y-4">
-        <div className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/50 ring-1 ring-gray-200/60 dark:ring-gray-800/60">
-          <div className="flex items-center gap-3">
-            <Volume2 size={18} className="text-gray-500 dark:text-gray-400 shrink-0" />
-            <div>
-              <p className="text-sm font-bold text-gray-800 dark:text-gray-100">
-                Sons de clique e feedback
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Um tique curto ao clicar, e um som ao terminar uma ação (sucesso/erro).
-              </p>
+        <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/50 ring-1 ring-gray-200/60 dark:ring-gray-800/60 space-y-3">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <Volume2 size={18} className="text-gray-500 dark:text-gray-400 shrink-0" />
+              <div>
+                <p className="text-sm font-bold text-gray-800 dark:text-gray-100">
+                  Sons de clique e feedback
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Um tique curto ao clicar, e um som ao terminar uma ação (sucesso/erro).
+                </p>
+              </div>
             </div>
+            <Toggle checked={sfxEnabled} onChange={onToggleSfx} />
           </div>
-          <Toggle checked={sfxEnabled} onChange={onToggleSfx} />
+          {sfxEnabled && (
+            <div className="flex items-center gap-3 pl-9">
+              <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 shrink-0">
+                Volume
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={2}
+                step={0.1}
+                value={sfxVolume}
+                onChange={(e) => onChangeSfxVolume(Number(e.target.value))}
+                className="w-full accent-blue-600"
+              />
+            </div>
+          )}
         </div>
 
         <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/50 ring-1 ring-gray-200/60 dark:ring-gray-800/60 space-y-3">

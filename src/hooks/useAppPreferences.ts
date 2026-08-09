@@ -3,10 +3,11 @@
 // sensato, override do usuário gruda entre sessões.
 
 import { useCallback, useEffect, useState } from 'react';
-import { setSfxEnabled } from '@/lib/sfx';
+import { setSfxEnabled, setSfxVolume as setSfxVolumeModule } from '@/lib/sfx';
 
 const KEYS = {
   sfx: 'metavise.sfxEnabled',
+  sfxVolume: 'metavise.sfxVolume',
   music: 'metavise.bgMusicEnabled',
   musicVolume: 'metavise.bgMusicVolume',
   accent: 'metavise.accentColor',
@@ -31,10 +32,12 @@ function readBool(key: string, fallback: boolean): boolean {
   return fallback;
 }
 
-function readNumber(key: string, fallback: number): number {
+function readNumber(key: string, fallback: number, max = 1): number {
   if (typeof window === 'undefined') return fallback;
-  const v = Number(window.localStorage.getItem(key));
-  return Number.isFinite(v) && v >= 0 && v <= 1 ? v : fallback;
+  const raw = window.localStorage.getItem(key);
+  if (raw === null) return fallback;
+  const v = Number(raw);
+  return Number.isFinite(v) && v >= 0 && v <= max ? v : fallback;
 }
 
 function readAccent(): AccentColor {
@@ -45,15 +48,22 @@ function readAccent(): AccentColor {
 
 export function useAppPreferences() {
   const [sfxEnabled, setSfxEnabledState] = useState(() => readBool(KEYS.sfx, true));
+  // Escala 0-2 (não 0-1): 1 já É o volume-base novo (30% mais alto que o
+  // original) — o slider deixa o usuário ir além disso se quiser mais.
+  const [sfxVolume, setSfxVolumeState] = useState(() => readNumber(KEYS.sfxVolume, 1, 2));
   const [bgMusicEnabled, setBgMusicEnabledState] = useState(() => readBool(KEYS.music, false));
   const [bgMusicVolume, setBgMusicVolumeState] = useState(() => readNumber(KEYS.musicVolume, 0.25));
   const [accentColor, setAccentColorState] = useState<AccentColor>(readAccent);
 
-  // sfx.ts é módulo puro (sem estado React) — sincroniza o flag dele
+  // sfx.ts é módulo puro (sem estado React) — sincroniza os flags dele
   // sempre que a preferência muda, incluindo no mount.
   useEffect(() => {
     setSfxEnabled(sfxEnabled);
   }, [sfxEnabled]);
+
+  useEffect(() => {
+    setSfxVolumeModule(sfxVolume);
+  }, [sfxVolume]);
 
   // Aplica a cor de destaque como CSS var no <html> — só alguns elementos
   // (nav ativo, botões primários) leem essa var; não é um reskin completo
@@ -66,6 +76,12 @@ export function useAppPreferences() {
   const setSfx = useCallback((v: boolean) => {
     setSfxEnabledState(v);
     window.localStorage.setItem(KEYS.sfx, String(v));
+  }, []);
+
+  const setSfxVolume = useCallback((v: number) => {
+    const clamped = Math.min(2, Math.max(0, v));
+    setSfxVolumeState(clamped);
+    window.localStorage.setItem(KEYS.sfxVolume, String(clamped));
   }, []);
 
   const setBgMusic = useCallback((v: boolean) => {
@@ -87,6 +103,8 @@ export function useAppPreferences() {
   return {
     sfxEnabled,
     setSfx,
+    sfxVolume,
+    setSfxVolume,
     bgMusicEnabled,
     setBgMusic,
     bgMusicVolume,

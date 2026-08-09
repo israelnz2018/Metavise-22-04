@@ -29,6 +29,8 @@ interface IntegrationsTabProps {
   preferences: {
     sfxEnabled: boolean;
     onToggleSfx: (v: boolean) => void;
+    sfxVolume: number;
+    onChangeSfxVolume: (v: number) => void;
     bgMusicEnabled: boolean;
     onToggleBgMusic: (v: boolean) => void;
     bgMusicVolume: number;

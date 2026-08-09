@@ -13,6 +13,16 @@ export function setSfxEnabled(v: boolean) {
   enabled = v;
 }
 
+// Multiplicador de volume (0-2, default 1 = já 30% mais alto que o volume
+// fixo original — pedido do usuário). O slider em Preferências manda 0-2;
+// cada tone() abaixo já usa "gain" como o volume-base NOVO (mais alto), e
+// esse multiplicador ajusta a partir dali.
+let volumeMultiplier = 1;
+
+export function setSfxVolume(v: number) {
+  volumeMultiplier = Math.min(2, Math.max(0, v));
+}
+
 let ctx: AudioContext | null = null;
 function getCtx(): AudioContext | null {
   if (typeof window === 'undefined') return null;
@@ -43,8 +53,9 @@ function tone(
   osc.connect(g);
   g.connect(c.destination);
   const now = c.currentTime;
+  const peak = gain * volumeMultiplier;
   g.gain.setValueAtTime(0, now);
-  g.gain.linearRampToValueAtTime(gain, now + 0.005);
+  g.gain.linearRampToValueAtTime(peak, now + 0.005);
   g.gain.exponentialRampToValueAtTime(0.0001, now + durationMs / 1000);
   osc.start(now);
   osc.stop(now + durationMs / 1000 + 0.02);
@@ -52,20 +63,20 @@ function tone(
 
 export function playClickSound() {
   if (!enabled) return;
-  tone(1000, 35, { type: 'sine', gain: 0.05 });
+  tone(1000, 35, { type: 'sine', gain: 0.065 });
 }
 
 export function playSuccessSound() {
   if (!enabled) return;
   // Duas notas subindo (dó→sol-ish) — soa como confirmação, não alarme.
-  tone(660, 90, { gain: 0.07 });
-  setTimeout(() => tone(880, 140, { gain: 0.07 }), 80);
+  tone(660, 90, { gain: 0.091 });
+  setTimeout(() => tone(880, 140, { gain: 0.091 }), 80);
 }
 
 export function playErrorSound() {
   if (!enabled) return;
   // Uma nota baixa, tipo quadrada — soa "errado" sem ser agressivo.
-  tone(220, 160, { type: 'triangle', gain: 0.07 });
+  tone(220, 160, { type: 'triangle', gain: 0.091 });
 }
 
 // Delegação de clique: UM listener no document em vez de instrumentar cada
