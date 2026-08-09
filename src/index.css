@@ -11,6 +11,13 @@
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
 }
 
+/* Cor de destaque escolhida em Configurações → Preferências (useAppPreferences
+   sobrescreve isso via JS no <html>). Default aqui evita flash sem cor antes
+   do hook rodar. */
+:root {
+  --accent: #2563eb;
+}
+
 @layer base {
   body {
     @apply antialiased;

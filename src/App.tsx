@@ -88,6 +88,10 @@ import { ToastLimiter } from './components/ToastLimiter';
 import { DarkModeToggle } from './components/DarkModeToggle';
 import { RecentProjectsButton } from './components/RecentProjectsButton';
 import { useDarkMode } from './hooks/useDarkMode';
+import { useAppPreferences } from './hooks/useAppPreferences';
+import { useBackgroundMusic } from './hooks/useBackgroundMusic';
+import { installGlobalClickSound } from './lib/sfx';
+import { installToastSound } from './lib/toastSound';
 import { ensureNotificationPermission, notifyIfHidden } from './lib/notifications';
 import { COSTS } from './lib/costs';
 import { CostConfirmModal } from './components/CostConfirmModal';
@@ -346,6 +350,21 @@ export default function App() {
   // exactly once when the user toggles. `.dark` class is set on <html>
   // by the hook; Tailwind's `dark:` variant takes care of the rest.
   const { isDark, toggle: toggleDarkMode } = useDarkMode();
+  const {
+    sfxEnabled,
+    setSfx,
+    bgMusicEnabled,
+    setBgMusic,
+    bgMusicVolume,
+    setBgMusicVolume,
+    accentColor,
+    setAccentColor,
+  } = useAppPreferences();
+  useBackgroundMusic(bgMusicEnabled, bgMusicVolume);
+  useEffect(() => {
+    installToastSound();
+    return installGlobalClickSound();
+  }, []);
   const [currentStep, setCurrentStep] = useState<Step>('projects');
   // Ref pro container scrollável da wizard nav. Quando currentStep muda,
   // useEffect abaixo rola a aba ativa pra ficar visível (necessário quando
@@ -6143,6 +6162,16 @@ export default function App() {
                       testStatus: zapcapTestStatus,
                       onSave: handleSaveZapCapKey,
                       onTest: handleTestZapCapConnection,
+                    }}
+                    preferences={{
+                      sfxEnabled,
+                      onToggleSfx: setSfx,
+                      bgMusicEnabled,
+                      onToggleBgMusic: setBgMusic,
+                      bgMusicVolume,
+                      onChangeBgMusicVolume: setBgMusicVolume,
+                      accentColor,
+                      onChangeAccentColor: setAccentColor,
                     }}
                   />
                 )}

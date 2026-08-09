@@ -32,7 +32,7 @@ export function Sidebar({ currentStep, onNavigate, canNavigateTo, useHookFlow }:
           onClick={() => onNavigate('hub')}
           className={`w-full flex items-center gap-2.5 px-3 py-2 mb-3 rounded-xl text-sm font-black transition-colors text-left ${
             currentStep === 'hub'
-              ? 'bg-blue-600 text-white shadow-sm'
+              ? 'bg-[var(--accent)] text-white shadow-sm'
               : 'text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-950/60'
           }`}
         >
@@ -64,7 +64,7 @@ export function Sidebar({ currentStep, onNavigate, canNavigateTo, useHookFlow }:
                   }}
                   className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-bold transition-colors text-left ${
                     isActive
-                      ? 'bg-blue-600 text-white shadow-sm'
+                      ? 'bg-[var(--accent)] text-white shadow-sm'
                       : isSkipped
                         ? 'text-gray-400/70 dark:text-gray-600 line-through hover:text-gray-500'
                         : disabled

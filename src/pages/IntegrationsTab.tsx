@@ -1,5 +1,7 @@
 import { RefreshCw, Shield, Volume2, User, Sparkles, Zap, Film, Bot } from 'lucide-react';
 import { IntegrationCard, type TestStatus } from '@/components/IntegrationCard';
+import { PreferencesSection } from '@/components/PreferencesSection';
+import type { AccentColor } from '@/hooks/useAppPreferences';
 
 // One provider's worth of state + callbacks. App.tsx still owns the state;
 // this tab is pure presentation and just routes events back up.
@@ -24,6 +26,16 @@ interface IntegrationsTabProps {
   claude: ProviderConnection;
   assemblyai: ProviderConnection;
   zapcap: ProviderConnection;
+  preferences: {
+    sfxEnabled: boolean;
+    onToggleSfx: (v: boolean) => void;
+    bgMusicEnabled: boolean;
+    onToggleBgMusic: (v: boolean) => void;
+    bgMusicVolume: number;
+    onChangeBgMusicVolume: (v: number) => void;
+    accentColor: AccentColor;
+    onChangeAccentColor: (v: AccentColor) => void;
+  };
 }
 
 export function IntegrationsTab({
@@ -37,6 +49,7 @@ export function IntegrationsTab({
   claude,
   assemblyai,
   zapcap,
+  preferences,
 }: IntegrationsTabProps) {
   const isAdmin = userRole === 'admin';
 
@@ -132,6 +145,8 @@ export function IntegrationsTab({
 
   return (
     <div className="max-w-[1600px] mx-auto space-y-8">
+      <PreferencesSection {...preferences} />
+
       <div className="p-8 bg-white/80 dark:bg-gray-900/60 rounded-3xl ring-1 ring-gray-200/60 dark:ring-gray-800/60 shadow-xl shadow-gray-200/40 dark:shadow-black/30 space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
