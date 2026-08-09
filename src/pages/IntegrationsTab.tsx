@@ -37,6 +37,7 @@ interface IntegrationsTabProps {
     onChangeBgMusicVolume: (v: number) => void;
     accentColor: AccentColor;
     onChangeAccentColor: (v: AccentColor) => void;
+    onReplayTour: () => void;
   };
 }
 

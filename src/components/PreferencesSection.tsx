@@ -1,4 +1,4 @@
-import { Volume2, Music, Palette, Check } from 'lucide-react';
+import { Volume2, Music, Palette, Check, Compass } from 'lucide-react';
 import { ACCENT_COLORS, type AccentColor } from '@/hooks/useAppPreferences';
 
 interface Props {
@@ -12,6 +12,7 @@ interface Props {
   onChangeBgMusicVolume: (v: number) => void;
   accentColor: AccentColor;
   onChangeAccentColor: (v: AccentColor) => void;
+  onReplayTour: () => void;
 }
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
@@ -44,6 +45,7 @@ export function PreferencesSection({
   onChangeBgMusicVolume,
   accentColor,
   onChangeAccentColor,
+  onReplayTour,
 }: Props) {
   return (
     <div className="p-8 bg-white/80 dark:bg-gray-900/60 rounded-3xl ring-1 ring-gray-200/60 dark:ring-gray-800/60 shadow-xl shadow-gray-200/40 dark:shadow-black/30 space-y-6">
@@ -156,6 +158,14 @@ export function PreferencesSection({
             ))}
           </div>
         </div>
+
+        <button
+          onClick={onReplayTour}
+          className="w-full flex items-center justify-center gap-2 p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/50 ring-1 ring-gray-200/60 dark:ring-gray-800/60 text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+        >
+          <Compass size={16} className="text-gray-500 dark:text-gray-400" />
+          Ver o tour de boas-vindas de novo
+        </button>
       </div>
     </div>
   );

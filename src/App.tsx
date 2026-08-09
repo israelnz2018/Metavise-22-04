@@ -103,6 +103,7 @@ import { SaveIndicator } from './components/SaveIndicator';
 import { Sidebar } from './components/Sidebar';
 import { CommandPalette, type Command } from './components/CommandPalette';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
+import { OnboardingTour, hasSeenTour } from './components/OnboardingTour';
 import { triggerProjectSave } from './lib/autosave';
 import { COST_RATES, logCreativeCost } from './lib/creativeCost';
 import { BriefEditModal } from './components/BriefEditModal';
@@ -2831,6 +2832,9 @@ export default function App() {
   // Painel de atalhos (?) — global, mas ignora "?" enquanto o foco está num
   // campo de texto (senão digitar "?" numa mensagem abriria o painel à toa).
   const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false);
+  // Tour guiado: abre sozinho só na 1ª vez (localStorage), reaberto manualmente
+  // a qualquer momento pelo botão "Ver tour de novo" em Preferências.
+  const [tourOpen, setTourOpen] = useState(() => !hasSeenTour());
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -5810,6 +5814,7 @@ export default function App() {
         open={shortcutsModalOpen}
         onClose={() => setShortcutsModalOpen(false)}
       />
+      <OnboardingTour open={tourOpen} onClose={() => setTourOpen(false)} />
       {/* Header. Frosted-glass: semi-transparent + backdrop blur so
           the app-shell gradient bleeds through subtly. Industry-standard
           modern SaaS pattern (Stripe, Linear, Vercel, Raycast). */}
@@ -6202,6 +6207,7 @@ export default function App() {
                       onChangeBgMusicVolume: setBgMusicVolume,
                       accentColor,
                       onChangeAccentColor: setAccentColor,
+                      onReplayTour: () => setTourOpen(true),
                     }}
                   />
                 )}
