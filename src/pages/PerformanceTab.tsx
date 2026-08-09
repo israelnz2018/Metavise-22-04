@@ -4,6 +4,7 @@ import { loadVariants } from '@/lib/variantStore';
 import { getMetaConnection, type CreativeMetrics } from '@/lib/metaAds';
 import { parseMetaCsvReport, matchMetricsToName } from '@/lib/metaCsvImport';
 import { addToPersonalLibrary } from '@/lib/personalCopyLibrary';
+import { unlockAchievement } from '@/lib/achievements';
 import { inferVertical, type CopyVertical, type AwarenessLevel } from '@/data/copyLibrary';
 import {
   BarChart3,
@@ -112,6 +113,9 @@ export function PerformanceTab({ projectId, projectName, plan, uid }: Props) {
       const nextHistory = [...importHistory, snapshot].slice(-MAX_SNAPSHOTS);
       setImportHistory(nextHistory);
       saveImportHistory(projectId, nextHistory);
+      if (metrics.some((m) => m.purchases > 0)) {
+        void unlockAchievement(uid, 'primeira_venda');
+      }
       const matchedCount = rows.filter((r) => matchMetricsToName(r.name, metrics)).length;
       toast.success(
         `Relatório importado — ${matchedCount}/${rows.length} criativo(s) casados por nome.` +

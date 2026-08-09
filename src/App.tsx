@@ -54,6 +54,7 @@ import {
   Clapperboard,
   BarChart3,
   Keyboard,
+  Trophy,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Toaster, toast } from 'react-hot-toast';
@@ -104,6 +105,8 @@ import { Sidebar } from './components/Sidebar';
 import { CommandPalette, type Command } from './components/CommandPalette';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { OnboardingTour, hasSeenTour } from './components/OnboardingTour';
+import { AchievementsModal } from './components/AchievementsModal';
+import { trackVideoGenerated } from './lib/achievements';
 import { triggerProjectSave } from './lib/autosave';
 import { COST_RATES, logCreativeCost } from './lib/creativeCost';
 import { BriefEditModal } from './components/BriefEditModal';
@@ -2832,6 +2835,7 @@ export default function App() {
   // Painel de atalhos (?) — global, mas ignora "?" enquanto o foco está num
   // campo de texto (senão digitar "?" numa mensagem abriria o painel à toa).
   const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false);
+  const [achievementsModalOpen, setAchievementsModalOpen] = useState(false);
   // Tour guiado: abre sozinho só na 1ª vez (localStorage), reaberto manualmente
   // a qualquer momento pelo botão "Ver tour de novo" em Preferências.
   const [tourOpen, setTourOpen] = useState(() => !hasSeenTour());
@@ -3650,6 +3654,7 @@ export default function App() {
                   } else {
                     setVideoUrl(statusData.video_url);
                     setVideos((prev) => [...prev, newVideo]);
+                    trackVideoGenerated(user?.uid);
                   }
                   setLoading(false);
                   toast(
@@ -3710,6 +3715,7 @@ export default function App() {
                   setVideoUrl(result.url);
                   setVideoStoragePath(result.path);
                   setVideos((prev) => [...prev, newVideo]);
+                  trackVideoGenerated(user?.uid);
 
                   setConfig((prev) => ({
                     ...prev,
@@ -5815,6 +5821,11 @@ export default function App() {
         onClose={() => setShortcutsModalOpen(false)}
       />
       <OnboardingTour open={tourOpen} onClose={() => setTourOpen(false)} />
+      <AchievementsModal
+        open={achievementsModalOpen}
+        onClose={() => setAchievementsModalOpen(false)}
+        uid={user?.uid}
+      />
       {/* Header. Frosted-glass: semi-transparent + backdrop blur so
           the app-shell gradient bleeds through subtly. Industry-standard
           modern SaaS pattern (Stripe, Linear, Vercel, Raycast). */}
@@ -5981,6 +5992,14 @@ export default function App() {
               aria-label="Atalhos de teclado"
             >
               <Keyboard size={16} />
+            </button>
+            <button
+              onClick={() => setAchievementsModalOpen(true)}
+              className="w-10 h-10 flex items-center justify-center rounded-xl border border-gray-100 bg-gray-50 text-gray-500 hover:text-amber-600 hover:border-amber-200 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:text-amber-400 dark:hover:border-amber-800 transition-all"
+              title="Conquistas"
+              aria-label="Conquistas"
+            >
+              <Trophy size={16} />
             </button>
             <button
               onClick={() => setCurrentStep('integrations')}
@@ -7175,6 +7194,7 @@ export default function App() {
                           });
                         } else {
                           setVideos((prev) => [...prev, newVideo]);
+                          trackVideoGenerated(user?.uid);
                           setConfig((prev) => ({
                             ...prev,
                             videos: [...((prev.videos as any[]) || []), newVideo],
@@ -7208,6 +7228,7 @@ export default function App() {
                           });
                         } else {
                           setVideos((prev) => [...prev, newVideo]);
+                          trackVideoGenerated(user?.uid);
                           setConfig((prev) => ({
                             ...prev,
                             videos: [...((prev.videos as any[]) || []), newVideo],

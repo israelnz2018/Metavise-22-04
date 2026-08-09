@@ -1,3 +1,5 @@
+import { unlockAchievement } from './achievements';
+
 export type VozPremiumMode = 'catalog' | 'library' | 'clone' | 'ready';
 
 export interface ElevenLabsVoice {
@@ -69,30 +71,36 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
   });
   const text = await res.text();
   if (!res.ok) throw new Error(`Erro ${res.status}: ${text.substring(0, 200)}`);
-  try { return JSON.parse(text); } catch { throw new Error(`Resposta inválida: ${text.substring(0, 200)}`); }
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(`Resposta inválida: ${text.substring(0, 200)}`);
+  }
 }
 
 async function getJson<T>(url: string): Promise<T> {
   const res = await fetch(url);
   const text = await res.text();
   if (!res.ok) throw new Error(`Erro ${res.status}: ${text.substring(0, 200)}`);
-  try { return JSON.parse(text); } catch { throw new Error(`Resposta inválida: ${text.substring(0, 200)}`); }
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(`Resposta inválida: ${text.substring(0, 200)}`);
+  }
 }
 
 export async function listVoices(filters: CatalogFilters = {}): Promise<VoicesPage> {
   const params = new URLSearchParams();
-  if (filters.gender)      params.set('gender', filters.gender);
-  if (filters.age)         params.set('age', filters.age);
-  if (filters.language)    params.set('language', filters.language);
-  if (filters.accent)      params.set('accent', filters.accent);
-  if (filters.use_case)    params.set('use_case', filters.use_case);
+  if (filters.gender) params.set('gender', filters.gender);
+  if (filters.age) params.set('age', filters.age);
+  if (filters.language) params.set('language', filters.language);
+  if (filters.accent) params.set('accent', filters.accent);
+  if (filters.use_case) params.set('use_case', filters.use_case);
   if (filters.descriptive) params.set('descriptive', filters.descriptive);
-  if (filters.search)      params.set('search', filters.search);
-  if (filters.page)        params.set('page', String(filters.page));
+  if (filters.search) params.set('search', filters.search);
+  if (filters.page) params.set('page', String(filters.page));
   if (filters.include_low_quality) params.set('include_low_quality', '1');
-  const data = await getJson<VoicesPage>(
-    `/api/elevenlabs-premium/voices?${params.toString()}`
-  );
+  const data = await getJson<VoicesPage>(`/api/elevenlabs-premium/voices?${params.toString()}`);
   return {
     voices: data?.voices ?? [],
     has_more: !!data?.has_more,
@@ -101,8 +109,18 @@ export async function listVoices(filters: CatalogFilters = {}): Promise<VoicesPa
   };
 }
 
-export async function generateAudio(params: GenerateAudioParams & { userId?: string }): Promise<{ audioUrl: string; storagePath: string | null }> {
-  return postJson('/api/elevenlabs-premium/generate', params);
+export async function generateAudio(
+  params: GenerateAudioParams & { userId?: string }
+): Promise<{ audioUrl: string; storagePath: string | null }> {
+  const result = await postJson<{ audioUrl: string; storagePath: string | null }>(
+    '/api/elevenlabs-premium/generate',
+    params
+  );
+  // Narrowest waist pra "áudio gerado" — todo call site (VozPremium, tradução
+  // de criativo em CriativosTab, etc.) passa por aqui, então a conquista
+  // dispara sem precisar instrumentar cada chamador.
+  void unlockAchievement(params.userId, 'primeiro_audio');
+  return result;
 }
 
 /** Resolve UM voice_id pro nome legível (painel de info de criativos antigos
@@ -119,7 +137,9 @@ export async function getVoiceName(voiceId: string): Promise<string | null> {
   }
 }
 
-export async function cloneVoice(params: CloneVoiceParams): Promise<{ voiceId: string; name: string }> {
+export async function cloneVoice(
+  params: CloneVoiceParams
+): Promise<{ voiceId: string; name: string }> {
   const buffer = await params.audioFile.arrayBuffer();
   const fileBase64 = btoa(new Uint8Array(buffer).reduce((d, b) => d + String.fromCharCode(b), ''));
   return postJson('/api/elevenlabs-premium/clone-voice', {
@@ -141,7 +161,9 @@ export async function cleanAudio(params: CleanAudioParams): Promise<{ audioUrl: 
   });
 }
 
-export async function uploadReadyAudio(file: File): Promise<{ audioUrl: string; storagePath: string }> {
+export async function uploadReadyAudio(
+  file: File
+): Promise<{ audioUrl: string; storagePath: string }> {
   const buffer = await file.arrayBuffer();
   const fileBase64 = btoa(new Uint8Array(buffer).reduce((d, b) => d + String.fromCharCode(b), ''));
   return postJson('/api/elevenlabs-premium/upload-ready-audio', {

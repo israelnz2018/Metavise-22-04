@@ -30,6 +30,7 @@ import {
   type OriginalHookGroup,
 } from '@/lib/claudeService';
 import { generateAudio } from '@/lib/vozPremiumService';
+import { unlockAchievement } from '@/lib/achievements';
 
 // BIBLIOTECA DE CRIATIVOS: junta os vídeos PRONTOS de todos os subprojetos do
 // projeto atual num só lugar. Favoritar e marcar "publicado" (localStorage, como
@@ -216,6 +217,7 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
     });
     setPubModalUrl(null);
     toast.success('Marcado como no ar.');
+    void unlockAchievement(uid, 'primeiro_criativo');
   };
   const addTag = (url: string) => {
     const raw = (window.prompt('Tag (ex.: persona, ângulo, campanha):') || '').trim();
