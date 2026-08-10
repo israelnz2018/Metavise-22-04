@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { detectVideoFormatFromUrl } from '@/lib/helpers';
 import { getAuthorizedUrl } from '@/lib/gemini';
 import type { AutoEditState, ZapCapTemplate, ZapCapRenderConfig } from '@/types/project';
+import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 // Edição Inteligente V2 tab — AssemblyAI analysis + ZapCap captioned
 // render. Extracted from App.tsx as a pure prop-driven component; all
@@ -82,6 +83,8 @@ export function Edit2Tab({
   handleApproveAndDownload,
   toggleBrollSelection,
 }: Props) {
+  const { t } = useLanguage();
+  const e2 = t.edit2Tab;
   const isAnalyzed =
     autoEditState.status === 'analyzed' ||
     autoEditState.status === 'rendering' ||
@@ -98,10 +101,10 @@ export function Edit2Tab({
           </div>
           <div>
             <h2 className="text-4xl font-black text-gray-900 dark:text-gray-50 tracking-tighter uppercase italic">
-              Edição Inteligente <span className="text-blue-600 dark:text-blue-400">V2</span>
+              {e2.title} <span className="text-blue-600 dark:text-blue-400">{e2.badgeV2}</span>
             </h2>
             <p className="text-gray-400 dark:text-gray-500 font-bold uppercase text-[10px] tracking-[0.3em]">
-              Análise Neural + Legendas Animadas + B-Roll + Zooms
+              {e2.subtitle}
             </p>
           </div>
         </div>
@@ -115,10 +118,10 @@ export function Edit2Tab({
           </div>
           <div>
             <h3 className="text-2xl font-black text-gray-900 dark:text-gray-50 uppercase italic tracking-tighter">
-              Primeiro, vamos carregar seu vídeo
+              {e2.uploadTitle}
             </h3>
             <p className="text-gray-400 dark:text-gray-500 font-bold uppercase text-[10px] tracking-widest">
-              Siga as instruções abaixo para iniciar a edição inteligente.
+              {e2.uploadSubtitle}
             </p>
           </div>
         </div>
@@ -165,11 +168,11 @@ export function Edit2Tab({
           <div className="text-center space-y-2">
             <p className="text-lg font-black text-gray-900 dark:text-gray-50 uppercase italic">
               {autoEditState.status === 'uploading'
-                ? `Carregando... ${Math.round(uploadProgress)}%`
-                : 'Arraste seu vídeo aqui ou clique para selecionar'}
+                ? e2.uploadingLabel(Math.round(uploadProgress))
+                : e2.dragDropLabel}
             </p>
             <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em]">
-              MP4, MOV, AVI, WEBM • Máximo 3 minutos
+              {e2.formatsHint}
             </p>
           </div>
 
@@ -185,7 +188,7 @@ export function Edit2Tab({
           {autoEditState.compressing && (
             <div className="flex flex-col items-center gap-2">
               <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase animate-pulse">
-                Otimizando vídeo... ⚡
+                {e2.optimizingLabel}
               </span>
             </div>
           )}
@@ -193,13 +196,13 @@ export function Edit2Tab({
 
         <div className="flex items-center gap-4 text-gray-300 dark:text-gray-600">
           <div className="flex-1 h-px bg-gray-100 dark:bg-gray-800" />
-          <span className="text-[10px] font-black uppercase tracking-[0.5em]">OU</span>
+          <span className="text-[10px] font-black uppercase tracking-[0.5em]">{e2.orLabel}</span>
           <div className="flex-1 h-px bg-gray-100 dark:bg-gray-800" />
         </div>
 
         <div className="space-y-4">
           <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest block text-center">
-            Escolha um vídeo já carregado
+            {e2.chooseUploadedLabel}
           </label>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {userVideos.length > 0 ? (
@@ -216,7 +219,7 @@ export function Edit2Tab({
                         originalVideoUrl: video.url,
                         videoFormat: format,
                       }));
-                      toast.success(`Vídeo selecionado! Formato: ${format}`);
+                      toast.success(e2.videoSelectedToast(format));
                     }}
                     className={cn(
                       'relative rounded-2xl overflow-hidden border-2 transition-all text-left group flex flex-col',
@@ -247,7 +250,7 @@ export function Edit2Tab({
                       {/* "Em uso" label */}
                       {isSelected && (
                         <div className="absolute bottom-2 left-2 px-2 py-0.5 bg-blue-600 text-white text-[8px] font-black rounded uppercase tracking-widest">
-                          Em uso
+                          {e2.inUseLabel}
                         </div>
                       )}
                     </div>
@@ -262,7 +265,7 @@ export function Edit2Tab({
               })
             ) : (
               <p className="col-span-full text-center py-8 text-gray-400 dark:text-gray-500 text-xs font-bold uppercase tracking-widest italic border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-2xl">
-                Nenhum vídeo encontrado na biblioteca
+                {e2.noVideosFound}
               </p>
             )}
           </div>
@@ -277,15 +280,15 @@ export function Edit2Tab({
             </div>
             <div>
               <h4 className="font-black text-green-900 dark:text-green-200 text-sm">
-                ✅ Vídeo carregado com sucesso
+                {e2.videoLoadedTitle}
               </h4>
               <p className="text-[10px] font-bold text-green-600 dark:text-green-400 uppercase tracking-widest">
-                Formato detectado:{' '}
+                {e2.formatDetectedLabel}{' '}
                 {autoEditState.videoFormat === '9:16'
-                  ? 'Vertical 9:16'
+                  ? e2.formats.vertical
                   : autoEditState.videoFormat === '16:9'
-                    ? 'Horizontal 16:9'
-                    : 'Quadrado 1:1'}
+                    ? e2.formats.horizontal
+                    : e2.formats.square}
               </p>
             </div>
           </div>
@@ -298,7 +301,7 @@ export function Edit2Tab({
             }
             className="px-4 py-2 bg-white dark:bg-gray-900/80 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 border border-gray-200 dark:border-gray-700 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
           >
-            Trocar Vídeo
+            {e2.changeVideoButton}
           </button>
         </div>
       )}
@@ -309,10 +312,10 @@ export function Edit2Tab({
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h3 className="text-xl font-black text-gray-900 dark:text-gray-50 uppercase italic">
-                Galeria de Versões
+                {e2.galleryTitle}
               </h3>
               <span className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
-                Role para o lado
+                {e2.scrollHint}
               </span>
             </div>
             <div className="flex gap-6 overflow-x-auto pb-6 no-scrollbar snap-x">
@@ -347,7 +350,7 @@ export function Edit2Tab({
                     crossOrigin="anonymous"
                   />
                   <div className="absolute top-4 left-4 bg-gray-900 text-white text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-widest">
-                    Original
+                    {e2.originalBadge}
                   </div>
                 </div>
                 <div className="flex flex-col gap-2">
@@ -356,7 +359,7 @@ export function Edit2Tab({
                     className="w-full py-3 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-50 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-200 flex items-center justify-center gap-2"
                   >
                     <Download size={12} />
-                    Baixar
+                    {e2.downloadButton}
                   </button>
                 </div>
               </div>
@@ -402,7 +405,7 @@ export function Edit2Tab({
                       className="w-full py-3 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 flex items-center justify-center gap-2 shadow-lg shadow-blue-100"
                     >
                       <Download size={12} />
-                      Baixar
+                      {e2.downloadButton}
                     </button>
                   </div>
                 </div>
@@ -418,10 +421,10 @@ export function Edit2Tab({
           >
             <div className="space-y-2">
               <h3 className="text-2xl font-black text-gray-900 dark:text-gray-50 uppercase italic tracking-tighter">
-                Deseja criar outra versão?
+                {e2.newVersionTitle}
               </h3>
               <p className="text-gray-400 dark:text-gray-500 font-bold uppercase text-[10px] tracking-widest">
-                Altere o template ou densidade de b-roll e gere uma nova variação.
+                {e2.newVersionSubtitle}
               </p>
             </div>
 
@@ -430,7 +433,7 @@ export function Edit2Tab({
               className="px-12 py-5 bg-gray-900 text-white rounded-[24px] font-black uppercase text-xs tracking-[0.2em] hover:bg-black transition-all flex items-center justify-center gap-3 active:scale-95 shadow-xl"
             >
               <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
-              Configurar Nova Versão
+              {e2.configureNewVersionButton}
             </button>
           </motion.div>
         </div>
@@ -458,11 +461,13 @@ export function Edit2Tab({
               </div>
               <div className="mt-4 flex items-center justify-between px-4">
                 <p className="text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">
-                  Preview
+                  {e2.previewLabel}
                 </p>
                 <div className="flex gap-2">
                   <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                  <span className="text-[10px] font-black text-green-500 uppercase">Live</span>
+                  <span className="text-[10px] font-black text-green-500 uppercase">
+                    {e2.liveLabel}
+                  </span>
                 </div>
               </div>
             </div>
@@ -475,9 +480,9 @@ export function Edit2Tab({
                 className="w-full py-8 bg-blue-600 text-white rounded-[32px] font-black uppercase text-lg tracking-widest hover:bg-blue-700 transition-all shadow-2xl shadow-blue-200 active:scale-95 disabled:opacity-50 flex flex-col items-center gap-3"
               >
                 {loading ? <Loader2 className="animate-spin" size={32} /> : <Scan size={32} />}
-                <span>Analisar com AssemblyAI</span>
+                <span>{e2.analyzeButton}</span>
                 <span className="text-[10px] font-bold opacity-60 normal-case">
-                  Sentimentos • Capítulos • Momentos
+                  {e2.analyzeSubtext}
                 </span>
               </button>
             ) : (
@@ -488,10 +493,10 @@ export function Edit2Tab({
                   </div>
                   <div>
                     <h4 className="font-black text-green-900 dark:text-green-200 border-none p-0 text-sm">
-                      Análise Pronta
+                      {e2.analysisReadyTitle}
                     </h4>
                     <p className="text-[10px] font-bold text-green-600 dark:text-green-400 uppercase">
-                      100% Processado
+                      {e2.analysisReadySubtitle}
                     </p>
                   </div>
                 </div>
@@ -509,7 +514,7 @@ export function Edit2Tab({
                   }
                   className="w-full py-4 text-gray-400 dark:text-gray-500 font-black uppercase text-[10px] tracking-widest hover:text-gray-600 dark:hover:text-gray-400 dark:text-gray-500"
                 >
-                  Reiniciar Edição
+                  {e2.restartEditButton}
                 </button>
               </div>
             )}
@@ -528,8 +533,8 @@ export function Edit2Tab({
                 <div className="space-y-4">
                   <h3 className="text-3xl font-black text-gray-900 dark:text-gray-50 uppercase italic tracking-tighter">
                     {autoEditState.status === 'analyzing'
-                      ? 'IA Analisando...'
-                      : 'IA Renderizando...'}
+                      ? e2.aiAnalyzingTitle
+                      : e2.aiRenderingTitle}
                   </h3>
                   <div className="flex flex-col items-center gap-2">
                     <p className="text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest text-xs max-w-md">
@@ -555,7 +560,7 @@ export function Edit2Tab({
                 </div>
                 <div className="space-y-4">
                   <h3 className="text-3xl font-black text-gray-900 dark:text-gray-50 uppercase italic tracking-tighter">
-                    Ops! Algo deu errado
+                    {e2.errorTitle}
                   </h3>
                   <p className="text-red-500 font-bold uppercase tracking-widest text-xs px-10">
                     {autoEditState.step}
@@ -572,7 +577,7 @@ export function Edit2Tab({
                   }
                   className="px-10 py-4 bg-gray-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-black transition-all"
                 >
-                  Tentar Novamente
+                  {e2.retryButton}
                 </button>
               </div>
             ) : autoEditState.status === 'analyzed' ? (
@@ -586,7 +591,7 @@ export function Edit2Tab({
                           1
                         </span>
                         <h3 className="text-xl font-black text-gray-900 dark:text-gray-50 uppercase italic">
-                          Ilustrações B-Roll
+                          {e2.step1Title}
                         </h3>
                       </div>
                     </div>
@@ -605,7 +610,7 @@ export function Edit2Tab({
                             : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 dark:text-gray-500'
                         )}
                       >
-                        Modo Automático
+                        {e2.autoModeButton}
                       </button>
                       <button
                         onClick={() =>
@@ -621,7 +626,7 @@ export function Edit2Tab({
                             : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 dark:text-gray-500'
                         )}
                       >
-                        Modo Manual
+                        {e2.manualModeButton}
                       </button>
                     </div>
                   </div>
@@ -631,11 +636,10 @@ export function Edit2Tab({
                       <Sparkles className="text-blue-600 dark:text-blue-400" size={32} />
                       <div>
                         <p className="text-sm font-black text-blue-900 dark:text-blue-200 uppercase">
-                          ⭐ IA selecionou os melhores momentos
+                          {e2.aiSelectedTitle}
                         </p>
                         <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">
-                          Encontramos {(autoEditState.selectedBrollIds || []).length} cenas ideais
-                          para ilustrar seu áudio
+                          {e2.aiSelectedSubtitle((autoEditState.selectedBrollIds || []).length)}
                         </p>
                       </div>
                     </div>
@@ -656,7 +660,7 @@ export function Edit2Tab({
                           >
                             <div className="flex justify-between items-start mb-2">
                               <span className="text-[10px] font-black text-gray-400 dark:text-gray-500">
-                                Tempo: {(candidate.start / 1000).toFixed(1)}s
+                                {e2.timeLabel((candidate.start / 1000).toFixed(1))}
                               </span>
                               <span
                                 className={cn(
@@ -691,7 +695,7 @@ export function Edit2Tab({
                       2
                     </span>
                     <h3 className="text-xl font-black text-gray-900 dark:text-gray-50 uppercase italic">
-                      Estilo da Legenda
+                      {e2.step2Title}
                     </h3>
                   </div>
 
@@ -744,7 +748,7 @@ export function Edit2Tab({
                       3
                     </span>
                     <h3 className="text-xl font-black text-gray-900 dark:text-gray-50 uppercase italic">
-                      Ajustes Visuais
+                      {e2.step3Title}
                     </h3>
                   </div>
                   <div className="flex gap-4">
@@ -771,7 +775,7 @@ export function Edit2Tab({
                         }
                       />
                       <span className="text-[10px] font-black uppercase tracking-widest">
-                        Animação
+                        {e2.animationLabel}
                       </span>
                     </button>
                     <button
@@ -797,7 +801,7 @@ export function Edit2Tab({
                         }
                       />
                       <span className="text-[10px] font-black uppercase tracking-widest">
-                        Emojis
+                        {e2.emojisLabel}
                       </span>
                     </button>
                   </div>
@@ -810,14 +814,14 @@ export function Edit2Tab({
                       4
                     </span>
                     <h3 className="text-xl font-black text-gray-900 dark:text-gray-50 uppercase italic">
-                      Frequência de B-Roll
+                      {e2.step4Title}
                     </h3>
                   </div>
 
                   <div className="p-8 bg-gray-50 dark:bg-gray-800/60 rounded-[32px] border border-gray-200 dark:border-gray-800 space-y-6">
                     <div className="flex justify-between items-center">
                       <span className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
-                        Densidade
+                        {e2.densityLabel}
                       </span>
                       <div className="flex items-center gap-2">
                         <span className="text-2xl font-black text-blue-600 dark:text-blue-400">
@@ -825,7 +829,7 @@ export function Edit2Tab({
                         </span>
                         {brollPercent === recommendedBrollPercent && (
                           <span className="text-[8px] bg-blue-600 text-white px-2 py-0.5 rounded-full font-black uppercase">
-                            Fiel ao áudio
+                            {e2.faithfulToAudioBadge}
                           </span>
                         )}
                       </div>
@@ -846,7 +850,7 @@ export function Edit2Tab({
                         <div className="flex flex-col items-center">
                           <div className="w-1 h-1 bg-blue-600 rounded-full mb-1" />
                           <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase">
-                            ⭐ {recommendedBrollPercent}% recomendado
+                            {e2.recommendedLabel(recommendedBrollPercent)}
                           </span>
                         </div>
                         <span className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase">
@@ -870,10 +874,10 @@ export function Edit2Tab({
                     className="w-full py-8 bg-blue-600 text-white rounded-[32px] font-black uppercase text-xl tracking-[0.2em] hover:bg-blue-700 transition-all shadow-2xl flex items-center justify-center gap-4 active:scale-95 disabled:opacity-50"
                   >
                     {loading ? <Loader2 className="animate-spin" size={24} /> : <Film size={24} />}
-                    Renderizar Nova Versão
+                    {e2.renderButton}
                   </button>
                   <p className="text-center mt-4 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
-                    O processo leva de 1 a 3 minutos
+                    {e2.renderTimeHint}
                   </p>
                 </div>
               </div>
@@ -882,10 +886,10 @@ export function Edit2Tab({
                 <Scan size={80} className="text-gray-200" />
                 <div>
                   <h3 className="text-2xl font-black text-gray-300 dark:text-gray-600 uppercase">
-                    Aguardando Análise
+                    {e2.waitingTitle}
                   </h3>
                   <p className="text-sm font-bold text-gray-300 dark:text-gray-600 uppercase">
-                    Inicie o processamento com AssemblyAI no painel lateral
+                    {e2.waitingSubtitle}
                   </p>
                 </div>
               </div>
