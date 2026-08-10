@@ -36,6 +36,7 @@ import { AIRecommendationPanel, type CachedRecommendation } from './AIRecommenda
 import InlineDiffViewer from './InlineDiffViewer';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage, auth } from '@/lib/firebase';
+import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 interface Props {
   approvedScript?: string;
@@ -93,37 +94,14 @@ interface Props {
   } | null;
 }
 
-const MODES: {
-  id: VozPremiumMode;
-  label: string;
-  desc: string;
-  icon: React.ReactNode;
-}[] = [
-  {
-    id: 'catalog',
-    label: 'Catálogo',
-    desc: 'Escolha uma voz da biblioteca',
-    icon: <Music size={20} />,
-  },
-  {
-    id: 'library',
-    label: 'Minhas vozes',
-    desc: 'Vozes que você criou/clonou',
-    icon: <Star size={20} />,
-  },
-  {
-    id: 'clone',
-    label: 'Clonar voz',
-    desc: 'Suba um áudio e clone sua voz',
-    icon: <Mic size={20} />,
-  },
-  {
-    id: 'ready',
-    label: 'Áudio pronto',
-    desc: 'Já tenho o áudio gravado',
-    icon: <Upload size={20} />,
-  },
-];
+// Ícones fixos por modo — os labels/descs vêm de t.vozPremium.modes
+// (precisam reagir à língua atual, então são resolvidos dentro do componente).
+const MODE_ICONS: Record<VozPremiumMode, React.ReactNode> = {
+  catalog: <Music size={20} />,
+  library: <Star size={20} />,
+  clone: <Mic size={20} />,
+  ready: <Upload size={20} />,
+};
 
 // Labels match ElevenLabs' own tag vocabulary verbatim so the UI is
 // transparent — users see "Middle aged" both here and on the voice cards.
@@ -228,6 +206,14 @@ const VozPremium: React.FC<Props> = ({
   productInfo,
   brief,
 }) => {
+  const { t } = useLanguage();
+  const vp = t.vozPremium;
+  const MODES: { id: VozPremiumMode; label: string; desc: string; icon: React.ReactNode }[] = [
+    { id: 'catalog', ...vp.modes.catalog, icon: MODE_ICONS.catalog },
+    { id: 'library', ...vp.modes.library, icon: MODE_ICONS.library },
+    { id: 'clone', ...vp.modes.clone, icon: MODE_ICONS.clone },
+    { id: 'ready', ...vp.modes.ready, icon: MODE_ICONS.ready },
+  ];
   const [mode, setMode] = useState<VozPremiumMode>('catalog');
   const [showRemoveActiveModal, setShowRemoveActiveModal] = useState(false);
   const [editedApproved, setEditedApproved] = useState<string>(approvedScript);
@@ -450,7 +436,7 @@ const VozPremium: React.FC<Props> = ({
 
   const generateBlock = async (i: number) => {
     if (!selectedVoice) {
-      toast.error('Selecione uma voz primeiro.');
+      toast.error(vp.toasts.selectVoiceFirst);
       return;
     }
     setBlockAudios((prev) => prev.map((b, idx) => (idx === i ? { ...b, status: 'gen' } : b)));
@@ -468,13 +454,13 @@ const VozPremium: React.FC<Props> = ({
       setPreviewBlock(i); // recém-gerado vira o mais visível no player
     } catch (e: any) {
       setBlockAudios((prev) => prev.map((b, idx) => (idx === i ? { ...b, status: 'error' } : b)));
-      toast.error(`Bloco ${i + 1}: ${e.message}`);
+      toast.error(vp.toasts.blockError(i + 1, e.message));
     }
   };
 
   const generateAllBlocks = async () => {
     if (!selectedVoice) {
-      toast.error('Selecione uma voz primeiro.');
+      toast.error(vp.toasts.selectVoiceFirst);
       return;
     }
     const snap = blockAudios;
@@ -487,7 +473,7 @@ const VozPremium: React.FC<Props> = ({
   const joinBlocks = async () => {
     const urls = blockAudios.map((b) => b.url).filter(Boolean) as string[];
     if (urls.length < scriptBlocks.length) {
-      toast.error('Gere TODOS os blocos antes de juntar.');
+      toast.error(vp.toasts.generateAllBlocksFirst);
       return;
     }
     setJoiningBlocks(true);
@@ -498,14 +484,14 @@ const VozPremium: React.FC<Props> = ({
         body: JSON.stringify({ urls }),
       });
       const d = await r.json();
-      if (!d.success) throw new Error(d.error || 'Falha ao juntar os blocos.');
+      if (!d.success) throw new Error(d.error || vp.toasts.joinBlocksError);
       const blob = await (await fetch(d.audioUrl)).blob();
       const { url, storagePath } = await uploadToFirebase(blob);
       const finalUrl = url || d.audioUrl;
       setLocalAudioUrl(finalUrl);
       setDone(true);
       onAudioReady?.(finalUrl, selectedVoice?.voice_id || '', storagePath, selectedVoice?.name);
-      toast.success('Blocos juntados — áudio final da VSL pronto!');
+      toast.success(vp.toasts.blocksJoined);
     } catch (e: any) {
       toast.error(e.message);
     } finally {
@@ -522,15 +508,14 @@ const VozPremium: React.FC<Props> = ({
       <div className="flex items-center gap-2">
         <FileText size={16} className="text-purple-600 dark:text-purple-400" />
         <span className="text-sm font-bold text-gray-800 dark:text-gray-200">
-          Gerar em blocos ({scriptBlocks.length} × ~2 min)
+          {vp.blockPanel.heading(scriptBlocks.length)}
         </span>
       </div>
-      <p className="text-xs text-gray-500 dark:text-gray-400">
-        Áudio longo dividido em partes — se um bloco falhar, regere só ele. No fim, junte tudo num
-        áudio só.
-      </p>
+      <p className="text-xs text-gray-500 dark:text-gray-400">{vp.blockPanel.description}</p>
       {!selectedVoice && (
-        <p className="text-xs text-amber-600 dark:text-amber-400">Selecione uma voz acima.</p>
+        <p className="text-xs text-amber-600 dark:text-amber-400">
+          {vp.blockPanel.selectVoiceAbove}
+        </p>
       )}
       <div className="space-y-2">
         {scriptBlocks.map((blk, i) => {
@@ -550,19 +535,19 @@ const VozPremium: React.FC<Props> = ({
               className="flex items-center gap-2 p-2.5 rounded-xl border border-gray-200 dark:border-gray-800"
             >
               <span className="text-xs font-black text-gray-700 dark:text-gray-300 w-16 shrink-0">
-                Bloco {i + 1}
+                {vp.blockPanel.blockLabel(i + 1)}
               </span>
               <span className="text-[10px] text-gray-400 dark:text-gray-500 flex-1 min-w-0">
-                {words} palavras · ~{Math.max(1, Math.round(words / 150))} min
+                {vp.blockPanel.wordsAndTime(words, Math.max(1, Math.round(words / 150)))}
               </span>
               <span className={`text-[10px] font-bold uppercase tracking-widest ${badge}`}>
                 {st === 'done'
-                  ? '✓ pronto'
+                  ? vp.blockPanel.statusDone
                   : st === 'error'
-                    ? 'erro'
+                    ? vp.blockPanel.statusError
                     : st === 'gen'
-                      ? 'gerando…'
-                      : '—'}
+                      ? vp.blockPanel.statusGenerating
+                      : vp.blockPanel.statusIdle}
               </span>
               {st === 'done' && blockAudios[i]?.url && (
                 <button
@@ -572,7 +557,7 @@ const VozPremium: React.FC<Props> = ({
                       ? 'bg-purple-600 text-white'
                       : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400'
                   }`}
-                  title="Ver/ouvir este bloco no player abaixo"
+                  title={vp.blockPanel.listenTitle}
                 >
                   <Play size={14} />
                 </button>
@@ -582,7 +567,11 @@ const VozPremium: React.FC<Props> = ({
                 disabled={st === 'gen' || !selectedVoice}
                 className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-lg bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 disabled:opacity-40 shrink-0"
               >
-                {st === 'gen' ? '…' : st === 'done' ? 'Regerar' : 'Gerar'}
+                {st === 'gen'
+                  ? '…'
+                  : st === 'done'
+                    ? vp.blockPanel.regenerate
+                    : vp.blockPanel.generate}
               </button>
               {(st === 'done' || st === 'error') && (
                 <button
@@ -592,7 +581,7 @@ const VozPremium: React.FC<Props> = ({
                     )
                   }
                   className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 shrink-0"
-                  title="Apagar o áudio deste bloco"
+                  title={vp.blockPanel.deleteTitle}
                 >
                   <Trash2 size={13} />
                 </button>
@@ -616,8 +605,8 @@ const VozPremium: React.FC<Props> = ({
         return (
           <div className="space-y-1.5 p-3 rounded-xl bg-purple-50/60 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800">
             <span className="text-[11px] font-black uppercase tracking-widest text-purple-700 dark:text-purple-300">
-              Ouvindo — Bloco {effIdx + 1}
-              {previewBlock == null ? ' (mais recente)' : ''}
+              {vp.blockPanel.listening(effIdx + 1)}
+              {previewBlock == null ? vp.blockPanel.mostRecent : ''}
             </span>
             <audio
               key={blockAudios[effIdx]!.url}
@@ -634,7 +623,7 @@ const VozPremium: React.FC<Props> = ({
           disabled={!selectedVoice}
           className="text-xs font-bold px-4 py-2.5 rounded-xl border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-purple-400 disabled:opacity-40"
         >
-          Gerar todos os blocos
+          {vp.blockPanel.generateAll}
         </button>
         <button
           onClick={joinBlocks}
@@ -647,10 +636,10 @@ const VozPremium: React.FC<Props> = ({
         >
           {joiningBlocks ? (
             <>
-              <Loader2 size={16} className="animate-spin" /> Juntando…
+              <Loader2 size={16} className="animate-spin" /> {vp.blockPanel.joining}
             </>
           ) : (
-            'Juntar → áudio final'
+            vp.blockPanel.joinButton
           )}
         </button>
       </div>
@@ -721,7 +710,7 @@ const VozPremium: React.FC<Props> = ({
         );
         setLibraryVoices(mine);
       })
-      .catch(() => toast.error('Falha ao buscar suas vozes.'))
+      .catch(() => toast.error(vp.toasts.libraryFetchError))
       .finally(() => setLibraryLoading(false));
   }, [mode]);
 
@@ -774,23 +763,23 @@ const VozPremium: React.FC<Props> = ({
   const handleSaveApproved = () => {
     setSavedApproved(editedApproved);
     onApprovedScriptEdit?.(editedApproved);
-    toast.success('Copy aprovada salva!');
+    toast.success(vp.toasts.approvedSaved);
   };
   const handleSaveOptimized = () => {
     setSavedOptimized(optimizedScript);
     setScript(optimizedScript);
     onOptimizedScript?.(optimizedScript);
-    toast.success('Copy otimizada salva!');
+    toast.success(vp.toasts.optimizedSaved);
   };
 
   // Optimize handler
   const handleOptimize = async () => {
     if (!savedApproved) {
-      toast.error('Nenhum roteiro aprovado encontrado. Volte à etapa de Copywriting.');
+      toast.error(vp.toasts.noApprovedScript);
       return;
     }
     if (isApprovedDirty) {
-      toast.error('Salve a copy aprovada antes de otimizar.');
+      toast.error(vp.toasts.saveApprovedFirst);
       return;
     }
     setIsOptimizing(true);
@@ -800,9 +789,9 @@ const VozPremium: React.FC<Props> = ({
       setSavedOptimized(optimized);
       setScript(optimized);
       onOptimizedScript?.(optimized);
-      toast.success('Copy otimizada para ElevenLabs!');
+      toast.success(vp.toasts.optimizedForElevenLabs);
     } catch (e: any) {
-      toast.error(e?.message || 'Erro ao otimizar a copy.');
+      toast.error(e?.message || vp.toasts.optimizeError);
     } finally {
       setIsOptimizing(false);
     }
@@ -849,11 +838,11 @@ const VozPremium: React.FC<Props> = ({
 
   const handleGenerateCatalog = async () => {
     if (!selectedVoice) {
-      toast.error('Selecione uma voz.');
+      toast.error(vp.toasts.selectVoice);
       return;
     }
     if (!script) {
-      toast.error('Roteiro não encontrado. Volte à etapa de copy.');
+      toast.error(vp.toasts.noScript);
       return;
     }
     setGenerating(true);
@@ -869,7 +858,7 @@ const VozPremium: React.FC<Props> = ({
       const finalUrl = url || result.audioUrl;
       setLocalAudioUrl(finalUrl);
       setDone(true);
-      toast.success('Áudio gerado!');
+      toast.success(vp.toasts.audioGenerated);
       onAudioReady?.(finalUrl, selectedVoice.voice_id, storagePath, selectedVoice.name);
     } catch (e: any) {
       toast.error(e.message);
@@ -885,31 +874,30 @@ const VozPremium: React.FC<Props> = ({
         })
       : cloneFile;
     if (!audioSource) {
-      toast.error('Grave ou envie um áudio.');
+      toast.error(vp.toasts.recordOrUpload);
       return;
     }
     // Mesma trava mínima do upload (30s) — sem isso dava pra clonar com 3s de
     // gravação e sair um clone instável, sem nenhum aviso no momento de enviar.
     if (recordedBlob && recordingSeconds < 30) {
-      toast.error(
-        'Gravação muito curta. Grave pelo menos 30s (ideal: 1 minuto) pra um clone estável.'
-      );
+      toast.error(vp.toasts.recordingTooShort);
       return;
     }
-    const finalName = cloneName || `Minha voz — ${new Date().toLocaleDateString('pt-BR')}`;
+    const finalName =
+      cloneName || `${vp.clone.namePlaceholderPrefix}${new Date().toLocaleDateString('pt-BR')}`;
     if (!script) {
-      toast.error('Roteiro não encontrado. Volte à etapa de copy.');
+      toast.error(vp.toasts.noScript);
       return;
     }
     setCloning(true);
     try {
-      toast('Clonando sua voz...');
+      toast(vp.toasts.cloningVoice);
       const { voiceId } = await cloneVoice({
         audioFile: audioSource,
         name: finalName,
         removeNoise: true,
       });
-      toast.success('Voz clonada! Gerando áudio com seu roteiro...');
+      toast.success(vp.toasts.voiceCloned);
       const result = await generateAudio({ voiceId, script });
       const audioResponse = await fetch(result.audioUrl);
       const audioBlob = await audioResponse.blob();
@@ -917,7 +905,7 @@ const VozPremium: React.FC<Props> = ({
       const finalUrl = url || result.audioUrl;
       setLocalAudioUrl(finalUrl);
       setDone(true);
-      toast.success('Pronto! Áudio gerado com sua voz clonada.');
+      toast.success(vp.toasts.readyWithClonedVoice);
       onAudioReady?.(finalUrl, voiceId, storagePath);
     } catch (e: any) {
       toast.error(e.message);
@@ -956,11 +944,11 @@ const VozPremium: React.FC<Props> = ({
         if (seconds >= 120) {
           clearInterval(timerRef.current!);
           mediaRecorder.stop();
-          toast('Gravação encerrada automaticamente aos 2 minutos.');
+          toast(vp.toasts.recordingAutoStopped);
         }
       }, 1000);
     } catch (err) {
-      toast.error('Não foi possível acessar o microfone. Verifique as permissões do navegador.');
+      toast.error(vp.toasts.micAccessDenied);
       setIsRecording(false);
     }
   };
@@ -975,20 +963,20 @@ const VozPremium: React.FC<Props> = ({
 
   const handleReadyAudio = async () => {
     if (!readyFile) {
-      toast.error('Envie o áudio pronto.');
+      toast.error(vp.toasts.sendReadyAudio);
       return;
     }
     try {
       let fileToUpload = readyFile;
       if (cleanNoise) {
         setCleaning(true);
-        toast('Limpando ruído do áudio...');
+        toast(vp.toasts.cleaningNoise);
         const cleaned = await cleanAudio({ audioFile: readyFile });
         const response = await fetch(cleaned.audioUrl);
         const blob = await response.blob();
         fileToUpload = new File([blob], readyFile.name, { type: 'audio/mp3' });
         setCleaning(false);
-        toast.success('Áudio limpo!');
+        toast.success(vp.toasts.audioCleaned);
       }
       setUploading(true);
       const result = await uploadReadyAudio(fileToUpload);
@@ -998,7 +986,7 @@ const VozPremium: React.FC<Props> = ({
       const finalUrl = url || result.audioUrl;
       setLocalAudioUrl(finalUrl);
       setDone(true);
-      toast.success('Áudio pronto para usar!');
+      toast.success(vp.toasts.audioReady);
       onAudioReady?.(finalUrl, undefined, storagePath);
     } catch (e: any) {
       toast.error(e.message);
@@ -1015,13 +1003,11 @@ const VozPremium: React.FC<Props> = ({
         <div className="flex items-center gap-2 mb-2">
           <Sparkles size={20} className="text-purple-500" />
           <span className="text-xs uppercase tracking-wider text-purple-600 dark:text-purple-400 font-semibold">
-            Premium
+            {vp.header.badge}
           </span>
         </div>
-        <h2 className="text-3xl font-light text-gray-900 dark:text-gray-50">Voz Premium</h2>
-        <p className="text-gray-500 dark:text-gray-400 mt-2">
-          Otimize o roteiro e gere o áudio do seu anúncio.
-        </p>
+        <h2 className="text-3xl font-light text-gray-900 dark:text-gray-50">{vp.header.title}</h2>
+        <p className="text-gray-500 dark:text-gray-400 mt-2">{vp.header.subtitle}</p>
       </div>
 
       {/* ── STEP 1: APPROVED COPY (editable + save + optimize) ── */}
@@ -1031,13 +1017,13 @@ const VozPremium: React.FC<Props> = ({
             <FileText size={16} />
           </div>
           <h3 className="text-sm font-black text-gray-900 dark:text-gray-50 uppercase tracking-widest">
-            1. Copy Aprovada
+            {vp.step1.heading}
           </h3>
           <span className="text-xs text-gray-400 dark:text-gray-500 ml-auto">
-            vinda do Copywriting / Hook
+            {vp.step1.source}
           </span>
           {isApprovedDirty && (
-            <span className="text-xs text-orange-500 font-bold">• Não salvo</span>
+            <span className="text-xs text-orange-500 font-bold">{vp.step1.unsaved}</span>
           )}
         </div>
         {approvedScript ? (
@@ -1049,15 +1035,13 @@ const VozPremium: React.FC<Props> = ({
           />
         ) : (
           <div className="bg-gray-50 dark:bg-gray-800/60 rounded-xl p-5 border-2 border-dashed border-gray-200 dark:border-gray-700">
-            <p className="text-sm text-gray-400 dark:text-gray-500 italic">
-              Nenhuma copy aprovada. Volte à etapa de Copywriting e aprove um hook + script.
-            </p>
+            <p className="text-sm text-gray-400 dark:text-gray-500 italic">{vp.step1.empty}</p>
           </div>
         )}
         {approvedScript && (
           <div className="flex items-center justify-between mt-4">
             <p className="text-xs text-gray-400 dark:text-gray-500">
-              {editedApproved.trim().split(/\s+/).filter(Boolean).length} palavras
+              {vp.step1.wordCount(editedApproved.trim().split(/\s+/).filter(Boolean).length)}
             </p>
             <div className="flex items-center gap-3">
               <button
@@ -1066,13 +1050,13 @@ const VozPremium: React.FC<Props> = ({
                 className="px-6 py-3 bg-green-600 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-green-700 disabled:bg-gray-200 disabled:text-gray-400 dark:text-gray-500 disabled:cursor-not-allowed transition-all shadow-lg shadow-green-100 flex items-center gap-2"
               >
                 <CheckCircle2 size={16} />
-                Salvar
+                {vp.step1.saveButton}
               </button>
               {!optimizedScript && (
                 <button
                   onClick={handleOptimize}
                   disabled={isOptimizing || isApprovedDirty || !savedApproved}
-                  title={isApprovedDirty ? 'Salve a copy antes de otimizar' : ''}
+                  title={isApprovedDirty ? vp.step1.saveFirstTitle : ''}
                   className="px-8 py-3 bg-amber-500 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-amber-600 disabled:bg-gray-200 disabled:text-gray-400 dark:text-gray-500 disabled:cursor-not-allowed transition-all shadow-lg shadow-amber-100 flex items-center gap-2"
                 >
                   {isOptimizing ? (
@@ -1080,7 +1064,7 @@ const VozPremium: React.FC<Props> = ({
                   ) : (
                     <Wand2 size={16} />
                   )}
-                  {isOptimizing ? 'Otimizando...' : 'Otimizar para ElevenLabs'}
+                  {isOptimizing ? vp.step1.optimizing : vp.step1.optimizeButton}
                 </button>
               )}
             </div>
@@ -1101,10 +1085,10 @@ const VozPremium: React.FC<Props> = ({
                 <Wand2 size={16} />
               </div>
               <h3 className="text-sm font-black text-white uppercase tracking-widest">
-                2. Copy Otimizada (ElevenLabs)
+                {vp.step2.heading}
               </h3>
               {isOptimizedDirty && (
-                <span className="text-xs text-orange-300 font-bold">• Não salvo</span>
+                <span className="text-xs text-orange-300 font-bold">{vp.step1.unsaved}</span>
               )}
             </div>
             <div className="flex items-center gap-2">
@@ -1112,17 +1096,21 @@ const VozPremium: React.FC<Props> = ({
               <button
                 onClick={() => setShowOptimizerDiff((v) => !v)}
                 className="text-xs text-amber-300 hover:text-amber-200 font-bold uppercase tracking-widest"
-                title="Mostra/oculta diff lado-a-lado entre a copy original e a otimizada"
+                title={vp.step2.diffToggleTitle}
               >
-                {showOptimizerDiff ? '👁️ Ocultar diff' : '👁️ Ver diff'}
+                {showOptimizerDiff ? vp.step2.hideDiff : vp.step2.showDiff}
               </button>
               <button
                 onClick={handleOptimize}
                 disabled={isOptimizing || isApprovedDirty}
                 className="text-xs text-amber-300 hover:text-amber-200 font-bold uppercase tracking-widest disabled:opacity-50"
-                title="Refazer otimização"
+                title={vp.step2.redoTitle}
               >
-                {isOptimizing ? <Loader2 className="animate-spin inline" size={12} /> : '↻ Refazer'}
+                {isOptimizing ? (
+                  <Loader2 className="animate-spin inline" size={12} />
+                ) : (
+                  vp.step2.redo
+                )}
               </button>
             </div>
           </div>
@@ -1133,13 +1121,10 @@ const VozPremium: React.FC<Props> = ({
               <InlineDiffViewer
                 textA={savedApproved || approvedScript}
                 textB={optimizedScript}
-                labelA="Original"
-                labelB="Otimizada ElevenLabs"
+                labelA={vp.step2.labelOriginal}
+                labelB={vp.step2.labelOptimized}
               />
-              <p className="text-[10px] text-gray-400 italic mt-2">
-                Verde = palavras só no original · Vermelho = palavras só na otimizada (deveriam ser
-                apenas tags ElevenLabs como [pause] / [emphasis])
-              </p>
+              <p className="text-[10px] text-gray-400 italic mt-2">{vp.step2.diffFootnote}</p>
             </div>
           )}
 
@@ -1150,16 +1135,14 @@ const VozPremium: React.FC<Props> = ({
             className="w-full bg-gray-800 text-white text-base rounded-xl p-4 border-2 border-gray-700 focus:border-amber-400 outline-none leading-relaxed font-mono resize-y"
           />
           <div className="flex items-center justify-between mt-3">
-            <p className="text-xs text-amber-300">
-              ✨ Texto com pausas, ênfases e ritmo natural para o ElevenLabs.
-            </p>
+            <p className="text-xs text-amber-300">{vp.step2.note}</p>
             <button
               onClick={handleSaveOptimized}
               disabled={!isOptimizedDirty}
               className="px-6 py-2.5 bg-green-600 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-green-700 disabled:bg-gray-700 disabled:text-gray-500 dark:text-gray-400 disabled:cursor-not-allowed transition-all shadow-lg flex items-center gap-2"
             >
               <CheckCircle2 size={14} />
-              Salvar
+              {vp.step2.saveButton}
             </button>
           </div>
         </motion.div>
@@ -1168,15 +1151,13 @@ const VozPremium: React.FC<Props> = ({
       {/* STEP 3: gating messages */}
       {!optimizedScript && approvedScript && (
         <div className="mb-8 p-6 bg-gray-50 dark:bg-gray-800/60 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 text-center">
-          <p className="text-sm text-gray-400 dark:text-gray-500">
-            ⬆ Otimize a copy primeiro para liberar a escolha de voz
-          </p>
+          <p className="text-sm text-gray-400 dark:text-gray-500">{vp.gating.optimizeFirst}</p>
         </div>
       )}
       {optimizedScript && isOptimizedDirty && (
         <div className="mb-8 p-6 bg-orange-50 dark:bg-orange-950/40 rounded-2xl border-2 border-dashed border-orange-200 text-center">
           <p className="text-sm text-orange-600 dark:text-orange-400 font-bold">
-            ⬆ Salve a copy otimizada para liberar a escolha de voz
+            {vp.gating.saveOptimizedFirst}
           </p>
         </div>
       )}
@@ -1188,7 +1169,7 @@ const VozPremium: React.FC<Props> = ({
               <Music size={16} />
             </div>
             <h3 className="text-sm font-black text-gray-900 dark:text-gray-50 uppercase tracking-widest">
-              3. Escolha como gerar a voz
+              {vp.gating.step3Heading}
             </h3>
           </div>
         </div>
@@ -1266,7 +1247,7 @@ const VozPremium: React.FC<Props> = ({
                       descriptive: rec.voice.descriptive,
                       language: filters.language,
                     });
-                    toast.success('Filtros sugeridos aplicados!');
+                    toast.success(vp.toasts.filtersApplied);
                   }}
                 />
 
@@ -1276,7 +1257,7 @@ const VozPremium: React.FC<Props> = ({
                     <div className="flex items-center gap-2">
                       <Filter size={16} className="text-gray-400 dark:text-gray-500" />
                       <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Filtros
+                        {vp.filters.heading}
                       </span>
                     </div>
                     <label className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
@@ -1286,7 +1267,7 @@ const VozPremium: React.FC<Props> = ({
                         onChange={(e) => setShowLowQuality(e.target.checked)}
                         className="accent-purple-600"
                       />
-                      Incluir vozes pouco usadas
+                      {vp.filters.includeLowQuality}
                     </label>
                   </div>
                   <div className="space-y-3">
@@ -1379,7 +1360,7 @@ const VozPremium: React.FC<Props> = ({
                       <input
                         value={searchText}
                         onChange={(e) => setSearchText(e.target.value)}
-                        placeholder="Buscar por nome ou característica..."
+                        placeholder={vp.filters.searchPlaceholder}
                         className="flex-1 text-sm border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-purple-400"
                       />
                     </div>
@@ -1389,8 +1370,8 @@ const VozPremium: React.FC<Props> = ({
                 {/* Relaxation banner */}
                 {voicesRelaxed.length > 0 && !loadingVoices && (
                   <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 rounded-2xl p-4 text-sm text-amber-900 dark:text-amber-200">
-                    <span className="font-bold">Combinação muito específica.</span> Removi
-                    temporariamente:{' '}
+                    <span className="font-bold">{vp.filters.relaxedPrefix}</span>
+                    {vp.filters.relaxedRemoved}
                     {voicesRelaxed
                       .map((f) =>
                         f === 'descriptive'
@@ -1402,7 +1383,7 @@ const VozPremium: React.FC<Props> = ({
                               : f
                       )
                       .join(', ')}
-                    . Limpe outros filtros se quiser uma busca mais ampla.
+                    {vp.filters.relaxedSuffix}
                   </div>
                 )}
 
@@ -1415,7 +1396,7 @@ const VozPremium: React.FC<Props> = ({
                     <div className="flex items-center gap-2 mb-3">
                       <Star size={14} className="text-amber-500 fill-current" />
                       <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">
-                        Vozes favoritas ({voiceFavs.favoriteCount})
+                        {vp.favorites.heading(voiceFavs.favoriteCount)}
                       </h4>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -1441,7 +1422,7 @@ const VozPremium: React.FC<Props> = ({
                                   new Audio(fav.preview_url!).play();
                                 }}
                                 className="p-0.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
-                                title="Ouvir amostra"
+                                title={vp.favorites.listenTitle}
                               >
                                 <Play size={12} className="text-gray-500 dark:text-gray-400" />
                               </button>
@@ -1450,10 +1431,10 @@ const VozPremium: React.FC<Props> = ({
                               onClick={(e) => {
                                 e.stopPropagation();
                                 voiceFavs.remove(fav.voice_id);
-                                toast.success('Removida dos favoritos');
+                                toast.success(vp.toasts.removedFromFavorites);
                               }}
                               className="p-0.5 rounded-full text-amber-500 hover:bg-amber-100 dark:hover:bg-amber-950/40"
-                              title="Remover dos favoritos"
+                              title={vp.favorites.removeTitle}
                             >
                               <Star size={12} className="fill-current" />
                             </button>
@@ -1467,10 +1448,10 @@ const VozPremium: React.FC<Props> = ({
                 <div className="bg-white dark:bg-gray-900/80 rounded-2xl border border-gray-200 dark:border-gray-800 p-5">
                   <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
                     {loadingVoices
-                      ? 'Carregando...'
+                      ? vp.voiceList.loading
                       : voicesTotal > voices.length
-                        ? `${voices.length} de ${voicesTotal} vozes`
-                        : `${voices.length} vozes encontradas`}
+                        ? vp.voiceList.countPartial(voices.length, voicesTotal)
+                        : vp.voiceList.countTotal(voices.length)}
                   </h4>
                   {loadingVoices ? (
                     // Voice gallery skeleton — 2-col grid matching the
@@ -1533,14 +1514,14 @@ const VozPremium: React.FC<Props> = ({
                                       labels: v.labels,
                                     });
                                     toast.success(
-                                      wasFav ? 'Removida dos favoritos' : 'Voz favoritada'
+                                      wasFav ? vp.toasts.removedFromFavorites : vp.toasts.favorited
                                     );
                                   }}
                                   className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
                                   title={
                                     voiceFavs.isFavorite(v.voice_id)
-                                      ? 'Remover dos favoritos'
-                                      : 'Favoritar voz'
+                                      ? vp.voiceList.unfavoriteTitle
+                                      : vp.voiceList.favoriteTitle
                                   }
                                 >
                                   <Star
@@ -1599,11 +1580,11 @@ const VozPremium: React.FC<Props> = ({
                               {typeof v.cloned_by_count === 'number' && (
                                 <span
                                   className="text-[10px] text-gray-400 dark:text-gray-500 px-1.5 py-0.5"
-                                  title="Quantos usuários clonaram esta voz — sinal de popularidade e qualidade"
+                                  title={vp.voiceList.clonedCountTitle}
                                 >
                                   {v.cloned_by_count >= 1000
-                                    ? `${(v.cloned_by_count / 1000).toFixed(1)}k clones`
-                                    : `${v.cloned_by_count} clones`}
+                                    ? vp.voiceList.clonesK((v.cloned_by_count / 1000).toFixed(1))
+                                    : vp.voiceList.clones(v.cloned_by_count)}
                                 </span>
                               )}
                             </div>
@@ -1619,7 +1600,7 @@ const VozPremium: React.FC<Props> = ({
                         disabled={loadingMoreVoices}
                         className="text-xs px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-purple-400 hover:text-purple-700 dark:hover:text-purple-300 disabled:opacity-50"
                       >
-                        {loadingMoreVoices ? 'Carregando...' : 'Carregar mais vozes'}
+                        {loadingMoreVoices ? vp.voiceList.loading : vp.voiceList.loadMore}
                       </button>
                     </div>
                   )}
@@ -1637,12 +1618,12 @@ const VozPremium: React.FC<Props> = ({
                       {generating ? (
                         <>
                           <Loader2 size={18} className="animate-spin" />
-                          Gerando...
+                          {vp.voiceList.generating}
                         </>
                       ) : (
                         <>
                           <Play size={18} />
-                          Gerar áudio
+                          {vp.voiceList.generateButton}
                         </>
                       )}
                     </button>
@@ -1658,11 +1639,11 @@ const VozPremium: React.FC<Props> = ({
                   <div className="flex items-center gap-2 mb-1">
                     <Star size={16} className="text-amber-500" />
                     <span className="text-sm font-bold text-gray-800 dark:text-gray-200">
-                      Vozes que você criou
+                      {vp.library.heading}
                     </span>
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Clones e vozes geradas na sua conta do ElevenLabs. Selecione uma e gere o áudio.
+                    {vp.library.description}
                   </p>
                 </div>
 
@@ -1673,10 +1654,9 @@ const VozPremium: React.FC<Props> = ({
                   </div>
                 ) : libraryVoices.length === 0 ? (
                   <div className="text-center py-10 text-sm text-gray-500 dark:text-gray-400">
-                    Nenhuma voz própria encontrada nesta conta do ElevenLabs.
+                    {vp.library.emptyTitle}
                     <br />
-                    Clone uma na aba "Clonar voz" ou verifique se a chave configurada é a da conta
-                    certa.
+                    {vp.library.emptyBody}
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[32rem] overflow-y-auto">
@@ -1710,7 +1690,9 @@ const VozPremium: React.FC<Props> = ({
                         </div>
                         <div className="flex flex-wrap gap-1 mt-1">
                           <span className="text-xs bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full">
-                            {v.category === 'generated' ? 'gerada' : 'clone'}
+                            {v.category === 'generated'
+                              ? vp.library.generatedBadge
+                              : vp.library.cloneBadge}
                           </span>
                           {v.labels?.language && (
                             <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">
@@ -1739,12 +1721,12 @@ const VozPremium: React.FC<Props> = ({
                       {generating ? (
                         <>
                           <Loader2 size={18} className="animate-spin" />
-                          Gerando...
+                          {vp.voiceList.generating}
                         </>
                       ) : (
                         <>
                           <Play size={18} />
-                          Gerar áudio
+                          {vp.voiceList.generateButton}
                         </>
                       )}
                     </button>
@@ -1759,21 +1741,13 @@ const VozPremium: React.FC<Props> = ({
                 {/* Orientações */}
                 <div className="bg-blue-50 dark:bg-blue-950/40 rounded-2xl border border-blue-100 dark:border-blue-900 p-5">
                   <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-200 mb-3">
-                    Antes de começar
+                    {vp.clone.beforeStarting}
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <p className="text-sm text-blue-800 dark:text-blue-300">
-                      🎙 Fale como quer soar nos anúncios
-                    </p>
-                    <p className="text-sm text-blue-800 dark:text-blue-300">
-                      🔇 Ambiente silencioso, sem música
-                    </p>
-                    <p className="text-sm text-blue-800 dark:text-blue-300">
-                      ⏱ Entre 1 e 2 minutos é o ideal
-                    </p>
-                    <p className="text-sm text-blue-800 dark:text-blue-300">
-                      📱 Microfone do celular funciona bem
-                    </p>
+                    <p className="text-sm text-blue-800 dark:text-blue-300">{vp.clone.tip1}</p>
+                    <p className="text-sm text-blue-800 dark:text-blue-300">{vp.clone.tip2}</p>
+                    <p className="text-sm text-blue-800 dark:text-blue-300">{vp.clone.tip3}</p>
+                    <p className="text-sm text-blue-800 dark:text-blue-300">{vp.clone.tip4}</p>
                   </div>
                 </div>
 
@@ -1789,7 +1763,7 @@ const VozPremium: React.FC<Props> = ({
                       }}
                       className={`flex-1 py-3 rounded-xl text-sm font-medium border-2 transition ${cloneMode === 'record' ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300' : 'border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400 hover:border-gray-300'}`}
                     >
-                      🎙 Gravar agora
+                      {vp.clone.recordTab}
                     </button>
                     <button
                       onClick={() => {
@@ -1800,7 +1774,7 @@ const VozPremium: React.FC<Props> = ({
                       }}
                       className={`flex-1 py-3 rounded-xl text-sm font-medium border-2 transition ${cloneMode === 'upload' ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300' : 'border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400 hover:border-gray-300'}`}
                     >
-                      📁 Fazer upload
+                      {vp.clone.uploadTab}
                     </button>
                   </div>
 
@@ -1814,13 +1788,13 @@ const VozPremium: React.FC<Props> = ({
                             <Mic size={36} className="text-purple-400" />
                           </div>
                           <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-                            Clique para começar. A gravação para automaticamente aos 2 minutos.
+                            {vp.clone.idleHint}
                           </p>
                           <button
                             onClick={startRecording}
                             className="px-10 py-3 rounded-xl bg-purple-600 text-white font-medium hover:bg-purple-700 transition text-sm"
                           >
-                            Iniciar gravação
+                            {vp.clone.startRecording}
                           </button>
                         </div>
                       )}
@@ -1851,16 +1825,16 @@ const VozPremium: React.FC<Props> = ({
                           </div>
                           <p className="text-xs text-gray-400 dark:text-gray-500 mb-6">
                             {recordingSeconds < 60
-                              ? `Continue falando... mínimo recomendado: 1 minuto`
+                              ? vp.clone.recordingHintUnder1Min
                               : recordingSeconds < 100
-                                ? '✅ Ótimo! Pode parar quando quiser'
-                                : '🟠 Quase no limite — encerrando em breve'}
+                                ? vp.clone.recordingHintGood
+                                : vp.clone.recordingHintAlmostDone}
                           </p>
                           <button
                             onClick={stopRecording}
                             className="px-10 py-3 rounded-xl bg-red-600 text-white font-medium hover:bg-red-700 transition text-sm"
                           >
-                            Parar gravação
+                            {vp.clone.stopRecording}
                           </button>
                         </div>
                       )}
@@ -1872,10 +1846,13 @@ const VozPremium: React.FC<Props> = ({
                             <CheckCircle2 size={36} className="text-green-500" />
                           </div>
                           <p className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">
-                            Gravação concluída
+                            {vp.clone.recordingDone}
                           </p>
                           <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
-                            {Math.floor(recordingSeconds / 60)}min {recordingSeconds % 60}s gravados
+                            {vp.clone.recordedDuration(
+                              Math.floor(recordingSeconds / 60),
+                              recordingSeconds % 60
+                            )}
                           </p>
                           <audio
                             controls
@@ -1889,7 +1866,7 @@ const VozPremium: React.FC<Props> = ({
                             }}
                             className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 dark:text-gray-500 underline"
                           >
-                            Gravar novamente
+                            {vp.clone.recordAgain}
                           </button>
                         </div>
                       )}
@@ -1912,13 +1889,11 @@ const VozPremium: React.FC<Props> = ({
                               audio.onloadedmetadata = () => {
                                 const dur = audio.duration;
                                 if (dur < 30) {
-                                  toast.error('Áudio muito curto. Grave pelo menos 1 minuto.');
+                                  toast.error(vp.toasts.audioTooShort);
                                   return;
                                 }
                                 if (dur > 200) {
-                                  toast(
-                                    'Áudio longo demais. O ideal é até 2 minutos — o excesso será ignorado.'
-                                  );
+                                  toast(vp.toasts.audioTooLong);
                                 }
                                 setCloneFile(file);
                               };
@@ -1930,10 +1905,10 @@ const VozPremium: React.FC<Props> = ({
                               className="mx-auto text-gray-400 dark:text-gray-500 mb-2"
                             />
                             <p className="text-sm text-gray-600 dark:text-gray-400">
-                              Clique para enviar o áudio
+                              {vp.clone.uploadPrompt}
                             </p>
                             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                              MP3 ou WAV · entre 1 e 2 minutos
+                              {vp.clone.uploadHint}
                             </p>
                           </div>
                         </label>
@@ -1963,16 +1938,16 @@ const VozPremium: React.FC<Props> = ({
                 {/* Nome da voz */}
                 <div className="bg-white dark:bg-gray-900/80 rounded-2xl border border-gray-200 dark:border-gray-800 p-5">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Nome da voz clonada
+                    {vp.clone.nameLabel}
                   </label>
                   <input
                     value={cloneName}
                     onChange={(e) => setCloneName(e.target.value)}
-                    placeholder={`Minha voz — ${new Date().toLocaleDateString('pt-BR')}`}
+                    placeholder={`${vp.clone.namePlaceholderPrefix}${new Date().toLocaleDateString('pt-BR')}`}
                     className="w-full text-sm border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 focus:outline-none focus:border-purple-400"
                   />
                   <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                    Este nome aparece no seu histórico de vozes clonadas.
+                    {vp.clone.nameFootnote}
                   </p>
                 </div>
 
@@ -1985,12 +1960,12 @@ const VozPremium: React.FC<Props> = ({
                     {cloning ? (
                       <>
                         <Loader2 size={18} className="animate-spin" />
-                        Clonando e gerando...
+                        {vp.clone.cloningAndGenerating}
                       </>
                     ) : (
                       <>
                         <Mic size={18} />
-                        Clonar e gerar áudio
+                        {vp.clone.cloneAndGenerateButton}
                       </>
                     )}
                   </button>
@@ -2003,10 +1978,10 @@ const VozPremium: React.FC<Props> = ({
               <div className="space-y-6">
                 <div className="bg-white dark:bg-gray-900/80 rounded-2xl border border-gray-200 dark:border-gray-800 p-6">
                   <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Envie o áudio pronto
+                    {vp.ready.heading}
                   </h4>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-                    O áudio já deve conter o roteiro completo do anúncio gravado.
+                    {vp.ready.description}
                   </p>
                   {!readyFile ? (
                     <label className="block cursor-pointer">
@@ -2022,10 +1997,10 @@ const VozPremium: React.FC<Props> = ({
                           className="mx-auto text-gray-400 dark:text-gray-500 mb-2"
                         />
                         <p className="text-sm text-gray-600 dark:text-gray-400">
-                          Clique para enviar o áudio pronto
+                          {vp.ready.uploadPrompt}
                         </p>
                         <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                          MP3, WAV, M4A
+                          {vp.ready.uploadHint}
                         </p>
                       </div>
                     </label>
@@ -2061,10 +2036,10 @@ const VozPremium: React.FC<Props> = ({
                         htmlFor="cleanNoise"
                         className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer"
                       >
-                        Limpar ruído automaticamente
+                        {vp.ready.cleanNoiseLabel}
                       </label>
                       <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                        Remove ruído de fundo, reverb e interferências — $0.12/min
+                        {vp.ready.cleanNoiseDesc}
                       </p>
                     </div>
                   </div>
@@ -2079,17 +2054,17 @@ const VozPremium: React.FC<Props> = ({
                     {cleaning ? (
                       <>
                         <Loader2 size={18} className="animate-spin" />
-                        Limpando áudio...
+                        {vp.ready.cleaning}
                       </>
                     ) : uploading ? (
                       <>
                         <Loader2 size={18} className="animate-spin" />
-                        Enviando...
+                        {vp.ready.uploading}
                       </>
                     ) : (
                       <>
                         <Upload size={18} />
-                        Usar este áudio
+                        {vp.ready.useThisAudio}
                       </>
                     )}
                   </button>
@@ -2110,19 +2085,18 @@ const VozPremium: React.FC<Props> = ({
                   className="bg-white dark:bg-gray-900/80 rounded-2xl p-6 max-w-sm w-full shadow-xl"
                 >
                   <h3 className="font-semibold text-gray-900 dark:text-gray-50 mb-2">
-                    ⚠️ Idioma diferente do roteiro
+                    {vp.languageWarning.title}
                   </h3>
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                    Seu roteiro foi detectado em{' '}
+                    {vp.languageWarning.bodyPrefix}
                     <strong>
                       {detectedLanguage === 'pt'
-                        ? 'Português'
+                        ? vp.languageWarning.pt
                         : detectedLanguage === 'en'
-                          ? 'Inglês'
-                          : 'Espanhol'}
+                          ? vp.languageWarning.en
+                          : vp.languageWarning.es}
                     </strong>
-                    . Usar uma voz em outro idioma pode fazer o avatar soar artificial e prejudicar
-                    a performance do anúncio.
+                    {vp.languageWarning.bodySuffix}
                   </p>
                   <div className="flex gap-3">
                     <button
@@ -2132,7 +2106,7 @@ const VozPremium: React.FC<Props> = ({
                       }}
                       className="flex-1 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition"
                     >
-                      Cancelar
+                      {vp.languageWarning.cancel}
                     </button>
                     <button
                       onClick={() => {
@@ -2145,7 +2119,7 @@ const VozPremium: React.FC<Props> = ({
                       }}
                       className="flex-1 px-4 py-2 rounded-xl bg-gray-900 text-white text-sm hover:bg-black transition"
                     >
-                      Continuar mesmo assim
+                      {vp.languageWarning.continueAnyway}
                     </button>
                   </div>
                 </motion.div>
@@ -2162,7 +2136,7 @@ const VozPremium: React.FC<Props> = ({
                 <div className="flex items-center gap-2 mb-3">
                   <CheckCircle2 size={18} className="text-green-600 dark:text-green-400" />
                   <span className="text-sm font-medium text-green-800 dark:text-green-300">
-                    Áudio ativo
+                    {vp.activeAudio.label}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -2170,7 +2144,7 @@ const VozPremium: React.FC<Props> = ({
                   <button
                     onClick={() => setShowRemoveActiveModal(true)}
                     className="p-2 text-gray-400 dark:text-gray-500 hover:text-red-500 transition-colors rounded-xl hover:bg-red-50 dark:hover:bg-red-950/40 flex-shrink-0"
-                    title="Remover áudio ativo"
+                    title={vp.activeAudio.removeTitle}
                   >
                     <Trash2 size={18} />
                   </button>
@@ -2186,7 +2160,7 @@ const VozPremium: React.FC<Props> = ({
                 className="mt-4 bg-white dark:bg-gray-900/80 rounded-2xl border border-gray-200 dark:border-gray-800 p-5"
               >
                 <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-3">
-                  Histórico de áudios ({savedAudios.length})
+                  {vp.history.heading(savedAudios.length)}
                 </p>
                 <div className="space-y-2 max-h-48 overflow-y-auto">
                   {savedAudios.map((a, i) => (
@@ -2207,13 +2181,13 @@ const VozPremium: React.FC<Props> = ({
                           }}
                           className="text-xs px-2 py-1 rounded-lg bg-gray-900 text-white hover:bg-black transition flex-shrink-0"
                         >
-                          Usar
+                          {vp.history.useButton}
                         </button>
                       )}
                       <button
                         onClick={() => onDeleteAudioFromHistory?.(a.url, a.storagePath)}
                         className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 flex-shrink-0"
-                        title="Deletar do histórico"
+                        title={vp.history.deleteTitle}
                       >
                         <Trash2 size={14} />
                       </button>
@@ -2232,21 +2206,21 @@ const VozPremium: React.FC<Props> = ({
           <div className="bg-amber-400 p-1.5 rounded-lg text-gray-900 dark:text-gray-50">
             <Sparkles size={16} />
           </div>
-          <h3 className="text-sm font-black text-white uppercase tracking-widest">Próximo Passo</h3>
+          <h3 className="text-sm font-black text-white uppercase tracking-widest">
+            {vp.nextStep.heading}
+          </h3>
           {!localAudioUrl && (
             <span className="ml-auto text-xs text-orange-300 font-bold">
-              ⚠ Selecione um áudio primeiro
+              {vp.nextStep.selectAudioFirst}
             </span>
           )}
           {localAudioUrl && (
-            <span className="ml-auto text-xs text-green-300 font-bold">✅ Áudio selecionado</span>
+            <span className="ml-auto text-xs text-green-300 font-bold">
+              {vp.nextStep.audioSelected}
+            </span>
           )}
         </div>
-        {!localAudioUrl && (
-          <p className="text-xs text-white/50 mb-4">
-            Gere ou selecione um áudio acima para liberar o próximo passo.
-          </p>
-        )}
+        {!localAudioUrl && <p className="text-xs text-white/50 mb-4">{vp.nextStep.hint}</p>}
         <button
           onClick={() => (localAudioUrl ? onGoToVideo?.() : null)}
           className={`w-full py-5 rounded-2xl font-black text-base uppercase tracking-widest transition-all flex items-center justify-center gap-3 ${
@@ -2256,7 +2230,7 @@ const VozPremium: React.FC<Props> = ({
           }`}
         >
           <Film size={20} />
-          Gerar Vídeo
+          {vp.nextStep.generateVideoButton}
         </button>
       </div>
 
@@ -2276,10 +2250,10 @@ const VozPremium: React.FC<Props> = ({
               </div>
               <div>
                 <h3 className="text-lg font-black text-gray-900 dark:text-gray-50">
-                  Remover áudio ativo?
+                  {vp.removeModal.title}
                 </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                  Não vai apagar do histórico.
+                  {vp.removeModal.body}
                 </p>
               </div>
             </div>
@@ -2288,7 +2262,7 @@ const VozPremium: React.FC<Props> = ({
                 onClick={() => setShowRemoveActiveModal(false)}
                 className="flex-1 px-4 py-2 rounded-xl font-bold text-sm bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 transition-colors"
               >
-                Cancelar
+                {vp.removeModal.cancel}
               </button>
               <button
                 onClick={() => {
@@ -2299,7 +2273,7 @@ const VozPremium: React.FC<Props> = ({
                 }}
                 className="flex-1 px-4 py-2 rounded-xl font-bold text-sm bg-red-600 text-white hover:bg-red-700 transition-colors"
               >
-                Sim, remover
+                {vp.removeModal.confirm}
               </button>
             </div>
           </div>
