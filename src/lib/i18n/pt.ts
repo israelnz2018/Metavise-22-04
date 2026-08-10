@@ -1479,4 +1479,81 @@ export const pt = {
       goToEditButton: 'Ir pra Edição →',
     },
   },
+  sourceTab: {
+    choose: {
+      title: 'Como quer descobrir a persona e criar a copy?',
+      subtitle: 'Escolha o caminho que faz mais sentido pro teu projeto.',
+      manual: {
+        title: 'De forma manual',
+        description:
+          'Você responde as perguntas sobre persona e produto direto na próxima aba. Mais controle, ideal se você já conhece bem o avatar do cliente.',
+        cta: 'Ir para Identificar Persona',
+      },
+      auto: {
+        badge: 'Recomendado',
+        title: 'De forma automática',
+        description:
+          'Cole a transcrição da sua VSL ou link da landing page. A IA extrai persona, dores, oferta, ângulos — e popula as próximas etapas automaticamente.',
+        cta: 'Usar IA pra extrair',
+      },
+    },
+    form: {
+      title: 'Material do Produto',
+      subtitle:
+        'Cole a transcrição da sua VSL, copy da landing page, ou link da página de vendas. A IA extrai tudo: persona, dores, oferta, ângulos — e popula as próximas etapas automaticamente.',
+      switchModeButton: '← Trocar modo',
+      youtube: {
+        title: 'Link da VSL no YouTube',
+        description:
+          'A IA pega a transcrição automática do YouTube — sem download, sem custo adicional. Funciona pra ~90% dos vídeos.',
+        hint: 'Funciona com youtu.be e youtube.com/shorts também.',
+      },
+      landingPage: {
+        title: 'URL da landing page',
+        description:
+          'A IA acessa a página, extrai o texto e processa. Funciona com a maioria das LPs públicas.',
+        hint: 'Funciona com a maioria das LPs públicas.',
+      },
+      pasteText: {
+        title: 'Colar transcrição / copy',
+        description: 'Texto da VSL, sales letter, bullets — qualquer coisa colada.',
+        placeholder: 'Cole aqui o texto bruto...',
+        charsCount: (n: string) => `${n} caracteres`,
+      },
+      combineHint:
+        'Pode usar qualquer um dos três — ou combinar. Se preencher múltiplos, a IA junta tudo na análise.',
+      extractButton: {
+        extracting: 'Extraindo informações...',
+        idle: 'Extrair informações com IA',
+      },
+    },
+    toasts: {
+      fillAtLeastOne: 'Preencha pelo menos uma das opções.',
+      extracted: 'Informações extraídas!',
+      urlFetchFailed:
+        'Não consegui acessar esse link. Cole a URL COMPLETA (ex: https://www.seusite.com/pagina) — ou, se não funcionar, cole o TEXTO/transcrição da página no campo de texto ao lado.',
+      extractError: 'Erro ao extrair informações.',
+    },
+    extractedInfo: {
+      title: 'Informações extraídas',
+      labels: {
+        product: 'Produto',
+        category: 'Categoria',
+        offer: 'Oferta',
+        promise: 'Promessa',
+        mainPain: 'Dor principal',
+        audience: 'Público-alvo',
+        awarenessLevel: 'Nível de consciência',
+        tone: 'Tom recomendado',
+        differentiator: 'Diferencial',
+        guarantee: 'Garantia',
+        urgency: 'Urgência',
+        benefits: 'Principais benefícios',
+        secondaryPains: 'Dores secundárias',
+        hookAngles: 'Ângulos sugeridos para hook',
+        socialProof: 'Prova social mencionada',
+      },
+      continueButton: 'Ir para Identificar Persona',
+    },
+  },
 };

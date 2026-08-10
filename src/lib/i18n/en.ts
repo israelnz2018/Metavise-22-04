@@ -1473,4 +1473,81 @@ export const en: typeof pt = {
       goToEditButton: 'Go to Editing →',
     },
   },
+  sourceTab: {
+    choose: {
+      title: 'How do you want to discover the persona and create the copy?',
+      subtitle: 'Choose the path that makes the most sense for your project.',
+      manual: {
+        title: 'Manually',
+        description:
+          "You answer the persona and product questions directly on the next tab. More control, ideal if you already know the customer's avatar well.",
+        cta: 'Go to Identify Persona',
+      },
+      auto: {
+        badge: 'Recommended',
+        title: 'Automatically',
+        description:
+          'Paste your VSL transcript or landing page link. The AI extracts persona, pains, offer, angles — and populates the next steps automatically.',
+        cta: 'Use AI to extract',
+      },
+    },
+    form: {
+      title: 'Product Material',
+      subtitle:
+        'Paste your VSL transcript, landing page copy, or sales page link. The AI extracts everything: persona, pains, offer, angles — and populates the next steps automatically.',
+      switchModeButton: '← Switch mode',
+      youtube: {
+        title: 'YouTube VSL link',
+        description:
+          "The AI grabs YouTube's automatic transcript — no download, no extra cost. Works for ~90% of videos.",
+        hint: 'Also works with youtu.be and youtube.com/shorts.',
+      },
+      landingPage: {
+        title: 'Landing page URL',
+        description:
+          'The AI accesses the page, extracts the text, and processes it. Works with most public LPs.',
+        hint: 'Works with most public LPs.',
+      },
+      pasteText: {
+        title: 'Paste transcript / copy',
+        description: 'VSL text, sales letter, bullets — anything pasted in.',
+        placeholder: 'Paste the raw text here...',
+        charsCount: (n: string) => `${n} characters`,
+      },
+      combineHint:
+        'You can use any of the three — or combine them. If you fill in more than one, the AI merges everything in the analysis.',
+      extractButton: {
+        extracting: 'Extracting information...',
+        idle: 'Extract information with AI',
+      },
+    },
+    toasts: {
+      fillAtLeastOne: 'Fill in at least one of the options.',
+      extracted: 'Information extracted!',
+      urlFetchFailed:
+        "Couldn't access that link. Paste the FULL URL (e.g.: https://www.yoursite.com/page) — or, if that doesn't work, paste the page's TEXT/transcript in the text field instead.",
+      extractError: 'Error extracting information.',
+    },
+    extractedInfo: {
+      title: 'Information extracted',
+      labels: {
+        product: 'Product',
+        category: 'Category',
+        offer: 'Offer',
+        promise: 'Promise',
+        mainPain: 'Main pain',
+        audience: 'Target audience',
+        awarenessLevel: 'Awareness level',
+        tone: 'Recommended tone',
+        differentiator: 'Differentiator',
+        guarantee: 'Guarantee',
+        urgency: 'Urgency',
+        benefits: 'Main benefits',
+        secondaryPains: 'Secondary pains',
+        hookAngles: 'Suggested hook angles',
+        socialProof: 'Social proof mentioned',
+      },
+      continueButton: 'Go to Identify Persona',
+    },
+  },
 };
