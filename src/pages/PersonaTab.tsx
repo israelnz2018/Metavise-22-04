@@ -22,6 +22,7 @@ import {
   COPY_SECTIONS,
 } from '@/lib/constants';
 import { personaFromProduct, extractProductInfo, type ProductInfo } from '@/lib/claudeService';
+import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 interface Props {
   // Single source of truth for the form. Read `config.copy.answers` and
@@ -62,6 +63,7 @@ export function PersonaTab({
   onSavePersonas,
   onGoToPlan,
 }: Props) {
+  const { t } = useLanguage();
   // Selected persona indices for the Blueprint Path 2 CTA. We key by
   // index (not id) because the existing persona objects don't have
   // stable IDs yet — they're generated from the LLM each call. When
@@ -77,7 +79,7 @@ export function PersonaTab({
   const [extracting, setExtracting] = useState(false);
   const handleExtractMaterial = async () => {
     if (!matText.trim() && !matUrl.trim()) {
-      toast.error('Cole o link ou o texto do produto.');
+      toast.error(t.persona.toasts.pasteLinkOrText);
       return;
     }
     setExtracting(true);
@@ -94,19 +96,16 @@ export function PersonaTab({
         ...prev,
         copy: { ...prev.copy, productInfo: product, sourceText: rawText, personaAutoFilled: true },
       }));
-      toast.success('Material extraído! Preenchendo as perguntas…');
+      toast.success(t.persona.toasts.materialExtracted);
       // 1 CLIQUE: preenche já, passando o product recém-extraído (não depende
       // do config ter atualizado). Resolve o "tive que clicar duas vezes".
       await handleFillFromSource(product);
     } catch (err: any) {
       const msg = String(err?.message || '');
       if (matUrl.trim() && /buscar URL|fetch failed/i.test(msg)) {
-        toast.error(
-          'Não consegui acessar esse link. Cole a URL COMPLETA (ex: https://www.seusite.com/pagina) — ou cole o TEXTO/transcrição no campo de texto.',
-          { duration: 8000 }
-        );
+        toast.error(t.persona.toasts.cantAccessLink, { duration: 8000 });
       } else {
-        toast.error(msg || 'Erro ao extrair.');
+        toast.error(msg || t.persona.toasts.extractError);
       }
     } finally {
       setExtracting(false);
@@ -210,7 +209,7 @@ export function PersonaTab({
             personaAutoFilled: true,
           },
         }));
-        toast.success('Persona preenchida automaticamente pelo material do produto.', {
+        toast.success(t.persona.toasts.autoFilled, {
           icon: '✨',
         });
       } catch (err: any) {
@@ -241,7 +240,7 @@ export function PersonaTab({
       next = current.filter((v) => v !== value);
     } else {
       if (max && current.length >= max) {
-        toast.error(`Máximo de ${max} opções.`);
+        toast.error(t.persona.toasts.maxOptions(max));
         return;
       }
       next = [...current, value];
@@ -251,17 +250,18 @@ export function PersonaTab({
 
   // Campos obrigatórios pra gerar personas — cada um com um rótulo amigável
   // pra avisar exatamente o que falta quando o usuário tenta gerar.
+  const rf = t.persona.requiredFieldLabels;
   const requiredFields: Array<{ ok: boolean; label: string }> = [
-    { ok: (a.product || '').trim().length > 0, label: 'Produto' },
-    { ok: (a.category || '').trim().length > 0, label: 'Categoria' },
-    { ok: (a.whatItDoes || '').trim().length > 0, label: 'O que o produto faz' },
-    { ok: (a.transformationFrom || '').trim().length > 0, label: 'Situação antes (de)' },
-    { ok: (a.transformationTo || '').trim().length > 0, label: 'Situação depois (para)' },
-    { ok: (a.urgency || '').trim().length > 0, label: 'Urgência' },
-    { ok: differentials.length > 0, label: 'Diferenciais' },
-    { ok: personaTriedBefore.length > 0, label: 'O que já tentou antes' },
-    { ok: Number(a.salePrice) > 0, label: 'Preço de venda' },
-    { ok: hiddenDesires.length > 0, label: 'Desejos ocultos' },
+    { ok: (a.product || '').trim().length > 0, label: rf.product },
+    { ok: (a.category || '').trim().length > 0, label: rf.category },
+    { ok: (a.whatItDoes || '').trim().length > 0, label: rf.whatItDoes },
+    { ok: (a.transformationFrom || '').trim().length > 0, label: rf.transformationFrom },
+    { ok: (a.transformationTo || '').trim().length > 0, label: rf.transformationTo },
+    { ok: (a.urgency || '').trim().length > 0, label: rf.urgency },
+    { ok: differentials.length > 0, label: rf.differentials },
+    { ok: personaTriedBefore.length > 0, label: rf.triedBefore },
+    { ok: Number(a.salePrice) > 0, label: rf.salePrice },
+    { ok: hiddenDesires.length > 0, label: rf.hiddenDesires },
   ];
   const missingFields = requiredFields.filter((f) => !f.ok).map((f) => f.label);
   const allRequired = missingFields.length === 0;
@@ -271,10 +271,9 @@ export function PersonaTab({
   const handleGenerateClick = () => {
     if (loading) return;
     if (!allRequired) {
-      toast.error(
-        `Complete o questionário antes de gerar. Falta preencher: ${missingFields.join(', ')}.`,
-        { duration: 7000 }
-      );
+      toast.error(t.persona.toasts.completeBeforeGenerate(missingFields.join(', ')), {
+        duration: 7000,
+      });
       return;
     }
     onGeneratePersona(a as any);
@@ -290,7 +289,7 @@ export function PersonaTab({
     const source = productOverride || productInfo;
     if (!source) return;
     const toastId = 'fill-from-source';
-    toast.loading('Preenchendo campos com IA...', { id: toastId });
+    toast.loading(t.persona.toasts.fillingWithAI, { id: toastId });
     try {
       // Pull enum options out of the COPY_SECTIONS schema so Claude
       // returns exact values the form accepts.
@@ -323,9 +322,9 @@ export function PersonaTab({
           personaAutoFilled: true,
         },
       }));
-      toast.success('Campos preenchidos!', { id: toastId });
+      toast.success(t.persona.toasts.fieldsFilled, { id: toastId });
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao preencher.', { id: toastId });
+      toast.error(err?.message || t.persona.toasts.fillError, { id: toastId });
     }
   };
 
@@ -335,21 +334,20 @@ export function PersonaTab({
         <div>
           <h3 className="text-2xl font-black text-gray-900 dark:text-gray-50 tracking-tight flex items-center gap-2">
             <Users size={28} className="text-blue-600 dark:text-blue-400" />
-            Identificar Persona
+            {t.persona.header.title}
           </h3>
           <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
-            Responda 9 perguntas — a IA gera 3 personas com nível de consciência. Escolha uma para
-            continuar.
+            {t.persona.header.subtitle}
           </p>
         </div>
         {productInfo && (
           <button
             onClick={() => handleFillFromSource()}
             className="shrink-0 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow flex items-center gap-2"
-            title="Usa a IA pra preencher os 9 campos automaticamente com base na Fonte do Produto"
+            title={t.persona.header.autoFillTitle}
           >
             <Sparkles size={14} />
-            Preencha automaticamente
+            {t.persona.header.autoFillButton}
           </button>
         )}
       </div>
@@ -359,19 +357,16 @@ export function PersonaTab({
         <div className="flex items-center gap-2">
           <Sparkles size={18} className="text-purple-600 dark:text-purple-400" />
           <h4 className="font-black uppercase text-xs tracking-widest text-gray-900 dark:text-gray-50">
-            Tem material do produto? (opcional)
+            {t.persona.material.heading}
           </h4>
         </div>
-        <p className="text-xs text-gray-500 dark:text-gray-400">
-          Cole uma das 2 opções e a IA preenche as perguntas abaixo automaticamente. Sem material? É
-          só responder na mão.
-        </p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">{t.persona.material.body}</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <input
             type="url"
             value={matUrl}
             onChange={(e) => setMatUrl(e.target.value)}
-            placeholder="Link da landing page"
+            placeholder={t.persona.material.urlPlaceholder}
             disabled={extracting}
             className="w-full p-2.5 bg-white dark:bg-gray-800/60 ring-1 ring-gray-200 dark:ring-gray-700 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none dark:text-gray-100 dark:placeholder:text-gray-500"
           />
@@ -379,7 +374,7 @@ export function PersonaTab({
             type="text"
             value={matText}
             onChange={(e) => setMatText(e.target.value)}
-            placeholder="Ou cole o texto/transcrição"
+            placeholder={t.persona.material.textPlaceholder}
             disabled={extracting}
             className="w-full p-2.5 bg-white dark:bg-gray-800/60 ring-1 ring-gray-200 dark:ring-gray-700 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none dark:text-gray-100 dark:placeholder:text-gray-500"
           />
@@ -390,7 +385,7 @@ export function PersonaTab({
           className="w-full md:w-auto px-5 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow flex items-center justify-center gap-2"
         >
           {extracting ? <Loader2 className="animate-spin" size={14} /> : <Sparkles size={14} />}
-          Extrair e preencher
+          {t.persona.material.extractButton}
         </button>
       </div>
 
@@ -398,27 +393,29 @@ export function PersonaTab({
       <div className="bg-white dark:bg-gray-900/80 p-6 md:p-8 rounded-[32px] border-2 border-gray-200 dark:border-gray-800 shadow-sm space-y-5">
         <div className="flex items-center gap-3">
           <span className="px-3 py-1 bg-blue-600 text-white rounded-full text-[10px] font-black uppercase tracking-widest">
-            Etapa 1
+            {t.persona.step1.badge}
           </span>
-          <h4 className="text-lg font-black text-gray-900 dark:text-gray-50">Sobre o produto</h4>
+          <h4 className="text-lg font-black text-gray-900 dark:text-gray-50">
+            {t.persona.step1.title}
+          </h4>
         </div>
 
         <div className="space-y-2">
           <label className="text-sm font-black text-gray-900 dark:text-gray-50">
-            1. O que você está vendendo?
+            {t.persona.step1.q1Label}
           </label>
           <input
             type="text"
             value={a.product || ''}
             onChange={(e) => updateConfig('copy', 'answers', 'product', e.target.value)}
-            placeholder="Ex: Suplemento natural pra neuropatia"
+            placeholder={t.persona.step1.q1Placeholder}
             className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-800 rounded-2xl focus:border-blue-600 focus:outline-none text-sm"
           />
         </div>
 
         <div className="space-y-2">
           <label className="text-sm font-black text-gray-900 dark:text-gray-50">
-            2. Categoria do produto
+            {t.persona.step1.q2Label}
           </label>
           <div className="flex flex-wrap gap-2">
             {PERSONA_CATEGORY_OPTIONS.map((cat) => (
@@ -440,25 +437,25 @@ export function PersonaTab({
 
         <div className="space-y-2">
           <label className="text-sm font-black text-gray-900 dark:text-gray-50">
-            3. Em uma frase, o que ele faz?
+            {t.persona.step1.q3Label}
           </label>
           <input
             type="text"
             value={a.whatItDoes || ''}
             onChange={(e) => updateConfig('copy', 'answers', 'whatItDoes', e.target.value)}
-            placeholder="Ex: Reduz queimação e formigamento causados por nervos danificados"
+            placeholder={t.persona.step1.q3Placeholder}
             className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-800 rounded-2xl focus:border-blue-600 focus:outline-none text-sm"
           />
         </div>
 
         <div className="space-y-2">
           <label className="text-sm font-black text-gray-900 dark:text-gray-50">
-            4. Transformação prometida
+            {t.persona.step1.q4Label}
           </label>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">
-                De:
+                {t.persona.step1.from}
               </span>
               <input
                 type="text"
@@ -466,13 +463,13 @@ export function PersonaTab({
                 onChange={(e) =>
                   updateConfig('copy', 'answers', 'transformationFrom', e.target.value)
                 }
-                placeholder="Ex: acordando com pés ardendo"
+                placeholder={t.persona.step1.fromPlaceholder}
                 className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-800 rounded-2xl focus:border-blue-600 focus:outline-none text-sm"
               />
             </div>
             <div>
               <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">
-                Para:
+                {t.persona.step1.to}
               </span>
               <input
                 type="text"
@@ -480,7 +477,7 @@ export function PersonaTab({
                 onChange={(e) =>
                   updateConfig('copy', 'answers', 'transformationTo', e.target.value)
                 }
-                placeholder="Ex: dormindo a noite inteira"
+                placeholder={t.persona.step1.toPlaceholder}
                 className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-800 rounded-2xl focus:border-blue-600 focus:outline-none text-sm"
               />
             </div>
@@ -489,12 +486,12 @@ export function PersonaTab({
 
         <details className="text-sm">
           <summary className="cursor-pointer text-blue-600 dark:text-blue-400 font-bold text-xs uppercase tracking-widest">
-            + Adicionar contexto sobre o produto (opcional)
+            {t.persona.step1.extraContext}
           </summary>
           <textarea
             value={a.productComment || ''}
             onChange={(e) => updateConfig('copy', 'answers', 'productComment', e.target.value)}
-            placeholder="Algo específico que a IA precisa saber sobre o produto?"
+            placeholder={t.persona.step1.extraContextPlaceholder}
             rows={2}
             className="mt-2 w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-800 rounded-2xl focus:border-blue-600 focus:outline-none text-sm resize-none"
           />
@@ -505,14 +502,16 @@ export function PersonaTab({
       <div className="bg-white dark:bg-gray-900/80 p-6 md:p-8 rounded-[32px] border-2 border-gray-200 dark:border-gray-800 shadow-sm space-y-5">
         <div className="flex items-center gap-3">
           <span className="px-3 py-1 bg-blue-600 text-white rounded-full text-[10px] font-black uppercase tracking-widest">
-            Etapa 2
+            {t.persona.step2.badge}
           </span>
-          <h4 className="text-lg font-black text-gray-900 dark:text-gray-50">Sobre o problema</h4>
+          <h4 className="text-lg font-black text-gray-900 dark:text-gray-50">
+            {t.persona.step2.title}
+          </h4>
         </div>
 
         <div className="space-y-2">
           <label className="text-sm font-black text-gray-900 dark:text-gray-50">
-            5. Quão urgente é o problema pra quem compra?
+            {t.persona.step2.q5Label}
           </label>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             {PERSONA_URGENCY_OPTIONS.map((opt) => (
@@ -539,9 +538,9 @@ export function PersonaTab({
 
         <div className="space-y-2">
           <label className="text-sm font-black text-gray-900 dark:text-gray-50">
-            6. Diferenciais do seu produto
+            {t.persona.step2.q6Label}
             <span className="text-[10px] text-gray-400 dark:text-gray-500 font-bold ml-2">
-              (escolha 2-5)
+              {t.persona.step2.q6Hint}
             </span>
           </label>
           <div className="flex flex-wrap gap-2">
@@ -564,7 +563,7 @@ export function PersonaTab({
 
         <details className="text-sm">
           <summary className="cursor-pointer text-blue-600 dark:text-blue-400 font-bold text-xs uppercase tracking-widest">
-            + Adicionar contexto sobre o problema (opcional)
+            {t.persona.step2.extraContext}
           </summary>
           <textarea
             value={a.problemComment || ''}
@@ -579,16 +578,18 @@ export function PersonaTab({
       <div className="bg-white dark:bg-gray-900/80 p-6 md:p-8 rounded-[32px] border-2 border-gray-200 dark:border-gray-800 shadow-sm space-y-5">
         <div className="flex items-center gap-3">
           <span className="px-3 py-1 bg-blue-600 text-white rounded-full text-[10px] font-black uppercase tracking-widest">
-            Etapa 3
+            {t.persona.step3.badge}
           </span>
-          <h4 className="text-lg font-black text-gray-900 dark:text-gray-50">Sobre o cliente</h4>
+          <h4 className="text-lg font-black text-gray-900 dark:text-gray-50">
+            {t.persona.step3.title}
+          </h4>
         </div>
 
         <div className="space-y-2">
           <label className="text-sm font-black text-gray-900 dark:text-gray-50">
-            7. O que esse cliente já tentou e não funcionou?
+            {t.persona.step3.q7Label}
             <span className="text-[10px] text-gray-400 dark:text-gray-500 font-bold ml-2">
-              (1-5 opções)
+              {t.persona.step3.q7Hint}
             </span>
           </label>
           <div className="flex flex-wrap gap-2">
@@ -611,7 +612,7 @@ export function PersonaTab({
 
         <div className="space-y-2">
           <label className="text-sm font-black text-gray-900 dark:text-gray-50">
-            8. Qual o preço de venda do produto?
+            {t.persona.step3.q8Label}
           </label>
 
           {/* pontual vs recorrente */}
@@ -655,19 +656,19 @@ export function PersonaTab({
             />
             <span className="text-xs text-gray-500 dark:text-gray-400 font-bold">
               {a.billingModel === 'Recorrente (mensal/assinatura)'
-                ? 'por mês'
-                : 'valor da compra (pagamento único)'}
+                ? t.persona.step3.perMonth
+                : t.persona.step3.oneTimePurchase}
             </span>
           </div>
 
           {/* anualização quando recorrente — na moeda escolhida */}
           {a.billingModel === 'Recorrente (mensal/assinatura)' && Number(a.salePrice) > 0 && (
             <p className="text-xs text-blue-700 dark:text-blue-300 font-bold">
-              Valor anualizado: {currencySymbol(a.saleCurrency)}{' '}
-              {(Number(a.salePrice) * 12).toLocaleString('pt-BR')}/ano
+              {t.persona.step3.annualizedValue}
+              {currencySymbol(a.saleCurrency)} {(Number(a.salePrice) * 12).toLocaleString('pt-BR')}
+              {t.persona.step3.perYear}
               <span className="font-medium text-gray-500 dark:text-gray-400">
-                {' '}
-                — usamos o valor anual porque é assim que o público realmente compra.
+                {t.persona.step3.annualizedNote}
               </span>
             </p>
           )}
@@ -675,15 +676,13 @@ export function PersonaTab({
 
         <div className="space-y-2">
           <label className="text-sm font-black text-gray-900 dark:text-gray-50">
-            9. Qual é o maior desejo profundo que esse produto realiza?
+            {t.persona.step3.q9Label}
             <span className="text-[10px] text-gray-400 dark:text-gray-500 font-bold ml-2">
-              (escolha 1-3)
+              {t.persona.step3.q9Hint}
             </span>
           </label>
           <p className="text-xs text-gray-500 dark:text-gray-400 italic leading-relaxed">
-            Não é o que o produto faz na superfície (ex: "perder peso") — é o que a pessoa REALMENTE
-            quer ao resolver o problema (ex: "ser admirada nas fotos", "se sentir desejada de
-            novo"). Pense no que ela diria se ninguém estivesse ouvindo.
+            {t.persona.step3.q9Body}
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">
             {PERSONA_HIDDEN_DESIRE_OPTIONS.map((d) => (
@@ -708,7 +707,7 @@ export function PersonaTab({
 
         <details className="text-sm">
           <summary className="cursor-pointer text-blue-600 dark:text-blue-400 font-bold text-xs uppercase tracking-widest">
-            + Adicionar contexto sobre o cliente (opcional)
+            {t.persona.step3.extraContext}
           </summary>
           <textarea
             value={a.clientComment || ''}
@@ -722,13 +721,25 @@ export function PersonaTab({
             Calibra as personas, o plano de marketing e o checklist de criativos. */}
         <div className="space-y-2 pt-2">
           <h3 className="text-xs font-black uppercase tracking-widest text-gray-700 dark:text-gray-300">
-            Como você quer montar o plano?
+            {t.persona.step3.strategyHeading}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             {[
-              { id: 'baiano', title: 'Método Baiano', desc: '3-7 criativos ótimos, 1 por vez, ~50 conjuntos a baixo custo/dia.' },
-              { id: 'metodo15', title: 'Método 15', desc: '~15 criativos diversos rodando juntos (Advantage+ amplo).' },
-              { id: 'ia', title: 'IA escolhe', desc: 'Não sei — deixa a IA decidir o melhor pelo produto.' },
+              {
+                id: 'baiano',
+                title: t.persona.step3.strategyBaianoTitle,
+                desc: t.persona.step3.strategyBaianoDesc,
+              },
+              {
+                id: 'metodo15',
+                title: t.persona.step3.strategy15Title,
+                desc: t.persona.step3.strategy15Desc,
+              },
+              {
+                id: 'ia',
+                title: t.persona.step3.strategyAiTitle,
+                desc: t.persona.step3.strategyAiDesc,
+              },
             ].map((m) => {
               const selected = (a.strategyMethod || 'ia') === m.id;
               return (
@@ -740,18 +751,22 @@ export function PersonaTab({
                     'p-3 rounded-2xl border-2 transition-all text-left',
                     selected
                       ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-600'
-                      : 'bg-white dark:bg-gray-900/80 border-gray-200 dark:border-gray-800 hover:border-blue-200',
+                      : 'bg-white dark:bg-gray-900/80 border-gray-200 dark:border-gray-800 hover:border-blue-200'
                   )}
                 >
-                  <span className="block text-xs font-black text-gray-900 dark:text-gray-50">{m.title}</span>
-                  <span className="block text-[10px] text-gray-500 dark:text-gray-400 leading-tight mt-1">{m.desc}</span>
+                  <span className="block text-xs font-black text-gray-900 dark:text-gray-50">
+                    {m.title}
+                  </span>
+                  <span className="block text-[10px] text-gray-500 dark:text-gray-400 leading-tight mt-1">
+                    {m.desc}
+                  </span>
                 </button>
               );
             })}
           </div>
           <details className="text-sm">
             <summary className="cursor-pointer text-gray-500 dark:text-gray-400 font-bold text-[11px] uppercase tracking-widest">
-              + Prefiro descrever meu próprio plano (avançado)
+              {t.persona.step3.strategyCustomSummary}
             </summary>
             <textarea
               value={a.strategyCustom || ''}
@@ -761,7 +776,7 @@ export function PersonaTab({
                 updateConfig('copy', 'answers', 'strategyMethod', v.trim() ? 'custom' : 'ia');
               }}
               rows={3}
-              placeholder="Ex: 5 criativos, todos VSL longa, foco em prova social, R$30/dia por conjunto..."
+              placeholder={t.persona.step3.strategyCustomPlaceholder}
               className="mt-2 w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-800 rounded-2xl focus:border-blue-600 focus:outline-none text-sm resize-none"
             />
           </details>
@@ -777,16 +792,18 @@ export function PersonaTab({
         }`}
       >
         {loading ? <Loader2 className="animate-spin" size={24} /> : <Sparkles size={24} />}
-        {personas.length > 0 ? 'Regerar 3 Personas' : 'Gerar 3 Personas com IA'}
+        {personas.length > 0
+          ? t.persona.generateButton.regenerate
+          : t.persona.generateButton.generate}
       </button>
       {!allRequired && (
         <p className="text-center text-[11px] text-gray-500 dark:text-gray-400 mt-2">
-          Falta preencher: {missingFields.join(', ')}.
+          {t.persona.generateButton.missing(missingFields.join(', '))}
         </p>
       )}
       {!allRequired && (
         <p className="text-center text-xs text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest">
-          Preencha todas as 9 perguntas obrigatórias para gerar
+          {t.persona.generateButton.fillAllRequired}
         </p>
       )}
 
@@ -794,7 +811,7 @@ export function PersonaTab({
       {personas.length > 0 && (
         <div className="space-y-4 pt-8">
           <h4 className="text-xl font-black text-gray-900 dark:text-gray-50 text-center">
-            ✨ 3 Personas Identificadas — Escolha uma para continuar
+            {t.persona.results.heading}
           </h4>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {personas.map((p, idx) => {
@@ -816,7 +833,7 @@ export function PersonaTab({
                     {onGoToPlan && (
                       <label
                         className="flex items-center gap-1.5 cursor-pointer select-none"
-                        title="Incluir esta persona no plano de marketing"
+                        title={t.persona.results.includeCheckboxTitle}
                       >
                         <input
                           type="checkbox"
@@ -834,7 +851,7 @@ export function PersonaTab({
                           className="w-4 h-4 accent-blue-600"
                         />
                         <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">
-                          Incluir
+                          {t.persona.results.includeLabel}
                         </span>
                       </label>
                     )}
@@ -851,7 +868,7 @@ export function PersonaTab({
                         {p.rank}
                       </span>
                       <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">
-                        Nível {p.awarenessLevel}
+                        {t.persona.results.level(p.awarenessLevel)}
                       </span>
                     </div>
                   </div>
@@ -872,26 +889,26 @@ export function PersonaTab({
                                 ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 ring-amber-200/60 dark:ring-amber-900/40'
                                 : 'bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 ring-red-200/60 dark:ring-red-900/40'
                           )}
-                          title="Confiança da extração: o quanto a fonte sustenta essa persona"
+                          title={t.persona.results.confidenceTitle}
                         >
-                          {fmtPct(p.confidence)} conf.
+                          {fmtPct(p.confidence)} {t.persona.results.confSuffix}
                         </span>
                       )}
                       {typeof p?.suggestedWeight === 'number' && (
                         <span
                           className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 ring-1 ring-blue-200/60 dark:ring-blue-900/40"
-                          title="Fatia sugerida dos criativos para essa persona"
+                          title={t.persona.results.weightTitle}
                         >
-                          {fmtPct(p.suggestedWeight)} dos criativos
+                          {fmtPct(p.suggestedWeight)} {t.persona.results.ofCreatives}
                         </span>
                       )}
                       {p?.isStretch === true && (
                         <span
                           className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 ring-1 ring-orange-200/60 dark:ring-orange-900/40"
-                          title="Persona inferida da fonte, não citada diretamente — use com cuidado"
+                          title={t.persona.results.stretchTitle}
                         >
                           <AlertTriangle size={9} />
-                          inferência fraca
+                          {t.persona.results.weakInference}
                         </span>
                       )}
                     </div>
@@ -904,7 +921,7 @@ export function PersonaTab({
                   </div>
                   <div className="bg-blue-50 dark:bg-blue-950/40 p-3 rounded-2xl border border-blue-100 dark:border-blue-900">
                     <p className="text-[10px] font-black text-blue-900 dark:text-blue-200 uppercase tracking-widest mb-1">
-                      🎯 Nível {p.awarenessLevel} de Consciência
+                      {t.persona.results.awarenessLevel(p.awarenessLevel)}
                     </p>
                     <p className="text-xs text-blue-800 dark:text-blue-300 leading-snug">
                       {p.awarenessReason}
@@ -912,47 +929,52 @@ export function PersonaTab({
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-[10px]">
                     <div className="text-gray-500 dark:text-gray-400">
-                      <strong className="text-gray-900 dark:text-gray-50">Idade:</strong> {p.age}
+                      <strong className="text-gray-900 dark:text-gray-50">
+                        {t.persona.results.age}
+                      </strong>{' '}
+                      {p.age}
                     </div>
                     <div className="text-gray-500 dark:text-gray-400">
-                      <strong className="text-gray-900 dark:text-gray-50">Gênero:</strong>{' '}
+                      <strong className="text-gray-900 dark:text-gray-50">
+                        {t.persona.results.gender}
+                      </strong>{' '}
                       {p.gender}
                     </div>
                   </div>
                   <div className="space-y-2 text-xs flex-1">
                     <div>
                       <strong className="text-gray-900 dark:text-gray-50 block text-[10px] uppercase tracking-widest">
-                        Dor principal
+                        {t.persona.results.mainPain}
                       </strong>{' '}
                       <span className="text-gray-700 dark:text-gray-300">{p.mainPain}</span>
                     </div>
                     <div>
                       <strong className="text-gray-900 dark:text-gray-50 block text-[10px] uppercase tracking-widest">
-                        Desejo oculto
+                        {t.persona.results.hiddenDesire}
                       </strong>{' '}
                       <span className="text-gray-700 dark:text-gray-300">{p.hiddenDesire}</span>
                     </div>
                     <div>
                       <strong className="text-gray-900 dark:text-gray-50 block text-[10px] uppercase tracking-widest">
-                        Medo dominante
+                        {t.persona.results.dominantFear}
                       </strong>{' '}
                       <span className="text-gray-700 dark:text-gray-300">{p.dominantFear}</span>
                     </div>
                     <div>
                       <strong className="text-gray-900 dark:text-gray-50 block text-[10px] uppercase tracking-widest">
-                        Objeção principal
+                        {t.persona.results.mainObjection}
                       </strong>{' '}
                       <span className="text-gray-700 dark:text-gray-300">{p.mainObjection}</span>
                     </div>
                     <div>
                       <strong className="text-gray-900 dark:text-gray-50 block text-[10px] uppercase tracking-widest">
-                        Gatilho emocional
+                        {t.persona.results.emotionalTrigger}
                       </strong>{' '}
                       <span className="text-gray-700 dark:text-gray-300">{p.emotionalTrigger}</span>
                     </div>
                     <div className="pt-2 border-t border-gray-200 dark:border-gray-800">
                       <strong className="text-gray-900 dark:text-gray-50 block text-[10px] uppercase tracking-widest">
-                        Ângulo de vídeo
+                        {t.persona.results.videoAngle}
                       </strong>{' '}
                       <span className="text-gray-700 dark:text-gray-300">
                         {p.recommendedVideoAngle}
@@ -960,7 +982,7 @@ export function PersonaTab({
                     </div>
                     <div>
                       <strong className="text-gray-900 dark:text-gray-50 block text-[10px] uppercase tracking-widest">
-                        Hook recomendado
+                        {t.persona.results.recommendedHook}
                       </strong>{' '}
                       <span className="text-gray-700 dark:text-gray-300">
                         {p.recommendedHookType}
@@ -968,7 +990,7 @@ export function PersonaTab({
                     </div>
                     <div>
                       <strong className="text-gray-900 dark:text-gray-50 block text-[10px] uppercase tracking-widest">
-                        Tom
+                        {t.persona.results.tone}
                       </strong>{' '}
                       <span className="text-gray-700 dark:text-gray-300">
                         {p.communicationTone}
@@ -976,19 +998,19 @@ export function PersonaTab({
                     </div>
                     <div>
                       <strong className="text-gray-900 dark:text-gray-50 block text-[10px] uppercase tracking-widest">
-                        Promessa
+                        {t.persona.results.promise}
                       </strong>{' '}
                       <span className="text-gray-700 dark:text-gray-300">{p.strongestPromise}</span>
                     </div>
                     <div>
                       <strong className="text-gray-900 dark:text-gray-50 block text-[10px] uppercase tracking-widest">
-                        CTA
+                        {t.persona.results.cta}
                       </strong>{' '}
                       <span className="text-gray-700 dark:text-gray-300">{p.recommendedCTA}</span>
                     </div>
                     <div className="pt-2 border-t border-gray-200 dark:border-gray-800">
                       <strong className="text-gray-900 dark:text-gray-50 block text-[10px] uppercase tracking-widest">
-                        Por que é {p.rank}?
+                        {t.persona.results.whyRank(p.rank)}
                       </strong>{' '}
                       <span className="text-gray-700 dark:text-gray-300 italic">
                         {p.whyMainOrSecondaryOrTertiary}
@@ -1008,10 +1030,11 @@ export function PersonaTab({
             >
               {personasSaved ? (
                 <>
-                  <CheckCircle2 size={20} />3 Personas Salvos no Projeto
+                  <CheckCircle2 size={20} />
+                  {t.persona.results.savedButton}
                 </>
               ) : (
-                <>💾 Salvar os 3 Personas no Projeto</>
+                <>{t.persona.results.saveButton}</>
               )}
             </button>
           </div>
@@ -1021,7 +1044,7 @@ export function PersonaTab({
           {personasSaved && (
             <div className="pt-2 space-y-3">
               <h4 className="text-sm font-black text-gray-900 dark:text-gray-50">
-                Quais personas incluir no plano de marketing?
+                {t.persona.results.whichPersonasHeading}
               </h4>
               <div className="space-y-2">
                 {personas.map((p, idx) => {
@@ -1075,7 +1098,7 @@ export function PersonaTab({
                 })}
               </div>
               <p className="text-center text-[10px] text-gray-500 dark:text-gray-500 font-bold uppercase tracking-widest">
-                O plano de marketing abaixo usa as personas marcadas
+                {t.persona.results.planUsesMarked}
               </p>
             </div>
           )}
