@@ -5,13 +5,17 @@ import { storage, auth } from '@/lib/firebase';
 import { Sparkles, Loader2, X, Check, ImageIcon, ArrowRight, Film, Music } from 'lucide-react';
 import { useJobs } from '@/lib/jobsStore';
 import { logCreativeCost, COST_RATES } from '@/lib/creativeCost';
+import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 interface Props {
   user?: { uid?: string } | null;
   /** Adiciona o clipe à biblioteca da Montagem (config.montagem.clips). */
   onAddClip?: (clip: { url: string; label: string; duration: number }) => void;
   /** Coloca o clipe DIRETO na timeline da Montagem no segundo `atSec` (auto-posiciona). */
-  onPlaceOnTimeline?: (clip: { url: string; label: string; duration: number }, atSec: number) => void;
+  onPlaceOnTimeline?: (
+    clip: { url: string; label: string; duration: number },
+    atSec: number
+  ) => void;
   onGoToMontagem?: () => void;
   /** Áudios já gerados no ElevenLabs (gancho + corpo) pro lip-sync. */
   audios?: { url: string; label: string }[];
@@ -39,6 +43,8 @@ export function VideoIATab({
   audios = [],
   initialImages = [],
 }: Props) {
+  const { t } = useLanguage();
+  const vt = t.videoIaTab;
   const uid = user?.uid || auth.currentUser?.uid;
   const { addJob, updateJob } = useJobs();
 
@@ -130,36 +136,35 @@ export function VideoIATab({
         /* mantém o que tem */
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uid]);
 
   const uploadImage = async (file?: File | null) => {
     if (!file) return;
-    if (!file.type.startsWith('image/')) return toast.error('Envie um arquivo de imagem.');
-    if (!uid) return toast.error('Faça login pra enviar imagem.');
+    if (!file.type.startsWith('image/')) return toast.error(vt.toasts.invalidImageFile);
+    if (!uid) return toast.error(vt.toasts.loginToUploadImage);
     setImageUploading(true);
     try {
       const safe = file.name.replace(/[^a-z0-9.-]/gi, '_');
       const r = ref(storage, `video/${uid}/video-ia-img/${Date.now()}-${safe}`);
       await uploadBytes(r, file, { contentType: file.type || 'image/png' });
       setImageUrl(await getDownloadURL(r));
-      toast.success('Imagem carregada — o clipe anima a partir dela.');
+      toast.success(vt.toasts.imageLoaded);
     } catch (e: any) {
-      toast.error(e?.message || 'Falha no upload da imagem.');
+      toast.error(e?.message || vt.toasts.imageUploadFailed);
     } finally {
       setImageUploading(false);
     }
   };
 
   const generate = async () => {
-    if (!uid) return toast.error('Faça login pra gerar.');
+    if (!uid) return toast.error(vt.toasts.loginToGenerate);
     if (!prompt.trim() && !imageUrl) {
-      return toast.error('Descreva a cena (ou envie uma imagem).');
+      return toast.error(vt.toasts.describeOrUpload);
     }
     setGenerating(true);
     const tid = 'fal-video';
     const jid = addJob(`Clipe Kling (${durationSec}s)`);
-    toast.loading('Gerando o clipe… (~1-3 min, pode ir em outra aba)', { id: tid });
+    toast.loading(vt.toasts.generatingClip, { id: tid });
     try {
       const r = await fetch('/api/fal/video', {
         method: 'POST',
@@ -174,19 +179,19 @@ export function VideoIATab({
         }),
       });
       const d = await r.json();
-      if (!r.ok) throw new Error(d.error || 'Falha ao gerar o clipe.');
+      if (!r.ok) throw new Error(d.error || vt.toasts.generateFailed);
       setResults((prev) => [
         { url: d.url, prompt: prompt.trim(), durationSec, at: Date.now() },
         ...prev,
       ]);
-      toast.success('Clipe pronto!', { id: tid });
+      toast.success(vt.toasts.clipReady, { id: tid });
       updateJob(jid, { status: 'done' });
       logCreativeCost(`Clipe Kling (${durationSec}s)`, durationSec * COST_RATES.klingPerSec);
     } catch (e: any) {
       const msg = String(e?.message || '');
       const friendly = /saldo|balance|quota|insufficient/i.test(msg)
-        ? 'Saldo do fal insuficiente — adicione créditos no fal e tente de novo.'
-        : `${msg || 'Erro ao gerar'} — tente de novo; se persistir, confira o saldo do fal (badge de créditos).`;
+        ? vt.toasts.insufficientBalance
+        : vt.toasts.genericErrorSuffix(msg || vt.toasts.genericErrorFallback);
       toast.error(friendly, { id: tid, duration: 6000 });
       updateJob(jid, { status: 'error' });
     } finally {
@@ -196,11 +201,11 @@ export function VideoIATab({
   };
 
   const runLipsync = async (clipUrl: string, audioUrl: string, placeAt?: number) => {
-    if (!uid) return toast.error('Faça login.');
+    if (!uid) return toast.error(vt.toasts.login);
     setSyncing(true);
     const tid = 'fal-lipsync';
     const jid = addJob('Lip-sync (voz no clipe)');
-    toast.loading('Sincronizando a voz no clipe… (~1-3 min)', { id: tid });
+    toast.loading(vt.toasts.syncingVoice, { id: tid });
     try {
       const r = await fetch('/api/fal/lipsync', {
         method: 'POST',
@@ -208,17 +213,17 @@ export function VideoIATab({
         body: JSON.stringify({ videoUrl: clipUrl, audioUrl, userId: uid }),
       });
       const d = await r.json();
-      if (!r.ok) throw new Error(d.error || 'Falha ao sincronizar.');
+      if (!r.ok) throw new Error(d.error || vt.toasts.syncFailed);
       setResults((prev) => [
         { url: d.url, prompt: '', durationSec: 0, at: Date.now(), synced: true, placeAt },
         ...prev,
       ]);
       setSyncIdx(null);
-      toast.success('Vídeo com a voz sincronizada pronto!', { id: tid });
+      toast.success(vt.toasts.syncedReady, { id: tid });
       updateJob(jid, { status: 'done' });
       logCreativeCost('Lip-sync (fal)', COST_RATES.lipsync);
     } catch (e: any) {
-      toast.error(e?.message || 'Erro no lip-sync.', { id: tid });
+      toast.error(e?.message || vt.toasts.syncError, { id: tid });
       updateJob(jid, { status: 'error' });
     } finally {
       setSyncing(false);
@@ -228,8 +233,8 @@ export function VideoIATab({
 
   const uploadAudioAndSync = async (file: File | undefined | null, clipUrl: string) => {
     if (!file) return;
-    if (!file.type.startsWith('audio/')) return toast.error('Envie um arquivo de áudio.');
-    if (!uid) return toast.error('Faça login.');
+    if (!file.type.startsWith('audio/')) return toast.error(vt.toasts.invalidAudioFile);
+    if (!uid) return toast.error(vt.toasts.login);
     setAudioUploading(true);
     try {
       const safe = file.name.replace(/[^a-z0-9.-]/gi, '_');
@@ -238,7 +243,7 @@ export function VideoIATab({
       const url = await getDownloadURL(r);
       await runLipsync(clipUrl, url);
     } catch (e: any) {
-      toast.error(e?.message || 'Falha no upload do áudio.');
+      toast.error(e?.message || vt.toasts.audioUploadFailed);
     } finally {
       setAudioUploading(false);
     }
@@ -246,13 +251,13 @@ export function VideoIATab({
 
   // Recorta o trecho [start,end] do áudio escolhido e sincroniza no clipe.
   const trimAndSync = async (clipUrl: string) => {
-    if (!uid) return toast.error('Faça login.');
+    if (!uid) return toast.error(vt.toasts.login);
     const src = trimSource || audios[0]?.url || '';
-    if (!src) return toast.error('Escolha o áudio de origem.');
-    if (!(trimEnd > trimStart)) return toast.error('O fim tem que ser maior que o início.');
+    if (!src) return toast.error(vt.toasts.chooseSourceAudio);
+    if (!(trimEnd > trimStart)) return toast.error(vt.toasts.endMustBeAfterStart);
     setSyncing(true);
     const tid = 'fal-lipsync';
-    toast.loading('Recortando o trecho…', { id: tid });
+    toast.loading(vt.toasts.trimming, { id: tid });
     try {
       const tr = await fetch('/api/elevenlabs/trim-audio', {
         method: 'POST',
@@ -260,10 +265,10 @@ export function VideoIATab({
         body: JSON.stringify({ url: src, start: trimStart, end: trimEnd, userId: uid }),
       });
       const td = await tr.json();
-      if (!tr.ok || !td.url) throw new Error(td.error || 'Falha ao recortar o áudio.');
+      if (!tr.ok || !td.url) throw new Error(td.error || vt.toasts.trimFailed);
       await runLipsync(clipUrl, td.url, trimStart); // placeAt = início do trecho recortado
     } catch (e: any) {
-      toast.error(e?.message || 'Erro ao recortar.', { id: tid });
+      toast.error(e?.message || vt.toasts.trimError, { id: tid });
       setSyncing(false);
     }
   };
@@ -284,23 +289,25 @@ export function VideoIATab({
     const realDur = await getVideoDuration(res.url);
     const clip = {
       url: res.url,
-      label: res.synced ? 'IA falando' : 'IA Kling',
+      label: res.synced ? vt.clipLabels.aiTalking : vt.clipLabels.aiKling,
       duration: realDur || res.durationSec || 5,
     };
     if (res.placeAt != null && onPlaceOnTimeline) {
       // Veio de um trecho recortado → posiciona DIRETO no segundo certo da timeline.
       onPlaceOnTimeline(clip, res.placeAt);
       setResults((prev) => prev.map((x, i) => (i === idx ? { ...x, sent: true } : x)));
-      toast.success(`Colocado na timeline no segundo ${res.placeAt.toFixed(0)}s.`);
+      toast.success(vt.toasts.placedOnTimeline(res.placeAt.toFixed(0)));
     } else {
       onAddClip?.(clip);
       setResults((prev) => prev.map((x, i) => (i === idx ? { ...x, sent: true } : x)));
-      toast.success('Enviado — abra a Montagem que está na biblioteca de clipes.');
+      toast.success(vt.toasts.sentToLibrary);
     }
   };
 
-  const box = 'bg-white dark:bg-gray-900/70 rounded-2xl border border-gray-200 dark:border-gray-800 p-4';
-  const stepLabel = 'text-[11px] font-black uppercase tracking-widest text-purple-600 dark:text-purple-400';
+  const box =
+    'bg-white dark:bg-gray-900/70 rounded-2xl border border-gray-200 dark:border-gray-800 p-4';
+  const stepLabel =
+    'text-[11px] font-black uppercase tracking-widest text-purple-600 dark:text-purple-400';
   const canGenerate = !generating && (prompt.trim() !== '' || !!imageUrl);
 
   return (
@@ -309,12 +316,12 @@ export function VideoIATab({
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">
           <Sparkles size={20} className="text-purple-600 dark:text-purple-400" />
-          <h2 className="text-lg font-black text-gray-900 dark:text-gray-100">Vídeo IA</h2>
+          <h2 className="text-lg font-black text-gray-900 dark:text-gray-100">{vt.title}</h2>
         </div>
         <button
           onClick={fetchBalance}
           disabled={balanceLoading}
-          title="Saldo de créditos do fal — clique pra atualizar"
+          title={vt.balanceButtonTitle}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 text-xs font-black text-gray-700 dark:text-gray-200 hover:border-purple-300"
         >
           {balanceLoading ? (
@@ -322,53 +329,65 @@ export function VideoIATab({
           ) : (
             <span className="text-purple-600 dark:text-purple-400">◈</span>
           )}
-          Créditos fal: {balance == null ? '—' : `$${balance.toFixed(2)}`}
+          {vt.balanceLabel(balance == null ? '—' : `$${balance.toFixed(2)}`)}
         </button>
       </div>
       <p className="text-sm text-gray-500 dark:text-gray-400 -mt-2">
-        Gera um clipe com <b>Kling 3.0</b> (de um texto e/ou uma imagem). Depois, se quiser, você
-        <b> sincroniza a voz</b> do ElevenLabs em cima do clipe.
+        {vt.subtitlePart1} <b>{vt.klingBold}</b> {vt.subtitlePart2}
+        <b> {vt.syncVoiceBold}</b> {vt.subtitlePart3}
       </p>
 
       {/* Passo 1 — cena */}
       <div className={box + ' space-y-2'}>
-        <span className={stepLabel}>1 · Descreva a cena</span>
+        <span className={stepLabel}>{vt.step1Label}</span>
         <textarea
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           rows={3}
-          placeholder="ex.: mulher de 40 anos segurando uma boneca reborn, olhando pra câmera e falando, sala aconchegante, luz natural de janela — a boneca permanece imóvel"
+          placeholder={vt.promptPlaceholder}
           className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100 text-sm resize-none"
         />
         <p className="text-[11px] text-gray-400">
-          Dica: se tiver 2 rostos (ex.: pessoa + boneca), escreva que a boneca fica <b>imóvel</b> pra
-          ela não “ganhar vida”.
+          {vt.tipPart1} <b>{vt.tipBold}</b> {vt.tipPart2}
         </p>
       </div>
 
       {/* Passo 2 — imagem opcional */}
       <div className={box + ' space-y-2'}>
-        <span className={stepLabel}>2 · Imagem inicial (opcional)</span>
+        <span className={stepLabel}>{vt.step2Label}</span>
         <div className="flex items-center gap-2 flex-wrap">
           {imageUrl ? (
             <>
-              <img src={imageUrl} alt="início" className="h-12 w-12 rounded-lg object-cover" />
+              <img
+                src={imageUrl}
+                alt={vt.startImageAlt}
+                className="h-12 w-12 rounded-lg object-cover"
+              />
               <span className="text-[11px] text-green-600 dark:text-green-400 font-bold">
-                imagem ✓ (anima a partir dela)
+                {vt.imageReadyLabel}
               </span>
               <button
                 onClick={() => setImageUrl('')}
                 className="p-1 rounded-lg text-gray-400 hover:text-red-500"
-                title="Remover imagem"
+                title={vt.removeImageTitle}
               >
                 <X size={14} />
               </button>
             </>
           ) : (
             <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs font-bold px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-purple-400">
-              {imageUploading ? <Loader2 size={14} className="animate-spin" /> : <ImageIcon size={14} />}
-              Enviar imagem
-              <input type="file" accept="image/*" className="hidden" onChange={(e) => uploadImage(e.target.files?.[0])} />
+              {imageUploading ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <ImageIcon size={14} />
+              )}
+              {vt.uploadImageLabel}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => uploadImage(e.target.files?.[0])}
+              />
             </label>
           )}
         </div>
@@ -376,7 +395,7 @@ export function VideoIATab({
         {!imageUrl && initialImages.length > 0 && (
           <div className="space-y-1">
             <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">
-              Ou use uma imagem gerada (Imagem IA):
+              {vt.orUseGeneratedImageLabel}
             </span>
             <div className="flex flex-wrap gap-2">
               {initialImages.map((u) => (
@@ -384,7 +403,7 @@ export function VideoIATab({
                   key={u}
                   onClick={() => setImageUrl(u)}
                   className="rounded-lg overflow-hidden ring-1 ring-gray-200 dark:ring-gray-700 hover:ring-purple-500"
-                  title="Usar como imagem inicial"
+                  title={vt.useAsInitialImageTitle}
                 >
                   <img src={u} alt="gerada" className="h-14 w-14 object-cover" />
                 </button>
@@ -397,7 +416,7 @@ export function VideoIATab({
       {/* Passo 3 — duração + formato */}
       <div className={box + ' flex flex-wrap items-center gap-6'}>
         <div>
-          <span className={stepLabel}>3 · Duração exata</span>
+          <span className={stepLabel}>{vt.step3Label}</span>
           <div className="mt-1 flex items-center gap-2">
             <input
               type="number"
@@ -410,18 +429,20 @@ export function VideoIATab({
               }}
               className="w-20 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100 text-sm font-black"
             />
-            <span className="text-xs text-gray-500 dark:text-gray-400">segundos (3–15)</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400">{vt.secondsRangeLabel}</span>
           </div>
         </div>
         <div>
-          <span className={stepLabel}>Formato</span>
+          <span className={stepLabel}>{vt.formatLabel}</span>
           <div className="mt-1 flex gap-1">
             {ASPECTS.map((a) => (
               <button
                 key={a}
                 onClick={() => setAspectRatio(a)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-black ${
-                  aspectRatio === a ? 'bg-purple-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'
+                  aspectRatio === a
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'
                 }`}
               >
                 {a}
@@ -438,29 +459,34 @@ export function VideoIATab({
         className="w-full py-3.5 bg-purple-600 text-white rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-purple-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
       >
         {generating ? (
-          <><Loader2 size={16} className="animate-spin" /> Gerando… (~1-3 min)</>
+          <>
+            <Loader2 size={16} className="animate-spin" /> {vt.generatingButton}
+          </>
         ) : (
-          <><Sparkles size={16} /> Gerar clipe · ≈ ${(durationSec * 0.28).toFixed(2)} · ~1-3 min</>
+          <>
+            <Sparkles size={16} /> {vt.generateButton((durationSec * 0.28).toFixed(2))}
+          </>
         )}
       </button>
       <p className="text-[10px] text-gray-400 text-center -mt-2">
-        Custo estimado do Kling ≈ ${(durationSec * 0.28).toFixed(2)} ({durationSec}s). É estimativa —
-        o valor real sai do teu saldo do fal.
+        {vt.estimatedCostFootnote((durationSec * 0.28).toFixed(2), durationSec)}
       </p>
 
       {/* Resultados */}
       {results.length > 0 && (
         <div className="space-y-3">
           <span className="text-[11px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">
-            Clipes gerados
+            {vt.clipsGeneratedLabel}
           </span>
           {results.map((res, idx) => (
             <div key={res.at} className={box + ' space-y-2'}>
               <video src={res.url} controls className="w-full max-h-[360px] rounded-xl bg-black" />
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                  {res.synced ? '🗣 Com voz sincronizada' : 'Kling 3.0 · mudo'}
-                  {res.prompt ? ` · "${res.prompt.slice(0, 40)}${res.prompt.length > 40 ? '…' : ''}"` : ''}
+                  {res.synced ? vt.syncedVoiceLabel : vt.klingMuteLabel}
+                  {res.prompt
+                    ? ` · "${res.prompt.slice(0, 40)}${res.prompt.length > 40 ? '…' : ''}"`
+                    : ''}
                 </span>
                 <div className="flex items-center gap-2">
                   {!res.synced && (
@@ -468,12 +494,12 @@ export function VideoIATab({
                       onClick={() => setSyncIdx(syncIdx === idx ? null : idx)}
                       className="inline-flex items-center gap-1.5 text-xs font-black px-3 py-2 rounded-xl border border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/40"
                     >
-                      <Music size={13} /> Sincronizar voz
+                      <Music size={13} /> {vt.syncVoiceButton}
                     </button>
                   )}
                   {res.sent ? (
                     <span className="inline-flex items-center gap-1 text-[11px] font-black text-green-600 dark:text-green-400">
-                      <Check size={13} /> na Montagem
+                      <Check size={13} /> {vt.inMontagemLabel}
                     </span>
                   ) : (
                     <button
@@ -481,7 +507,9 @@ export function VideoIATab({
                       className="inline-flex items-center gap-1.5 text-xs font-black px-3 py-2 rounded-xl bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 hover:opacity-90"
                     >
                       <Film size={13} />{' '}
-                      {res.placeAt != null ? `Colocar em ${res.placeAt.toFixed(0)}s` : 'Pra Montagem'}
+                      {res.placeAt != null
+                        ? vt.placeAtButton(res.placeAt.toFixed(0))
+                        : vt.toMontagemButton}
                     </button>
                   )}
                 </div>
@@ -491,7 +519,7 @@ export function VideoIATab({
               {syncIdx === idx && (
                 <div className="pt-2 border-t border-gray-200 dark:border-gray-800 space-y-2">
                   <span className="text-[11px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">
-                    Escolha a voz pra sincronizar
+                    {vt.chooseSyncVoiceLabel}
                   </span>
                   {audios.length > 0 && (
                     <div className="flex flex-wrap gap-1.5">
@@ -514,7 +542,7 @@ export function VideoIATab({
                       ) : (
                         <Music size={12} />
                       )}
-                      ou enviar áudio
+                      {vt.orUploadAudioLabel}
                       <input
                         type="file"
                         accept="audio/*"
@@ -523,12 +551,14 @@ export function VideoIATab({
                         onChange={(e) => uploadAudioAndSync(e.target.files?.[0], res.url)}
                       />
                     </label>
-                    {syncing && <span className="text-[11px] text-gray-400">sincronizando…</span>}
+                    {syncing && (
+                      <span className="text-[11px] text-gray-400">{vt.syncingLabel}</span>
+                    )}
                   </div>
                   {audios.length > 0 && (
                     <div className="pt-2 border-t border-dashed border-gray-200 dark:border-gray-800 space-y-1.5">
                       <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">
-                        ✂️ Ou recorte um trecho (pro meio / fim do vídeo)
+                        {vt.trimSectionLabel}
                       </span>
                       <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-600 dark:text-gray-300">
                         <select
@@ -542,7 +572,7 @@ export function VideoIATab({
                             </option>
                           ))}
                         </select>
-                        de
+                        {vt.fromLabel}
                         <input
                           type="number"
                           min={0}
@@ -550,7 +580,7 @@ export function VideoIATab({
                           onChange={(e) => setTrimStart(Math.max(0, Number(e.target.value) || 0))}
                           className="w-16 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100"
                         />
-                        a
+                        {vt.toLabel}
                         <input
                           type="number"
                           min={0}
@@ -558,25 +588,24 @@ export function VideoIATab({
                           onChange={(e) => setTrimEnd(Math.max(0, Number(e.target.value) || 0))}
                           className="w-16 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100"
                         />
-                        s
+                        {vt.secondsLabel}
                         <button
                           onClick={() => trimAndSync(res.url)}
                           disabled={syncing || !(trimEnd > trimStart)}
                           className="text-[11px] font-black px-2.5 py-1 rounded-lg bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50"
                         >
-                          Recortar e sincronizar
-                          {trimEnd > trimStart ? ` · ≈ $${((trimEnd - trimStart) * 0.05).toFixed(2)}` : ''}
+                          {vt.trimAndSyncButton}
+                          {trimEnd > trimStart
+                            ? vt.trimCostSuffix(((trimEnd - trimStart) * 0.05).toFixed(2))
+                            : ''}
                         </button>
                       </div>
-                      <p className="text-[10px] text-gray-400">
-                        Pega o segundo na Montagem (o playhead mostra o tempo). Ex.: clipe do meio →
-                        de 35 a 43.
-                      </p>
+                      <p className="text-[10px] text-gray-400">{vt.trimHint}</p>
                     </div>
                   )}
                   {audios.length === 0 && (
                     <p className="text-[11px] text-gray-400">
-                      Gere a voz do gancho/corpo na aba <b>Voz</b> primeiro pra ela aparecer aqui.
+                      {vt.noAudiosPart1} <b>{vt.noAudiosBold}</b> {vt.noAudiosPart2}
                     </p>
                   )}
                 </div>
@@ -588,7 +617,7 @@ export function VideoIATab({
               onClick={onGoToMontagem}
               className="w-full py-3 bg-gray-900 dark:bg-gray-50 text-white dark:text-gray-900 rounded-2xl font-black uppercase tracking-widest text-sm hover:opacity-90 flex items-center justify-center gap-2"
             >
-              Ir pra Montagem <ArrowRight size={16} />
+              {vt.goToMontagemButton} <ArrowRight size={16} />
             </button>
           )}
         </div>
