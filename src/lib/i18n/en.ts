@@ -1830,4 +1830,103 @@ export const en: typeof pt = {
       removedFromList: 'Removed from the list. Save the project to confirm.',
     },
   },
+  performanceTab: {
+    toasts: {
+      csvNoRowsRecognized:
+        "No rows recognized in the CSV. Check that it's the report exported from Ads Manager.",
+      reportImported: (matched: number, total: number) =>
+        `Report imported — ${matched}/${total} creative(s) matched by name.`,
+      unmatchedColumns: (fields: string) => ` Columns not found: ${fields}.`,
+      csvReadFailed: 'Failed to read the CSV.',
+      loginToSaveLibrary: 'Log in to save to the library.',
+      noApprovedCopy: "This subproject doesn't have approved copy to save.",
+      savedToLibrary: 'Saved to the library — becomes a reference for future copy in this niche.',
+      saveToLibraryFailed: 'Failed to save to the library.',
+      loadCreativesFailed: 'Failed to load the creatives.',
+    },
+    libraryWhyItWorks: (roas: string, ctr: string, cpa: string, date: string) =>
+      `Real winner: ROAS ${roas}x · CTR ${ctr}% · CPA US$ ${cpa} — imported ${date}`,
+    noProjectOpenMessage: 'Open a project to see creative performance.',
+    headerTitle: 'Performance',
+    subtitlePart1: 'Closes the',
+    subtitleBold: 'generated → ran → what sold',
+    subtitlePart2:
+      'loop: import the Ads Manager CSV report and each creative shows spend, CTR, CPA, ROAS, and real purchases — so you can scale what performs.',
+    connectionBanner: {
+      title: 'Meta Ads not connected (on purpose)',
+      bodySuffix:
+        "The structure is ready — when it's safe, the connection turns on here and the columns below fill in on their own.",
+      connectButtonTitle:
+        'Disabled for now — Meta accounts getting suspended when linked to Claude',
+      connectButtonLabel: 'Connect Meta Ads (disabled)',
+      orLabel: 'or',
+      importButtonTitle:
+        'Export the CSV report in Ads Manager (Reports → Export) and import it here — no account connection needed',
+      importingLabel: 'Importing…',
+      importButtonLabel: 'Import Meta Ads CSV report',
+      lastImportLabel: 'Last import:',
+    },
+    fatigueSection: {
+      countLabel: (n: number) => `${n} creative${n === 1 ? '' : 's'} showing fatigue`,
+      description:
+        'High frequency (audience has already seen it too much) or CTR dropping ≥25% since the last import — consider generating a new variation (Creatives tab → A/B variations).',
+    },
+    roiSection: {
+      title: 'ROI Estimate (projection)',
+      noConfigPart1: 'Set up the',
+      planBold: 'monthly plan',
+      noConfigPart2:
+        '(product price, target CPA, and daily budget) in the Plan tab to see the ROI projection here.',
+      metrics: {
+        mediaSpend: 'Media spend (month)',
+        mediaSpendSub: 'budget × 30 days',
+        creationCost: 'Creation cost (month)',
+        creationCostSub: 'generating the creatives',
+        projectedRevenue: 'Projected revenue',
+        projectedRevenueSub: (n: string) => `${n} sales × price`,
+        projectedRoas: 'Projected ROAS',
+        profitSub: (v: string) => `profit US$ ${v}`,
+        lossSub: (v: string) => `loss US$ ${v}`,
+      },
+      footnote: {
+        part1: (cpa: string) => `Projection assuming you hit the target CPA (US$ ${cpa}) —`,
+        notRealBold: 'not real data',
+        part2: '. The',
+        mediaDominatesBold: 'media spend dominates',
+        part3:
+          'the cost (running the ad costs far more than creating it); creation is a fraction. Real numbers show up once Meta Ads is connected.',
+      },
+    },
+    emptyState:
+      'No creatives ready yet. Generate assemblies/edits and they show up here for measurement.',
+    table: {
+      creative: 'Creative',
+      spend: 'Spend',
+      impressions: 'Impr.',
+      frequency: 'Freq.',
+      ctr: 'CTR',
+      cpa: 'CPA',
+      roas: 'ROAS',
+      purchases: 'Purchases',
+      winner: 'Winner',
+    },
+    fatigueBadge: 'fatigue',
+    fatigueHighFrequency: 'Frequency > 3',
+    fatigueCtrDropped: (pct: string) => `CTR dropped ${pct}%`,
+    winnerBadge: 'winner',
+    winnerBadgeTitle: (threshold: number) => `ROAS ≥ ${threshold}x`,
+    savedLabel: 'saved',
+    saveButtonLabel: 'save',
+    saveButtonTitleWinner: 'Recommended — high ROAS. Saves the script/angle to the library.',
+    saveButtonTitleDefault:
+      'Saves the script/angle to the library — becomes a reference for future copy',
+    sourceLabels: {
+      edicao: 'Editing',
+      edicaoVsl: 'VSL Editing',
+      gancho: 'Hook',
+      montagem: 'Assembly',
+      avatar: 'Avatar',
+    },
+    noNameFallback: 'Unnamed',
+  },
 };

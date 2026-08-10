@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Skeleton } from '@/components/Skeleton';
 import type { MonthlyPlanConfig } from '@/types/project';
+import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 // Vencedor = ROAS real >= esse limiar (padrão de mercado pra "lucrativo").
 const WINNER_ROAS_THRESHOLD = 2;
@@ -76,6 +77,9 @@ function saveImportHistory(projectId: string, history: ImportSnapshot[]) {
 }
 
 export function PerformanceTab({ projectId, projectName, plan, uid }: Props) {
+  const { t, language } = useLanguage();
+  const pft = t.performanceTab;
+  const locale = language === 'en' ? 'en-US' : 'pt-BR';
   const conn = getMetaConnection();
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
@@ -104,9 +108,7 @@ export function PerformanceTab({ projectId, projectName, plan, uid }: Props) {
       const text = await file.text();
       const { metrics, unmatchedFields } = parseMetaCsvReport(text);
       if (metrics.length === 0) {
-        toast.error(
-          'Nenhuma linha reconhecida no CSV. Confira se é o relatório exportado do Ads Manager.'
-        );
+        toast.error(pft.toasts.csvNoRowsRecognized);
         return;
       }
       const snapshot: ImportSnapshot = { importedAt: new Date().toISOString(), metrics };
@@ -118,13 +120,13 @@ export function PerformanceTab({ projectId, projectName, plan, uid }: Props) {
       }
       const matchedCount = rows.filter((r) => matchMetricsToName(r.name, metrics)).length;
       toast.success(
-        `Relatório importado — ${matchedCount}/${rows.length} criativo(s) casados por nome.` +
+        pft.toasts.reportImported(matchedCount, rows.length) +
           (unmatchedFields.length > 0
-            ? ` Colunas não encontradas: ${unmatchedFields.join(', ')}.`
+            ? pft.toasts.unmatchedColumns(unmatchedFields.join(', '))
             : '')
       );
     } catch (e: any) {
-      toast.error(e?.message || 'Falha ao ler o CSV.');
+      toast.error(e?.message || pft.toasts.csvReadFailed);
     } finally {
       setImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -165,11 +167,11 @@ export function PerformanceTab({ projectId, projectName, plan, uid }: Props) {
   // automaticamente como exemplo pra próximas copies do mesmo nicho.
   const handleSaveWinner = async (row: (typeof rowsWithMetrics)[number]) => {
     if (!uid) {
-      toast.error('Faça login pra salvar na biblioteca.');
+      toast.error(pft.toasts.loginToSaveLibrary);
       return;
     }
     if (!row.libraryInput.script) {
-      toast.error('Este subprojeto não tem copy aprovada pra salvar.');
+      toast.error(pft.toasts.noApprovedCopy);
       return;
     }
     setSavingToLibrary(row.creativeId);
@@ -180,14 +182,19 @@ export function PerformanceTab({ projectId, projectName, plan, uid }: Props) {
         angle: row.libraryInput.angle || row.name,
         language: row.libraryInput.language,
         script: row.libraryInput.script,
-        whyItWorks: `Vencedor real: ROAS ${row.metrics!.roas.toFixed(1)}x · CTR ${row.metrics!.ctr.toFixed(1)}% · CPA US$ ${row.metrics!.cpa.toFixed(2)} — importado ${new Date().toLocaleDateString('pt-BR')}`,
+        whyItWorks: pft.libraryWhyItWorks(
+          row.metrics!.roas.toFixed(1),
+          row.metrics!.ctr.toFixed(1),
+          row.metrics!.cpa.toFixed(2),
+          new Date().toLocaleDateString(locale)
+        ),
         starred: true,
         source: 'auto-from-generated',
       });
       setSavedToLibrary((prev) => new Set(prev).add(row.creativeId));
-      toast.success('Salvo na biblioteca — vira referência nas próximas copies desse nicho.');
+      toast.success(pft.toasts.savedToLibrary);
     } catch (e: any) {
-      toast.error(e?.message || 'Falha ao salvar na biblioteca.');
+      toast.error(e?.message || pft.toasts.saveToLibraryFailed);
     } finally {
       setSavingToLibrary(null);
     }
@@ -215,7 +222,7 @@ export function PerformanceTab({ projectId, projectName, plan, uid }: Props) {
         let cost = 0;
         for (const v of variants) {
           const cfg = (v.config || {}) as any;
-          const name = v.name || 'Sem nome';
+          const name = v.name || pft.noNameFallback;
           const copyAny = cfg?.copy || {};
           const activeBrief = Array.isArray(copyAny?.creativeBriefs)
             ? copyAny.creativeBriefs.find((b: any) => b.id === copyAny.activeBriefId)
@@ -231,16 +238,18 @@ export function PerformanceTab({ projectId, projectName, plan, uid }: Props) {
               copyAny?.finalScript || copyAny?.optimizedScript || copyAny?.generatedScript || '',
           };
           const edit = cfg?.edit || {};
-          (edit.zapVersions || []).forEach((u: string) => push(u, name, 'Edição', libraryInput));
+          (edit.zapVersions || []).forEach((u: string) =>
+            push(u, name, pft.sourceLabels.edicao, libraryInput)
+          );
           (edit.zapVslVersions || []).forEach((u: string) =>
-            push(u, name, 'Edição VSL', libraryInput)
+            push(u, name, pft.sourceLabels.edicaoVsl, libraryInput)
           );
           (edit.zapHookVersions || []).forEach((u: string) =>
-            push(u, name, 'Gancho', libraryInput)
+            push(u, name, pft.sourceLabels.gancho, libraryInput)
           );
           if (cfg?.montagem?.resultUrl)
-            push(cfg.montagem.resultUrl, name, 'Montagem', libraryInput);
-          if (cfg?.videoUrl) push(cfg.videoUrl, name, 'Avatar', libraryInput);
+            push(cfg.montagem.resultUrl, name, pft.sourceLabels.montagem, libraryInput);
+          if (cfg?.videoUrl) push(cfg.videoUrl, name, pft.sourceLabels.avatar, libraryInput);
           for (const c of (cfg?.costs as any[]) || []) {
             if ((Number(c.at) || 0) >= monthStart) cost += Number(c.amount) || 0;
           }
@@ -250,12 +259,12 @@ export function PerformanceTab({ projectId, projectName, plan, uid }: Props) {
         setRows(out);
         setCreationCostMonth(cost);
       } catch (e: any) {
-        toast.error(e?.message || 'Falha ao carregar os criativos.');
+        toast.error(e?.message || pft.toasts.loadCreativesFailed);
       } finally {
         setLoading(false);
       }
     })();
-  }, [projectId]);
+  }, [projectId, pft]);
 
   // ESTIMATIVA de ROI (projeção) — cruza o CPA-alvo e o preço do plano com o
   // GASTO DE MÍDIA (o custo real dominante: rodar o anúncio custa MUITO mais que
@@ -275,7 +284,7 @@ export function PerformanceTab({ projectId, projectName, plan, uid }: Props) {
   if (!projectId) {
     return (
       <div className="max-w-3xl mx-auto p-8 text-center text-gray-500">
-        Abra um projeto pra ver a performance dos criativos.
+        {pft.noProjectOpenMessage}
       </div>
     );
   }
@@ -289,43 +298,44 @@ export function PerformanceTab({ projectId, projectName, plan, uid }: Props) {
       <div className="flex items-center gap-2">
         <BarChart3 size={20} className="text-blue-700 dark:text-blue-400" />
         <h2 className="text-lg font-black text-gray-900 dark:text-gray-100">
-          Performance {projectName ? `· ${projectName}` : ''}
+          {pft.headerTitle} {projectName ? `· ${projectName}` : ''}
         </h2>
       </div>
       <p className="text-sm text-gray-500 dark:text-gray-400 -mt-2">
-        Fecha o ciclo <b>gerou → rodou → o que vendeu</b>: importe o relatório CSV do Ads Manager e
-        cada criativo mostra gasto, CTR, CPA, ROAS e compras reais — pra você escalar o que
-        performa.
+        {pft.subtitlePart1} <b>{pft.subtitleBold}</b>
+        {pft.subtitlePart2}
       </p>
 
       {/* Banner de conexão — DESLIGADO de propósito */}
       <div className="p-4 rounded-2xl ring-1 ring-amber-200 dark:ring-amber-900 bg-amber-50/60 dark:bg-amber-950/20 space-y-2">
         <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300">
           <ShieldAlert size={18} />
-          <span className="font-black text-sm">Meta Ads não conectado (de propósito)</span>
+          <span className="font-black text-sm">{pft.connectionBanner.title}</span>
         </div>
         <p className="text-xs text-amber-800/80 dark:text-amber-300/80">
-          {conn.reason} A estrutura está pronta — quando for seguro, a conexão liga aqui e as
-          colunas abaixo se preenchem sozinhas.
+          {conn.reason} {pft.connectionBanner.bodySuffix}
         </p>
         <div className="flex items-center gap-2 flex-wrap">
           <button
             disabled
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-200 dark:bg-gray-800 text-gray-400 text-xs font-black cursor-not-allowed"
-            title="Desativado por ora — contas do Meta caindo ao linkar com o Claude"
+            title={pft.connectionBanner.connectButtonTitle}
           >
-            <Link2Off size={14} /> Conectar Meta Ads (desativado)
+            <Link2Off size={14} /> {pft.connectionBanner.connectButtonLabel}
           </button>
           <span className="text-[10px] font-black uppercase tracking-widest text-amber-700/60 dark:text-amber-400/60">
-            ou
+            {pft.connectionBanner.orLabel}
           </span>
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={importing}
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-600 text-white text-xs font-black hover:bg-amber-700 disabled:opacity-60"
-            title="Exporte o relatório CSV no Ads Manager (Relatórios → Exportar) e importe aqui — sem conectar a conta"
+            title={pft.connectionBanner.importButtonTitle}
           >
-            <Upload size={14} /> {importing ? 'Importando…' : 'Importar relatório CSV do Meta Ads'}
+            <Upload size={14} />{' '}
+            {importing
+              ? pft.connectionBanner.importingLabel
+              : pft.connectionBanner.importButtonLabel}
           </button>
           <input
             ref={fileInputRef}
@@ -339,8 +349,8 @@ export function PerformanceTab({ projectId, projectName, plan, uid }: Props) {
           />
           {latestSnapshot && (
             <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 dark:text-amber-400">
-              <Clock size={11} /> Última importação:{' '}
-              {new Date(latestSnapshot.importedAt).toLocaleString('pt-BR')}
+              <Clock size={11} /> {pft.connectionBanner.lastImportLabel}{' '}
+              {new Date(latestSnapshot.importedAt).toLocaleString(locale)}
             </span>
           )}
         </div>
@@ -354,12 +364,11 @@ export function PerformanceTab({ projectId, projectName, plan, uid }: Props) {
           <div className="flex items-center gap-2 text-red-800 dark:text-red-300">
             <Flame size={18} />
             <span className="font-black text-sm">
-              {fatigueCount} criativo{fatigueCount === 1 ? '' : 's'} com sinal de fadiga
+              {pft.fatigueSection.countLabel(fatigueCount)}
             </span>
           </div>
           <p className="text-xs text-red-800/80 dark:text-red-300/80">
-            Frequência alta (público já viu demais) ou CTR caindo ≥25% desde a última importação —
-            considere gerar uma variação nova (aba Criativos → variações A/B).
+            {pft.fatigueSection.description}
           </p>
         </div>
       )}
@@ -368,30 +377,38 @@ export function PerformanceTab({ projectId, projectName, plan, uid }: Props) {
       <div className="p-4 rounded-2xl ring-1 ring-indigo-200 dark:ring-indigo-900 bg-indigo-50/50 dark:bg-indigo-950/20 space-y-3">
         <div className="flex items-center gap-2 text-indigo-800 dark:text-indigo-300">
           <TrendingUp size={18} />
-          <span className="font-black text-sm">Estimativa de ROI (projeção)</span>
+          <span className="font-black text-sm">{pft.roiSection.title}</span>
         </div>
         {!roi ? (
           <p className="text-xs text-indigo-800/80 dark:text-indigo-300/80">
-            Configure o <b>plano mensal</b> (preço do produto, CPA-alvo e orçamento diário) na aba
-            Plano pra ver a projeção de ROI aqui.
+            {pft.roiSection.noConfigPart1} <b>{pft.roiSection.planBold}</b>{' '}
+            {pft.roiSection.noConfigPart2}
           </p>
         ) : (
           <>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
-                ['Gasto de mídia (mês)', `US$ ${roi.mediaSpend.toFixed(0)}`, 'orçamento × 30 dias'],
-                ['Custo de criação (mês)', `US$ ${roi.creation.toFixed(2)}`, 'gerar os criativos'],
                 [
-                  'Receita projetada',
-                  `US$ ${roi.revenue.toFixed(0)}`,
-                  `${roi.purchases.toFixed(0)} vendas × preço`,
+                  pft.roiSection.metrics.mediaSpend,
+                  `US$ ${roi.mediaSpend.toFixed(0)}`,
+                  pft.roiSection.metrics.mediaSpendSub,
                 ],
                 [
-                  'ROAS projetado',
+                  pft.roiSection.metrics.creationCost,
+                  `US$ ${roi.creation.toFixed(2)}`,
+                  pft.roiSection.metrics.creationCostSub,
+                ],
+                [
+                  pft.roiSection.metrics.projectedRevenue,
+                  `US$ ${roi.revenue.toFixed(0)}`,
+                  pft.roiSection.metrics.projectedRevenueSub(roi.purchases.toFixed(0)),
+                ],
+                [
+                  pft.roiSection.metrics.projectedRoas,
                   `${roi.roas.toFixed(2)}x`,
                   roi.profit >= 0
-                    ? `lucro US$ ${roi.profit.toFixed(0)}`
-                    : `perda US$ ${Math.abs(roi.profit).toFixed(0)}`,
+                    ? pft.roiSection.metrics.profitSub(roi.profit.toFixed(0))
+                    : pft.roiSection.metrics.lossSub(Math.abs(roi.profit).toFixed(0)),
                 ],
               ].map(([label, val, sub]) => (
                 <div key={label} className="rounded-xl bg-white/70 dark:bg-gray-900/40 p-2.5">
@@ -406,10 +423,10 @@ export function PerformanceTab({ projectId, projectName, plan, uid }: Props) {
               ))}
             </div>
             <p className="text-[10px] text-indigo-700/70 dark:text-indigo-400/70">
-              Projeção assumindo que você bate o CPA-alvo (US$ {plan!.idealCPA}) —{' '}
-              <b>não é dado real</b>. O <b>gasto de mídia domina</b> o custo (rodar o anúncio custa
-              muito mais que criá-lo); a criação é uma fração. Os números reais aparecem quando o
-              Meta Ads for conectado.
+              {pft.roiSection.footnote.part1(String(plan!.idealCPA))}{' '}
+              <b>{pft.roiSection.footnote.notRealBold}</b>
+              {pft.roiSection.footnote.part2} <b>{pft.roiSection.footnote.mediaDominatesBold}</b>{' '}
+              {pft.roiSection.footnote.part3}
             </p>
           </>
         )}
@@ -422,25 +439,23 @@ export function PerformanceTab({ projectId, projectName, plan, uid }: Props) {
           ))}
         </div>
       ) : rows.length === 0 ? (
-        <div className="p-10 text-center text-gray-400 text-sm">
-          Nenhum criativo pronto ainda. Gere montagens/edições e eles aparecem aqui pra medição.
-        </div>
+        <div className="p-10 text-center text-gray-400 text-sm">{pft.emptyState}</div>
       ) : (
         <div className="overflow-x-auto rounded-2xl ring-1 ring-gray-200 dark:ring-gray-800">
           <table className="w-full text-xs">
             <thead className="bg-gray-50 dark:bg-gray-900/60">
               <tr>
                 <th className="px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest text-gray-500">
-                  Criativo
+                  {pft.table.creative}
                 </th>
-                <th className={head}>Gasto</th>
-                <th className={head}>Impr.</th>
-                <th className={head}>Freq.</th>
-                <th className={head}>CTR</th>
-                <th className={head}>CPA</th>
-                <th className={head}>ROAS</th>
-                <th className={head}>Compras</th>
-                <th className={head}>Vencedor</th>
+                <th className={head}>{pft.table.spend}</th>
+                <th className={head}>{pft.table.impressions}</th>
+                <th className={head}>{pft.table.frequency}</th>
+                <th className={head}>{pft.table.ctr}</th>
+                <th className={head}>{pft.table.cpa}</th>
+                <th className={head}>{pft.table.roas}</th>
+                <th className={head}>{pft.table.purchases}</th>
+                <th className={head}>{pft.table.winner}</th>
               </tr>
             </thead>
             <tbody>
@@ -455,23 +470,23 @@ export function PerformanceTab({ projectId, projectName, plan, uid }: Props) {
                       <span
                         className="inline-flex items-center gap-0.5 ml-1.5 px-1.5 py-0.5 rounded-md bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300 text-[9px] font-black uppercase"
                         title={[
-                          r.fatigue.highFrequency ? 'Frequência > 3' : null,
+                          r.fatigue.highFrequency ? pft.fatigueHighFrequency : null,
                           r.fatigue.decliningCtr
-                            ? `CTR caiu ${r.fatigue.ctrDropPct.toFixed(0)}%`
+                            ? pft.fatigueCtrDropped(r.fatigue.ctrDropPct.toFixed(0))
                             : null,
                         ]
                           .filter(Boolean)
                           .join(' · ')}
                       >
-                        <Flame size={9} /> fadiga
+                        <Flame size={9} /> {pft.fatigueBadge}
                       </span>
                     )}
                     {r.isWinner && (
                       <span
                         className="inline-flex items-center gap-0.5 ml-1.5 px-1.5 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-[9px] font-black uppercase"
-                        title={`ROAS ≥ ${WINNER_ROAS_THRESHOLD}x`}
+                        title={pft.winnerBadgeTitle(WINNER_ROAS_THRESHOLD)}
                       >
-                        <Trophy size={9} /> vencedor
+                        <Trophy size={9} /> {pft.winnerBadge}
                       </span>
                     )}
                   </td>
@@ -487,7 +502,7 @@ export function PerformanceTab({ projectId, projectName, plan, uid }: Props) {
                   <td className={col}>
                     {savedToLibrary.has(r.creativeId) ? (
                       <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-black">
-                        <Check size={12} /> salvo
+                        <Check size={12} /> {pft.savedLabel}
                       </span>
                     ) : (
                       <button
@@ -498,18 +513,14 @@ export function PerformanceTab({ projectId, projectName, plan, uid }: Props) {
                             ? 'bg-emerald-600 text-white hover:bg-emerald-700'
                             : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
                         }`}
-                        title={
-                          r.isWinner
-                            ? 'Recomendado — ROAS alto. Salva o script/ângulo na biblioteca.'
-                            : 'Salva o script/ângulo na biblioteca — vira referência em copies futuras'
-                        }
+                        title={r.isWinner ? pft.saveButtonTitleWinner : pft.saveButtonTitleDefault}
                       >
                         {savingToLibrary === r.creativeId ? (
                           <Loader2 size={11} className="animate-spin" />
                         ) : (
                           <Trophy size={11} />
                         )}
-                        salvar
+                        {pft.saveButtonLabel}
                       </button>
                     )}
                   </td>
