@@ -53,6 +53,7 @@ import {
 import { AvatarPreviewModal } from '@/components/AvatarPreviewModal';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { ElevenLabsConfigModal } from '@/components/ElevenLabsConfigModal';
+import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 interface Props {
   config: AdConfig;
@@ -190,6 +191,8 @@ export function AvatarTab({
   handleTestElevenLabsKey,
   handleUpdateElevenLabsKey,
 }: Props) {
+  const { t } = useLanguage();
+  const at = t.avatarTab;
   // Projetos antigos podem não ter config.format / config.avatar — a tela lia
   // esses campos sem guarda e quebrava inteira. Aliases seguros pro render.
   const fmtCfg = config.format || ({ aspectRatio: '9:16', duration: 10 } as any);
@@ -396,7 +399,11 @@ export function AvatarTab({
   // Fonte da galeria/histórico conforme o modo.
   const galleryVideos = isVslMode ? vslVideos : isHookMode ? hookVideos : videos || [];
   const gallerySelectedUrl = isVslMode ? vslVideoUrl : isHookMode ? hookVideoUrl : videoUrl;
-  const modeLabel = isVslMode ? '(VSL)' : isHookMode ? '(Gancho)' : '(Corpo)';
+  const modeLabel = isVslMode
+    ? at.modeLabel.vsl
+    : isHookMode
+      ? at.modeLabel.hook
+      : at.modeLabel.body;
   // Aspect REAL do vídeo em preview (o vídeo pode ser 16:9 mesmo com o config
   // em 9:16) — evita as faixas pretas por mismatch container × vídeo.
   const displayedVideoObj = galleryVideos.find((v: any) => v.url === displayedVideoUrl);
@@ -422,14 +429,12 @@ export function AvatarTab({
     <div className="max-w-[1600px] mx-auto space-y-12">
       {/* Caminho alternativo: usar os próprios vídeos (sem avatar IA) → Montagem. */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-blue-50 dark:bg-blue-950/30 border-2 border-blue-200 dark:border-blue-900 rounded-2xl p-4">
-        <p className="text-sm text-blue-900 dark:text-blue-200 font-bold">
-          Tem seus próprios vídeos? Use eles em vez do avatar IA — você sobe os trechos e monta a sequência.
-        </p>
+        <p className="text-sm text-blue-900 dark:text-blue-200 font-bold">{at.ownVideosBanner}</p>
         <button
           onClick={() => setCurrentStep('montagem')}
           className="shrink-0 px-4 py-2.5 bg-blue-700 hover:bg-blue-800 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all"
         >
-          Usar meus próprios vídeos →
+          {at.ownVideosButton}
         </button>
       </div>
 
@@ -445,7 +450,7 @@ export function AvatarTab({
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60'
             }`}
           >
-            Avatar do Corpo
+            {at.modeToggle.body}
             {(config.videos || []).length > 0 && (
               <span className="ml-2 text-[9px] opacity-70">({(config.videos || []).length})</span>
             )}
@@ -459,7 +464,7 @@ export function AvatarTab({
                   : 'text-gray-500 dark:text-gray-400 hover:bg-amber-50 dark:hover:bg-amber-950/40'
               }`}
             >
-              Avatar do Gancho
+              {at.modeToggle.hook}
               {hookVideos.length > 0 && (
                 <span className="ml-2 text-[9px] opacity-70">({hookVideos.length})</span>
               )}
@@ -474,7 +479,7 @@ export function AvatarTab({
                   : 'text-gray-500 dark:text-gray-400 hover:bg-violet-50 dark:hover:bg-violet-950/40'
               }`}
             >
-              Avatar da VSL
+              {at.modeToggle.vsl}
               {vslVideos.length > 0 && (
                 <span className="ml-2 text-[9px] opacity-70">({vslVideos.length})</span>
               )}
@@ -499,16 +504,18 @@ export function AvatarTab({
               <Volume2 size={16} />
             </div>
             <h3 className="text-sm font-black text-gray-900 dark:text-gray-50 uppercase tracking-widest">
-              Áudio Aprovado {modeLabel}
+              {at.audio.heading(modeLabel)}
             </h3>
-            <span className="ml-auto text-xs text-gray-400 dark:text-gray-500">vindo da Voz</span>
+            <span className="ml-auto text-xs text-gray-400 dark:text-gray-500">
+              {at.audio.source}
+            </span>
           </div>
           {/* Seletor do áudio VSL — finais juntados + blocos prontos. Escolha
               qualquer um (default: o final mais recente). */}
           {isVslMode && vslAudioOptions.length > 1 && (
             <div className="flex items-center gap-2 mb-2">
               <span className="text-[10px] font-black uppercase tracking-widest text-violet-600 dark:text-violet-400 shrink-0">
-                Áudio ({vslAudioOptions.length})
+                {at.audio.countLabel(vslAudioOptions.length)}
               </span>
               <select
                 value={vslAudioUrl}
@@ -516,7 +523,7 @@ export function AvatarTab({
                 className="flex-1 px-2 py-1.5 rounded-lg border border-violet-200 dark:border-violet-800 bg-white dark:bg-gray-900 text-xs dark:text-gray-100"
               >
                 {vslBlocks.length > 0 && (
-                  <optgroup label="Blocos">
+                  <optgroup label={at.audio.blocksGroup}>
                     {vslBlocks.map((o) => (
                       <option key={o.url} value={o.url}>
                         {o.label}
@@ -525,7 +532,7 @@ export function AvatarTab({
                   </optgroup>
                 )}
                 {vslFinals.length > 0 && (
-                  <optgroup label="Áudio final (juntado)">
+                  <optgroup label={at.audio.finalGroup}>
                     {[...vslFinals].reverse().map((o) => (
                       <option key={o.url} value={o.url}>
                         {o.label}
@@ -547,17 +554,17 @@ export function AvatarTab({
                 setShowDeleteModal(true);
               }}
               className="p-2 text-gray-400 dark:text-gray-500 hover:text-red-500 transition-colors rounded-xl hover:bg-red-50 dark:hover:bg-red-950/40 flex-shrink-0"
-              title="Deletar áudio"
+              title={at.audio.deleteTitle}
             >
               <Trash2 size={18} />
             </button>
           </div>
           <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-2 italic">
             {isVslMode
-              ? 'Áudio da VSL (voz longa). Para trocar, volte à aba Voz → modo VSL.'
+              ? at.audio.footnoteVsl
               : isHookMode
-                ? 'Áudio do gancho. Para trocar, volte à aba Voz e ative "Voz do Gancho".'
-                : 'Áudio do corpo. Para trocar, volte à aba Voz.'}
+                ? at.audio.footnoteHook
+                : at.audio.footnoteBody}
           </p>
         </div>
       )}
@@ -570,11 +577,7 @@ export function AvatarTab({
           }`}
         >
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            {isVslMode
-              ? '⚠ Você ainda não gerou o áudio da VSL. Vá em "Voz" → modo VSL → gerar (ou juntar os blocos).'
-              : isHookMode
-                ? '⚠ Você ainda não gerou o áudio do gancho. Vá em "Voz" → toggle "Voz do Gancho" → gerar.'
-                : '⚠ Você ainda não gerou o áudio do corpo. Vá em "Voz" → gerar.'}
+            {isVslMode ? at.audio.emptyVsl : isHookMode ? at.audio.emptyHook : at.audio.emptyBody}
           </p>
         </div>
       )}
@@ -589,12 +592,12 @@ export function AvatarTab({
             </div>
             <div className="space-y-2">
               <h3 className="text-2xl font-black text-white uppercase tracking-tight">
-                {videoOp?.displayStatus || 'Iniciando...'}
+                {videoOp?.displayStatus || at.generationStatus.starting}
               </h3>
               <p className="text-blue-200 font-medium text-sm">
                 {videoOp?.progress
-                  ? `Progresso: ${videoOp.progress}%`
-                  : 'Estamos preparando seu avatar...'}
+                  ? at.generationStatus.progress(videoOp.progress)
+                  : at.generationStatus.preparing}
               </p>
             </div>
             {videoOp?.progress !== undefined && (
@@ -620,11 +623,11 @@ export function AvatarTab({
                     lastVideoMetadata: null,
                     generationStage: 'idle',
                   }));
-                  toast.success('Geração interrompida.');
+                  toast.success(at.generationStatus.cancelledToast);
                 }}
                 className="px-6 py-3 bg-white/10 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-white/20 transition-all border border-white/10"
               >
-                Cancelar Geração
+                {at.generationStatus.cancelButton}
               </button>
             </div>
             <div className="flex flex-wrap justify-center gap-2 opacity-60">
@@ -654,9 +657,9 @@ export function AvatarTab({
       />
       <ConfirmModal
         open={showDeleteHistoryVideoModal && !!videoToDelete}
-        title="Deletar do Histórico?"
-        message="Este vídeo será removido permanentemente do seu histórico e do armazenamento."
-        confirmLabel="Deletar"
+        title={at.modals.deleteHistoryTitle}
+        message={at.modals.deleteHistoryMessage}
+        confirmLabel={at.modals.deleteLabel}
         onCancel={() => {
           setShowDeleteHistoryVideoModal(false);
           setVideoToDelete(null);
@@ -678,11 +681,10 @@ export function AvatarTab({
             </div>
             <div className="space-y-1">
               <h4 className="text-lg font-black text-amber-900 dark:text-amber-200">
-                Modo de Fallback (Diagnóstico)
+                {at.fallback.heading}
               </h4>
               <p className="text-amber-700 dark:text-amber-400 text-sm font-medium">
-                Se a geração com áudio externo falhar, use esta opção para testar com uma voz nativa
-                do HeyGen.
+                {at.fallback.description}
               </p>
             </div>
           </div>
@@ -727,20 +729,20 @@ export function AvatarTab({
                 isHookMode ? 'bg-amber-500' : 'bg-blue-600'
               }`}
             >
-              {isVslMode ? 'Vídeo da VSL' : isHookMode ? 'Vídeo do Gancho' : 'Vídeo do Corpo'}
+              {isVslMode ? at.videoBadge.vsl : isHookMode ? at.videoBadge.hook : at.videoBadge.body}
             </div>
             <div className="absolute top-6 right-6 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
                 onClick={() => handleGenerateVideo(true)}
                 className="p-3 bg-white/90 backdrop-blur-md text-gray-900 dark:text-gray-50 rounded-2xl shadow-xl hover:bg-white dark:hover:bg-gray-900/80 transition-all"
-                title="Regerar"
+                title={at.videoActions.regenerateTitle}
               >
                 <RefreshCw size={20} />
               </button>
               <button
                 onClick={() => setShowDeleteVideoModal(true)}
                 className="p-3 bg-white/90 backdrop-blur-md text-red-600 dark:text-red-400 rounded-2xl shadow-xl hover:bg-red-50 dark:hover:bg-red-950/40 transition-all"
-                title="Deletar Vídeo"
+                title={at.videoActions.deleteTitle}
               >
                 <Trash2 size={20} />
               </button>
@@ -750,9 +752,9 @@ export function AvatarTab({
           {/* Delete Video Confirmation Modal */}
           <ConfirmModal
             open={showDeleteVideoModal}
-            title="Deletar Vídeo?"
-            message="Esta ação não pode ser desfeita. O vídeo será removido do Firebase e do projeto."
-            confirmLabel="Deletar"
+            title={at.modals.deleteVideoTitle}
+            message={at.modals.deleteVideoMessage}
+            confirmLabel={at.modals.deleteLabel}
             onCancel={() => setShowDeleteVideoModal(false)}
             onConfirm={() => handleDeleteVideo()}
           />
@@ -776,20 +778,20 @@ export function AvatarTab({
               className="flex-1 px-8 py-5 bg-purple-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-purple-700 transition-all flex items-center justify-center gap-3 shadow-xl shadow-purple-100"
             >
               <Plus size={20} />
-              Gerar Outro Vídeo
+              {at.videoActions.generateAnother}
             </button>
             <button
               onClick={() => handleGenerateVideo(true)}
               className="flex-1 px-8 py-5 bg-white dark:bg-gray-900/80 border-2 border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-50 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-all flex items-center justify-center gap-3"
             >
               <RefreshCw size={20} />
-              Regerar Atual
+              {at.videoActions.regenerateCurrent}
             </button>
             <button
               onClick={() => setCurrentStep('edit-zap')}
               className="flex-1 px-8 py-5 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-blue-700 transition-all flex items-center justify-center gap-3 shadow-xl shadow-blue-100"
             >
-              Continuar para Edição
+              {at.videoActions.continueToEditing}
               <ChevronRight size={20} />
             </button>
           </div>
@@ -806,14 +808,15 @@ export function AvatarTab({
                   size={20}
                   className={isHookMode ? 'text-amber-500' : 'text-blue-600 dark:text-blue-400'}
                 />
-                Histórico de Vídeos {modeLabel}
+                {at.history.heading(modeLabel)}
               </h3>
               <p className="text-xs text-gray-400 dark:text-gray-500 font-medium">
-                Selecione o vídeo que deseja usar no projeto.
+                {at.history.description}
               </p>
             </div>
             <span className="px-3 py-1 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-full text-[10px] font-black uppercase tracking-widest">
-              {galleryVideos.length} {galleryVideos.length === 1 ? 'Vídeo' : 'Vídeos'}
+              {galleryVideos.length}{' '}
+              {galleryVideos.length === 1 ? at.history.countSingular : at.history.countPlural}
             </span>
           </div>
 
@@ -873,7 +876,7 @@ export function AvatarTab({
                       },
                     }));
                   }
-                  toast.success('Vídeo selecionado como ativo!');
+                  toast.success(at.history.selectedToast);
                 }}
                 className={cn(
                   'group relative rounded-[32px] border-2 transition-all cursor-pointer overflow-hidden flex flex-col',
@@ -938,7 +941,7 @@ export function AvatarTab({
                 <div className="p-4 flex items-center justify-between">
                   <div className="space-y-0.5">
                     <p className="text-[10px] font-black text-gray-900 dark:text-gray-50 uppercase tracking-tight">
-                      Vídeo {idx + 1}
+                      {at.history.videoLabel(idx + 1)}
                       {(video as any).blockLabel ? ` · ${(video as any).blockLabel}` : ''}
                     </p>
                     <p className="text-[8px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest">
@@ -1028,18 +1031,18 @@ export function AvatarTab({
                 ? [ethReverse[rec.avatar.ethnicity]!]
                 : [],
             }));
-            toast.success('Filtros sugeridos aplicados!');
+            toast.success(at.filtersAppliedToast);
           }}
         />
 
         <div className="flex items-center justify-between">
           <h3 className="text-2xl font-black text-gray-900 dark:text-gray-50 tracking-tight">
-            Escolher Avatar
+            {at.chooseAvatarHeading}
           </h3>
           <div className="flex items-center gap-2 px-4 py-2 bg-purple-50 dark:bg-purple-950/40 rounded-xl border border-purple-100">
             <User size={16} className="text-purple-600 dark:text-purple-400" />
             <span className="text-xs font-bold text-purple-700 dark:text-purple-300">
-              HeyGen Ativo
+              {at.heygenActiveBadge}
             </span>
           </div>
         </div>
@@ -1057,10 +1060,10 @@ export function AvatarTab({
                       ? 'bg-emerald-500 text-white border-emerald-500 shadow-md'
                       : 'bg-white dark:bg-gray-900/80 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-emerald-300 hover:text-emerald-700 dark:hover:text-emerald-400'
                   }`}
-                  title="Mostrar somente os avatares que você clonou (photo avatars)"
+                  title={at.chips.customTitle}
                 >
                   <Sparkles size={14} className={showOnlyCustom ? 'fill-current' : ''} />
-                  Meus avatares ({customCount})
+                  {at.chips.customLabel(customCount)}
                 </button>
               )}
               {favorites.favoriteCount > 0 && (
@@ -1071,10 +1074,10 @@ export function AvatarTab({
                       ? 'bg-amber-400 text-amber-950 border-amber-400 shadow-md'
                       : 'bg-white dark:bg-gray-900/80 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-amber-300 hover:text-amber-700 dark:hover:text-amber-400'
                   }`}
-                  title="Mostrar somente seus avatares favoritos"
+                  title={at.chips.favoritesTitle}
                 >
                   <Star size={14} className={showOnlyFavorites ? 'fill-current' : ''} />
-                  Favoritos ({favorites.favoriteCount})
+                  {at.chips.favoritesLabel(favorites.favoriteCount)}
                 </button>
               )}
             </div>
@@ -1087,7 +1090,7 @@ export function AvatarTab({
               />
               <input
                 type="text"
-                placeholder="Buscar avatar por nome..."
+                placeholder={at.search.placeholder}
                 value={avatarSearch || ''}
                 onChange={(e) => setAvatarSearch(e.target.value)}
                 className="w-full pl-12 pr-4 py-4 bg-gray-50 dark:bg-gray-800/60 border-2 border-transparent focus:border-blue-600 focus:bg-white dark:focus:bg-gray-900/80 rounded-2xl outline-none transition-all text-sm font-bold"
@@ -1109,9 +1112,9 @@ export function AvatarTab({
                 }
                 className="w-full pl-10 pr-4 py-4 bg-gray-50 dark:bg-gray-800/60 border-2 border-transparent focus:border-blue-600 focus:bg-white dark:focus:bg-gray-900/80 rounded-2xl outline-none transition-all text-sm font-bold text-gray-600 dark:text-gray-400 appearance-none"
               >
-                <option value="">Todos Gêneros</option>
-                <option value="male">Masculino</option>
-                <option value="female">Feminino</option>
+                <option value="">{at.search.allGenders}</option>
+                <option value="male">{at.search.male}</option>
+                <option value="female">{at.search.female}</option>
               </select>
             </div>
 
@@ -1130,9 +1133,9 @@ export function AvatarTab({
                 }
                 className="w-full pl-10 pr-4 py-4 bg-gray-50 dark:bg-gray-800/60 border-2 border-transparent focus:border-blue-600 focus:bg-white dark:focus:bg-gray-900/80 rounded-2xl outline-none transition-all text-sm font-bold text-gray-600 dark:text-gray-400 appearance-none"
               >
-                <option value="name">A a Z</option>
-                <option value="ads">Melhores para Anúncios</option>
-                <option value="natural">Mais Realistas</option>
+                <option value="name">{at.search.sortAZ}</option>
+                <option value="ads">{at.search.sortAds}</option>
+                <option value="natural">{at.search.sortNatural}</option>
               </select>
             </div>
           </div>
@@ -1142,7 +1145,7 @@ export function AvatarTab({
               {/* Style Filter */}
               <div className="space-y-3">
                 <h4 className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
-                  Estilo (Style)
+                  {at.filters.styleHeading}
                 </h4>
                 <div className="flex flex-wrap gap-2">
                   {['Professional', 'Lifestyle', 'UGC'].map((style) => (
@@ -1171,7 +1174,7 @@ export function AvatarTab({
               {/* Ethnicity Filter */}
               <div className="space-y-3">
                 <h4 className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
-                  Etnia (Ethnicity)
+                  {at.filters.ethnicityHeading}
                 </h4>
                 <div className="flex flex-wrap gap-2">
                   {['White', 'Asian', 'South Asian', 'Latino', 'Middle Eastern', 'Black'].map(
@@ -1202,7 +1205,7 @@ export function AvatarTab({
               {/* Age Filter */}
               <div className="space-y-3">
                 <h4 className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
-                  Idade (Age)
+                  {at.filters.ageHeading}
                 </h4>
                 <div className="flex flex-wrap gap-2">
                   {['Young Adult', 'Adult', 'Mature'].map((age) => (
@@ -1248,7 +1251,7 @@ export function AvatarTab({
                 className="ml-auto text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
               >
                 <RefreshCw size={12} />
-                Limpar Filtros
+                {at.filters.clearButton}
               </button>
             )}
           </div>
@@ -1258,21 +1261,21 @@ export function AvatarTab({
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
               <h4 className="font-black text-gray-900 dark:text-gray-50 uppercase tracking-tight">
-                Geração do Vídeo
+                {at.generation.heading}
               </h4>
               <span className="px-2 py-0.5 bg-purple-100 text-purple-700 dark:text-purple-300 rounded-md text-[10px] font-black uppercase tracking-widest">
                 HeyGen
               </span>
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 font-medium italic">
-              Selecione o avatar acima para iniciar a geração.
+              {at.generation.hint}
             </p>
 
             <div className="flex items-center gap-4 mt-2">
               <div className="flex-1 space-y-2">
                 <div className="flex justify-between items-center">
                   <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
-                    Escala do Avatar (Zoom)
+                    {at.generation.scaleLabel}
                   </label>
                   <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
                     {(avatarCfg.scale || 1.0).toFixed(1)}x
@@ -1296,9 +1299,9 @@ export function AvatarTab({
                   className="w-full h-2 bg-gray-100 dark:bg-gray-800 rounded-lg appearance-none cursor-pointer accent-blue-600"
                 />
                 <div className="flex justify-between text-[8px] text-gray-400 dark:text-gray-500 font-bold uppercase">
-                  <span>Afastado</span>
-                  <span>Padrão (1.0)</span>
-                  <span>Zoom</span>
+                  <span>{at.generation.scaleFar}</span>
+                  <span>{at.generation.scaleDefault}</span>
+                  <span>{at.generation.scaleZoom}</span>
                 </div>
               </div>
 
@@ -1311,11 +1314,11 @@ export function AvatarTab({
                 }`}
               >
                 <Tag size={12} />
-                Modo Teste (Clip Curto)
+                {at.generation.testModeButton}
               </button>
               {isTestMode && (
                 <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400 animate-pulse">
-                  Gera apenas 3 segundos para validação rápida
+                  {at.generation.testModeHint}
                 </span>
               )}
             </div>
@@ -1340,10 +1343,12 @@ export function AvatarTab({
                 <CheckCircle2 size={16} />
                 <div className="flex flex-col">
                   <span className="text-[10px] font-black uppercase tracking-widest">
-                    Vídeo Atualizado
+                    {at.generation.videoUpToDate}
                   </span>
                   <span className="text-[8px] font-bold opacity-70">
-                    Gerado em {new Date(config.lastVideoMetadata?.createdAt || '').toLocaleString()}
+                    {at.generation.generatedAt(
+                      new Date(config.lastVideoMetadata?.createdAt || '').toLocaleString()
+                    )}
                   </span>
                 </div>
               </div>
@@ -1358,7 +1363,7 @@ export function AvatarTab({
                 className="w-full md:w-auto px-8 py-5 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-red-100 transition-all border-2 border-red-100"
               >
                 <XCircle size={20} />
-                Cancelar Geração
+                {at.generationStatus.cancelButton}
               </button>
             )}
 
@@ -1370,7 +1375,7 @@ export function AvatarTab({
                 className="w-full md:w-auto px-8 py-5 bg-amber-500 text-white rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-amber-600 transition-all shadow-lg shadow-amber-100"
               >
                 <RefreshCw size={20} />
-                Tentar Novamente
+                {at.generation.retryButton}
               </button>
             )}
 
@@ -1379,8 +1384,8 @@ export function AvatarTab({
               disabled={
                 loading ||
                 !config.avatar.faceId ||
-                (((isVslMode ? !vslAudioUrl : isHookMode ? !hookAudioUrl : !audioUrl) &&
-                  !isTestMode)) ||
+                ((isVslMode ? !vslAudioUrl : isHookMode ? !hookAudioUrl : !audioUrl) &&
+                  !isTestMode) ||
                 (videoOp &&
                   videoOp.status !== 'completed' &&
                   videoOp.status !== 'failed' &&
@@ -1399,7 +1404,7 @@ export function AvatarTab({
               ) : (
                 <Sparkles size={20} />
               )}
-              {displayedVideoUrl ? 'Regerar Avatar' : 'Gerar Avatar'}
+              {displayedVideoUrl ? at.generation.regenerateButton : at.generation.generateButton}
             </button>
 
             {/* F9.7 — Modo Econômico: gera HeyGen só nos trechos que cliente
@@ -1409,10 +1414,10 @@ export function AvatarTab({
             <button
               onClick={() => setSegmentedModalOpen(true)}
               disabled={loading || !config.avatar.faceId || !audioUrl}
-              title="Gerar avatar APENAS nos trechos visíveis (economia ~75% pra vídeos com cortes/b-rolls)"
+              title={at.generation.economicModeTitle}
               className="w-full md:w-auto px-6 py-5 bg-gradient-to-br from-green-500 to-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 hover:from-green-600 hover:to-emerald-700 disabled:opacity-50 transition-all shadow-xl shadow-green-100"
             >
-              💰 Modo Econômico
+              {at.generation.economicModeButton}
             </button>
           </div>
         </div>
@@ -1429,7 +1434,7 @@ export function AvatarTab({
             // Por enquanto: copia URL pro slot principal de vídeo e adiciona
             // metadata mínima. Cliente vê o vídeo no preview de baixo.
             // Future: adiciona à galeria de versões com label "Segmentado".
-            toast.success(`Avatar segmentado pronto! ${totalSec.toFixed(1)}s gerados.`);
+            toast.success(at.generation.segmentedReadyToast(totalSec.toFixed(1)));
             // Setar como videoUrl atual via callback do parent. Por ora, parent
             // (App.tsx) só vê via lastVideoMetadata — vou expandir depois.
             console.log('[SegmentedAvatar] ready:', url, 'totalSec:', totalSec);
@@ -1448,7 +1453,7 @@ export function AvatarTab({
               <div className="flex-1 space-y-4">
                 <div className="flex items-center justify-between">
                   <h5 className="text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-[0.2em]">
-                    Status HeyGen
+                    {at.debug.heygenStatus}
                   </h5>
                   <div className="flex items-center gap-2">
                     <span
@@ -1471,13 +1476,13 @@ export function AvatarTab({
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
                     <p className="text-[8px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">
-                      ID do Vídeo
+                      {at.debug.videoId}
                     </p>
                     <p className="text-[10px] font-mono text-blue-400 truncate">{videoOp.id}</p>
                   </div>
                   <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
                     <p className="text-[8px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">
-                      Progresso
+                      {at.debug.progress}
                     </p>
                     <p className="text-lg font-black text-white">{videoOp.progress}%</p>
                   </div>
@@ -1488,7 +1493,7 @@ export function AvatarTab({
                     <AlertCircle size={16} className="text-red-500" />
                     <div>
                       <p className="text-[10px] font-black text-red-500 uppercase tracking-widest">
-                        Alerta de Travamento
+                        {at.debug.stuckAlert}
                       </p>
                       <p className="text-[10px] text-red-400 font-medium">{videoOp.stuckReason}</p>
                     </div>
@@ -1498,30 +1503,30 @@ export function AvatarTab({
 
               <div className="flex-1 space-y-4">
                 <h5 className="text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-[0.2em]">
-                  Métricas de Tempo
+                  {at.debug.timeMetrics}
                 </h5>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <p className="text-[8px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
-                      Fila (Queue)
+                      {at.debug.queue}
                     </p>
                     <p className="text-xl font-black text-white">{videoOp.queuedTime || 0}s</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-[8px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
-                      Renderização
+                      {at.debug.rendering}
                     </p>
                     <p className="text-xl font-black text-white">{videoOp.renderTime || 0}s</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-[8px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
-                      Total Decorrido
+                      {at.debug.totalElapsed}
                     </p>
                     <p className="text-xl font-black text-blue-400">{videoOp.totalTime || 0}s</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-[8px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
-                      Polls (Consultas)
+                      {at.debug.polls}
                     </p>
                     <p className="text-xl font-black text-gray-500 dark:text-gray-400">
                       {videoOp.pollCount || 0}
@@ -1530,7 +1535,7 @@ export function AvatarTab({
                 </div>
                 <div className="pt-2 border-t border-white/5">
                   <p className="text-[8px] font-black text-gray-600 dark:text-gray-400 uppercase tracking-widest">
-                    Iniciado às: {videoOp.requestSentTime}
+                    {at.debug.startedAt(videoOp.requestSentTime)}
                   </p>
                 </div>
               </div>
@@ -1541,14 +1546,14 @@ export function AvatarTab({
         <div className="flex items-center justify-between px-2">
           <div className="flex flex-col gap-1">
             <p className="text-sm font-bold text-gray-500 dark:text-gray-400">
-              Exibindo{' '}
+              {at.results.showingPrefix}{' '}
               <span className="text-blue-600 dark:text-blue-400">{filteredAvatars.length}</span>{' '}
-              avatares encontrados
+              {at.results.showingSuffix}
             </p>
             {isFallbackActive && (
               <p className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest animate-pulse flex items-center gap-1">
                 <AlertCircle size={10} />
-                Nenhum resultado exato. Exibindo todos para facilitar sua busca.
+                {at.results.noExactMatch}
               </p>
             )}
           </div>
@@ -1565,7 +1570,7 @@ export function AvatarTab({
             </div>
             <div className="space-y-2">
               <p className="text-red-900 dark:text-red-200 font-black text-xl">
-                Erro ao carregar avatares
+                {at.errorState.title}
               </p>
               <p className="text-red-600 dark:text-red-400 font-medium">{avatarError}</p>
             </div>
@@ -1577,7 +1582,7 @@ export function AvatarTab({
               }}
               className="px-8 py-4 bg-red-600 text-white rounded-2xl font-black hover:bg-red-700 transition-all"
             >
-              Tentar Novamente
+              {at.errorState.retryButton}
             </button>
           </div>
         ) : (
@@ -1703,7 +1708,11 @@ export function AvatarTab({
                       <div className="flex flex-wrap gap-1">
                         {age && (
                           <span className="px-2 py-0.5 bg-white/20 backdrop-blur-md text-white rounded-md text-[8px] font-black uppercase tracking-tighter">
-                            {age === 'young' ? 'Jovem' : age === 'adult' ? 'Adulto' : 'Maduro'}
+                            {age === 'young'
+                              ? at.card.ageYoung
+                              : age === 'adult'
+                                ? at.card.ageAdult
+                                : at.card.ageMature}
                           </span>
                         )}
                         {a.avatar_type && (
@@ -1747,13 +1756,13 @@ export function AvatarTab({
                     }`}
                     title={
                       favorites.isFavorite(a.avatar_id)
-                        ? 'Remover dos favoritos'
-                        : 'Adicionar aos favoritos'
+                        ? at.card.removeFavoriteTitle
+                        : at.card.addFavoriteTitle
                     }
                     aria-label={
                       favorites.isFavorite(a.avatar_id)
-                        ? 'Remover dos favoritos'
-                        : 'Adicionar aos favoritos'
+                        ? at.card.removeFavoriteTitle
+                        : at.card.addFavoriteTitle
                     }
                     aria-pressed={favorites.isFavorite(a.avatar_id)}
                   >
@@ -1770,7 +1779,7 @@ export function AvatarTab({
                   {isRecommended && config.avatar.faceId !== a.avatar_id && (
                     <div
                       className="absolute top-3 left-3 px-2 py-1 bg-purple-600 text-white rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg border-2 border-white flex items-center gap-1"
-                      title="Combina com a recomendação da IA"
+                      title={at.card.matchesRecommendationTitle}
                     >
                       ⭐ IA
                     </div>
@@ -1810,7 +1819,7 @@ export function AvatarTab({
                 ...prev,
                 avatar: { ...prev.avatar, faceId: '' },
               }));
-              toast.success('Avatar removido.');
+              toast.success(at.previewModal.removedToast);
             } else {
               setConfig((prev: any) => ({
                 ...prev,
@@ -1822,7 +1831,7 @@ export function AvatarTab({
                   faceGender: previewAvatar.gender || '',
                 },
               }));
-              toast.success(`${previewAvatar.avatar_name} selecionado!`);
+              toast.success(at.previewModal.selectedToast(previewAvatar.avatar_name));
             }
           }}
         />
@@ -1842,7 +1851,7 @@ export function AvatarTab({
                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60'
             }`}
           >
-            Avatar do Corpo
+            {at.modeToggle.body}
             {(config.videos || []).length > 0 && (
               <span className="ml-2 text-[9px] opacity-70">({(config.videos || []).length})</span>
             )}
@@ -1855,7 +1864,7 @@ export function AvatarTab({
                 : 'text-gray-500 dark:text-gray-400 hover:bg-amber-50 dark:hover:bg-amber-950/40'
             }`}
           >
-            Avatar do Gancho
+            {at.modeToggle.hook}
             {hookVideos.length > 0 && (
               <span className="ml-2 text-[9px] opacity-70">({hookVideos.length})</span>
             )}
