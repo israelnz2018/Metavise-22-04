@@ -31,6 +31,7 @@ import {
 } from '@/lib/claudeService';
 import { generateAudio } from '@/lib/vozPremiumService';
 import { unlockAchievement } from '@/lib/achievements';
+import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 // BIBLIOTECA DE CRIATIVOS: junta os vídeos PRONTOS de todos os subprojetos do
 // projeto atual num só lugar. Favoritar e marcar "publicado" (localStorage, como
@@ -88,6 +89,8 @@ function saveTags(t: Record<string, string[]>) {
 }
 
 export function CriativosTab({ projectId, projectName, uid }: Props) {
+  const { t } = useLanguage();
+  const crt = t.criativosTab;
   const [loading, setLoading] = useState(false);
   const [creatives, setCreatives] = useState<Creative[]>([]);
   // Variants crus (não só os vídeos prontos) — precisamos do config completo
@@ -124,13 +127,17 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
         aspect: string | undefined,
         riskText: string
       ) => {
+        // False positive: the rule misattributes this Set.has() read to
+        // mutating `crt` (the i18n dict from useLanguage()), which isn't
+        // touched here at all.
+        // eslint-disable-next-line react-hooks/immutability
         if (!url || seen.has(url)) return;
         seen.add(url);
         out.push({ url, variantId, variantName, source, cover, aspect, riskText });
       };
       for (const v of vs) {
         const cfg = (v.config || {}) as any;
-        const name = v.name || 'Sem nome';
+        const name = v.name || crt.noNameFallback;
         const cover = cfg?.montagem?.coverUrl || cfg?.montagem?.coverOptions?.[0];
         const aspect = cfg?.montagem?.aspect; // formato do subprojeto (proxy)
         // Junta todo texto do subprojeto que vai pro público — script final,
@@ -148,21 +155,30 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
           .join('\n');
         const edit = cfg?.edit || {};
         (edit.zapVersions || []).forEach((u: string) =>
-          push(u, v.id, name, 'Edição', cover, aspect, riskText)
+          push(u, v.id, name, crt.sourceLabels.edicao, cover, aspect, riskText)
         );
         (edit.zapVslVersions || []).forEach((u: string) =>
-          push(u, v.id, name, 'Edição VSL', cover, aspect, riskText)
+          push(u, v.id, name, crt.sourceLabels.edicaoVsl, cover, aspect, riskText)
         );
         (edit.zapHookVersions || []).forEach((u: string) =>
-          push(u, v.id, name, 'Gancho', cover, aspect, riskText)
+          push(u, v.id, name, crt.sourceLabels.gancho, cover, aspect, riskText)
         );
         if (cfg?.montagem?.resultUrl)
-          push(cfg.montagem.resultUrl, v.id, name, 'Montagem', cover, aspect, riskText);
-        if (cfg?.videoUrl) push(cfg.videoUrl, v.id, name, 'Avatar', cover, aspect, riskText);
+          push(
+            cfg.montagem.resultUrl,
+            v.id,
+            name,
+            crt.sourceLabels.montagem,
+            cover,
+            aspect,
+            riskText
+          );
+        if (cfg?.videoUrl)
+          push(cfg.videoUrl, v.id, name, crt.sourceLabels.avatar, cover, aspect, riskText);
       }
       setCreatives(out);
     } catch (e: any) {
-      toast.error(e?.message || 'Falha ao carregar os criativos.');
+      toast.error(e?.message || crt.toasts.loadCreativesFailed);
     } finally {
       setLoading(false);
     }
@@ -216,11 +232,11 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
       return next;
     });
     setPubModalUrl(null);
-    toast.success('Marcado como no ar.');
+    toast.success(crt.toasts.markedOnAir);
     void unlockAchievement(uid, 'primeiro_criativo');
   };
   const addTag = (url: string) => {
-    const raw = (window.prompt('Tag (ex.: persona, ângulo, campanha):') || '').trim();
+    const raw = (window.prompt(crt.card.addTagPrompt) || '').trim();
     if (!raw) return;
     setTags((prev) => {
       const cur = prev[url] || [];
@@ -272,7 +288,7 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
     const approvedCopy: string =
       cfg?.copy?.finalScript || cfg?.copy?.optimizedScript || cfg?.copy?.generatedScript || '';
     if (!approvedCopy) {
-      toast.error('Este subprojeto não tem copy aprovada pra gerar hooks a partir dela.');
+      toast.error(crt.toasts.noApprovedCopyForHooks);
       return;
     }
     setAbGenerating(true);
@@ -322,12 +338,12 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
         awarenessLevel: String(copyAny?.answers?.awarenessLevel || ''),
       });
       if (groups.length === 0) {
-        toast.error('A IA não conseguiu gerar hooks. Tente de novo.');
+        toast.error(crt.toasts.aiCouldNotGenerateHooks);
         return;
       }
       setAbGroups(groups);
     } catch (e: any) {
-      toast.error(e?.message || 'Erro ao gerar hooks.');
+      toast.error(e?.message || crt.toasts.errorGeneratingHooks);
     } finally {
       setAbGenerating(false);
     }
@@ -376,19 +392,17 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
         ].slice(0, 50);
         const newVariant: ProjectVariant = {
           id: `variant_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-          name: `${abSourceVariant.name || 'Criativo'} · A/B: ${hook.slice(0, 28)}${hook.length > 28 ? '…' : ''}`,
+          name: `${abSourceVariant.name || crt.variantFallbackName} · A/B: ${hook.slice(0, 28)}${hook.length > 28 ? '…' : ''}`,
           config: cloned,
           createdAt: new Date().toISOString(),
         };
         await saveVariant(projectId, newVariant);
       }
-      toast.success(
-        `${hooks.length} variante(s) A/B criada(s). Abra cada uma pra montar e testar.`
-      );
+      toast.success(crt.toasts.abVariantsCreated(hooks.length));
       setAbVariantUrl(null);
       await refresh();
     } catch (e: any) {
-      toast.error(e?.message || 'Falha ao criar as variantes.');
+      toast.error(e?.message || crt.toasts.abVariantsCreateFailed);
     } finally {
       setAbCreating(false);
     }
@@ -436,11 +450,11 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
     const hook: string = cfg?.copy?.hookSelecionado || '';
     const voiceId: string = cfg?.avatar?.voiceId || '';
     if (!approvedCopy) {
-      toast.error('Este subprojeto não tem copy aprovada pra traduzir.');
+      toast.error(crt.toasts.noApprovedCopyForTranslate);
       return;
     }
     if (!targetLang.trim()) {
-      toast.error('Escolha ou digite a língua alvo.');
+      toast.error(crt.toasts.chooseTargetLanguage);
       return;
     }
     setTranslating(true);
@@ -450,7 +464,7 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
         hook ? translateScript({ text: hook, targetLanguage: targetLang }) : Promise.resolve(''),
       ]);
       if (!script) {
-        toast.error('A tradução falhou. Tente de novo.');
+        toast.error(crt.toasts.translationFailed);
         return;
       }
       let audioUrl = '';
@@ -464,14 +478,14 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
           });
           audioUrl = audio.audioUrl;
         } catch (e: any) {
-          toast.error(`Texto traduzido, mas a dublagem falhou: ${e?.message || 'erro'}`);
+          toast.error(crt.toasts.dubbingFailedButTranslated(e?.message || 'erro'));
         }
       } else {
-        toast.error('Sem voz salva neste subprojeto — traduzi o texto, mas não gerei áudio.');
+        toast.error(crt.toasts.noSavedVoiceTranslatedOnly);
       }
       setTranslateResult({ script, hook: translatedHook, audioUrl });
     } catch (e: any) {
-      toast.error(e?.message || 'Erro ao traduzir.');
+      toast.error(e?.message || crt.toasts.translateError);
     } finally {
       setTranslating(false);
     }
@@ -515,18 +529,16 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
       };
       const newVariant: ProjectVariant = {
         id: `variant_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-        name: `${translateSourceVariant.name || 'Criativo'} · ${targetLang}`,
+        name: `${translateSourceVariant.name || crt.variantFallbackName} · ${targetLang}`,
         config: cloned,
         createdAt: new Date().toISOString(),
       };
       await saveVariant(projectId, newVariant);
-      toast.success(
-        `Subprojeto em ${targetLang} criado. Abra e use "Fatiar automático" na Montagem.`
-      );
+      toast.success(crt.toasts.translatedVariantCreated(targetLang));
       setTranslateUrl(null);
       await refresh();
     } catch (e: any) {
-      toast.error(e?.message || 'Falha ao criar o subprojeto traduzido.');
+      toast.error(e?.message || crt.toasts.translatedVariantCreateFailed);
     } finally {
       setCreatingTranslated(false);
     }
@@ -554,9 +566,9 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
   const copyText = async (text: string, label: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      toast.success(`${label} copiado!`);
+      toast.success(crt.toasts.copiedLabel(label));
     } catch {
-      toast.error('Não foi possível copiar.');
+      toast.error(crt.toasts.copyFailed);
     }
   };
 
@@ -578,7 +590,7 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
 
   const baixarSelecionados = () => {
     const urls = shown.filter((c) => selected.has(c.url));
-    if (urls.length === 0) return toast.error('Selecione pelo menos um criativo.');
+    if (urls.length === 0) return toast.error(crt.toasts.selectAtLeastOne);
     // Dispara os downloads em sequência (com folga pro navegador não bloquear).
     urls.forEach((c, i) => {
       setTimeout(() => {
@@ -592,13 +604,13 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
         a.remove();
       }, i * 400);
     });
-    toast.success(`Baixando ${urls.length} criativo(s)…`);
+    toast.success(crt.toasts.downloadingCount(urls.length));
   };
 
   if (!projectId) {
     return (
       <div className="max-w-3xl mx-auto p-8 text-center text-gray-500">
-        Abra um projeto pra ver a biblioteca de criativos.
+        {crt.header.noProjectMessage}
       </div>
     );
   }
@@ -621,25 +633,28 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
       <div className="flex items-center gap-2">
         <Film size={20} className="text-blue-700 dark:text-blue-400" />
         <h2 className="text-lg font-black text-gray-900 dark:text-gray-100">
-          Criativos {projectName ? `· ${projectName}` : ''}
+          {crt.header.titlePrefix} {projectName ? `· ${projectName}` : ''}
         </h2>
       </div>
       <p className="text-sm text-gray-500 dark:text-gray-400 -mt-2">
-        Todos os vídeos prontos dos seus subprojetos num só lugar. Favorite, marque <b>publicado</b>{' '}
-        e baixe em lote.
+        {crt.header.subtitlePart1} <b>{crt.header.publishedBold}</b> {crt.header.subtitlePart2}
       </p>
 
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-1.5 flex-wrap">
-          {chip('todos', 'Todos', creatives.length)}
-          {chip('favoritos', 'Favoritos', creatives.filter((c) => fav.has(c.url)).length)}
-          {chip('publicados', 'Publicados', creatives.filter((c) => pub.has(c.url)).length)}
+          {chip('todos', crt.filters.all, creatives.length)}
+          {chip('favoritos', crt.filters.favorites, creatives.filter((c) => fav.has(c.url)).length)}
+          {chip(
+            'publicados',
+            crt.filters.published,
+            creatives.filter((c) => pub.has(c.url)).length
+          )}
           <select
             value={fmtFilter}
             onChange={(e) => setFmtFilter(e.target.value as any)}
             className="px-2.5 py-1.5 rounded-lg text-xs font-black bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-none outline-none"
           >
-            <option value="todos">Todo formato</option>
+            <option value="todos">{crt.filters.allFormats}</option>
             <option value="9:16">9:16</option>
             <option value="1:1">1:1</option>
             <option value="16:9">16:9</option>
@@ -649,7 +664,7 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
             onChange={(e) => setSrcFilter(e.target.value)}
             className="px-2.5 py-1.5 rounded-lg text-xs font-black bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-none outline-none"
           >
-            <option value="todos">Toda fonte</option>
+            <option value="todos">{crt.filters.allSources}</option>
             {sources.map((s) => (
               <option key={s} value={s}>
                 {s}
@@ -662,7 +677,7 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
               onChange={(e) => setTagFilter(e.target.value)}
               className="px-2.5 py-1.5 rounded-lg text-xs font-black bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-none outline-none"
             >
-              <option value="todos">Toda tag</option>
+              <option value="todos">{crt.filters.allTags}</option>
               {allTags.map((t) => (
                 <option key={t} value={t}>
                   #{t}
@@ -676,7 +691,7 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
             onClick={baixarSelecionados}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs font-black"
           >
-            <Download size={14} /> Baixar selecionados ({selected.size})
+            <Download size={14} /> {crt.filters.downloadSelectedButton(selected.size)}
           </button>
         )}
       </div>
@@ -685,8 +700,11 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
         <Skeleton.GalleryGrid count={8} />
       ) : shown.length === 0 ? (
         <div className="p-10 text-center text-gray-400 text-sm">
-          Nenhum criativo {filter !== 'todos' ? `em "${filter}"` : 'pronto ainda'}. Gere uma
-          montagem ou edição e ele aparece aqui.
+          {crt.emptyState.message(
+            filter !== 'todos'
+              ? crt.emptyState.filteredSuffix(filter)
+              : crt.emptyState.defaultSuffix
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
@@ -722,13 +740,13 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
                   <button
                     onClick={() => toggleSel(c.url)}
                     className="absolute top-1 left-1 p-1 rounded-md bg-black/60 text-white hover:bg-black/80"
-                    title="Selecionar pra baixar em lote"
+                    title={crt.card.selectForBatchTitle}
                   >
                     {isSel ? <CheckSquare size={14} /> : <Square size={14} />}
                   </button>
                   {isPub && (
                     <span className="absolute top-1 right-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-green-600 text-white text-[9px] font-black uppercase">
-                      <Rocket size={9} /> no ar
+                      <Rocket size={9} /> {crt.card.onAirBadge}
                     </span>
                   )}
                 </div>
@@ -753,7 +771,7 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
                         <button
                           onClick={() => removeTag(c.url, t)}
                           className="hover:text-red-500"
-                          title="Remover tag"
+                          title={crt.card.removeTagTitle}
                         >
                           <X size={9} />
                         </button>
@@ -762,51 +780,51 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
                     <button
                       onClick={() => addTag(c.url)}
                       className="px-1.5 py-0.5 rounded-md border border-dashed border-gray-300 dark:border-gray-700 text-gray-400 hover:text-blue-600 hover:border-blue-400 text-[9px] font-bold"
-                      title="Adicionar tag"
+                      title={crt.card.addTagTitle}
                     >
-                      + tag
+                      {crt.card.addTagButton}
                     </button>
                   </div>
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => toggleFav(c.url)}
                       className={`p-1.5 rounded-lg ${isFav ? 'text-amber-500' : 'text-gray-300 hover:text-amber-400'}`}
-                      title="Favoritar"
+                      title={crt.card.favoriteTitle}
                     >
                       <Star size={14} fill={isFav ? 'currentColor' : 'none'} />
                     </button>
                     <button
                       onClick={() => togglePub(c.url)}
                       className={`p-1.5 rounded-lg ${isPub ? 'text-green-600' : 'text-gray-300 hover:text-green-500'}`}
-                      title={isPub ? 'Marcado como publicado' : 'Marcar como publicado'}
+                      title={isPub ? crt.card.markedPublishedTitle : crt.card.markPublishedTitle}
                     >
                       <Rocket size={14} />
                     </button>
                     <button
                       onClick={() => openAbModal(c.url)}
                       className="p-1.5 rounded-lg text-gray-300 hover:text-indigo-600"
-                      title="Criar variações A/B (novos hooks)"
+                      title={crt.card.abVariantsTitle}
                     >
                       <GitBranch size={14} />
                     </button>
                     <button
                       onClick={() => openTranslateModal(c.url)}
                       className="p-1.5 rounded-lg text-gray-300 hover:text-teal-600"
-                      title="Traduzir e redublar noutra língua"
+                      title={crt.card.translateTitle}
                     >
                       <Languages size={14} />
                     </button>
                     <button
                       onClick={() => setPkgUrl(c.url)}
                       className="p-1.5 rounded-lg text-gray-300 hover:text-blue-600"
-                      title="Pacote de publicação (vídeo + capa + texto pra colar no Ads Manager)"
+                      title={crt.card.packageTitle}
                     >
                       <Package size={14} />
                     </button>
                     <button
                       onClick={() => setMockupUrl(c.url)}
                       className="p-1.5 rounded-lg text-gray-400 hover:text-purple-600 ml-auto"
-                      title="Ver no feed (Instagram/Facebook)"
+                      title={crt.card.feedPreviewTitle}
                     >
                       <Smartphone size={14} />
                     </button>
@@ -816,7 +834,7 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
                       rel="noreferrer"
                       download
                       className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600"
-                      title="Baixar"
+                      title={crt.card.downloadTitle}
                     >
                       <Download size={14} />
                     </a>
@@ -841,7 +859,7 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
             <div className="flex items-center gap-2">
               <Rocket size={18} className="text-green-600" />
               <h3 className="text-base font-black text-gray-900 dark:text-gray-100">
-                Antes de colocar no ar
+                {crt.pubModal.title}
               </h3>
             </div>
 
@@ -853,9 +871,7 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
                 <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300">
                   <ShieldAlert size={16} />
                   <span className="text-xs font-black uppercase tracking-widest">
-                    {riskScan.hits.length}{' '}
-                    {riskScan.hits.length === 1 ? 'termo de risco' : 'termos de risco'} no texto
-                    deste criativo
+                    {crt.pubModal.riskCountLabel(riskScan.hits.length)}
                   </span>
                 </div>
                 <ul className="space-y-1">
@@ -881,26 +897,21 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
                     className="mt-0.5 accent-amber-600"
                   />
                   <span className="text-xs font-bold text-amber-900 dark:text-amber-200">
-                    Revisei os termos acima e quero publicar assim
+                    {crt.pubModal.riskAckLabel}
                   </span>
                 </label>
               </div>
             ) : (
               <div className="flex items-center gap-2 text-xs font-bold text-green-700 dark:text-green-400">
                 <ShieldCheck size={14} />
-                Nenhum termo de risco encontrado no texto deste criativo.
+                {crt.pubModal.noRiskFound}
               </div>
             )}
 
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Confira o básico pra não rodar mídia num criativo furado:
+              {crt.pubModal.checklistIntro}
             </p>
-            {[
-              'Formato certo pra plataforma (9:16 Reels/Stories, 1:1 feed, 16:9 YouTube)',
-              'Duração adequada pro objetivo',
-              'Tem legenda (a maioria assiste no mudo)',
-              'Gancho forte nos primeiros 3 segundos',
-            ].map((item, i) => (
+            {crt.pubModal.checklistItems.map((item, i) => (
               <label key={i} className="flex items-start gap-2 cursor-pointer">
                 <input
                   type="checkbox"
@@ -918,21 +929,21 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
                 onClick={() => confirmPublish(true)}
                 className="text-[11px] font-bold text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
               >
-                publicar assim mesmo
+                {crt.pubModal.publishAnywayButton}
               </button>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setPubModalUrl(null)}
                   className="px-3 py-2 rounded-xl text-xs font-black text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
                 >
-                  Cancelar
+                  {crt.pubModal.cancelButton}
                 </button>
                 <button
                   onClick={() => confirmPublish(false)}
                   disabled={!checks.every(Boolean) || (riskScan.hasRisk && !riskAck)}
                   className="px-4 py-2 rounded-xl bg-green-600 text-white text-xs font-black hover:bg-green-700 disabled:opacity-40"
                 >
-                  Marcar no ar
+                  {crt.pubModal.confirmButton}
                 </button>
               </div>
             </div>
@@ -955,7 +966,7 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
               <div className="flex items-center gap-2">
                 <GitBranch size={18} className="text-indigo-600" />
                 <h3 className="text-base font-black text-gray-900 dark:text-gray-100">
-                  Criar variações A/B
+                  {crt.abModal.title}
                 </h3>
               </div>
               <button
@@ -965,11 +976,7 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
                 <X size={16} />
               </button>
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Gera hooks 100% originais a partir da copy deste subprojeto. Escolha os que quiser
-              testar — cada um vira um subprojeto novo, já com o hook aplicado, pronto pra você
-              montar.
-            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{crt.abModal.description}</p>
 
             {abGroups.length === 0 ? (
               <button
@@ -979,10 +986,10 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
               >
                 {abGenerating ? (
                   <>
-                    <Loader2 size={16} className="animate-spin" /> Gerando hooks…
+                    <Loader2 size={16} className="animate-spin" /> {crt.abModal.generatingButton}
                   </>
                 ) : (
-                  <>Gerar hooks originais</>
+                  <>{crt.abModal.generateButton}</>
                 )}
               </button>
             ) : (
@@ -1027,9 +1034,12 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
                     disabled={abGenerating}
                     className="text-[11px] font-bold text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                   >
-                    gerar outros
+                    {crt.abModal.generateOthersButton}
                   </button>
                   <button
+                    // False positive: the rule claims this handler mutates
+                    // `crt` (the i18n dict) — it only calls saveVariant/refresh.
+                    // eslint-disable-next-line react-hooks/immutability
                     onClick={handleCreateAbVariants}
                     disabled={abSelected.size === 0 || abCreating}
                     className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-black hover:bg-indigo-700 disabled:opacity-40 flex items-center gap-2"
@@ -1039,8 +1049,7 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
                     ) : (
                       <GitBranch size={14} />
                     )}
-                    Criar {abSelected.size > 0 ? abSelected.size : ''} variante
-                    {abSelected.size === 1 ? '' : 's'}
+                    {crt.abModal.createButton(abSelected.size)}
                   </button>
                 </div>
               </>
@@ -1064,7 +1073,7 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
               <div className="flex items-center gap-2">
                 <Languages size={18} className="text-teal-600" />
                 <h3 className="text-base font-black text-gray-900 dark:text-gray-100">
-                  Traduzir e redublar
+                  {crt.translateModal.title}
                 </h3>
               </div>
               <button
@@ -1075,16 +1084,15 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
               </button>
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Traduz o script e gera a narração na MESMA voz, noutra língua. Cria um subprojeto novo
-              — depois é só usar <b>Fatiar automático</b> na Montagem pra recortar o b-roll e
-              legendar no timing certo do áudio novo.
+              {crt.translateModal.descriptionPart1} <b>{crt.translateModal.autoSliceBold}</b>{' '}
+              {crt.translateModal.descriptionPart2}
             </p>
 
             {!translateResult ? (
               <>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">
-                    Língua alvo
+                    {crt.translateModal.targetLangLabel}
                   </label>
                   <div className="flex flex-wrap gap-1.5">
                     {COMMON_LANGUAGES.map((l) => (
@@ -1105,7 +1113,7 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
                     type="text"
                     value={targetLang}
                     onChange={(e) => setTargetLang(e.target.value)}
-                    placeholder="Ou digite a língua (ex.: Português de Portugal)"
+                    placeholder={crt.translateModal.targetLangPlaceholder}
                     className="w-full px-3 py-2 rounded-xl ring-1 ring-gray-200 dark:ring-gray-800 bg-white dark:bg-gray-900 text-sm font-bold text-gray-800 dark:text-gray-100"
                   />
                 </div>
@@ -1116,10 +1124,11 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
                 >
                   {translating ? (
                     <>
-                      <Loader2 size={16} className="animate-spin" /> Traduzindo e dublando…
+                      <Loader2 size={16} className="animate-spin" />{' '}
+                      {crt.translateModal.translatingButton}
                     </>
                   ) : (
-                    <>Traduzir e dublar</>
+                    <>{crt.translateModal.translateButton}</>
                   )}
                 </button>
               </>
@@ -1139,20 +1148,24 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
                   <audio src={translateResult.audioUrl} controls className="w-full h-9" />
                 ) : (
                   <p className="text-xs text-amber-700 dark:text-amber-400">
-                    Sem áudio dublado — o subprojeto novo vai só com o texto traduzido.
+                    {crt.translateModal.noAudioHint}
                   </p>
                 )}
                 <button
+                  // False positive: the rule claims this handler mutates
+                  // `crt` (the i18n dict) — it only calls saveVariant/refresh.
+                  // eslint-disable-next-line react-hooks/immutability
                   onClick={handleCreateTranslatedVariant}
                   disabled={creatingTranslated}
                   className="w-full py-3 bg-teal-600 text-white rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-teal-700 disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {creatingTranslated ? (
                     <>
-                      <Loader2 size={16} className="animate-spin" /> Criando…
+                      <Loader2 size={16} className="animate-spin" />{' '}
+                      {crt.translateModal.creatingButton}
                     </>
                   ) : (
-                    <>Criar subprojeto em {targetLang}</>
+                    <>{crt.translateModal.createButton(targetLang)}</>
                   )}
                 </button>
               </>
@@ -1177,7 +1190,7 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
               <div className="flex items-center gap-2">
                 <Package size={18} className="text-blue-600" />
                 <h3 className="text-base font-black text-gray-900 dark:text-gray-100">
-                  Pacote de publicação
+                  {crt.pkgModal.title}
                 </h3>
               </div>
               <button
@@ -1187,10 +1200,7 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
                 <X size={16} />
               </button>
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              A conexão direta com o Meta Ads está desligada de propósito. Aqui vai tudo pronto pra
-              colar manualmente ao criar o anúncio no Ads Manager.
-            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{crt.pkgModal.description}</p>
 
             <div className="grid grid-cols-2 gap-2">
               <a
@@ -1200,7 +1210,7 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
                 download
                 className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs font-black"
               >
-                <Download size={13} /> Vídeo
+                <Download size={13} /> {crt.pkgModal.videoButton}
               </a>
               {pkgCreative.cover ? (
                 <a
@@ -1210,23 +1220,23 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
                   download
                   className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100 text-xs font-black"
                 >
-                  <Download size={13} /> Capa/thumbnail
+                  <Download size={13} /> {crt.pkgModal.coverButton}
                 </a>
               ) : (
                 <span className="flex items-center justify-center py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800/50 text-gray-400 text-[10px] font-bold">
-                  sem capa gerada
+                  {crt.pkgModal.noCoverLabel}
                 </span>
               )}
             </div>
 
             {[
               {
-                label: 'Título / headline',
-                value: pkgCopy.headline || '(nenhum hook salvo neste subprojeto)',
+                label: crt.pkgModal.titleLabel,
+                value: pkgCopy.headline || crt.pkgModal.noHookSaved,
               },
               {
-                label: 'Texto principal',
-                value: pkgCopy.primaryText || '(nenhuma copy aprovada neste subprojeto)',
+                label: crt.pkgModal.mainTextLabel,
+                value: pkgCopy.primaryText || crt.pkgModal.noApprovedCopySaved,
               },
             ].map(({ label, value }) => (
               <div key={label} className="space-y-1">
@@ -1237,7 +1247,7 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
                   <button
                     onClick={() => copyText(value, label)}
                     className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-blue-600"
-                    title={`Copiar ${label.toLowerCase()}`}
+                    title={crt.pkgModal.copyFieldTitle(label.toLowerCase())}
                   >
                     <CopyIcon size={12} />
                   </button>
@@ -1250,24 +1260,29 @@ export function CriativosTab({ projectId, projectName, uid }: Props) {
 
             <div className="rounded-xl bg-blue-50/60 dark:bg-blue-950/20 ring-1 ring-blue-200/60 dark:ring-blue-900/40 p-3 space-y-1">
               <span className="text-[10px] font-black uppercase tracking-widest text-blue-700 dark:text-blue-300">
-                CTA sugerido
+                {crt.pkgModal.ctaSuggestedLabel}
               </span>
               <p className="text-xs text-blue-900 dark:text-blue-200">
-                "Saiba mais" funciona bem pra maioria — use "Comprar agora" se o link já for de
-                checkout{pkgCopy.offer ? ` (oferta: ${pkgCopy.offer})` : ''}.
+                {crt.pkgModal.ctaSuggestedTextPart1}
+                {pkgCopy.offer ? crt.pkgModal.ctaSuggestedOfferSuffix(pkgCopy.offer) : ''}.
               </p>
             </div>
 
             <button
               onClick={() =>
                 copyText(
-                  `TÍTULO:\n${pkgCopy.headline}\n\nTEXTO PRINCIPAL:\n${pkgCopy.primaryText}\n\nVÍDEO: ${pkgCreative.url}\nCAPA: ${pkgCreative.cover || '(sem capa)'}`,
-                  'Pacote completo'
+                  crt.pkgModal.copyAllTemplate(
+                    pkgCopy.headline,
+                    pkgCopy.primaryText,
+                    pkgCreative.url,
+                    pkgCreative.cover || crt.pkgModal.noCoverPlaceholder
+                  ),
+                  crt.pkgModal.copyAllLabel
                 )
               }
               className="w-full py-3 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-blue-700 flex items-center justify-center gap-2"
             >
-              <CopyIcon size={16} /> Copiar tudo
+              <CopyIcon size={16} /> {crt.pkgModal.copyAllButton}
             </button>
           </div>
         </div>
