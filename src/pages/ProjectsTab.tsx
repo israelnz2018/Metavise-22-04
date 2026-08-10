@@ -28,19 +28,15 @@ import type {
 import { VariantItem } from '@/components/VariantItem';
 import { CreativeInfoButton } from '@/components/CreativeInfoButton';
 import { getAuthorizedUrl } from '@/lib/gemini';
+import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 type ProjectTypeFilter = 'all' | Project['type'];
 type SortMode = 'recent' | 'oldest' | 'name';
 
-// Defined outside the component so the chip-list reference is stable
-// across renders (avoids unnecessary re-renders of the filter row).
-const TYPE_FILTERS: { value: ProjectTypeFilter; label: string }[] = [
-  { value: 'all', label: 'Todos' },
-  { value: 'complete', label: 'Completo' },
-  { value: 'copy', label: 'Copy' },
-  { value: 'video', label: 'Vídeo' },
-  { value: 'editing', label: 'Edição' },
-];
+// Defined outside the component so the array reference is stable across
+// renders (avoids unnecessary re-renders of the filter row). Labels come
+// from t.projects.filters[value] at render time (needs the current language).
+const TYPE_FILTER_VALUES: ProjectTypeFilter[] = ['all', 'complete', 'copy', 'video', 'editing'];
 
 interface ProjectsTabProps {
   projects: Project[];
@@ -101,6 +97,7 @@ export function ProjectsTab({
   onSelectPersonaFromProject,
   heygenAvatars = [],
 }: ProjectsTabProps) {
+  const { t } = useLanguage();
   // Search + filter state for the list view. Persisted only in memory —
   // navigating away resets the filters, which is the right default
   // for now (most users search for one project, find it, go in).
@@ -198,13 +195,13 @@ export function ProjectsTab({
                     }}
                     className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all"
                   >
-                    Salvar
+                    {t.projects.detail.save}
                   </button>
                   <button
                     onClick={() => setIsRenamingProject(false)}
                     className="px-3 py-1.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-gray-200 transition-all"
                   >
-                    Cancelar
+                    {t.projects.detail.cancel}
                   </button>
                 </div>
               ) : (
@@ -218,14 +215,14 @@ export function ProjectsTab({
                       setIsRenamingProject(true);
                     }}
                     className="p-1.5 rounded-lg text-gray-300 dark:text-gray-600 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-all"
-                    title="Renomear projeto"
+                    title={t.projects.detail.renameProjectTitle}
                   >
                     <Edit3 size={18} />
                   </button>
                 </div>
               )}
               <p className="text-sm text-gray-400 dark:text-gray-500 font-medium">
-                Gerencie as versões e conteúdos deste projeto.
+                {t.projects.detail.subtitle}
               </p>
             </div>
           </div>
@@ -235,14 +232,14 @@ export function ProjectsTab({
               className="px-6 py-3 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 rounded-2xl font-bold hover:bg-red-100 transition-all flex items-center gap-2"
             >
               <Trash2 size={18} />
-              Excluir Projeto
+              {t.projects.detail.deleteProject}
             </button>
             <button
               onClick={() => onLoadProject(project)}
               className="px-6 py-3 bg-gray-900 text-white rounded-2xl font-bold hover:bg-black transition-all flex items-center gap-2"
             >
               <Edit3 size={18} />
-              Abrir no Editor
+              {t.projects.detail.openInEditor}
             </button>
           </div>
         </div>
@@ -267,7 +264,8 @@ export function ProjectsTab({
           <div className="p-8 border-b border-gray-50 bg-gray-50/30 dark:bg-gray-800/60">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest flex items-center gap-2">
-                <Tag size={14} /> Subprojetos / Versões ({project.variants?.length || 0})
+                <Tag size={14} />{' '}
+                {t.projects.detail.subprojectsHeading(project.variants?.length || 0)}
               </h3>
               {/* Botão "Adicionar Subprojeto" só aparece DEPOIS do
                   planejamento (personas/plano). Sem estratégia não faz
@@ -279,7 +277,7 @@ export function ProjectsTab({
                   className="px-4 py-2 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl font-bold text-xs hover:from-blue-600 hover:to-blue-700 active:scale-[0.98] transition-all shadow-lg shadow-blue-200/50 dark:shadow-blue-900/30 ring-1 ring-inset ring-white/20 flex items-center gap-1.5"
                 >
                   <Plus size={14} />
-                  Adicionar Subprojeto
+                  {t.projects.detail.addSubproject}
                 </button>
               )}
             </div>
@@ -306,7 +304,7 @@ export function ProjectsTab({
               ) : hasPlanning ? (
                 <div className="p-12 text-center bg-white dark:bg-gray-900/80 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-800">
                   <p className="text-gray-400 dark:text-gray-500 font-bold">
-                    Nenhuma versão arquivada ainda.
+                    {t.projects.detail.noVersionsYet}
                   </p>
                 </div>
               ) : (
@@ -314,18 +312,17 @@ export function ProjectsTab({
                 // em vez de oferecer criar subprojeto sem estratégia.
                 <div className="p-12 text-center bg-white dark:bg-gray-900/80 rounded-3xl border-2 border-dashed border-blue-200 dark:border-blue-900/50 space-y-4">
                   <p className="text-gray-700 dark:text-gray-300 font-bold">
-                    Este projeto ainda não tem planejamento.
+                    {t.projects.detail.noPlanningTitle}
                   </p>
                   <p className="text-sm text-gray-400 dark:text-gray-500 max-w-md mx-auto">
-                    Faça o planejamento (produto, persona e plano de marketing) primeiro. Depois
-                    você poderá criar os subprojetos a partir dele.
+                    {t.projects.detail.noPlanningBody}
                   </p>
                   <button
                     onClick={() => onLoadProject(project)}
                     className="px-6 py-3 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-2xl font-bold hover:from-blue-600 hover:to-blue-700 active:scale-[0.98] transition-all shadow-lg shadow-blue-200/50 dark:shadow-blue-900/30 ring-1 ring-inset ring-white/20 inline-flex items-center gap-2"
                   >
                     <Sparkles size={16} />
-                    Fazer o planejamento do projeto
+                    {t.projects.detail.doPlanning}
                   </button>
                 </div>
               )}
@@ -344,7 +341,7 @@ export function ProjectsTab({
                     <Edit3 size={16} />
                   </div>
                   <h4 className="font-black text-gray-900 dark:text-gray-50 uppercase tracking-widest text-xs">
-                    Formulário Preenchido
+                    {t.projects.detail.filledForm}
                   </h4>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -373,14 +370,14 @@ export function ProjectsTab({
                     <Sparkles size={16} />
                   </div>
                   <h4 className="font-black text-gray-900 dark:text-gray-50 uppercase tracking-widest text-xs">
-                    Conteúdo Gerado
+                    {t.projects.detail.generatedContent}
                   </h4>
                 </div>
 
                 {viewingVariant.config.videoUrl && (
                   <div className="space-y-4">
                     <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">
-                      Vídeo Finalizado
+                      {t.projects.detail.finalVideo}
                     </p>
                     <div className="relative aspect-video w-full max-w-2xl mx-auto bg-black rounded-[32px] overflow-hidden shadow-2xl border-4 border-white">
                       <CreativeInfoButton
@@ -444,7 +441,7 @@ export function ProjectsTab({
                                 className="p-4 bg-amber-50/50 dark:bg-amber-950/40 rounded-2xl border border-amber-100"
                               >
                                 <p className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest mb-2">
-                                  Hook {i + 1}
+                                  {t.projects.detail.hookLabel(i + 1)}
                                 </p>
                                 <p className="text-sm font-medium text-gray-800 italic">
                                   "{hookText}"
@@ -457,7 +454,7 @@ export function ProjectsTab({
                     <div className="space-y-4">
                       <div className="p-8 bg-gray-100 dark:bg-gray-800 text-gray-800 rounded-[32px] shadow-sm relative overflow-hidden border-2 border-gray-200 dark:border-gray-700">
                         <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-4">
-                          Copy Original
+                          {t.projects.detail.originalCopy}
                         </p>
                         <p className="text-sm font-medium leading-relaxed relative z-10 whitespace-pre-wrap">
                           {viewingVariant.config.copy.generatedScript}
@@ -470,7 +467,7 @@ export function ProjectsTab({
                             <Volume2 size={80} />
                           </div>
                           <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-4">
-                            Copy Otimizada (ElevenLabs)
+                            {t.projects.detail.optimizedCopy}
                           </p>
                           <p className="text-lg font-medium leading-relaxed relative z-10 whitespace-pre-wrap">
                             {viewingVariant.config.copy.optimizedScript}
@@ -482,7 +479,7 @@ export function ProjectsTab({
                 ) : (
                   <div className="p-12 text-center bg-gray-50 dark:bg-gray-800/60 rounded-[32px] border-2 border-dashed border-gray-200 dark:border-gray-700">
                     <p className="text-gray-400 dark:text-gray-500 font-bold">
-                      Nenhum conteúdo gerado para esta versão.
+                      {t.projects.detail.noGeneratedContent}
                     </p>
                   </div>
                 )}
@@ -500,18 +497,16 @@ export function ProjectsTab({
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-2xl font-black text-gray-900 dark:text-gray-50 tracking-tight">
-            Meus Projetos
+            {t.projects.list.title}
           </h3>
-          <p className="text-gray-500 dark:text-gray-400 text-sm">
-            Gerencie seus projetos e criações.
-          </p>
+          <p className="text-gray-500 dark:text-gray-400 text-sm">{t.projects.list.subtitle}</p>
         </div>
         <button
           onClick={() => setShowNewProjectModal(true)}
           className="px-5 py-2.5 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl font-bold hover:from-blue-600 hover:to-blue-700 active:scale-[0.98] transition-all shadow-xl shadow-blue-200/60 dark:shadow-blue-900/30 ring-1 ring-inset ring-white/20 flex items-center gap-2"
         >
           <Sparkles size={16} />
-          Criar Novo Projeto
+          {t.projects.list.createNew}
         </button>
       </div>
 
@@ -529,14 +524,14 @@ export function ProjectsTab({
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar pelo nome…"
+              placeholder={t.projects.list.searchPlaceholder}
               className="w-full pl-11 pr-10 py-3 bg-gray-50 dark:bg-gray-800/60 border border-transparent rounded-xl text-sm focus:bg-white dark:focus:bg-gray-800 focus:border-blue-400 dark:focus:border-blue-700 outline-none transition-all text-gray-900 dark:text-gray-100 dark:placeholder:text-gray-500"
             />
             {search && (
               <button
                 onClick={() => setSearch('')}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-300"
-                title="Limpar"
+                title={t.projects.list.clearSearch}
               >
                 <X size={14} />
               </button>
@@ -544,17 +539,17 @@ export function ProjectsTab({
           </div>
 
           <div className="flex items-center gap-1 p-1 bg-gray-100 dark:bg-gray-800/60 rounded-xl">
-            {TYPE_FILTERS.map((f) => (
+            {TYPE_FILTER_VALUES.map((value) => (
               <button
-                key={f.value}
-                onClick={() => setTypeFilter(f.value)}
+                key={value}
+                onClick={() => setTypeFilter(value)}
                 className={`px-3 py-2 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all ${
-                  typeFilter === f.value
+                  typeFilter === value
                     ? 'bg-white dark:bg-gray-900 text-blue-600 dark:text-blue-300 shadow-sm'
                     : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
                 }`}
               >
-                {f.label}
+                {t.projects.filters[value]}
               </button>
             ))}
           </div>
@@ -564,14 +559,14 @@ export function ProjectsTab({
             onChange={(e) => setSortMode(e.target.value as SortMode)}
             className="px-4 py-3 bg-gray-50 dark:bg-gray-800/60 border border-transparent rounded-xl text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-300 focus:bg-white dark:focus:bg-gray-800 focus:border-blue-400 dark:focus:border-blue-700 outline-none cursor-pointer"
           >
-            <option value="recent">Mais recente</option>
-            <option value="oldest">Mais antigo</option>
-            <option value="name">Nome (A–Z)</option>
+            <option value="recent">{t.projects.list.sortRecent}</option>
+            <option value="oldest">{t.projects.list.sortOldest}</option>
+            <option value="name">{t.projects.list.sortName}</option>
           </select>
 
           {(search || typeFilter !== 'all') && (
             <span className="text-[10px] font-bold text-gray-400 dark:text-gray-400 uppercase tracking-widest ml-auto">
-              {filteredProjects.length} de {projects.length}
+              {t.projects.list.filteredCount(filteredProjects.length, projects.length)}
             </span>
           )}
         </div>
@@ -585,25 +580,25 @@ export function ProjectsTab({
             </div>
             <div>
               <p className="text-lg font-bold text-gray-900 dark:text-gray-50">
-                Nenhum projeto encontrado
+                {t.projects.list.emptyTitle}
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Comece criando seu primeiro projeto agora mesmo.
+                {t.projects.list.emptyBody}
               </p>
             </div>
             {/* Onboarding leve: 3 passos do que vem pela frente. */}
             <div className="flex flex-col sm:flex-row gap-3 text-left max-w-2xl">
               {[
-                ['1 · Copy', 'Cole sua VSL ou gere a copy do anúncio.'],
-                ['2 · Voz + Vídeo', 'Narração com voz IA e vídeo (avatar ou clipes IA).'],
-                ['3 · Montagem + Edição', 'Monte no tempo do áudio e exporte o criativo.'],
-              ].map(([t, d]) => (
+                [t.projects.list.onboardingStep1Title, t.projects.list.onboardingStep1Body],
+                [t.projects.list.onboardingStep2Title, t.projects.list.onboardingStep2Body],
+                [t.projects.list.onboardingStep3Title, t.projects.list.onboardingStep3Body],
+              ].map(([title, d]) => (
                 <div
-                  key={t}
+                  key={title}
                   className="flex-1 bg-white/70 dark:bg-gray-900/40 rounded-xl p-3 ring-1 ring-gray-200/60 dark:ring-gray-800/60"
                 >
                   <p className="text-[11px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400">
-                    {t}
+                    {title}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{d}</p>
                 </div>
@@ -613,16 +608,16 @@ export function ProjectsTab({
               onClick={() => setShowNewProjectModal(true)}
               className="px-6 py-2.5 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl font-bold hover:from-blue-600 hover:to-blue-700 active:scale-[0.98] transition-all shadow-xl shadow-blue-200/60 dark:shadow-blue-900/30"
             >
-              Criar Primeiro Projeto
+              {t.projects.list.createFirst}
             </button>
           </div>
         ) : filteredProjects.length === 0 ? (
           <div className="col-span-full p-10 bg-white/60 dark:bg-gray-900/40 rounded-3xl ring-1 ring-dashed ring-gray-300/60 dark:ring-gray-700/60 text-center space-y-3">
             <p className="text-lg font-bold text-gray-900 dark:text-gray-50">
-              Nenhum projeto bate com sua busca
+              {t.projects.list.noMatchTitle}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Tente outro termo ou limpe os filtros.
+              {t.projects.list.noMatchBody}
             </p>
             <button
               onClick={() => {
@@ -631,7 +626,7 @@ export function ProjectsTab({
               }}
               className="mt-2 px-5 py-2 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-black dark:hover:bg-white transition-colors"
             >
-              Limpar filtros
+              {t.projects.list.clearFilters}
             </button>
           </div>
         ) : (
@@ -649,7 +644,7 @@ export function ProjectsTab({
               >
                 {isActive && (
                   <span className="absolute top-3 right-3 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest bg-blue-500 text-white rounded-full shadow shadow-blue-500/40">
-                    Ativo
+                    {t.projects.list.active}
                   </span>
                 )}
                 <div className="flex items-start justify-between mb-4">
@@ -671,7 +666,7 @@ export function ProjectsTab({
                         onDuplicateProject(project);
                       }}
                       className="p-1.5 text-gray-300 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-lg transition-colors"
-                      title="Duplicar Projeto"
+                      title={t.projects.list.duplicateProject}
                     >
                       <Copy size={16} />
                     </button>
@@ -681,7 +676,7 @@ export function ProjectsTab({
                         onDeleteProject(project.id);
                       }}
                       className="p-1.5 text-gray-300 dark:text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors"
-                      title="Excluir Projeto"
+                      title={t.projects.list.deleteProject}
                     >
                       <Trash2 size={16} />
                     </button>
@@ -693,22 +688,22 @@ export function ProjectsTab({
                 </h4>
                 <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-4">
                   {project.type === 'complete'
-                    ? 'Projeto Completo'
+                    ? t.projects.list.typeComplete
                     : project.type === 'copy'
-                      ? 'Apenas Copy'
+                      ? t.projects.list.typeCopyOnly
                       : project.type === 'video'
-                        ? 'Apenas Vídeo'
-                        : 'Edição de Vídeo'}
+                        ? t.projects.list.typeVideoOnly
+                        : t.projects.list.typeEditing}
                 </p>
 
                 <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-800">
                   <span className="text-[10px] font-bold text-gray-400 dark:text-gray-400 uppercase tracking-widest">
                     {project.createdAt?.toDate
                       ? project.createdAt.toDate().toLocaleDateString()
-                      : 'Recentemente'}
+                      : t.projects.list.recently}
                   </span>
                   <div className="flex items-center gap-1 text-blue-600 dark:text-blue-400 font-bold text-xs">
-                    Subprojetos ({project.variants?.length || 0})
+                    {t.projects.list.subprojectsCount(project.variants?.length || 0)}
                     <ChevronRight
                       size={14}
                       className="group-hover:translate-x-0.5 transition-transform"
@@ -745,6 +740,7 @@ function ProjectDataSection({
    *  completa (material, persona, plano) — onde tudo isso já é editável. */
   onReviewPlan?: () => void;
 }) {
+  const { t } = useLanguage();
   const cfg: any = project.config || {};
   const copy: any = cfg.copy || {};
   const productInfo: any = copy.productInfo || null;
@@ -821,7 +817,7 @@ function ProjectDataSection({
       >
         <Sparkles size={18} className="text-purple-600 dark:text-purple-400 flex-shrink-0" />
         <h3 className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest flex-shrink-0">
-          Dados do Projeto
+          {t.projects.dataSection.heading}
         </h3>
         {/* Chips resumo — somem em telas pequenas pra não quebrar */}
         <div className="hidden sm:flex flex-wrap items-center gap-1.5 flex-1 min-w-0">
@@ -848,12 +844,14 @@ function ProjectDataSection({
           {hasSource && (
             <section className="space-y-3">
               <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">
-                🎬 Material da fonte
+                {t.projects.dataSection.sourceHeading}
               </h4>
               <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-4 space-y-2 ring-1 ring-gray-200/60 dark:ring-gray-700/60">
                 {productInfo?.productName && (
                   <div className="text-xs">
-                    <span className="font-bold text-gray-900 dark:text-gray-100">Produto: </span>
+                    <span className="font-bold text-gray-900 dark:text-gray-100">
+                      {t.projects.dataSection.product}
+                    </span>
                     <span className="text-gray-700 dark:text-gray-300">
                       {productInfo.productName}
                     </span>
@@ -861,21 +859,23 @@ function ProjectDataSection({
                 )}
                 {productInfo?.offer && (
                   <div className="text-xs">
-                    <span className="font-bold text-gray-900 dark:text-gray-100">Oferta: </span>
+                    <span className="font-bold text-gray-900 dark:text-gray-100">
+                      {t.projects.dataSection.offer}
+                    </span>
                     <span className="text-gray-700 dark:text-gray-300">{productInfo.offer}</span>
                   </div>
                 )}
                 {productInfo?.mainPain && (
                   <div className="text-xs">
                     <span className="font-bold text-gray-900 dark:text-gray-100">
-                      Dor principal:{' '}
+                      {t.projects.dataSection.mainPain}
                     </span>
                     <span className="text-gray-700 dark:text-gray-300">{productInfo.mainPain}</span>
                   </div>
                 )}
                 {sourceText && (
                   <div className="text-[10px] text-gray-500 dark:text-gray-500 italic pt-2 border-t border-gray-200 dark:border-gray-700">
-                    Texto fonte: {sourceText.length.toLocaleString()} caracteres
+                    {t.projects.dataSection.sourceTextChars(sourceText.length)}
                   </div>
                 )}
               </div>
@@ -885,10 +885,10 @@ function ProjectDataSection({
           {hasPersonas && (
             <section className="space-y-3">
               <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">
-                👥 Personas identificadas ({personas.length})
+                {t.projects.dataSection.personasHeading(personas.length)}
                 {onSelectPersona && (
                   <span className="ml-2 normal-case font-medium text-gray-400 dark:text-gray-500">
-                    · clique pra criar subprojeto
+                    {t.projects.dataSection.personasHint}
                   </span>
                 )}
               </h4>
@@ -905,7 +905,7 @@ function ProjectDataSection({
                     >
                       <div className="flex items-start justify-between gap-2">
                         <p className="text-sm font-black text-gray-900 dark:text-gray-100 leading-tight">
-                          {p.label || p.name || 'Persona'}
+                          {p.label || p.name || t.projects.dataSection.personaFallback}
                         </p>
                         {conf && (
                           <span className="shrink-0 px-1.5 py-0.5 bg-white dark:bg-gray-900 rounded text-[9px] font-black uppercase tracking-widest text-blue-700 dark:text-blue-300">
@@ -928,10 +928,10 @@ function ProjectDataSection({
           {hasBriefs && (
             <section className="space-y-3">
               <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">
-                💡 Sugestões de criativos ({briefs.length})
+                {t.projects.dataSection.briefsHeading(briefs.length)}
                 {onSelectBrief && (
                   <span className="ml-2 normal-case font-medium text-gray-400 dark:text-gray-500">
-                    · clique pra criar subprojeto
+                    {t.projects.dataSection.briefsHint}
                   </span>
                 )}
               </h4>
@@ -950,7 +950,7 @@ function ProjectDataSection({
                         </span>
                         <div className="flex-1 min-w-0 space-y-0.5">
                           <p className="text-xs font-bold text-gray-900 dark:text-gray-100 leading-tight">
-                            {b.hook?.substring(0, 80) || 'Brief sem hook'}
+                            {b.hook?.substring(0, 80) || t.projects.dataSection.briefNoHook}
                           </p>
                           <p className="text-[10px] text-gray-500 dark:text-gray-400 flex flex-wrap gap-x-2">
                             <span>{b.angle}</span>
@@ -962,7 +962,7 @@ function ProjectDataSection({
                               <>
                                 <span>·</span>
                                 <span className="text-green-700 dark:text-green-400 font-bold">
-                                  executado
+                                  {t.projects.dataSection.executed}
                                 </span>
                               </>
                             )}
@@ -973,7 +973,6 @@ function ProjectDataSection({
                   );
                 })}
               </ol>
-
             </section>
           )}
 
@@ -985,12 +984,9 @@ function ProjectDataSection({
               onClick={onReviewPlan}
               className="w-full px-4 py-3.5 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 text-white ring-1 ring-inset ring-white/20 shadow-lg shadow-blue-200/50 dark:shadow-blue-900/30 hover:from-blue-600 hover:to-blue-700 active:scale-[0.99] transition-all flex items-center justify-center gap-2 group"
             >
-              <Sparkles
-                size={16}
-                className="group-hover:scale-110 transition-transform"
-              />
+              <Sparkles size={16} className="group-hover:scale-110 transition-transform" />
               <span className="text-xs font-black uppercase tracking-widest">
-                Revisar plano do projeto
+                {t.projects.dataSection.reviewPlan}
               </span>
             </button>
           )}
