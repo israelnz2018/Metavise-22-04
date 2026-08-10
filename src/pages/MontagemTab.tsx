@@ -36,6 +36,7 @@ import { logCreativeCost, COST_RATES } from '@/lib/creativeCost';
 import { EmptyState } from '@/components/EmptyState';
 import { useFileDrop } from '@/hooks/useFileDrop';
 import { WatermarkPanel } from '@/components/WatermarkPanel';
+import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 interface Clip {
   url: string;
@@ -251,6 +252,7 @@ function ZoomTargetPicker({
   cy: number;
   onChange: (cx: number, cy: number) => void;
 }) {
+  const { t } = useLanguage();
   const boxRef = useRef<HTMLDivElement | null>(null);
   const setFromEvent = (e: { clientX: number; clientY: number }) => {
     const r = boxRef.current?.getBoundingClientRect();
@@ -269,7 +271,7 @@ function ZoomTargetPicker({
       onPointerMove={(e) => {
         if (e.buttons === 1) setFromEvent(e);
       }}
-      title="Clique/arraste pra escolher o ponto que o zoom mira"
+      title={t.montagemTab.zoomTargetPickerTitle}
       className="relative w-12 h-12 rounded-lg overflow-hidden bg-black cursor-crosshair shrink-0 ring-1 ring-amber-400 touch-none"
     >
       <video
@@ -288,19 +290,20 @@ function ZoomTargetPicker({
 }
 
 // Transições disponíveis. `css` = classe da animação no preview (definida no
-// <style> da própria aba); o `id` é o que o backend (ffmpeg) entende.
-const TRANSITIONS: { id: string; label: string; css: string }[] = [
-  { id: 'none', label: 'Nenhuma', css: '' },
-  { id: 'fade', label: 'Fade (preto)', css: 'mv-fade' },
-  { id: 'dissolve', label: 'Crossfade', css: 'mv-fade' },
-  { id: 'slideleft', label: 'Slide ←', css: 'mv-slideleft' },
-  { id: 'slideright', label: 'Slide →', css: 'mv-slideright' },
-  { id: 'slideup', label: 'Slide ↑', css: 'mv-slideup' },
-  { id: 'slidedown', label: 'Slide ↓', css: 'mv-slidedown' },
-  { id: 'whiteflash', label: 'Flash branco', css: 'mv-white' },
-  { id: 'whip', label: 'Whip / Blur', css: 'mv-whip' },
-  { id: 'glitch', label: 'Glitch', css: 'mv-glitch' },
-  { id: 'bw', label: 'Preto & branco', css: 'mv-bw' },
+// <style> da própria aba); o `id` é o que o backend (ffmpeg) entende. Os
+// labels vêm de t.montagemTab.transitions (precisam reagir à língua atual).
+const TRANSITIONS: { id: string; css: string }[] = [
+  { id: 'none', css: '' },
+  { id: 'fade', css: 'mv-fade' },
+  { id: 'dissolve', css: 'mv-fade' },
+  { id: 'slideleft', css: 'mv-slideleft' },
+  { id: 'slideright', css: 'mv-slideright' },
+  { id: 'slideup', css: 'mv-slideup' },
+  { id: 'slidedown', css: 'mv-slidedown' },
+  { id: 'whiteflash', css: 'mv-white' },
+  { id: 'whip', css: 'mv-whip' },
+  { id: 'glitch', css: 'mv-glitch' },
+  { id: 'bw', css: 'mv-bw' },
 ];
 
 // Som certo por TIPO de transição, mapeado pelos nomes exatos da biblioteca.
@@ -382,6 +385,10 @@ export function MontagemTab({
   onGoToEdit,
   onRemix,
 }: Props) {
+  const { t } = useLanguage();
+  const mt = t.montagemTab;
+  const transitionLabel = (id: string): string =>
+    (mt.transitions as Record<string, string>)[id] || id;
   const { addJob, updateJob } = useJobs();
   const vslCfg = ((config as any)?.copyVsl || {}) as any;
   const hasVslWorkflow = Boolean(
@@ -591,12 +598,12 @@ export function MontagemTab({
   // próximo (via /api/video/silences).
   const fatiarEmBlocos = async () => {
     if (!audioUrl) {
-      toast.error('Carregue a voz da VSL como base primeiro.');
+      toast.error(mt.toasts.loadVslVoiceFirst);
       return;
     }
     setFatiando(true);
     const tid = 'fatiar';
-    toast.loading('Achando os silêncios pra cortar os blocos…', { id: tid });
+    toast.loading(mt.toasts.findingSilences, { id: tid });
     try {
       const r = await fetch('/api/video/silences', {
         method: 'POST',
@@ -604,9 +611,9 @@ export function MontagemTab({
         body: JSON.stringify({ audioUrl }),
       });
       const d = await r.json();
-      if (!r.ok) throw new Error(d.error || 'Falha ao detectar silêncios.');
+      if (!r.ok) throw new Error(d.error || mt.toasts.silenceDetectFailed);
       const dur = Number(d.duration) || audioDuration || 0;
-      if (dur <= 0) throw new Error('Não consegui ler a duração do áudio.');
+      if (dur <= 0) throw new Error(mt.toasts.cantReadAudioDuration);
       const mids: number[] = (d.silences || []).map((s: any) => (s.start + s.end) / 2);
       const ends: number[] = [];
       let start = 0;
@@ -629,14 +636,9 @@ export function MontagemTab({
       setActiveBlock(-1);
       setBlockDrafts({}); // refatiar realinha tudo — zera os workflows por bloco
       setBlockCount(ends.length);
-      toast.success(
-        `${ends.length} blocos criados (cortes nos silêncios). Ajuste os fins se quiser.`,
-        {
-          id: tid,
-        }
-      );
+      toast.success(mt.toasts.blocksCreated(ends.length), { id: tid });
     } catch (e: any) {
-      toast.error(e?.message || 'Falha ao fatiar.', { id: tid });
+      toast.error(e?.message || mt.toasts.sliceFailed, { id: tid });
     } finally {
       setFatiando(false);
     }
@@ -708,13 +710,13 @@ export function MontagemTab({
       if (activeBlock >= 0) setBlockDrafts((prev) => ({ ...prev, [from]: cur }));
       applyWorkflow(saved);
       setActiveBlock(idx);
-      toast.success(`Bloco ${idx + 1} — workflow salvo restaurado.`);
+      toast.success(mt.toasts.blockRestored(idx + 1));
       return;
     }
     // Bloco novo → corta o áudio e começa limpo.
     if (!src) return;
     const tid = 'bloco';
-    toast.loading(`Preparando Bloco ${idx + 1}…`, { id: tid });
+    toast.loading(mt.toasts.preparingBlock(idx + 1), { id: tid });
     try {
       const r = await fetch('/api/elevenlabs/trim-audio', {
         method: 'POST',
@@ -722,7 +724,7 @@ export function MontagemTab({
         body: JSON.stringify({ url: src, start, end, userId: uid }),
       });
       const d = await r.json();
-      if (!r.ok || !d.url) throw new Error(d.error || 'Falha ao cortar o áudio do bloco.');
+      if (!r.ok || !d.url) throw new Error(d.error || mt.toasts.blockAudioCutFailed);
       if (activeBlock >= 0) setBlockDrafts((prev) => ({ ...prev, [from]: cur }));
       // Bloco NOVO carrega o MESMO avatar base do bloco atual — é o mesmo
       // avatar longo fatiado, só muda o offset (avatarStartSec abaixo). Sem
@@ -733,12 +735,9 @@ export function MontagemTab({
       setAudioDuration(end - start);
       setAvatarStartSec(start); // avatar alinhado ao início do bloco no vídeo de 19 min
       setActiveBlock(idx);
-      toast.success(
-        `Bloco ${idx + 1} pronto (${fmtT(start)}–${fmtT(end)}). Agora clique em Auto-editar.`,
-        { id: tid }
-      );
+      toast.success(mt.toasts.blockReady(idx + 1, fmtT(start), fmtT(end)), { id: tid });
     } catch (e: any) {
-      toast.error(e?.message || 'Falha ao preparar o bloco.', { id: tid });
+      toast.error(e?.message || mt.toasts.blockPrepFailed, { id: tid });
     }
   };
   // Enquadramento do avatar por URL (calibrado 1× e reaproveitado em TODOS os
@@ -1188,10 +1187,10 @@ export function MontagemTab({
 
   const onUpload = async (files: FileList | File[] | null) => {
     if (!files || files.length === 0) return;
-    if (!uid) return toast.error('Faça login pra enviar vídeos.');
+    if (!uid) return toast.error(mt.common.loginToUpload);
     setUploading(true);
     const toastId = 'montagem-upload';
-    toast.loading(`Enviando ${files.length} trecho(s)...`, { id: toastId });
+    toast.loading(mt.toasts.uploadingClips(files.length), { id: toastId });
     try {
       const added: Clip[] = [];
       for (const file of Array.from(files)) {
@@ -1205,10 +1204,10 @@ export function MontagemTab({
       }
       if (added.length) {
         setClips((prev) => [...prev, ...added]);
-        toast.success(`${added.length} trecho(s) na biblioteca.`, { id: toastId });
-      } else toast.error('Nenhum vídeo válido.', { id: toastId });
+        toast.success(mt.toasts.clipsInLibrary(added.length), { id: toastId });
+      } else toast.error(mt.toasts.noValidVideo, { id: toastId });
     } catch (e: any) {
-      toast.error(e?.message || 'Falha no upload.', { id: toastId });
+      toast.error(e?.message || mt.toasts.uploadFailed, { id: toastId });
     } finally {
       setUploading(false);
     }
@@ -1219,7 +1218,7 @@ export function MontagemTab({
 
   const onUploadAudio = async (file?: File | null) => {
     if (!file) return;
-    if (!uid) return toast.error('Faça login.');
+    if (!uid) return toast.error(mt.common.login);
     setUploadingAudio(true);
     try {
       const safe = file.name.replace(/[^a-z0-9.-]/gi, '_');
@@ -1227,9 +1226,9 @@ export function MontagemTab({
       await uploadBytes(r, file, { contentType: file.type || 'audio/mpeg' });
       const url = await getDownloadURL(r);
       setAudioUrl(url);
-      toast.success('Áudio carregado — dê play e adicione os trechos no tempo certo.');
+      toast.success(mt.toasts.audioLoaded);
     } catch (e: any) {
-      toast.error(e?.message || 'Falha no upload do áudio.');
+      toast.error(e?.message || mt.toasts.audioUploadFailed);
     } finally {
       setUploadingAudio(false);
     }
@@ -1239,7 +1238,7 @@ export function MontagemTab({
   // sincronizado à MESMA narração (o render busca o avatar no tempo do trecho).
   const onUploadAvatar = async (file?: File | null) => {
     if (!file) return;
-    if (!uid) return toast.error('Faça login.');
+    if (!uid) return toast.error(mt.common.login);
     setUploadingAvatar(true);
     try {
       const safe = file.name.replace(/[^a-z0-9.-]/gi, '_');
@@ -1247,9 +1246,9 @@ export function MontagemTab({
       await uploadBytes(r, file, { contentType: file.type || 'video/mp4' });
       const url = await getDownloadURL(r);
       setAvatarBase(url);
-      toast.success('Avatar base carregado — escolha o layout (PiP/split) em cada trecho.');
+      toast.success(mt.toasts.avatarLoaded);
     } catch (e: any) {
-      toast.error(e?.message || 'Falha no upload do avatar.');
+      toast.error(e?.message || mt.toasts.avatarUploadFailed);
     } finally {
       setUploadingAvatar(false);
     }
@@ -1265,10 +1264,10 @@ export function MontagemTab({
       const params = new URLSearchParams({ query: q, orientation: pexOrient, perPage: '12' });
       const r = await fetch(`/api/pexels/search?${params.toString()}`);
       const data = await r.json();
-      if (!r.ok) throw new Error(data.error || 'Falha na busca.');
+      if (!r.ok) throw new Error(data.error || mt.common.searchFailed);
       setPexResults(Array.isArray(data.clips) ? data.clips : []);
     } catch (e: any) {
-      toast.error(e?.message || 'Erro no Pexels.');
+      toast.error(e?.message || mt.toasts.pexelsError);
     } finally {
       setPexSearching(false);
     }
@@ -1282,12 +1281,12 @@ export function MontagemTab({
         duration: Number(clip.duration) || undefined,
       },
     ]);
-    toast.success('B-roll adicionado à biblioteca — agora posicione na timeline.');
+    toast.success(mt.toasts.brollAdded);
   };
 
   // "Adicionar aqui": marca o segundo do playhead e pede pra escolher o clipe.
   const addHere = () => {
-    if (clips.length === 0) return toast.error('Suba seus trechos primeiro (botão abaixo).');
+    if (clips.length === 0) return toast.error(mt.toasts.uploadClipsFirst);
     setPicking(Number(playhead.toFixed(2)));
   };
   const pickClip = async (clipIdx: number) => {
@@ -1543,12 +1542,12 @@ export function MontagemTab({
   };
   const autoEdit = async () => {
     if (!audioUrl) {
-      toast.error('Escolha a Voz da VSL como base primeiro (botão "Usar Voz da VSL").');
+      toast.error(mt.toasts.chooseVslVoiceFirst);
       return;
     }
     setAutoEditing(true);
     const tid = 'auto-edit';
-    toast.loading('Transcrevendo a VSL… (pode levar alguns minutos)', { id: tid });
+    toast.loading(mt.toasts.transcribing, { id: tid });
     try {
       const tr = await fetch('/api/video/transcribe', {
         method: 'POST',
@@ -1556,9 +1555,9 @@ export function MontagemTab({
         body: JSON.stringify({ audioUrl }),
       });
       const td = await tr.json();
-      if (!tr.ok) throw new Error(td.error || 'Falha na transcrição.');
+      if (!tr.ok) throw new Error(td.error || mt.toasts.transcribeFailed);
       const words: { text: string; start: number; end: number }[] = td.words || [];
-      if (words.length === 0) throw new Error('A transcrição não retornou palavras.');
+      if (words.length === 0) throw new Error(mt.toasts.transcribeNoWords);
 
       // Ritmo escolhido pelo usuário (base dos cortes, em s). Menor = mais trechos.
       // Menos ~12-15s · Médio ~9-11s · Mais ~6-8s · Muito ~4-5s.
@@ -1628,7 +1627,7 @@ export function MontagemTab({
       // IA: gera um termo de busca VISUAL por trecho (entende a frase inteira,
       // não uma palavra solta) e, se encaixar, um efeito sonoro contextual.
       // Fallback pra keyword se a IA falhar.
-      toast.loading('IA planejando cada trecho (b-roll, som, estilo, destaque)…', { id: tid });
+      toast.loading(mt.toasts.aiPlanning, { id: tid });
       const queries: string[] = slots.map((s) => s.keyword);
       const effectNames: (string | null)[] = slots.map(() => null);
       const styles: string[] = slots.map(() => 'real');
@@ -1683,7 +1682,7 @@ export function MontagemTab({
       const cache: Record<string, { url: string; thumb: string; duration?: number }[]> = {};
       const uniq = Array.from(new Set(searchQueries.map((q) => q.toLowerCase())));
       for (let k = 0; k < uniq.length; k++) {
-        toast.loading(`Buscando b-rolls ${k + 1}/${uniq.length}…`, { id: tid });
+        toast.loading(mt.toasts.searchingBroll(k + 1, uniq.length), { id: tid });
         try {
           const pr = await fetch(
             `/api/pexels/search?query=${encodeURIComponent(uniq[k]!)}&orientation=${pexOrient}`
@@ -1734,20 +1733,17 @@ export function MontagemTab({
       const nBw = built.filter((b) => b.tone === 'past').length;
       const nAnim = built.filter((b) => b.style === 'animation').length;
       const nSplit = built.filter((b) => b.split).length;
-      toast.success(
-        `${built.length} trechos · ${nFx} efeitos · ${nHl} destaques · ${nBw} P&B · ${nAnim} animação · ${nSplit} split. Escolha os b-rolls e "Aplicar".`,
-        { id: tid, duration: 7000 }
-      );
+      toast.success(mt.toasts.autoEditSummary(built.length, nFx, nHl, nBw, nAnim, nSplit), {
+        id: tid,
+        duration: 7000,
+      });
       if (libEffects.length === 0)
-        toast(
-          'Dica: sua biblioteca não tem efeitos na categoria "Efeitos" — por isso 0 efeitos contextuais.',
-          {
-            duration: 7000,
-            icon: '🔊',
-          }
-        );
+        toast(mt.toasts.noEffectsInLibraryHint, {
+          duration: 7000,
+          icon: '🔊',
+        });
     } catch (e: any) {
-      toast.error(e?.message || 'Erro no auto-edit.', { id: tid });
+      toast.error(e?.message || mt.toasts.autoEditError, { id: tid });
     } finally {
       setAutoEditing(false);
     }
@@ -1774,7 +1770,7 @@ export function MontagemTab({
         )
       );
     } catch {
-      toast.error('Falha na busca.');
+      toast.error(mt.common.searchFailed);
     } finally {
       setResearchingSlot(null);
     }
@@ -1784,7 +1780,7 @@ export function MontagemTab({
   const applyAutoSlots = () => {
     const chosenSlots = autoSlots.filter((s) => s.chosen);
     if (chosenSlots.length === 0) {
-      toast.error('Escolha o b-roll de pelo menos um trecho.');
+      toast.error(mt.toasts.chooseAtLeastOneBroll);
       return;
     }
     // VARIEDADE de transições — SÓ tipos "linkáveis" (slides / crossfade / whip),
@@ -1869,7 +1865,7 @@ export function MontagemTab({
     setClips((prev) => [...prev, ...newClips]);
     setItems((prev) => [...prev, ...newItems]);
     setAutoSlots([]);
-    toast.success(`${newItems.length} trechos aplicados na timeline. Revise e monte os grupos.`);
+    toast.success(mt.toasts.slotsApplied(newItems.length));
   };
 
   // Trocar o b-roll de um TRECHO já na timeline (busca Pexels e substitui o clipe).
@@ -1908,7 +1904,7 @@ export function MontagemTab({
     if (!it) return;
     const term = ((it.keyword as string) || '').trim() || 'lifestyle';
     const currentUrl = clips[it.clipIdx]?.url;
-    toast.loading('Escolhendo b-roll pro split…', { id: 'auto-split' });
+    toast.loading(mt.toasts.choosingSplitBroll, { id: 'auto-split' });
     try {
       const pr = await fetch(
         `/api/pexels/search?query=${encodeURIComponent(term)}&orientation=${pexOrient}`
@@ -1922,9 +1918,9 @@ export function MontagemTab({
         setItemField(idx, { clipIdx2: newIdx });
         return [...prev, { url: pick.url, label: `Split ${idx + 1}` }];
       });
-      toast.success('Split criado — troque o 2º b-roll no ⇄ se quiser.', { id: 'auto-split' });
+      toast.success(mt.toasts.splitCreatedSwap, { id: 'auto-split' });
     } catch {
-      toast.error('Não achei b-roll pro split — troque no ⇄.', { id: 'auto-split' });
+      toast.error(mt.toasts.splitBrollNotFound, { id: 'auto-split' });
     }
   };
   // Abre o picker pra TROCAR o 2º b-roll (split) do trecho.
@@ -1947,7 +1943,7 @@ export function MontagemTab({
         setClips((prev) =>
           prev.map((c, k) => (k === idx2 ? { ...c, url, duration: undefined } : c))
         );
-        toast.success('2º b-roll do split trocado.');
+        toast.success(mt.toasts.split2ndSwapped);
       } else {
         // (fallback) cria o split apontando pro novo clipe.
         setClips((prev) => {
@@ -1955,7 +1951,7 @@ export function MontagemTab({
           setItemField(brollSwap.itemIdx, { clipIdx2: newIdx });
           return [...prev, { url, label: `Split ${brollSwap.itemIdx + 1}` }];
         });
-        toast.success('Split criado.');
+        toast.success(mt.toasts.splitCreated);
       }
       setBrollSwap(null);
       return;
@@ -1964,7 +1960,7 @@ export function MontagemTab({
       prev.map((c, k) => (k === it.clipIdx ? { ...c, url, duration: undefined } : c))
     );
     setBrollSwap(null);
-    toast.success('B-roll trocado.');
+    toast.success(mt.toasts.brollSwapped);
   };
 
   // Excluir um trecho da biblioteca + reindexar os itens da timeline.
@@ -2050,12 +2046,12 @@ export function MontagemTab({
   const [previewing, setPreviewing] = useState(false);
   const composeDraft = async () => {
     if (!uid) return;
-    if (!isTimeline) return toast.error('A prévia rápida é da timeline (com áudio).');
-    if (items.length === 0) return toast.error('Adicione pelo menos um trecho na timeline.');
+    if (!isTimeline) return toast.error(mt.toasts.timelineOnlyPreview);
+    if (items.length === 0) return toast.error(mt.toasts.addAtLeastOneClip);
     setPreviewing(true);
     const tid = 'montagem-preview';
     const jid = addJob('Prévia rápida (rascunho)');
-    toast.loading('Gerando prévia rápida (baixa resolução)…', { id: tid });
+    toast.loading(mt.toasts.generatingPreview, { id: tid });
     try {
       const r = await fetch('/api/video/timeline', {
         method: 'POST',
@@ -2072,12 +2068,12 @@ export function MontagemTab({
         }),
       });
       const data = await r.json();
-      if (!r.ok) throw new Error(data.error || 'Falha na prévia.');
+      if (!r.ok) throw new Error(data.error || mt.toasts.previewFailed);
       setPreviewUrl(data.url);
-      toast.success('Prévia pronta — é rascunho, não é o vídeo final.', { id: tid });
+      toast.success(mt.toasts.previewReady, { id: tid });
       updateJob(jid, { status: 'done' });
     } catch (e: any) {
-      toast.error(e?.message || 'Erro na prévia.', { id: tid });
+      toast.error(e?.message || mt.toasts.previewError, { id: tid });
       updateJob(jid, { status: 'error' });
     } finally {
       setPreviewing(false);
@@ -2089,13 +2085,13 @@ export function MontagemTab({
     setRendering(true);
     const toastId = 'montagem-render';
     const jid = addJob('Montagem (render do vídeo)');
-    toast.loading(isTimeline ? 'Montando no tempo do áudio...' : 'Montando a sequência...', {
+    toast.loading(isTimeline ? mt.toasts.composingTimeline : mt.toasts.composingSequence, {
       id: toastId,
     });
     try {
       let data: any;
       if (isTimeline) {
-        if (items.length === 0) throw new Error('Adicione pelo menos um trecho na timeline.');
+        if (items.length === 0) throw new Error(mt.toasts.addAtLeastOneClip);
         const r = await fetch('/api/video/timeline', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2110,9 +2106,9 @@ export function MontagemTab({
           }),
         });
         data = await r.json();
-        if (!r.ok) throw new Error(data.error || 'Falha ao montar.');
+        if (!r.ok) throw new Error(data.error || mt.toasts.composeFailed);
       } else {
-        if (clips.length === 0) throw new Error('Suba seus trechos.');
+        if (clips.length === 0) throw new Error(mt.toasts.uploadClipsPlain);
         const r = await fetch('/api/video/sequence', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2123,20 +2119,20 @@ export function MontagemTab({
           }),
         });
         data = await r.json();
-        if (!r.ok) throw new Error(data.error || 'Falha ao montar.');
+        if (!r.ok) throw new Error(data.error || mt.toasts.composeFailed);
       }
       setResultUrl(data.url);
       onAddUploadedVideo?.(
         { url: data.url, uploaded: true, aspectRatio: aspect, createdAt: new Date().toISOString() },
         false
       );
-      toast.success('Pronto — já está na Edição.', { id: toastId });
+      toast.success(mt.toasts.readyInEditing, { id: toastId });
       updateJob(jid, { status: 'done' });
     } catch (e: any) {
       const msg = String(e?.message || '');
       const friendly = /áudio|audio/i.test(msg)
         ? msg
-        : `${msg || 'Erro ao montar'} — confira os avisos acima (buracos/áudio) e tente de novo.`;
+        : mt.toasts.composeErrorFriendly(msg || mt.toasts.composeErrorGeneric);
       toast.error(friendly, { id: toastId, duration: 6000 });
       updateJob(jid, { status: 'error' });
     } finally {
@@ -2147,8 +2143,8 @@ export function MontagemTab({
   // Gera a música (arco emocional a partir da copy) e COLA embaixo do vídeo
   // montado, num clique — plan → generate → add-music. Casa com a montagem.
   const gerarMusicaEColar = async () => {
-    if (!uid) return toast.error('Faça login.');
-    if (!resultUrl) return toast.error('Monte o vídeo primeiro.');
+    if (!uid) return toast.error(mt.common.login);
+    if (!resultUrl) return toast.error(mt.toasts.composeVideoFirst);
     const copyText =
       ((config.copy as any)?.finalScript as string) ||
       ((config.copy as any)?.optimizedScript as string) ||
@@ -2158,7 +2154,7 @@ export function MontagemTab({
     setMusicGen(true);
     const tid = 'montagem-music';
     const jid = addJob('Música (arco emocional)');
-    toast.loading('Planejando a música (arco emocional)…', { id: tid });
+    toast.loading(mt.toasts.planningMusic, { id: tid });
     try {
       const pr = await fetch('/api/elevenlabs/music/plan', {
         method: 'POST',
@@ -2169,16 +2165,16 @@ export function MontagemTab({
         }),
       });
       const plan = await pr.json();
-      if (!pr.ok) throw new Error(plan.error || 'Falha ao planejar a música.');
-      toast.loading('Compondo a trilha…', { id: tid });
+      if (!pr.ok) throw new Error(plan.error || mt.toasts.musicPlanFailed);
+      toast.loading(mt.toasts.composingTrack, { id: tid });
       const gr = await fetch('/api/elevenlabs/music/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ compositionPlan: plan, forceInstrumental: true }),
       });
       const gd = await gr.json();
-      if (!gr.ok || !gd.audioUrl) throw new Error(gd.error || 'Falha ao gerar a música.');
-      toast.loading('Colando a música no vídeo…', { id: tid });
+      if (!gr.ok || !gd.audioUrl) throw new Error(gd.error || mt.toasts.musicGenFailed);
+      toast.loading(mt.toasts.pastingMusic, { id: tid });
       const ar = await fetch('/api/video/add-music', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2190,17 +2186,17 @@ export function MontagemTab({
         }),
       });
       const ad = await ar.json();
-      if (!ar.ok || !ad.url) throw new Error(ad.error || 'Falha ao colar a música.');
+      if (!ar.ok || !ad.url) throw new Error(ad.error || mt.toasts.musicPasteFailed);
       setResultUrl(ad.url);
       onAddUploadedVideo?.(
         { url: ad.url, uploaded: true, aspectRatio: aspect, createdAt: new Date().toISOString() },
         false
       );
-      toast.success('Música adicionada — vídeo com trilha pronto!', { id: tid });
+      toast.success(mt.toasts.musicAdded, { id: tid });
       updateJob(jid, { status: 'done' });
       logCreativeCost('Música (ElevenLabs)', COST_RATES.music);
     } catch (e: any) {
-      toast.error(e?.message || 'Erro na música.', { id: tid });
+      toast.error(e?.message || mt.toasts.musicError, { id: tid });
       updateJob(jid, { status: 'error' });
     } finally {
       setMusicGen(false);
@@ -2212,15 +2208,13 @@ export function MontagemTab({
   // vídeo) e queima o texto do gancho por cima — legível, grafia exata.
   // coverUseAtPlayhead força usar o instante atual (comportamento manual antigo).
   const gerarCapa = async () => {
-    if (!uid) return toast.error('Faça login.');
-    if (!resultUrl) return toast.error('Monte o vídeo primeiro.');
+    if (!uid) return toast.error(mt.common.login);
+    if (!resultUrl) return toast.error(mt.toasts.composeVideoFirst);
     setCoverGen(true);
     const tid = 'montagem-cover';
     const jid = addJob('Capa/thumbnail (Nano Banana)');
     toast.loading(
-      coverUseAtPlayhead
-        ? 'Gerando a capa a partir do instante atual…'
-        : 'Escolhendo os melhores instantes e gerando a capa…',
+      coverUseAtPlayhead ? mt.toasts.generatingCoverFromCurrent : mt.toasts.choosingBestMoments,
       { id: tid }
     );
     try {
@@ -2243,15 +2237,15 @@ export function MontagemTab({
       });
       const d = await r.json();
       const urls: string[] = Array.isArray(d.urls) ? d.urls : d.url ? [d.url] : [];
-      if (!r.ok || urls.length === 0) throw new Error(d.error || 'Falha ao gerar a capa.');
+      if (!r.ok || urls.length === 0) throw new Error(d.error || mt.toasts.coverGenFailed);
       setCoverOptions(urls);
       setCoverUrl(urls[0]!); // pré-seleciona a 1ª; o usuário troca clicando
-      toast.success(`${urls.length} opções de capa prontas — escolha uma!`, { id: tid });
+      toast.success(mt.toasts.coverOptionsReady(urls.length), { id: tid });
       updateJob(jid, { status: 'done' });
       logCreativeCost('Capa/thumbnail (Nano Banana)', COST_RATES.covers(urls.length));
       triggerProjectSave('capa');
     } catch (e: any) {
-      toast.error(e?.message || 'Erro ao gerar a capa.', { id: tid });
+      toast.error(e?.message || mt.toasts.coverError, { id: tid });
       updateJob(jid, { status: 'error' });
     } finally {
       setCoverGen(false);
@@ -2267,21 +2261,21 @@ export function MontagemTab({
   }, [templates]);
 
   const saveTemplate = () => {
-    const name = (window.prompt('Nome do molde (ex.: "VSL reborn 1:1"):') || '').trim();
+    const name = (window.prompt(mt.toasts.templateNamePrompt) || '').trim();
     if (!name) return;
     setTemplates((prev) => [
-      ...prev.filter((t) => t.name !== name),
+      ...prev.filter((tpl) => tpl.name !== name),
       { name, aspect, fit, cutPace },
     ]);
-    toast.success(`Molde "${name}" salvo.`);
+    toast.success(mt.toasts.templateSaved(name));
   };
   const applyTemplate = (name: string) => {
-    const t = templates.find((x) => x.name === name);
-    if (!t) return;
-    setAspect(t.aspect as any);
-    setFit(t.fit as any);
-    setCutPace(t.cutPace);
-    toast.success(`Molde "${name}" aplicado — agora é só Auto-editar.`);
+    const tpl = templates.find((x) => x.name === name);
+    if (!tpl) return;
+    setAspect(tpl.aspect as any);
+    setFit(tpl.fit as any);
+    setCutPace(tpl.cutPace);
+    toast.success(mt.toasts.templateApplied(name));
   };
 
   const displayItems = items
@@ -2295,14 +2289,12 @@ export function MontagemTab({
     if (!isTimeline) return [] as string[];
     const w: string[] = [];
     const GAP = 0.35; // tolerância em segundos
-    if (!audioUrl) w.push('Sem áudio — a timeline precisa de um áudio pra montar no tempo.');
+    if (!audioUrl) w.push(mt.warnings.noAudio);
     if (items.length === 0) return w;
     const sorted = [...items].sort((a, b) => a.atSec - b.atSec);
     // Buraco no começo.
     if (sorted[0]!.atSec > GAP) {
-      w.push(
-        `Os primeiros ${sorted[0]!.atSec.toFixed(1)}s ficam sem vídeo (tela pode ficar preta).`
-      );
+      w.push(mt.warnings.startGap(sorted[0]!.atSec.toFixed(1)));
     }
     for (let i = 0; i < sorted.length; i++) {
       const it = sorted[i]!;
@@ -2312,25 +2304,28 @@ export function MontagemTab({
       const clipDur = clips[it.clipIdx]?.duration || 0;
       if (clipDur > 0 && clipDur < slot - GAP) {
         w.push(
-          `Trecho ${i + 1} (${clips[it.clipIdx]?.label || 'trecho'}): clipe tem ${clipDur.toFixed(1)}s mas o slot é ${slot.toFixed(1)}s — vai congelar/repetir o fim.`
+          mt.warnings.clipShorterThanSlot(
+            i + 1,
+            clips[it.clipIdx]?.label || mt.segments.clipFallback,
+            clipDur.toFixed(1),
+            slot.toFixed(1)
+          )
         );
       }
       // Buraco/sobreposição com o próximo.
       const next = sorted[i + 1];
       if (next) {
         if (next.atSec > end + GAP) {
-          w.push(
-            `Buraco de ${(next.atSec - end).toFixed(1)}s entre os trechos ${i + 1} e ${i + 2}.`
-          );
+          w.push(mt.warnings.gapBetween((next.atSec - end).toFixed(1), i + 1, i + 2));
         } else if (next.atSec < end - GAP) {
-          w.push(`Trechos ${i + 1} e ${i + 2} se sobrepõem por ${(end - next.atSec).toFixed(1)}s.`);
+          w.push(mt.warnings.overlap(i + 1, i + 2, (end - next.atSec).toFixed(1)));
         }
       }
     }
     // Buraco no fim.
     const last = sorted[sorted.length - 1]!;
     if (audioDuration && itemEnd(last) < audioDuration - GAP) {
-      w.push(`Os últimos ${(audioDuration - itemEnd(last)).toFixed(1)}s ficam sem vídeo.`);
+      w.push(mt.warnings.endGap((audioDuration - itemEnd(last)).toFixed(1)));
     }
     return w;
   }, [isTimeline, audioUrl, items, clips, audioDuration]);
@@ -2366,7 +2361,7 @@ export function MontagemTab({
           onSave={(f) => {
             setAvatarFraming((prev) => ({ ...prev, [avatarBase]: f }));
             setFramingModalOpen(false);
-            toast.success('Enquadramento salvo — vale pra todos os trechos deste avatar.');
+            toast.success(mt.toasts.framingSavedGlobal);
           }}
         />
       )}
@@ -2374,7 +2369,7 @@ export function MontagemTab({
       {/* Enquadrar SÓ este trecho — sobrepõe o enquadramento global. */}
       {perTrechoFraming != null && avatarBase && items[perTrechoFraming] && (
         <AvatarFramingModal
-          title={`Enquadrar — trecho ${perTrechoFraming + 1}`}
+          title={mt.perSegmentFramingTitle(perTrechoFraming + 1)}
           perTrecho
           avatarUrl={avatarBase}
           aspect={aspect}
@@ -2388,7 +2383,7 @@ export function MontagemTab({
           onSave={(f) => {
             setItemField(perTrechoFraming, { frameOverride: f });
             setPerTrechoFraming(null);
-            toast.success('Enquadramento salvo só pra este trecho.');
+            toast.success(mt.toasts.framingSavedPerSegment);
           }}
         />
       )}
@@ -2409,7 +2404,7 @@ export function MontagemTab({
                 value={brollSwap.term}
                 onChange={(e) => setBrollSwap((p) => (p ? { ...p, term: e.target.value } : p))}
                 onKeyDown={(e) => e.key === 'Enter' && searchSwap(brollSwap.term)}
-                placeholder="Buscar b-roll no Pexels…"
+                placeholder={mt.brollSwapModal.placeholder}
                 className="flex-1 px-3 py-2 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100 text-sm"
               />
               <button
@@ -2417,7 +2412,7 @@ export function MontagemTab({
                 disabled={brollSwap.loading}
                 className="text-xs font-black uppercase tracking-widest px-4 py-2 rounded-xl bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 disabled:opacity-50"
               >
-                {brollSwap.loading ? '…' : 'Buscar'}
+                {brollSwap.loading ? '…' : mt.pexelsSearch.button}
               </button>
               {myProjectVideos.length > 0 && (
                 <button
@@ -2428,7 +2423,7 @@ export function MontagemTab({
                       : 'border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300'
                   }`}
                 >
-                  🎬 Meus vídeos
+                  {mt.brollSwapModal.myVideos}
                 </button>
               )}
               <button
@@ -2442,7 +2437,7 @@ export function MontagemTab({
               {swapMyVid && myProjectVideos.length > 0 && (
                 <div className="mb-4 space-y-1">
                   <span className="text-[10px] font-black uppercase tracking-widest text-blue-500 dark:text-blue-400">
-                    🎬 Meus vídeos do projeto
+                    {mt.brollSwapModal.myProjectVideos}
                   </span>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {myProjectVideos.map((mv) => (
@@ -2489,7 +2484,7 @@ export function MontagemTab({
               )}
               {brollSwap.candidates.length === 0 ? (
                 <p className="text-sm text-gray-400 text-center py-8">
-                  Busque um termo pra ver os b-rolls.
+                  {mt.brollSwapModal.searchHint}
                 </p>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -2531,11 +2526,10 @@ export function MontagemTab({
             <div className="flex items-center justify-between gap-3 p-4 border-b border-gray-200 dark:border-gray-800">
               <div>
                 <h3 className="text-lg font-black text-gray-900 dark:text-gray-50">
-                  Escolha o b-roll de cada trecho
+                  {mt.autoSlotsModal.title}
                 </h3>
                 <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                  {autoSlots.length} trechos planejados no ritmo da referência. Clique no b-roll de
-                  cada um (ou busque outro termo).
+                  {mt.autoSlotsModal.subtitle(autoSlots.length)}
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -2543,13 +2537,13 @@ export function MontagemTab({
                   onClick={() => setAutoSlots([])}
                   className="text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-lg text-gray-500 hover:text-red-500"
                 >
-                  Cancelar
+                  {mt.common.cancel}
                 </button>
                 <button
                   onClick={applyAutoSlots}
                   className="text-xs font-black uppercase tracking-widest px-4 py-2.5 rounded-xl bg-purple-600 text-white hover:bg-purple-700"
                 >
-                  Aplicar à timeline
+                  {mt.autoSlotsModal.applyButton}
                 </button>
               </div>
             </div>
@@ -2561,7 +2555,7 @@ export function MontagemTab({
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-xs font-black text-gray-700 dark:text-gray-300">
-                      Trecho {i + 1}
+                      {mt.autoSlotsModal.segmentLabel(i + 1)}
                     </span>
                     <span className="text-[10px] text-gray-400">
                       {Math.round(s.start)}–{Math.round(s.end)}s
@@ -2569,9 +2563,9 @@ export function MontagemTab({
                     <button
                       onClick={() => playSegment(s.start, s.end)}
                       className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/40"
-                      title="Ouvir este trecho da narração"
+                      title={mt.autoSlotsModal.listenTitle}
                     >
-                      <Play size={11} /> Ouvir
+                      <Play size={11} /> {mt.common.listen}
                     </button>
                     <input
                       value={s.searchTerm}
@@ -2588,7 +2582,7 @@ export function MontagemTab({
                       disabled={researchingSlot === i}
                       className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-lg bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 disabled:opacity-50"
                     >
-                      {researchingSlot === i ? '…' : 'Buscar'}
+                      {researchingSlot === i ? '…' : mt.pexelsSearch.button}
                     </button>
                   </div>
                   {myProjectVideos.length > 0 && (
@@ -2597,7 +2591,8 @@ export function MontagemTab({
                         onClick={() => setMyVidOpen((prev) => ({ ...prev, [i]: !prev[i] }))}
                         className="text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 border border-blue-300 dark:border-blue-800 rounded-lg px-2.5 py-1.5 hover:bg-blue-50 dark:hover:bg-blue-950/40 flex items-center gap-1"
                       >
-                        🎬 Meus vídeos ({myProjectVideos.length}) {myVidOpen[i] ? '▲' : '▼'}
+                        {mt.autoSlotsModal.myVideosCount(myProjectVideos.length)}{' '}
+                        {myVidOpen[i] ? '▲' : '▼'}
                       </button>
                       {myVidOpen[i] && (
                         <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
@@ -2655,9 +2650,7 @@ export function MontagemTab({
                     </div>
                   )}
                   {s.candidates.length === 0 ? (
-                    <p className="text-[11px] text-gray-400">
-                      Nenhum b-roll — busque outro termo acima.
-                    </p>
+                    <p className="text-[11px] text-gray-400">{mt.autoSlotsModal.noBrollHint}</p>
                   ) : (
                     <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                       {s.candidates.map((c) => (
@@ -2705,12 +2698,12 @@ export function MontagemTab({
                       )}
                       {s.tone === 'past' && (
                         <span className="px-2 py-1 rounded-lg bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-300 font-black uppercase tracking-widest">
-                          ◐ P&B
+                          {mt.autoSlotsModal.bwBadge}
                         </span>
                       )}
                       {s.style === 'animation' && (
                         <span className="px-2 py-1 rounded-lg bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-black uppercase tracking-widest">
-                          ✦ animação
+                          {mt.autoSlotsModal.animationBadge}
                         </span>
                       )}
                       {s.split && (
@@ -2721,7 +2714,7 @@ export function MontagemTab({
                             )
                           }
                           className="px-2 py-1 rounded-lg bg-cyan-100 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-300 font-black uppercase tracking-widest"
-                          title="Split-screen (2 b-rolls). Clique pra desligar."
+                          title={mt.autoSlotsModal.splitToggleTitle}
                         >
                           ⊞ split ✕
                         </button>
@@ -2742,7 +2735,7 @@ export function MontagemTab({
                           )
                         }
                         className="text-gray-400 hover:text-red-500 font-bold"
-                        title="Não usar esse efeito neste trecho"
+                        title={mt.autoSlotsModal.dontUseEffectTitle}
                       >
                         ✕
                       </button>
@@ -2797,7 +2790,7 @@ export function MontagemTab({
             }
           />
           <h2 className="text-2xl font-black text-gray-900 dark:text-gray-50">
-            {montagemMode === 'vsl' ? 'Montagem da VSL' : 'Montagem do criativo'}
+            {montagemMode === 'vsl' ? mt.header.titleVsl : mt.header.titleCreative}
           </h2>
         </div>
         {(hasVslWorkflow || montagemMode === 'vsl') && (
@@ -2811,7 +2804,7 @@ export function MontagemTab({
                     : 'text-gray-500 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-blue-950/40'
                 }`}
               >
-                Montagem do Criativo
+                {mt.header.toggleCreative}
               </button>
               <button
                 onClick={() => setMontagemMode('vsl')}
@@ -2821,15 +2814,13 @@ export function MontagemTab({
                     : 'text-gray-500 dark:text-gray-400 hover:bg-purple-50 dark:hover:bg-purple-950/40'
                 }`}
               >
-                Montagem da VSL
+                {mt.header.toggleVsl}
               </button>
             </div>
           </div>
         )}
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          {montagemMode === 'vsl'
-            ? 'Monte a VSL sem mexer no workflow do criativo. Escolha a voz/bloco da VSL, encaixe os trechos no tempo da narração e o resultado segue separado.'
-            : 'Sem avatar IA. Com um áudio base (a voz), dê play e clique "Adicionar aqui" no segundo certo pra encaixar cada trecho. O resultado vai pra Edição.'}
+          {montagemMode === 'vsl' ? mt.header.subtitleVsl : mt.header.subtitleCreative}
         </p>
       </div>
 
@@ -2838,12 +2829,13 @@ export function MontagemTab({
           parte da VSL (cada um com seu áudio). Creativo: cenas. */}
       {(() => {
         const usingSlices = montagemMode === 'vsl' && blockEnds.length > 0;
-        const noun = montagemMode === 'vsl' ? 'Bloco' : 'Cena';
+        const noun =
+          montagemMode === 'vsl' ? mt.blockSelector.nounBlock : mt.blockSelector.nounScene;
         const n = usingSlices ? blockEnds.length : blockCount;
         return (
           <div className="flex items-center gap-2 flex-wrap bg-white dark:bg-gray-900/70 p-2.5 rounded-2xl border-2 border-blue-200 dark:border-blue-900/50">
             <span className="text-[11px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 shrink-0">
-              {montagemMode === 'vsl' ? '🧩 Blocos da VSL' : '🎬 Cenas'}
+              {montagemMode === 'vsl' ? mt.blockSelector.vslLabel : mt.blockSelector.creativeLabel}
             </span>
             {Array.from({ length: n }, (_, i) => i).map((i) => {
               const isActive = activeBlock === i;
@@ -2852,7 +2844,7 @@ export function MontagemTab({
                 <button
                   key={i}
                   onClick={() => (usingSlices ? trabalharNoBloco(i) : selectBlock(i))}
-                  title={`Trocar pro ${noun.toLowerCase()} ${i + 1} — o workflow salvo vai junto`}
+                  title={mt.blockSelector.switchTitle(noun.toLowerCase(), i + 1)}
                   className={`px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-widest border transition-all ${
                     isActive
                       ? 'bg-blue-600 text-white border-blue-600'
@@ -2878,17 +2870,13 @@ export function MontagemTab({
                   }}
                   className="px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-widest border border-dashed border-blue-300 dark:border-blue-700 text-blue-500 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/30"
                 >
-                  + {noun}
+                  {mt.blockSelector.addButton(noun)}
                 </button>
                 {blockCount > 1 && (
                   <button
                     onClick={() => {
                       const removed = Math.max(0, activeBlock);
-                      if (
-                        !window.confirm(
-                          `Excluir ${noun} ${removed + 1}? A montagem dele será perdida.`
-                        )
-                      )
+                      if (!window.confirm(mt.blockSelector.deleteConfirm(noun, removed + 1)))
                         return;
                       const reindexed: Record<number, BlockWorkflow> = {};
                       Object.keys(blockDrafts)
@@ -2904,7 +2892,7 @@ export function MontagemTab({
                       setActiveBlock(target);
                     }}
                     className="px-2 py-1.5 rounded-xl text-[11px] font-black text-red-500 border border-red-200 dark:border-red-900/60 hover:bg-red-50 dark:hover:bg-red-950/30"
-                    title={`Excluir ${noun.toLowerCase()} ativo`}
+                    title={mt.blockSelector.deleteTitle(noun)}
                   >
                     🗑
                   </button>
@@ -2913,8 +2901,8 @@ export function MontagemTab({
             )}
             <span className="text-[10px] text-gray-400 ml-auto hidden sm:block">
               {activeBlock < 0 && usingSlices
-                ? 'Clique num bloco pra começar a montá-lo.'
-                : '● = já montado · trocar não apaga'}
+                ? mt.blockSelector.clickToStart
+                : mt.blockSelector.alreadyEditedHint}
             </span>
           </div>
         );
@@ -2925,7 +2913,7 @@ export function MontagemTab({
         <div className="flex items-center gap-2">
           <Music size={16} className="text-blue-600 dark:text-blue-400" />
           <span className="text-xs font-black uppercase tracking-widest text-gray-700 dark:text-gray-300">
-            Áudio base (linha do tempo)
+            {mt.audioBase.heading}
           </span>
         </div>
         {audioUrl ? (
@@ -2963,7 +2951,7 @@ export function MontagemTab({
                 <button
                   onClick={togglePlay}
                   className="text-white shrink-0"
-                  title={isPlaying ? 'Pausar' : 'Tocar'}
+                  title={isPlaying ? mt.audioBase.pause : mt.audioBase.play}
                 >
                   {isPlaying ? <Pause size={18} /> : <Play size={18} />}
                 </button>
@@ -2979,7 +2967,7 @@ export function MontagemTab({
                 <button
                   onClick={goFullscreen}
                   className="text-white shrink-0"
-                  title="Tela cheia (entra/sai)"
+                  title={mt.audioBase.fullscreenTitle}
                 >
                   <Maximize size={16} />
                 </button>
@@ -2989,7 +2977,7 @@ export function MontagemTab({
               onClick={addHere}
               className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-black uppercase tracking-widest flex items-center justify-center gap-2"
             >
-              <Plus size={16} /> Adicionar aqui ({playhead.toFixed(1)}s)
+              <Plus size={16} /> {mt.audioBase.addHereButton(playhead.toFixed(1))}
             </button>
 
             {/* Seletor de clipe ao "adicionar aqui" */}
@@ -2997,7 +2985,7 @@ export function MontagemTab({
               <div className="p-3 rounded-xl ring-2 ring-blue-400 bg-blue-50/60 dark:bg-blue-950/30 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-black uppercase tracking-widest text-blue-700 dark:text-blue-300">
-                    Escolha o trecho pra {picking.toFixed(1)}s
+                    {mt.audioBase.chooseClipFor(picking.toFixed(1))}
                   </span>
                   <button
                     onClick={() => setPicking(null)}
@@ -3007,7 +2995,7 @@ export function MontagemTab({
                   </button>
                 </div>
                 {clips.length === 0 ? (
-                  <p className="text-[11px] text-gray-500">Suba trechos primeiro (abaixo).</p>
+                  <p className="text-[11px] text-gray-500">{mt.audioBase.uploadClipsFirstHint}</p>
                 ) : (
                   <div className="grid grid-cols-3 gap-2">
                     {clips.map((c, ci) => (
@@ -3037,7 +3025,7 @@ export function MontagemTab({
                             e.stopPropagation();
                             deletePoolClip(ci);
                           }}
-                          title="Excluir trecho da biblioteca"
+                          title={mt.audioBase.deleteClipTitle}
                           className="absolute top-1 right-1 p-1 rounded bg-black/60 text-white hover:bg-red-600"
                         >
                           <Trash2 size={11} />
@@ -3076,7 +3064,9 @@ export function MontagemTab({
             />
             <div className="flex items-center justify-between">
               <span className="text-[11px] text-gray-500">
-                Duração: {audioDuration ? `${audioDuration.toFixed(1)}s` : '...'}
+                {mt.audioBase.durationLabel(
+                  audioDuration ? `${audioDuration.toFixed(1)}s` : mt.audioBase.durationPending
+                )}
               </span>
               <button
                 onClick={() => {
@@ -3086,7 +3076,7 @@ export function MontagemTab({
                 }}
                 className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-red-500"
               >
-                <X size={12} /> Remover áudio
+                <X size={12} /> {mt.audioBase.removeAudioButton}
               </button>
             </div>
           </div>
@@ -3106,7 +3096,7 @@ export function MontagemTab({
                         : 'bg-blue-600 hover:bg-blue-700'
                 }`}
               >
-                Usar {o.label}
+                {mt.audioBase.useVoiceButton(o.label)}
               </button>
             ))}
             <label className="px-3 py-2 rounded-xl border-2 border-gray-200 dark:border-gray-700 text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-300 hover:border-blue-400 cursor-pointer flex items-center gap-1">
@@ -3115,7 +3105,7 @@ export function MontagemTab({
               ) : (
                 <Upload size={12} />
               )}
-              Enviar áudio
+              {mt.audioBase.uploadAudioLabel}
               <input
                 type="file"
                 accept="audio/*"
@@ -3124,7 +3114,7 @@ export function MontagemTab({
               />
             </label>
             <span className="text-[11px] text-gray-400 self-center">
-              (sem áudio = só cola em ordem)
+              {mt.audioBase.noAudioHint}
             </span>
           </div>
         )}
@@ -3134,18 +3124,20 @@ export function MontagemTab({
       {isTimeline && displayItems.length > 0 && (
         <div className="bg-white dark:bg-gray-900/70 p-3 rounded-2xl border-2 border-gray-200 dark:border-gray-800 space-y-2">
           <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">
-            Transições (preview) — escolha em cada trecho abaixo
+            {mt.transitionsPreviewLabel}
           </span>
           <div className="grid grid-cols-3 sm:grid-cols-7 gap-2">
-            {TRANSITIONS.map((t) => (
-              <div key={t.id} className="space-y-1">
+            {TRANSITIONS.map((trans) => (
+              <div key={trans.id} className="space-y-1">
                 <div className="mv-card relative w-full h-14 rounded-lg overflow-hidden ring-1 ring-gray-200 dark:ring-gray-700 cursor-pointer">
                   <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-500 to-rose-500" />
                   <div
-                    className={`absolute inset-0 bg-gradient-to-br from-blue-500 to-cyan-400 ${t.css}`}
+                    className={`absolute inset-0 bg-gradient-to-br from-blue-500 to-cyan-400 ${trans.css}`}
                   />
                 </div>
-                <span className="block text-[9px] text-center text-gray-500">{t.label}</span>
+                <span className="block text-[9px] text-center text-gray-500">
+                  {transitionLabel(trans.id)}
+                </span>
               </div>
             ))}
           </div>
@@ -3157,21 +3149,18 @@ export function MontagemTab({
         <div className="bg-white dark:bg-gray-900/70 p-3 rounded-2xl border-2 border-gray-200 dark:border-gray-800 space-y-2">
           <div className="flex items-center justify-between gap-2">
             <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">
-              Efeitos sonoros (biblioteca) — ouça e aplique nos trechos abaixo
+              {mt.soundLibrary.heading}
             </span>
             <button
               onClick={() => setSoundLibManage(true)}
               className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-blue-400 flex items-center gap-1 shrink-0"
-              title="Enviar, aparar (trim) ou remover efeitos"
+              title={mt.soundLibrary.manageTitle}
             >
-              <Music size={12} /> Gerenciar
+              <Music size={12} /> {mt.soundLibrary.manageButton}
             </button>
           </div>
           {libSounds.length === 0 ? (
-            <p className="text-[11px] text-gray-400">
-              Biblioteca vazia. Clique em <b>Gerenciar</b> pra enviar seus efeitos (whoosh, cash
-              register, clock ticking…).
-            </p>
+            <p className="text-[11px] text-gray-400">{mt.soundLibrary.emptyHint}</p>
           ) : (
             ['Transições', 'Efeitos', 'Impactos', 'Outros']
               .filter((cat) => libSounds.some((s) => (s.category || 'Outros') === cat))
@@ -3188,7 +3177,7 @@ export function MontagemTab({
                           key={s.id}
                           onClick={() => playSfx(s.url)}
                           className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-[11px] text-gray-700 dark:text-gray-200 hover:border-purple-400"
-                          title="Ouvir"
+                          title={mt.common.listen}
                         >
                           <Play size={10} /> {s.name}
                         </button>
@@ -3204,13 +3193,10 @@ export function MontagemTab({
       {isTimeline && (
         <div className="bg-white dark:bg-gray-900/70 p-3 rounded-2xl border-2 border-violet-200 dark:border-violet-900/60 space-y-2">
           <span className="text-[11px] font-black uppercase tracking-widest text-violet-600 dark:text-violet-400">
-            Avatar base (opcional) — pro PiP / split
+            {mt.avatarBase.heading}
           </span>
           <p className="text-[11px] text-gray-500 dark:text-gray-400">
-            <b>Obrigatório</b> pro avatar aparecer: escolha o vídeo do avatar (o que você gerou na
-            aba Avatar) da <b>mesma narração</b>. Só depois os layouts{' '}
-            <b>tela cheia / PiP / split</b>
-            de cada trecho funcionam (o render encaixa o avatar no tempo certo, lip-sync na voz).
+            {mt.avatarBase.explanation}
           </p>
           {avatarBase ? (
             <div className="space-y-2">
@@ -3222,20 +3208,20 @@ export function MontagemTab({
                   className="w-40 h-24 object-cover rounded-lg bg-black"
                 />
                 <span className="text-[10px] font-black uppercase tracking-widest text-green-600 dark:text-green-400">
-                  ✓ avatar base ativo
+                  {mt.avatarBase.activeBadge}
                 </span>
                 <button
                   onClick={() => setFramingModalOpen(true)}
                   className="text-[10px] font-black uppercase tracking-widest text-violet-600 dark:text-violet-400 hover:underline"
-                  title="Escolha 1× onde o split corta e onde o círculo do PiP recorta — vale pra todos os trechos deste avatar"
+                  title={mt.avatarBase.frameTitle}
                 >
-                  ◎ Enquadrar avatar
+                  {mt.avatarBase.frameButton}
                 </button>
                 <button
                   onClick={() => setAvatarBase('')}
                   className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-red-500"
                 >
-                  Trocar
+                  {mt.common.swap}
                 </button>
               </div>
               {/* Início do bloco no avatar: se a base é a VSL inteira (10 min) e
@@ -3243,7 +3229,7 @@ export function MontagemTab({
                   usa só daqui pra frente (pelo tempo do bloco) e o lip-sync bate. */}
               <div className="flex items-center gap-2 flex-wrap text-[10px]">
                 <span className="font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">
-                  Início do bloco no avatar:
+                  {mt.avatarBase.blockStartLabel}
                 </span>
                 <span className="font-mono font-black text-violet-600 dark:text-violet-400">
                   {`${Math.floor(avatarStartSec / 60)}:${String(Math.floor(avatarStartSec % 60)).padStart(2, '0')}`}
@@ -3253,19 +3239,19 @@ export function MontagemTab({
                     const t = avatarPreviewRef.current?.currentTime;
                     if (t == null) return;
                     setAvatarStartSec(Math.max(0, Math.round(t * 10) / 10));
-                    toast.success('Início marcado — a montagem corta o avatar a partir daqui.');
+                    toast.success(mt.toasts.avatarStartMarked);
                   }}
                   className="px-2 py-1 rounded-lg border border-violet-300 dark:border-violet-800 font-black uppercase tracking-widest text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-900/30"
-                  title="Pause o preview no ponto onde este bloco começa a falar e clique aqui"
+                  title={mt.avatarBase.cutFromHereTitle}
                 >
-                  ✂ Cortar a partir daqui
+                  {mt.avatarBase.cutFromHereButton}
                 </button>
                 {avatarStartSec > 0 && (
                   <button
                     onClick={() => setAvatarStartSec(0)}
                     className="font-black uppercase tracking-widest text-gray-400 hover:text-red-500"
                   >
-                    Resetar (0:00)
+                    {mt.avatarBase.resetButton}
                   </button>
                 )}
               </div>
@@ -3275,7 +3261,7 @@ export function MontagemTab({
               {avatarVideoOptionsForMode.length > 0 && (
                 <div className="space-y-1">
                   <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                    Escolha um avatar que você já gerou:
+                    {mt.avatarBase.chooseGeneratedHint}
                   </span>
                   <div className="flex flex-wrap gap-2 items-end">
                     {avatarVideoOptionsForMode.map((v) => {
@@ -3332,8 +3318,8 @@ export function MontagemTab({
                   <Upload size={12} />
                 )}
                 {avatarVideoOptionsForMode.length > 0
-                  ? 'ou enviar outro vídeo'
-                  : 'Enviar vídeo do avatar'}
+                  ? mt.avatarBase.uploadOtherLabel
+                  : mt.avatarBase.uploadLabel}
                 <input
                   type="file"
                   accept="video/*"
@@ -3347,11 +3333,7 @@ export function MontagemTab({
       )}
 
       {isTimeline && displayItems.length === 0 && (
-        <EmptyState
-          icon={Film}
-          title="Timeline vazia"
-          hint="Dê play no áudio e clique em “Adicionar aqui” no segundo certo pra colocar um trecho — ou use o Auto-editar pra a IA montar sozinha. Buracos viram tela preta; a voz toca por cima."
-        />
+        <EmptyState icon={Film} title={mt.emptyTimeline.title} hint={mt.emptyTimeline.hint} />
       )}
 
       {/* Seletor de bloco/cena — troca o workflow inteiro (clips, trechos,
@@ -3361,28 +3343,24 @@ export function MontagemTab({
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2">
             <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">
-              Trechos na timeline (arraste ⠿ pra reposicionar; começa / termina em s)
+              {mt.segments.heading}
             </span>
             <div className="flex items-center gap-1 shrink-0">
               {/* Imã (snap) + zoom/precisão do arraste */}
               <button
                 onClick={() => setSnap((s) => !s)}
-                title={
-                  snap
-                    ? 'Imã ligado — gruda na borda do vizinho / grade de 0,25s'
-                    : 'Imã desligado — arraste livre'
-                }
+                title={snap ? mt.segments.snapOnTitle : mt.segments.snapOffTitle}
                 className={`px-2 py-1.5 rounded-lg border text-[11px] font-black ${
                   snap
                     ? 'border-blue-400 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300'
                     : 'border-gray-200 dark:border-gray-700 text-gray-500'
                 }`}
               >
-                🧲 imã
+                {mt.segments.snapLabel}
               </button>
               <button
                 onClick={() => setZoom((z) => Math.max(0.5, Number((z - 0.5).toFixed(1))))}
-                title="Arraste mais grosso (zoom out)"
+                title={mt.segments.zoomOutTitle}
                 className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-blue-400"
               >
                 <Minus size={14} />
@@ -3390,7 +3368,7 @@ export function MontagemTab({
               <span className="text-[10px] font-black text-gray-400 w-8 text-center">{zoom}×</span>
               <button
                 onClick={() => setZoom((z) => Math.min(4, Number((z + 0.5).toFixed(1))))}
-                title="Arraste mais fino (zoom in)"
+                title={mt.segments.zoomInTitle}
                 className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-blue-400"
               >
                 <Plus size={14} />
@@ -3398,7 +3376,7 @@ export function MontagemTab({
               <button
                 onClick={undo}
                 disabled={histLens.past === 0}
-                title="Desfazer (Ctrl+Z)"
+                title={mt.segments.undoTitle}
                 className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-blue-400 disabled:opacity-30"
               >
                 <Undo2 size={14} />
@@ -3406,7 +3384,7 @@ export function MontagemTab({
               <button
                 onClick={redo}
                 disabled={histLens.future === 0}
-                title="Refazer (Ctrl+Shift+Z)"
+                title={mt.segments.redoTitle}
                 className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-blue-400 disabled:opacity-30"
               >
                 <Redo2 size={14} />
@@ -3423,7 +3401,7 @@ export function MontagemTab({
               <div className="flex items-center gap-3">
                 <button
                   onPointerDown={(e) => onDragStart(idx, e)}
-                  title="Arraste na horizontal pra reposicionar no tempo"
+                  title={mt.segments.dragTitle}
                   className="shrink-0 p-1 -ml-1 rounded text-gray-300 hover:text-gray-600 dark:hover:text-gray-200 cursor-ew-resize touch-none"
                 >
                   <GripVertical size={16} />
@@ -3440,48 +3418,48 @@ export function MontagemTab({
                     v.pause();
                     v.currentTime = 0;
                   }}
-                  title="Passe o mouse pra ver o trecho"
+                  title={mt.segments.hoverPreviewTitle}
                   className="w-24 h-16 object-cover rounded bg-black shrink-0 cursor-pointer"
                 />
                 <div className="flex-1 min-w-0 flex flex-wrap items-center gap-2 text-[10px] text-gray-500">
                   <span className="truncate font-bold text-gray-800 dark:text-gray-100 max-w-[100px]">
-                    {clips[it.clipIdx]?.label || 'trecho'}
+                    {clips[it.clipIdx]?.label || mt.segments.clipFallback}
                   </span>
                   <button
                     onClick={() => openSwap(idx)}
                     className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/40"
-                    title="Trocar o b-roll deste trecho"
+                    title={mt.segments.swapTitle}
                   >
-                    ⇄ trocar
+                    {mt.segments.swapButton}
                   </button>
                   <button
                     onClick={() => playSegment(it.atSec, itemEnd(it))}
                     disabled={!audioUrl}
                     className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md border border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/40 disabled:opacity-40 inline-flex items-center gap-1"
-                    title="Ouvir o áudio deste trecho"
+                    title={mt.segments.listenTitle}
                   >
-                    <Play size={10} /> ouvir
+                    <Play size={10} /> {mt.segments.listenButton}
                   </button>
-                  começa em
+                  {mt.segments.startsAt}
                   <NumInput
                     value={it.atSec}
                     min={0}
                     onCommit={(n) => updateItem(idx, 'atSec', String(n))}
                     className="w-16 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100"
                   />
-                  s · termina em
+                  {mt.segments.endsAt}
                   <NumInput
                     value={itemEnd(it)}
                     min={0.5}
                     onCommit={(n) => updateItem(idx, 'endSec', String(n))}
                     className="w-16 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100"
                   />
-                  s
+                  {mt.segments.seconds}
                 </div>
                 <button
                   onClick={() => removeItem(idx)}
                   className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 shrink-0"
-                  title="Remover"
+                  title={mt.segments.removeTitle}
                 >
                   <Trash2 size={14} />
                 </button>
@@ -3504,7 +3482,7 @@ export function MontagemTab({
                         <button
                           onClick={() => removeText(hlI)}
                           className="text-green-600 hover:text-red-500"
-                          title="Remover destaque"
+                          title={mt.segments.removeHighlightTitle}
                         >
                           ✕
                         </button>
@@ -3525,7 +3503,7 @@ export function MontagemTab({
                         }
                         className="px-2 py-0.5 rounded-lg border border-green-300 dark:border-green-800 text-green-700 dark:text-green-300 font-black uppercase tracking-widest hover:bg-green-50 dark:hover:bg-green-950/40"
                       >
-                        + destaque
+                        {mt.segments.addHighlightButton}
                       </button>
                     )}
                     {/* P&B — toggle */}
@@ -3536,18 +3514,18 @@ export function MontagemTab({
                           ? 'bg-gray-700 text-white'
                           : 'border border-gray-300 dark:border-gray-700 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'
                       }`}
-                      title="Preto e branco neste trecho"
+                      title={mt.segments.bwTitle}
                     >
-                      ◐ P&B
+                      {mt.autoSlotsModal.bwBadge}
                     </button>
                     {/* Zoom (Ken Burns) — DURANTE o trecho inteiro, independente
                         de qualquer transição de entrada/saída. */}
                     <span className="inline-flex items-center rounded-lg border border-orange-300 dark:border-orange-800 overflow-hidden">
                       {(
                         [
-                          { v: '', label: '— zoom' },
-                          { v: 'in', label: '🔍+' },
-                          { v: 'out', label: '🔍−' },
+                          { v: '', label: mt.segments.zoomNone },
+                          { v: 'in', label: mt.segments.zoomInLabel },
+                          { v: 'out', label: mt.segments.zoomOutLabel },
                         ] as const
                       ).map((opt) => (
                         <button
@@ -3555,10 +3533,10 @@ export function MontagemTab({
                           onClick={() => setItemField(idx, { zoom: opt.v })}
                           title={
                             opt.v === 'in'
-                              ? 'Zoom in lento durante o trecho todo'
+                              ? mt.segments.zoomInTitle2
                               : opt.v === 'out'
-                                ? 'Zoom out lento durante o trecho todo'
-                                : 'Sem zoom'
+                                ? mt.segments.zoomOutTitle2
+                                : mt.segments.zoomNoneTitle
                           }
                           className={`px-2 py-0.5 font-black uppercase tracking-widest inline-block ${
                             (it.zoom || '') === opt.v
@@ -3581,18 +3559,18 @@ export function MontagemTab({
                     {/* Split de B-ROLL (2 b-rolls lado a lado) — add/trocar/remover */}
                     {it.clipIdx2 != null ? (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-cyan-100 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-300 font-black uppercase tracking-widest">
-                        ⊞ split
+                        {mt.segments.splitBadge}
                         <button
                           onClick={() => openAddSplit(idx)}
                           className="hover:text-blue-600"
-                          title="Trocar o 2º b-roll"
+                          title={mt.segments.swapSplitTitle}
                         >
                           ⇄
                         </button>
                         <button
                           onClick={() => setItemField(idx, { clipIdx2: undefined })}
                           className="hover:text-red-500"
-                          title="Remover split"
+                          title={mt.segments.removeSplitTitle}
                         >
                           ✕
                         </button>
@@ -3601,9 +3579,9 @@ export function MontagemTab({
                       <button
                         onClick={() => autoAddSplit(idx)}
                         className="px-2 py-0.5 rounded-lg border border-cyan-300 dark:border-cyan-800 text-cyan-700 dark:text-cyan-300 font-black uppercase tracking-widest hover:bg-cyan-50 dark:hover:bg-cyan-950/40"
-                        title="Split-screen: escolhe um 2º b-roll automaticamente (troque no ⇄ depois)"
+                        title={mt.segments.addSplitTitle}
                       >
-                        + split
+                        {mt.segments.addSplitButton}
                       </button>
                     )}
                     {/* Efeito contextual — trocar/remover/ouvir */}
@@ -3613,21 +3591,21 @@ export function MontagemTab({
                         <button
                           onClick={() => playSfx(it.soundMid!)}
                           className="hover:text-amber-600"
-                          title="Ouvir"
+                          title={mt.segments.effectPlayTitle}
                         >
                           ▶
                         </button>
                         <button
                           onClick={() => setSoundPicker({ idx, field: 'soundMid' })}
                           className="hover:text-blue-600"
-                          title="Trocar efeito"
+                          title={mt.segments.effectSwapTitle}
                         >
                           ⇄
                         </button>
                         <button
                           onClick={() => setItemField(idx, { soundMid: '' })}
                           className="hover:text-red-500"
-                          title="Remover efeito"
+                          title={mt.segments.effectRemoveTitle}
                         >
                           ✕
                         </button>
@@ -3637,7 +3615,7 @@ export function MontagemTab({
                         onClick={() => setSoundPicker({ idx, field: 'soundMid' })}
                         className="px-2 py-0.5 rounded-lg border border-amber-300 dark:border-amber-800 text-amber-700 dark:text-amber-300 font-black uppercase tracking-widest hover:bg-amber-50 dark:hover:bg-amber-950/40"
                       >
-                        + efeito
+                        {mt.segments.addEffectButton}
                       </button>
                     )}
                     {/* Layout com AVATAR — PiP (canto) ou split. Precisa do Avatar base. */}
@@ -3648,8 +3626,8 @@ export function MontagemTab({
                       }
                       title={
                         avatarBase
-                          ? 'Como o avatar aparece neste trecho'
-                          : 'Defina o "Avatar base" acima pra usar PiP/split'
+                          ? mt.segments.layoutTitleWithAvatar
+                          : mt.segments.layoutTitleNoAvatar
                       }
                       className={`px-2 py-1 rounded-lg border font-black uppercase tracking-widest ${
                         it.layout && it.layout !== 'full'
@@ -3657,13 +3635,13 @@ export function MontagemTab({
                           : 'border-violet-300 dark:border-violet-800 text-violet-700 dark:text-violet-300 bg-transparent'
                       }`}
                     >
-                      <option value="full">🧑 sem avatar (só b-roll)</option>
-                      <option value="avatar">🎙 avatar tela cheia</option>
-                      <option value="pip">◍ avatar PiP (canto)</option>
-                      <option value="split-left">◧ split avatar ←</option>
-                      <option value="split-right">◨ split avatar →</option>
-                      <option value="split-top">⬒ split avatar ↑ (cima)</option>
-                      <option value="split-bottom">⬓ split avatar ↓ (baixo)</option>
+                      <option value="full">{mt.segments.layoutFull}</option>
+                      <option value="avatar">{mt.segments.layoutAvatar}</option>
+                      <option value="pip">{mt.segments.layoutPip}</option>
+                      <option value="split-left">{mt.segments.layoutSplitLeft}</option>
+                      <option value="split-right">{mt.segments.layoutSplitRight}</option>
+                      <option value="split-top">{mt.segments.layoutSplitTop}</option>
+                      <option value="split-bottom">{mt.segments.layoutSplitBottom}</option>
                     </select>
                     {/* Enquadramento SÓ deste trecho — sobrepõe o global (crop/split/
                         PiP/proporção). Útil quando um trecho precisa de mais espaço
@@ -3677,15 +3655,17 @@ export function MontagemTab({
                               ? 'bg-fuchsia-600 text-white'
                               : 'border border-fuchsia-300 dark:border-fuchsia-800 text-fuchsia-700 dark:text-fuchsia-300 hover:bg-fuchsia-50 dark:hover:bg-fuchsia-950/40'
                           }`}
-                          title="Enquadramento (corte/split/PiP/proporção) só deste trecho, diferente do padrão"
+                          title={mt.segments.frameTitle}
                         >
-                          🎯 {it.frameOverride ? 'enquadre próprio' : 'enquadrar'}
+                          {it.frameOverride
+                            ? mt.segments.frameOwnButton
+                            : mt.segments.frameGenericButton}
                         </button>
                         {it.frameOverride && (
                           <button
                             onClick={() => setItemField(idx, { frameOverride: undefined })}
                             className="text-fuchsia-500 hover:text-red-500"
-                            title="Voltar ao enquadramento padrão"
+                            title={mt.segments.frameResetTitle}
                           >
                             ✕
                           </button>
@@ -3702,9 +3682,9 @@ export function MontagemTab({
                         return (
                           <label
                             className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-gray-500"
-                            title="Reposiciona o b-roll dentro da metade do split (pra não cortar/descentralizar o assunto)"
+                            title={mt.segments.brollPanTitle}
                           >
-                            b-roll {horiz ? '⟷' : '↕'}
+                            {horiz ? mt.segments.brollPanTitleH : mt.segments.brollPanTitleV}
                             <input
                               type="range"
                               min={0}
@@ -3764,9 +3744,9 @@ export function MontagemTab({
                         return (
                           <div className="basis-full flex items-center gap-2 pt-1">
                             <span className="text-[9px] text-gray-400 uppercase tracking-widest">
-                              prévia{' '}
+                              {mt.segments.previewLabel}{' '}
                               {it.frameOverride && (
-                                <span className="text-fuchsia-500">(próprio)</span>
+                                <span className="text-fuchsia-500">{mt.segments.previewOwn}</span>
                               )}
                             </span>
                             <div
@@ -3811,8 +3791,10 @@ export function MontagemTab({
                       key={side}
                       className="flex flex-wrap items-center gap-2 text-[10px] text-gray-400 pl-1"
                     >
-                      <span className="w-12 font-bold">{side === 'In' ? 'entrada' : 'saída'}</span>
-                      <span className="italic">— sem transição (avatar contínuo)</span>
+                      <span className="w-12 font-bold">
+                        {side === 'In' ? mt.segments.transitionIn : mt.segments.transitionOut}
+                      </span>
+                      <span className="italic">{mt.segments.noTransitionContinuous}</span>
                     </div>
                   );
                 }
@@ -3821,7 +3803,9 @@ export function MontagemTab({
                     key={side}
                     className="flex flex-wrap items-center gap-2 text-[10px] text-gray-500 pl-1"
                   >
-                    <span className="w-12 font-bold">{side === 'In' ? 'entrada' : 'saída'}</span>
+                    <span className="w-12 font-bold">
+                      {side === 'In' ? mt.segments.transitionIn : mt.segments.transitionOut}
+                    </span>
                     <select
                       value={type}
                       onChange={(e) => {
@@ -3837,28 +3821,28 @@ export function MontagemTab({
                       }}
                       className="px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100"
                     >
-                      {TRANSITIONS.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.label}
+                      {TRANSITIONS.map((trans) => (
+                        <option key={trans.id} value={trans.id}>
+                          {transitionLabel(trans.id)}
                         </option>
                       ))}
                     </select>
                     {type !== 'none' && (
                       <>
-                        · dur
+                        {mt.segments.durationLabel}
                         <NumInput
                           value={dur}
                           min={0.1}
                           onCommit={(n) => setItemField(idx, { [durKey]: Math.max(0.1, n) })}
                           className="w-14 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100"
                         />
-                        s ·
+                        {mt.segments.seconds2}
                         <button
                           type="button"
                           onClick={() => setSoundPicker({ idx, field: sndKey })}
                           className="cursor-pointer text-blue-700 dark:text-blue-300 font-bold hover:underline"
                         >
-                          {snd ? '🔊 som ✓' : '+ som'}
+                          {snd ? mt.segments.soundApplied : mt.segments.addSound}
                         </button>
                         {snd && (
                           <button
@@ -3867,7 +3851,7 @@ export function MontagemTab({
                               a.play().catch(() => {});
                             }}
                             className="text-purple-600 dark:text-purple-400 hover:text-purple-800"
-                            title="Ouvir o som aplicado"
+                            title={mt.segments.playSoundTitle}
                           >
                             <Play size={11} />
                           </button>
@@ -3876,7 +3860,7 @@ export function MontagemTab({
                           <button
                             onClick={() => setItemField(idx, { [sndKey]: '' })}
                             className="text-gray-400 hover:text-red-500"
-                            title="Tirar som"
+                            title={mt.segments.removeSoundTitle}
                           >
                             <X size={11} />
                           </button>
@@ -3896,15 +3880,14 @@ export function MontagemTab({
         <div className="bg-white dark:bg-gray-900/70 p-3 rounded-2xl border-2 border-amber-300 dark:border-amber-900/60 space-y-2">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[11px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">
-              🧩 Montar por blocos
+              {mt.blocks.heading}
             </span>
             <span className="text-[11px] text-gray-500 dark:text-gray-400">
-              Fatia a VSL longa em pedaços de ~{Math.round(blockSizeSec / 60)} min, cortados em
-              silêncios. Monte um de cada vez; no fim, junte tudo.
+              {mt.blocks.description(Math.round(blockSizeSec / 60))}
             </span>
           </div>
           <div className="flex items-center gap-2 flex-wrap text-[11px]">
-            <span className="text-gray-500 dark:text-gray-400">Tamanho do bloco:</span>
+            <span className="text-gray-500 dark:text-gray-400">{mt.blocks.sizeLabel}</span>
             <input
               type="number"
               min={30}
@@ -3916,7 +3899,7 @@ export function MontagemTab({
               className="w-16 px-2 py-1 rounded-lg border border-amber-300 dark:border-amber-800 bg-transparent"
             />
             <span className="text-gray-500 dark:text-gray-400">
-              seg (~{Math.round(blockSizeSec / 60)} min)
+              {mt.blocks.secondsMinSuffix(Math.round(blockSizeSec / 60))}
             </span>
             <button
               onClick={fatiarEmBlocos}
@@ -3924,10 +3907,10 @@ export function MontagemTab({
               className="px-3 py-1 rounded-lg bg-amber-500 text-white font-black uppercase tracking-widest hover:bg-amber-600 disabled:opacity-60"
             >
               {fatiando
-                ? 'Achando silêncios…'
+                ? mt.blocks.findingSilences
                 : blockEnds.length > 0
-                  ? 'Refatiar'
-                  : 'Fatiar em blocos'}
+                  ? mt.blocks.reslice
+                  : mt.blocks.slice}
             </button>
           </div>
           {blockEnds.length > 0 && (
@@ -3944,7 +3927,7 @@ export function MontagemTab({
                     }`}
                   >
                     <span className="font-black text-amber-700 dark:text-amber-300 w-16 shrink-0">
-                      Bloco {i + 1}
+                      {mt.blocks.blockLabel(i + 1)}
                     </span>
                     <span className="font-mono text-gray-600 dark:text-gray-300">
                       {fmtT(start)} –
@@ -3969,22 +3952,19 @@ export function MontagemTab({
                         }
                       }}
                       className="w-16 px-1.5 py-0.5 rounded border border-amber-300 dark:border-amber-800 bg-transparent font-mono"
-                      title="Fim do bloco (mm:ss). Mudar aqui empurra o início do próximo."
+                      title={mt.blocks.endTitle}
                     />
                     <span className="text-gray-400">({fmtT(end - start)})</span>
                     <button
                       onClick={() => trabalharNoBloco(i)}
                       className="ml-auto px-2 py-0.5 rounded-lg bg-amber-500 text-white font-black uppercase tracking-widest hover:bg-amber-600"
                     >
-                      {activeBlock === i ? '↻ neste bloco' : 'Trabalhar'}
+                      {activeBlock === i ? mt.blocks.workingOnThis : mt.blocks.workOn}
                     </button>
                   </div>
                 );
               })}
-              <p className="text-[10px] text-gray-400 pt-1">
-                Dica: ajuste o fim de um bloco pra cair num respiro entre frases. Depois de montar
-                todos, use "juntar grupos" pra ter a VSL inteira.
-              </p>
+              <p className="text-[10px] text-gray-400 pt-1">{mt.blocks.hint}</p>
             </div>
           )}
         </div>
@@ -3994,21 +3974,18 @@ export function MontagemTab({
       {isTimeline && (
         <div className="bg-gradient-to-br from-purple-600 to-fuchsia-600 rounded-2xl p-4 flex flex-wrap items-center gap-3">
           <div className="flex-1 min-w-[180px]">
-            <p className="text-sm font-black text-white">✨ Auto-editar</p>
-            <p className="text-[11px] text-white/80">
-              Transcreve a voz, corta b-roll no ritmo escolhido, aplica transições + som + texto.
-              Depois você revisa e troca o que quiser.
-            </p>
+            <p className="text-sm font-black text-white">{mt.autoEditBanner.title}</p>
+            <p className="text-[11px] text-white/80">{mt.autoEditBanner.description}</p>
             {/* Ritmo — quantos trechos (menor base = mais trechos) */}
             <div className="mt-2 flex items-center gap-1">
               <span className="text-[10px] font-black uppercase tracking-widest text-white/80 mr-1">
-                Trechos:
+                {mt.autoEditBanner.segmentsLabel}
               </span>
               {[
-                { label: 'Menos', sec: 13.5 },
-                { label: 'Médio', sec: 10 },
-                { label: 'Mais', sec: 7 },
-                { label: 'Muito', sec: 4.5 },
+                { label: mt.autoEditBanner.paceLess, sec: 13.5 },
+                { label: mt.autoEditBanner.paceMedium, sec: 10 },
+                { label: mt.autoEditBanner.paceMore, sec: 7 },
+                { label: mt.autoEditBanner.paceALot, sec: 4.5 },
               ].map((o) => (
                 <button
                   key={o.label}
@@ -4018,7 +3995,7 @@ export function MontagemTab({
                       ? 'bg-white text-purple-700'
                       : 'bg-white/20 text-white hover:bg-white/30'
                   }`}
-                  title={`~${o.sec}s por corte (base; o ritmo ainda varia)`}
+                  title={mt.autoEditBanner.paceTitle(o.sec)}
                 >
                   {o.label}
                 </button>
@@ -4032,10 +4009,10 @@ export function MontagemTab({
           >
             {autoEditing ? (
               <>
-                <Loader2 size={14} className="animate-spin" /> Montando…
+                <Loader2 size={14} className="animate-spin" /> {mt.autoEditBanner.composing}
               </>
             ) : (
-              'Auto-editar'
+              mt.autoEditBanner.button
             )}
           </button>
         </div>
@@ -4046,20 +4023,17 @@ export function MontagemTab({
         <div className="bg-white dark:bg-gray-900/70 p-3 rounded-2xl border-2 border-gray-200 dark:border-gray-800 space-y-2">
           <div className="flex items-center justify-between gap-2">
             <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">
-              Texto na tela (palavras grandes animadas)
+              {mt.kineticText.heading}
             </span>
             <button
               onClick={addText}
               className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-lg bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900"
             >
-              + no playhead ({playhead.toFixed(1)}s)
+              {mt.kineticText.addAtPlayhead(playhead.toFixed(1))}
             </button>
           </div>
           {texts.length === 0 ? (
-            <p className="text-[10px] text-gray-400">
-              Adicione palavras-chave que aparecem grandes na tela sincronizadas com a fala (ex.:
-              "DIETAS", "CHÁS", "PROBIÓTICOS").
-            </p>
+            <p className="text-[10px] text-gray-400">{mt.kineticText.emptyHint}</p>
           ) : (
             <div className="space-y-2">
               {texts.map((t, i) => (
@@ -4072,14 +4046,14 @@ export function MontagemTab({
                     onChange={(e) => updateText(i, { text: e.target.value })}
                     className="flex-1 min-w-[120px] px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100 text-sm font-black uppercase"
                   />
-                  <span className="text-[10px] text-gray-400">de</span>
+                  <span className="text-[10px] text-gray-400">{mt.kineticText.from}</span>
                   <NumInput
                     value={t.atSec}
                     min={0}
                     onCommit={(n) => updateText(i, { atSec: n })}
                     className="w-14 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100"
                   />
-                  <span className="text-[10px] text-gray-400">a</span>
+                  <span className="text-[10px] text-gray-400">{mt.kineticText.to}</span>
                   <NumInput
                     value={t.endSec}
                     min={0.1}
@@ -4102,14 +4076,14 @@ export function MontagemTab({
                     onChange={(e) => updateText(i, { pos: e.target.value as any })}
                     className="px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100 text-[11px]"
                   >
-                    <option value="top">Topo</option>
-                    <option value="middle">Meio</option>
-                    <option value="bottom">Base</option>
+                    <option value="top">{mt.kineticText.positionTop}</option>
+                    <option value="middle">{mt.kineticText.positionMiddle}</option>
+                    <option value="bottom">{mt.kineticText.positionBottom}</option>
                   </select>
                   <button
                     onClick={() => removeText(i)}
                     className="p-1 rounded text-gray-400 hover:text-red-500"
-                    title="Remover"
+                    title={mt.kineticText.removeTitle}
                   >
                     <X size={13} />
                   </button>
@@ -4123,7 +4097,7 @@ export function MontagemTab({
       {/* BUSCAR B-ROLL NO PEXELS → adiciona à biblioteca */}
       <div className="bg-white dark:bg-gray-900/70 p-3 rounded-2xl border-2 border-gray-200 dark:border-gray-800 space-y-2">
         <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">
-          Buscar b-roll (Pexels) → entra na biblioteca
+          {mt.pexelsSearch.heading}
         </span>
         <div className="flex gap-2">
           <input
@@ -4138,7 +4112,7 @@ export function MontagemTab({
             disabled={pexSearching}
             className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-widest disabled:opacity-50"
           >
-            {pexSearching ? <Loader2 size={14} className="animate-spin" /> : 'Buscar'}
+            {pexSearching ? <Loader2 size={14} className="animate-spin" /> : mt.pexelsSearch.button}
           </button>
         </div>
         {pexResults.length > 0 && (
@@ -4147,7 +4121,7 @@ export function MontagemTab({
               <button
                 key={c.id}
                 onClick={() => addPexClip(c)}
-                title="Adicionar à biblioteca"
+                title={mt.pexelsSearch.addTitle}
                 className="relative rounded-lg overflow-hidden ring-1 ring-gray-200 dark:ring-gray-700 hover:ring-blue-500"
               >
                 <video
@@ -4188,10 +4162,10 @@ export function MontagemTab({
       >
         {uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
         {dragUpload
-          ? 'Solte os vídeos aqui'
+          ? mt.uploadLibrary.dropHere
           : isTimeline
-            ? 'Subir trechos (ou arraste aqui)'
-            : 'Enviar trechos (ou arraste aqui)'}
+            ? mt.uploadLibrary.uploadTimeline
+            : mt.uploadLibrary.uploadSequence}
         <input
           type="file"
           accept="video/*"
@@ -4221,27 +4195,27 @@ export function MontagemTab({
                   {c.label}
                 </p>
                 <div className="flex items-center gap-2 mt-1 text-[10px] text-gray-500">
-                  usa de
+                  {mt.sequence.usesFrom}
                   <input
                     type="number"
                     min={0}
                     step={0.5}
-                    placeholder="início"
+                    placeholder={mt.sequence.startPlaceholder}
                     value={c.startSec ?? ''}
                     onChange={(e) => setTrim(i, 'startSec', e.target.value)}
                     className="w-16 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100"
                   />
-                  a
+                  {mt.sequence.to}
                   <input
                     type="number"
                     min={0}
                     step={0.5}
-                    placeholder="fim"
+                    placeholder={mt.sequence.endPlaceholder}
                     value={c.endSec ?? ''}
                     onChange={(e) => setTrim(i, 'endSec', e.target.value)}
                     className="w-16 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100"
                   />
-                  s (vazio = inteiro)
+                  {mt.sequence.secondsEmptyFull}
                 </div>
               </div>
               <div className="flex items-center gap-1 shrink-0">
@@ -4277,13 +4251,13 @@ export function MontagemTab({
             onClick={() => setMuted(false)}
             className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-widest border-2 transition-all ${!muted ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'}`}
           >
-            🔊 Manter áudio dos trechos
+            {mt.mutedToggle.keepAudio}
           </button>
           <button
             onClick={() => setMuted(true)}
             className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-widest border-2 transition-all ${muted ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'}`}
           >
-            🔇 Mudo (voz + música depois)
+            {mt.mutedToggle.muted}
           </button>
         </div>
       )}
@@ -4293,7 +4267,7 @@ export function MontagemTab({
         {/* Moldes: salva formato+enquadramento+ritmo pra reaplicar num clique */}
         <div className="flex items-center gap-2">
           <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">
-            Molde
+            {mt.formatSection.templateLabel}
           </span>
           {templates.length > 0 && (
             <select
@@ -4301,7 +4275,7 @@ export function MontagemTab({
               onChange={(e) => e.target.value && applyTemplate(e.target.value)}
               className="px-2 py-1 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-[11px] dark:text-gray-100"
             >
-              <option value="">Aplicar…</option>
+              <option value="">{mt.formatSection.applyPlaceholder}</option>
               {templates.map((t) => (
                 <option key={t.name} value={t.name}>
                   {t.name}
@@ -4313,12 +4287,12 @@ export function MontagemTab({
             onClick={saveTemplate}
             className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-lg border-2 border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/40"
           >
-            💾 Salvar molde
+            {mt.formatSection.saveTemplateButton}
           </button>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">
-            Formato
+            {mt.formatSection.formatLabel}
           </span>
           {(['9:16', '1:1', '16:9'] as const).map((ar) => (
             <button
@@ -4330,18 +4304,22 @@ export function MontagemTab({
                   : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'
               }`}
             >
-              {ar === '9:16' ? 'Vertical 9:16' : ar === '1:1' ? 'Quadrado 1:1' : 'Horizontal 16:9'}
+              {ar === '9:16'
+                ? mt.formatSection.vertical
+                : ar === '1:1'
+                  ? mt.formatSection.square
+                  : mt.formatSection.horizontal}
             </button>
           ))}
         </div>
         <div className="flex items-center gap-2">
           <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">
-            Enquadrar
+            {mt.formatSection.fitLabel}
           </span>
           {(
             [
-              { id: 'cover', label: 'Preencher (corta)' },
-              { id: 'contain', label: 'Encaixar (barras)' },
+              { id: 'cover', label: mt.formatSection.fitCover },
+              { id: 'contain', label: mt.formatSection.fitContain },
             ] as const
           ).map((f) => (
             <button
@@ -4364,7 +4342,7 @@ export function MontagemTab({
           <div className="flex items-center gap-1.5 text-amber-800 dark:text-amber-300">
             <span className="text-sm">⚠️</span>
             <span className="text-[11px] font-black uppercase tracking-widest">
-              {timelineWarnings.length} aviso(s) antes de montar
+              {mt.warnings.countBeforeCompose(timelineWarnings.length)}
             </span>
           </div>
           <ul className="list-disc pl-5 space-y-0.5">
@@ -4375,7 +4353,7 @@ export function MontagemTab({
             ))}
           </ul>
           <p className="text-[10px] text-amber-700/70 dark:text-amber-400/70">
-            Dá pra montar mesmo assim — é só um alerta pra não gastar render num vídeo quebrado.
+            {mt.warnings.composeAnywayHint}
           </p>
         </div>
       )}
@@ -4389,14 +4367,14 @@ export function MontagemTab({
       >
         {rendering ? (
           <>
-            <Loader2 size={16} className="animate-spin" /> Montando…
+            <Loader2 size={16} className="animate-spin" /> {mt.composeButton.composing}
           </>
         ) : (
           <>
             <Check size={16} />{' '}
             {isTimeline
-              ? `Montar no tempo do áudio (${items.length}) · ~1-2 min`
-              : `Montar sequência (${clips.length})`}
+              ? mt.composeButton.composeTimeline(items.length)
+              : mt.composeButton.composeSequence(clips.length)}
           </>
         )}
       </button>
@@ -4408,15 +4386,15 @@ export function MontagemTab({
           onClick={composeDraft}
           disabled={previewing || rendering || items.length === 0 || !audioDuration}
           className="w-full -mt-1 py-2.5 rounded-2xl font-black uppercase tracking-widest text-xs border-2 border-blue-300 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-          title="Render rápido em baixa resolução só pra conferir o corte (não vai pra Edição)"
+          title={mt.previewDraft.title}
         >
           {previewing ? (
             <>
-              <Loader2 size={14} className="animate-spin" /> Gerando prévia…
+              <Loader2 size={14} className="animate-spin" /> {mt.previewDraft.generating}
             </>
           ) : (
             <>
-              <Play size={14} /> Prévia rápida (rascunho)
+              <Play size={14} /> {mt.previewDraft.button}
             </>
           )}
         </button>
@@ -4426,20 +4404,17 @@ export function MontagemTab({
         <div className="space-y-2 p-3 rounded-2xl ring-1 ring-blue-200 dark:ring-blue-900 bg-blue-50/50 dark:bg-blue-950/20">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[11px] font-black uppercase tracking-widest text-blue-700 dark:text-blue-300">
-              Prévia rápida (rascunho — baixa resolução)
+              {mt.previewDraft.label}
             </p>
             <button
               onClick={() => setPreviewUrl('')}
               className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-red-500"
             >
-              <X size={12} /> fechar
+              <X size={12} /> {mt.previewDraft.close}
             </button>
           </div>
           <video src={previewUrl} controls className="w-full max-h-[360px] rounded-xl bg-black" />
-          <p className="text-[10px] text-gray-500">
-            É só rascunho pra conferir o corte. Quando estiver bom, clique em <b>Montar</b> pra
-            gerar o vídeo final em alta resolução.
-          </p>
+          <p className="text-[10px] text-gray-500">{mt.previewDraft.footnote}</p>
         </div>
       )}
 
@@ -4447,21 +4422,21 @@ export function MontagemTab({
         <div className="space-y-3 p-4 rounded-2xl ring-1 ring-green-200 dark:ring-green-900 bg-green-50/60 dark:bg-green-950/30">
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-black uppercase tracking-widest text-green-700 dark:text-green-300">
-              Pronto (já está na Edição)
+              {mt.result.readyLabel}
             </p>
             <button
               onClick={() => setResultUrl('')}
               className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-red-500"
-              title="Apagar este vídeo montado"
+              title={mt.result.deleteTitle}
             >
-              <Trash2 size={12} /> Apagar vídeo
+              <Trash2 size={12} /> {mt.result.deleteButton}
             </button>
           </div>
           <video src={resultUrl} controls className="w-full max-h-[420px] rounded-xl bg-black" />
           {resultHistory.length > 1 && (
             <div className="space-y-1">
               <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
-                Versões ({resultHistory.length})
+                {mt.result.versionsLabel(resultHistory.length)}
               </span>
               <div className="flex gap-2 overflow-x-auto pb-1">
                 {resultHistory.map((v, i) => {
@@ -4479,7 +4454,7 @@ export function MontagemTab({
                         disabled={atual}
                         className={`w-full text-[9px] font-black uppercase tracking-widest px-1 py-1 rounded ${atual ? 'bg-green-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200'}`}
                       >
-                        {atual ? 'atual' : i === 0 ? 'mais nova' : 'usar'}
+                        {atual ? mt.result.current : i === 0 ? mt.result.newest : mt.result.use}
                       </button>
                     </div>
                   );
@@ -4494,23 +4469,23 @@ export function MontagemTab({
           >
             {musicGen ? (
               <>
-                <Loader2 size={16} className="animate-spin" /> Gerando música…
+                <Loader2 size={16} className="animate-spin" /> {mt.result.generatingMusic}
               </>
             ) : (
               <>
-                <Music size={16} /> Gerar música (arco emocional) e colar
+                <Music size={16} /> {mt.result.generateMusicButton}
               </>
             )}
           </button>
           <div className="space-y-1.5">
             <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">
-              Texto da capa (opcional — deixe vazio pra capa sem texto)
+              {mt.result.coverTextLabel}
             </span>
             <input
               type="text"
               value={coverText}
               onChange={(e) => setCoverText(e.target.value)}
-              placeholder="Ex.: ELE SUMIU EM 7 DIAS"
+              placeholder={mt.result.coverTextPlaceholder}
               maxLength={60}
               className="w-full px-3 py-2 rounded-xl ring-1 ring-gray-200 dark:ring-gray-800 bg-white dark:bg-gray-900 text-sm font-bold text-gray-800 dark:text-gray-100"
             />
@@ -4521,7 +4496,7 @@ export function MontagemTab({
                 onChange={(e) => setCoverUseAtPlayhead(e.target.checked)}
                 className="rounded"
               />
-              Usar o instante atual do vídeo em vez de escolher automaticamente
+              {mt.result.useCurrentMomentLabel}
             </label>
           </div>
           <button
@@ -4531,18 +4506,18 @@ export function MontagemTab({
           >
             {coverGen ? (
               <>
-                <Loader2 size={16} className="animate-spin" /> Gerando 3 capas…
+                <Loader2 size={16} className="animate-spin" /> {mt.result.generatingCovers}
               </>
             ) : (
               <>
-                <ImageIcon size={16} /> Gerar 3 capas/thumbnails · ≈ $0.12 · ~30s
+                <ImageIcon size={16} /> {mt.result.generateCoversButton}
               </>
             )}
           </button>
           {coverOptions.length > 0 && (
             <div className="space-y-2">
               <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">
-                Escolha a capa (clique na que para o scroll)
+                {mt.result.chooseCoverLabel}
               </span>
               <div
                 className={`grid gap-2 ${coverOptions.length > 1 ? 'grid-cols-3' : 'grid-cols-1'}`}
@@ -4556,7 +4531,7 @@ export function MontagemTab({
                         className={`relative w-full rounded-xl overflow-hidden ring-2 ${
                           chosen ? 'ring-pink-500' : 'ring-transparent hover:ring-gray-300'
                         }`}
-                        title={chosen ? 'Capa escolhida' : 'Usar esta capa'}
+                        title={chosen ? mt.result.coverChosenTitle : mt.result.coverUseTitle}
                       >
                         <img
                           src={u}
@@ -4565,7 +4540,7 @@ export function MontagemTab({
                         />
                         {chosen && (
                           <span className="absolute top-1 right-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-pink-600 text-white text-[9px] font-black uppercase">
-                            <Check size={10} /> escolhida
+                            <Check size={10} /> {mt.result.coverChosenBadge}
                           </span>
                         )}
                       </button>
@@ -4576,7 +4551,7 @@ export function MontagemTab({
                         download
                         className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:underline"
                       >
-                        <Download size={11} /> baixar
+                        <Download size={11} /> {mt.result.download}
                       </a>
                     </div>
                   );
@@ -4601,9 +4576,9 @@ export function MontagemTab({
             <button
               onClick={onRemix}
               className="w-full py-3 rounded-2xl font-black uppercase tracking-widest text-sm border-2 border-indigo-300 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 flex items-center justify-center gap-2"
-              title="Cria uma cópia deste criativo pra trocar gancho/música/b-roll sem começar do zero"
+              title={mt.result.remixTitle}
             >
-              <Plus size={16} /> Remixar (trocar gancho/música/b-roll)
+              <Plus size={16} /> {mt.result.remixButton}
             </button>
           )}
           {onGoToEdit && (
@@ -4611,7 +4586,7 @@ export function MontagemTab({
               onClick={onGoToEdit}
               className="w-full py-3 bg-gray-900 dark:bg-gray-50 text-white dark:text-gray-900 rounded-2xl font-black uppercase tracking-widest text-sm hover:opacity-90"
             >
-              Ir pra Edição →
+              {mt.result.goToEditButton}
             </button>
           )}
         </div>
