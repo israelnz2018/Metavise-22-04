@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage, auth } from '@/lib/firebase';
 import { Scissors, Plus, X, Loader2, Upload, Film, Download, Check, Trash2 } from 'lucide-react';
+import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 interface Props {
   config: AdConfig;
@@ -24,17 +25,20 @@ interface Segment {
 
 let _seg = 0;
 const newId = () => `seg_${++_seg}_${Math.round(Math.random() * 1e6)}`;
-const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}.${Math.floor((s % 1) * 10)}`;
+const fmt = (s: number) =>
+  `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}.${Math.floor((s % 1) * 10)}`;
 
 export function MergeTab({ config, setConfig, user }: Props) {
+  const { t } = useLanguage();
+  const mt = t.mergeTab;
   // Vídeos já renderizados que podem virar fonte (galeria) + vídeos do projeto.
   const galleryUrls = useMemo(() => {
     const e: any = config.edit || {};
     const urls = [
-      ...(((e.zapVersions as string[]) || [])),
-      ...(((e.zapJoinedVersions as string[]) || [])),
-      ...(((e.mergeVersions as string[]) || [])),
-      ...(((config.videos as any[]) || []).map((v) => v?.url).filter(Boolean)),
+      ...((e.zapVersions as string[]) || []),
+      ...((e.zapJoinedVersions as string[]) || []),
+      ...((e.mergeVersions as string[]) || []),
+      ...((config.videos as any[]) || []).map((v) => v?.url).filter(Boolean),
     ];
     return [...new Set(urls.filter(Boolean))] as string[];
   }, [config]);
@@ -88,7 +92,9 @@ export function MergeTab({ config, setConfig, user }: Props) {
 
   const addSource = (url: string) =>
     setSources((prev) =>
-      prev.find((s) => s.url === url) ? prev : [...prev, { url, label: `Vídeo ${prev.length + 1}` }]
+      prev.find((s) => s.url === url)
+        ? prev
+        : [...prev, { url, label: mt.defaultSourceLabel(prev.length + 1) }]
     );
   const removeSource = (url: string) => {
     setSources((prev) => prev.filter((s) => s.url !== url));
@@ -172,12 +178,12 @@ export function MergeTab({ config, setConfig, user }: Props) {
   const onUpload = async (file?: File | null) => {
     if (!file) return;
     if (!file.type.startsWith('video/')) {
-      toast.error('Selecione um arquivo de vídeo.');
+      toast.error(mt.toasts.selectVideoFile);
       return;
     }
     const uid = user?.uid || auth.currentUser?.uid;
     if (!uid) {
-      toast.error('Faça login pra enviar vídeo.');
+      toast.error(mt.toasts.loginToUpload);
       return;
     }
     setUploading(true);
@@ -186,9 +192,9 @@ export function MergeTab({ config, setConfig, user }: Props) {
       const r = ref(storage, `video/${uid}/merge-upload/${Date.now()}-${safe}`);
       await uploadBytes(r, file, { contentType: file.type || 'video/mp4' });
       addSource(await getDownloadURL(r));
-      toast.success('Vídeo enviado e adicionado.');
+      toast.success(mt.toasts.videoUploaded);
     } catch (e: any) {
-      toast.error(e?.message || 'Falha no upload.');
+      toast.error(e?.message || mt.toasts.uploadFailed);
     } finally {
       setUploading(false);
     }
@@ -214,7 +220,7 @@ export function MergeTab({ config, setConfig, user }: Props) {
         }),
       });
       const data = await r.json();
-      if (!r.ok) throw new Error(data.error || 'Falha ao gerar o vídeo.');
+      if (!r.ok) throw new Error(data.error || mt.toasts.generateFailed);
       setConfig(
         (prev) =>
           ({
@@ -225,9 +231,9 @@ export function MergeTab({ config, setConfig, user }: Props) {
             },
           }) as any
       );
-      toast.success('Vídeo mesclado gerado!');
+      toast.success(mt.toasts.mergedGenerated);
     } catch (e: any) {
-      setError(e?.message || 'Erro ao gerar.');
+      setError(e?.message || mt.toasts.generateError);
     } finally {
       setRendering(false);
     }
@@ -236,7 +242,7 @@ export function MergeTab({ config, setConfig, user }: Props) {
   // Remove um vídeo mesclado da lista (config). O arquivo continua no Storage;
   // some do projeto ao salvar.
   const removeResult = (url: string) => {
-    if (!window.confirm('Remover este vídeo mesclado da lista?')) return;
+    if (!window.confirm(mt.toasts.removeConfirm)) return;
     setConfig(
       (prev) =>
         ({
@@ -249,7 +255,7 @@ export function MergeTab({ config, setConfig, user }: Props) {
           },
         }) as any
     );
-    toast.success('Removido da lista. Salve o projeto pra confirmar.');
+    toast.success(mt.toasts.removedFromList);
   };
 
   const canGenerate = sources.length > 0 && segments.length > 0 && duration > 0 && !rendering;
@@ -259,12 +265,10 @@ export function MergeTab({ config, setConfig, user }: Props) {
       <header className="space-y-1">
         <h2 className="text-3xl font-black text-gray-900 dark:text-gray-50 tracking-tight flex items-center gap-2">
           <Scissors size={26} className="text-blue-600 dark:text-blue-400" />
-          Mesclar vídeos
+          {mt.title}
         </h2>
         <p className="text-sm text-gray-600 dark:text-gray-400 max-w-2xl">
-          Junte os melhores pedaços de vídeos <strong>alinhados</strong> (mesma duração e áudio).
-          Escolha, em cada trecho, de qual vídeo a imagem vem — o áudio sai inteiro do 1º. Resultado:
-          um vídeo novo com o melhor de cada.
+          {mt.subtitlePart1} <strong>{mt.alignedBold}</strong> {mt.subtitlePart2}
         </p>
       </header>
 
@@ -272,11 +276,11 @@ export function MergeTab({ config, setConfig, user }: Props) {
       <div className="bg-white/80 dark:bg-gray-900/60 ring-1 ring-gray-200/60 dark:ring-gray-800/60 rounded-3xl p-5 space-y-3">
         <div className="flex items-center justify-between gap-2">
           <h3 className="font-black uppercase text-xs tracking-widest text-gray-700 dark:text-gray-300 flex items-center gap-2">
-            <Film size={16} /> Vídeos fonte ({sources.length})
+            <Film size={16} /> {mt.sourceVideosLabel(sources.length)}
           </h3>
           <label className="text-[10px] font-black uppercase tracking-widest text-blue-700 dark:text-blue-300 hover:underline cursor-pointer flex items-center gap-1">
             {uploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
-            Enviar vídeo
+            {mt.uploadVideoLabel}
             <input
               type="file"
               accept="video/*"
@@ -295,7 +299,7 @@ export function MergeTab({ config, setConfig, user }: Props) {
                 className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300"
               >
                 {s.label}
-                {i === 0 && <span className="text-[9px] opacity-70">(áudio)</span>}
+                {i === 0 && <span className="text-[9px] opacity-70">{mt.audioTag}</span>}
                 <button onClick={() => removeSource(s.url)} className="hover:text-red-500">
                   <X size={12} />
                 </button>
@@ -308,7 +312,7 @@ export function MergeTab({ config, setConfig, user }: Props) {
         {galleryUrls.filter((u) => !sources.find((s) => s.url === u)).length > 0 && (
           <div>
             <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1.5">
-              Da galeria (renderizados)
+              {mt.galleryLabel}
             </p>
             <div className="flex flex-wrap gap-2">
               {galleryUrls
@@ -319,16 +323,14 @@ export function MergeTab({ config, setConfig, user }: Props) {
                     onClick={() => addSource(u)}
                     className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-lg ring-1 ring-gray-200 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300"
                   >
-                    <Plus size={12} /> Versão {i + 1}
+                    <Plus size={12} /> {mt.versionLabel(i + 1)}
                   </button>
                 ))}
             </div>
           </div>
         )}
         {sources.length === 0 && galleryUrls.length === 0 && (
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            Nenhum vídeo renderizado ainda. Envie vídeos pelo botão acima.
-          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{mt.noVideosHint}</p>
         )}
       </div>
 
@@ -347,7 +349,7 @@ export function MergeTab({ config, setConfig, user }: Props) {
           {/* comparar fonte na mesma cena */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">
-              Comparar fonte:
+              {mt.compareSourceLabel}
             </span>
             {sources.map((s, i) => (
               <button
@@ -367,20 +369,20 @@ export function MergeTab({ config, setConfig, user }: Props) {
           {/* cortar */}
           <div className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-gray-50 dark:bg-gray-800/40">
             <span className="text-sm text-gray-700 dark:text-gray-300">
-              Tempo atual: <strong>{fmt(currentTime)}</strong>
+              {mt.currentTimeLabel} <strong>{fmt(currentTime)}</strong>
             </span>
             <button
               onClick={cutHere}
               className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-widest flex items-center gap-1.5"
             >
-              <Scissors size={14} /> Cortar aqui
+              <Scissors size={14} /> {mt.cutHereButton}
             </button>
           </div>
 
           {/* trechos */}
           <div className="space-y-1.5">
             <p className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300">
-              Trechos ({segments.length})
+              {mt.segmentsLabel(segments.length)}
             </p>
             {segments.map((seg, i) => (
               <div
@@ -400,14 +402,16 @@ export function MergeTab({ config, setConfig, user }: Props) {
                     value={Number(seg.endSec.toFixed(2))}
                     onChange={(e) => setBoundary(i, Number(e.target.value))}
                     className="w-16 px-1.5 py-1 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-center text-xs dark:text-gray-100"
-                    title="Fim deste trecho (= início do próximo). Edite à mão."
+                    title={mt.boundaryTitle}
                   />
                 ) : (
                   <span className="text-xs tabular-nums text-gray-500 w-16 text-center">
                     {seg.endSec.toFixed(1)}s
                   </span>
                 )}
-                <label className="text-[11px] text-gray-500 dark:text-gray-400">vem do</label>
+                <label className="text-[11px] text-gray-500 dark:text-gray-400">
+                  {mt.comesFromLabel}
+                </label>
                 <select
                   value={seg.sourceIdx}
                   onChange={(e) => setSegSource(seg.id, Number(e.target.value))}
@@ -423,7 +427,7 @@ export function MergeTab({ config, setConfig, user }: Props) {
                   <button
                     onClick={() => removeCut(seg.id)}
                     className="ml-auto p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
-                    title="Remover este trecho (o trecho seguinte tapa o buraco)"
+                    title={mt.removeSegmentTitle}
                   >
                     <X size={14} />
                   </button>
@@ -432,9 +436,7 @@ export function MergeTab({ config, setConfig, user }: Props) {
             ))}
           </div>
 
-          {error && (
-            <p className="text-xs text-amber-700 dark:text-amber-300 font-bold">{error}</p>
-          )}
+          {error && <p className="text-xs text-amber-700 dark:text-amber-300 font-bold">{error}</p>}
 
           <button
             onClick={generate}
@@ -443,16 +445,16 @@ export function MergeTab({ config, setConfig, user }: Props) {
           >
             {rendering ? (
               <>
-                <Loader2 size={16} className="animate-spin" /> Gerando vídeo mesclado…
+                <Loader2 size={16} className="animate-spin" /> {mt.generatingButton}
               </>
             ) : (
               <>
-                <Check size={16} /> Gerar vídeo mesclado
+                <Check size={16} /> {mt.generateButton}
               </>
             )}
           </button>
           <p className="text-[10px] text-gray-400 dark:text-gray-500 text-center">
-            O preview mostra cada fonte separada; o resultado costurado sai depois de gerar.
+            {mt.previewFootnote}
           </p>
         </div>
       )}
@@ -461,7 +463,7 @@ export function MergeTab({ config, setConfig, user }: Props) {
       {(((config.edit as any)?.mergeVersions as string[]) || []).length > 0 && (
         <div className="bg-green-50 dark:bg-green-950/20 ring-1 ring-green-200 dark:ring-green-800/40 rounded-3xl p-5 space-y-4">
           <h3 className="font-black uppercase text-xs tracking-widest text-green-700 dark:text-green-300 flex items-center gap-2">
-            <Check size={16} /> Vídeos mesclados gerados (salvos)
+            <Check size={16} /> {mt.resultsTitle}
           </h3>
           {[...(((config.edit as any)?.mergeVersions as string[]) || [])]
             .reverse()
@@ -469,12 +471,12 @@ export function MergeTab({ config, setConfig, user }: Props) {
               <div key={u} className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <p className="text-[11px] font-bold text-gray-600 dark:text-gray-400">
-                    Mesclado #{arr.length - i}
+                    {mt.mergedLabel(arr.length - i)}
                   </p>
                   <button
                     onClick={() => removeResult(u)}
                     className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
-                    title="Remover este vídeo da lista"
+                    title={mt.removeResultTitle}
                   >
                     <Trash2 size={14} />
                   </button>
@@ -486,7 +488,7 @@ export function MergeTab({ config, setConfig, user }: Props) {
                   rel="noreferrer"
                   className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-widest text-blue-700 dark:text-blue-300 hover:underline"
                 >
-                  <Download size={14} /> Baixar / abrir
+                  <Download size={14} /> {mt.downloadOpenLabel}
                 </a>
               </div>
             ))}
