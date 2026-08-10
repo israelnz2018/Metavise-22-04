@@ -105,6 +105,7 @@ import CopyHistoryModal from '@/components/CopyHistoryModal';
 import type { CopyHistoryEntry } from '@/components/CopyHistoryModal';
 // UX25-B3: modal de comparação A vs B com diff highlight
 import VariantCompareModal from '@/components/VariantCompareModal';
+import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 // Recomendação de ângulo/emoção. Usada em DOIS lugares: (1) auto-preencher
 // esses campos ao abrir a aba e (2) marcar o badge "Recomendado" no form.
@@ -260,6 +261,9 @@ export function CopyTab({
   isProjectLoading,
   showRequiredErrors = false,
 }: Props) {
+  const { t } = useLanguage();
+  const ct = t.copyTab;
+
   // Stand-in for the parent's `handleGeneratePersona` — kept here so the
   // discovery-flow JSX below reads natural without renaming.
   const handleGeneratePersona = onGeneratePersona;
@@ -282,7 +286,7 @@ export function CopyTab({
     if (!scriptToScan || scanResult.hits.length === 0) return;
     setIsRewriting(true);
     const toastId = 'rewrite-safe';
-    toast.loading('Reescrevendo versão segura...', { id: toastId });
+    toast.loading(ct.toasts.rewritingSafe, { id: toastId });
     try {
       const hits = scanResult.hits.map((h) => ({
         matched: h.matched,
@@ -307,9 +311,9 @@ export function CopyTab({
           contentRiskAcknowledgedHash: undefined,
         },
       }));
-      toast.success('Copy reescrita em versão segura!', { id: toastId });
+      toast.success(ct.toasts.rewroteSafe, { id: toastId });
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao reescrever.', { id: toastId });
+      toast.error(err?.message || ct.toasts.rewriteError, { id: toastId });
     } finally {
       setIsRewriting(false);
     }
@@ -323,7 +327,7 @@ export function CopyTab({
         contentRiskAcknowledgedHash: scanResult.textHash,
       },
     }));
-    toast('Aviso registrado. Você assumiu o risco — boa sorte! 🤞', { icon: '⚠️' });
+    toast(ct.toasts.riskAcknowledged, { icon: '⚠️' });
   };
 
   // UX15: Self-critique pass. Manual trigger DEPOIS que a copy foi
@@ -334,7 +338,7 @@ export function CopyTab({
     if (!scriptToScan) return;
     setIsCritiquing(true);
     const toastId = 'critique';
-    toast.loading('Revisando copy com IA...', { id: toastId });
+    toast.loading(ct.toasts.critiquing, { id: toastId });
     try {
       const result = await critiqueAndRewriteCopy({
         script: scriptToScan,
@@ -358,18 +362,18 @@ export function CopyTab({
             contentRiskAcknowledgedHash: undefined,
           },
         }));
-        toast.success(`Copy aprimorada! Score médio: ${avg.toFixed(1)}/10. ${result.notes || ''}`, {
+        toast.success(ct.toasts.critiqueImproved(avg.toFixed(1), result.notes || ''), {
           id: toastId,
           duration: 5000,
         });
       } else {
-        toast.success(`Copy já está em ${avg.toFixed(1)}/10 — sem necessidade de reescrever.`, {
+        toast.success(ct.toasts.critiqueAlreadyGood(avg.toFixed(1)), {
           id: toastId,
           duration: 4000,
         });
       }
     } catch (err: any) {
-      toast.error(err?.message || 'Erro na revisão.', { id: toastId });
+      toast.error(err?.message || ct.toasts.critiqueError, { id: toastId });
     } finally {
       setIsCritiquing(false);
     }
@@ -387,7 +391,7 @@ export function CopyTab({
   const runGenInnovative = async (silent = false) => {
     setIsGenInnovative(true);
     const toastId = 'gen-innovative';
-    if (!silent) toast.loading('Gerando nome...', { id: toastId });
+    if (!silent) toast.loading(ct.toasts.generatingName, { id: toastId });
     try {
       const current = (config.copy?.answers?.innovativeProductName || '').toString().trim();
       if (current && !seenInnovativeRef.current.includes(current))
@@ -404,12 +408,12 @@ export function CopyTab({
       if (n) {
         seenInnovativeRef.current.push(n);
         updateConfig('copy', 'answers', 'innovativeProductName', n);
-        if (!silent) toast.success('Nome gerado — edite se quiser.', { id: toastId });
+        if (!silent) toast.success(ct.toasts.nameGenerated, { id: toastId });
       } else if (!silent) {
-        toast.error('Não consegui gerar agora.', { id: toastId });
+        toast.error(ct.toasts.couldNotGenerateNow, { id: toastId });
       }
     } catch (err: any) {
-      if (!silent) toast.error(err?.message || 'Erro ao gerar.', { id: toastId });
+      if (!silent) toast.error(err?.message || ct.toasts.generateError, { id: toastId });
     } finally {
       setIsGenInnovative(false);
     }
@@ -435,7 +439,7 @@ export function CopyTab({
   const handleGenNarrator = async () => {
     setIsGenNarrator(true);
     const toastId = 'gen-narrator';
-    toast.loading('Gerando narrador...', { id: toastId });
+    toast.loading(ct.toasts.generatingNarrator, { id: toastId });
     try {
       const current = (config.copy?.answers?.narrator || '').toString().trim();
       if (current && !seenNarratorRef.current.includes(current))
@@ -451,12 +455,12 @@ export function CopyTab({
       if (n) {
         seenNarratorRef.current.push(n);
         updateConfig('copy', 'answers', 'narrator', n);
-        toast.success('Narrador gerado — edite se quiser.', { id: toastId });
+        toast.success(ct.toasts.narratorGenerated, { id: toastId });
       } else {
-        toast.error('Não consegui gerar agora.', { id: toastId });
+        toast.error(ct.toasts.couldNotGenerateNow, { id: toastId });
       }
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao gerar narrador.', { id: toastId });
+      toast.error(err?.message || ct.toasts.narratorError, { id: toastId });
     } finally {
       setIsGenNarrator(false);
     }
@@ -487,7 +491,7 @@ export function CopyTab({
     setIsGeneratingVariants(true);
     setVariants(null);
     const toastId = 'variants';
-    toast.loading('Gerando 2 versões em paralelo...', { id: toastId });
+    toast.loading(ct.toasts.generatingVariants, { id: toastId });
     try {
       const results = await generateAdCopyVariants(
         answers,
@@ -497,9 +501,9 @@ export function CopyTab({
         (config.copy?.targetWordCount as number) || undefined
       );
       setVariants(results);
-      toast.success('2 versões prontas — escolha uma abaixo.', { id: toastId, duration: 4000 });
+      toast.success(ct.toasts.variantsReady, { id: toastId, duration: 4000 });
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao gerar variantes.', { id: toastId });
+      toast.error(err?.message || ct.toasts.variantsError, { id: toastId });
     } finally {
       setIsGeneratingVariants(false);
     }
@@ -544,11 +548,11 @@ export function CopyTab({
   // vertical inferida do productInfo, awareness do answers, etc.
   const handleSaveAsExample = async () => {
     if (!currentUid) {
-      toast.error('Você precisa estar logado pra salvar copies.');
+      toast.error(ct.toasts.needLoginToSave);
       return;
     }
     if (!scriptToScan) {
-      toast.error('Não há copy pra salvar.');
+      toast.error(ct.toasts.noCopyToSave);
       return;
     }
     const ansLang = (config.copy?.answers?.language as string) || '';
@@ -574,11 +578,11 @@ export function CopyTab({
         source: 'auto-from-generated',
       });
       await reloadLibrary();
-      toast.success('Copy salva na sua biblioteca! IA vai usar como referência.', {
+      toast.success(ct.toasts.savedToLibrary, {
         duration: 4000,
       });
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao salvar.');
+      toast.error(err?.message || ct.toasts.saveError);
     }
   };
 
@@ -588,7 +592,7 @@ export function CopyTab({
       await toggleStarPersonalCopy(currentUid, copyId, starred);
       await reloadLibrary();
     } catch (err: any) {
-      toast.error(err?.message || 'Erro.');
+      toast.error(err?.message || ct.toasts.genericError);
     }
   };
 
@@ -597,9 +601,9 @@ export function CopyTab({
     try {
       await deletePersonalCopy(currentUid, copyId);
       await reloadLibrary();
-      toast.success('Copy removida da biblioteca.');
+      toast.success(ct.toasts.removedFromLibrary);
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao remover.');
+      toast.error(err?.message || ct.toasts.removeError);
     }
   };
 
@@ -723,7 +727,7 @@ export function CopyTab({
   };
   const handleClearHistory = () => {
     setConfig((prev: any) => ({ ...prev, copy: { ...prev.copy, history: [] } }));
-    toast.success('Histórico limpo.');
+    toast.success(ct.toasts.historyCleared);
   };
 
   // UX25-A4: toggle modo rascunho (Sonnet) vs final (Opus)
@@ -751,7 +755,7 @@ export function CopyTab({
   const [isCheckingHallucinations, setIsCheckingHallucinations] = useState(false);
   const handleCheckHallucinations = async () => {
     if (!config.copy.generatedScript || !productInfo) {
-      toast.error('Gere uma copy + tenha Fonte do Produto configurada.');
+      toast.error(ct.toasts.needScriptAndSource);
       return;
     }
     setIsCheckingHallucinations(true);
@@ -763,15 +767,12 @@ export function CopyTab({
       });
       setHallucinationFlags(flags);
       if (flags.length === 0) {
-        toast.success('Nenhuma alucinação detectada — copy parece consistente com a fonte.');
+        toast.success(ct.toasts.noHallucinations);
       } else {
-        toast(
-          `${flags.length} trecho${flags.length > 1 ? 's' : ''} suspeito${flags.length > 1 ? 's' : ''} detectado${flags.length > 1 ? 's' : ''}.`,
-          { icon: '⚠️' }
-        );
+        toast(ct.toasts.hallucinationsFound(flags.length), { icon: '⚠️' });
       }
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao checar.');
+      toast.error(err?.message || ct.toasts.checkError);
     } finally {
       setIsCheckingHallucinations(false);
     }
@@ -784,7 +785,7 @@ export function CopyTab({
   const [isCheckingAuthorities, setIsCheckingAuthorities] = useState(false);
   const handleCheckAuthorities = async () => {
     if (!config.copy.generatedScript) {
-      toast.error('Gere uma copy primeiro.');
+      toast.error(ct.toasts.needScriptFirst);
       return;
     }
     setIsCheckingAuthorities(true);
@@ -796,15 +797,12 @@ export function CopyTab({
       });
       setAuthorityFlags(anchors);
       if (anchors.length === 0) {
-        toast.success('Nenhum nome específico de instituição/autoridade pra generalizar.');
+        toast.success(ct.toasts.noAuthoritiesFound);
       } else {
-        toast(
-          `${anchors.length} ${anchors.length === 1 ? 'nome específico' : 'nomes específicos'} — revise as trocas.`,
-          { icon: '🏛️' }
-        );
+        toast(ct.toasts.authoritiesFound(anchors.length), { icon: '🏛️' });
       }
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao checar.');
+      toast.error(err?.message || ct.toasts.checkError);
     } finally {
       setIsCheckingAuthorities(false);
     }
@@ -812,7 +810,7 @@ export function CopyTab({
   const handleApplyAnchor = (flag: AuthorityAnchor) => {
     const current = config.copy.generatedScript || '';
     if (!current.includes(flag.excerpt)) {
-      toast.error('Trecho não encontrado (talvez já editado).');
+      toast.error(ct.toasts.excerptNotFound);
       setAuthorityFlags((prev) => (prev ? prev.filter((f) => f !== flag) : prev));
       return;
     }
@@ -826,7 +824,7 @@ export function CopyTab({
       const left = prev ? prev.filter((f) => f !== flag) : [];
       return left.length ? left : null;
     });
-    toast.success('Trocado por âncora genérica.');
+    toast.success(ct.toasts.anchorApplied);
   };
   const handleApplyAllAnchors = () => {
     if (!authorityFlags || authorityFlags.length === 0) return;
@@ -848,9 +846,7 @@ export function CopyTab({
         copy: { ...prev.copy, generatedScript: text, optimizedScript: '' },
       }));
       setHasUnsavedCopyChanges(true);
-      toast.success(
-        `${applied} ${applied === 1 ? 'âncora generalizada' : 'âncoras generalizadas'}.`
-      );
+      toast.success(ct.toasts.anchorsApplied(applied));
     }
     setAuthorityFlags(remaining.length ? remaining : null);
   };
@@ -863,7 +859,7 @@ export function CopyTab({
   const [isFindingStats, setIsFindingStats] = useState(false);
   const handleFindStatistics = async () => {
     if (!productInfo) {
-      toast.error('Configure a Fonte do Produto pra eu saber o nicho da busca.');
+      toast.error(ct.toasts.needSourceForStats);
       return;
     }
     setIsFindingStats(true);
@@ -875,14 +871,12 @@ export function CopyTab({
       });
       setStatFindings(stats);
       if (stats.length === 0) {
-        toast('Não achei estatísticas com fonte confiável pra esse nicho.', { icon: '🔍' });
+        toast(ct.toasts.noStatsFound, { icon: '🔍' });
       } else {
-        toast.success(
-          `${stats.length} estatística${stats.length > 1 ? 's' : ''} com fonte — revise e adicione.`
-        );
+        toast.success(ct.toasts.statsFound(stats.length));
       }
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao buscar estatísticas.');
+      toast.error(err?.message || ct.toasts.statsError);
     } finally {
       setIsFindingStats(false);
     }
@@ -891,12 +885,12 @@ export function CopyTab({
     const line = `${s.stat} (fonte: ${s.source}${s.year ? ', ' + s.year : ''})`;
     const current = (config.copy.answers.statistics || '').toString().trim();
     if (current.includes(s.stat.trim())) {
-      toast('Essa estatística já está no campo.', { icon: 'ℹ️' });
+      toast(ct.toasts.statAlreadyAdded, { icon: 'ℹ️' });
       return;
     }
     updateConfig('copy', 'answers', 'statistics', current ? `${current}\n${line}` : line);
     setStatFindings((prev) => (prev ? prev.filter((x) => x !== s) : prev));
-    toast.success('Adicionada ao campo de estatísticas.');
+    toast.success(ct.toasts.statAdded);
   };
 
   // UX24-A: auto-fill da descrição do destino do clique usando productInfo.
@@ -905,7 +899,7 @@ export function CopyTab({
   const [isAutoFillingDestination, setIsAutoFillingDestination] = useState(false);
   const handleAutoFillDestination = async () => {
     if (!productInfo) {
-      toast.error('Configure a Fonte do Produto antes de auto-preencher.');
+      toast.error(ct.toasts.needSourceToAutoFill);
       return;
     }
     setIsAutoFillingDestination(true);
@@ -916,9 +910,9 @@ export function CopyTab({
         language: config.copy.answers.language,
       });
       updateConfig('copy', 'answers', 'destinationDescription', description);
-      toast.success('Descrição preenchida — revise antes de gerar.');
+      toast.success(ct.toasts.destinationFilled);
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao preencher destino.');
+      toast.error(err?.message || ct.toasts.destinationError);
     } finally {
       setIsAutoFillingDestination(false);
     }
@@ -977,7 +971,7 @@ export function CopyTab({
   // campos ao novo nível de consciência sob demanda (sem overwrite silencioso).
   const applyLevelRecommendations = () => {
     const level = config.copy.answers.awarenessLevel || '';
-    if (!level) return toast.error('Escolha um nível de consciência primeiro.');
+    if (!level) return toast.error(ct.toasts.chooseAwarenessFirst);
     const estilo = getRecomendedEstilo(level)[0];
     const angle = recommendedAnglesFor(level)[0];
     const emotion = recommendedEmotionsFor(level, estilo || '')[0];
@@ -994,7 +988,7 @@ export function CopyTab({
       },
     }));
     setHasUnsavedCopyChanges(true);
-    toast.success(`Estilo, ângulo e emoção ajustados pro nível ${level}.`);
+    toast.success(ct.toasts.levelAdjusted(level));
   };
 
   // Reescreve os campos da AUDIÊNCIA (Seção 1) pro nível de consciência atual via
@@ -1013,16 +1007,16 @@ export function CopyTab({
   ];
   const reframeAudience = async () => {
     const level = config.copy.answers.awarenessLevel || '';
-    if (!level) return toast.error('Escolha um nível de consciência primeiro.');
+    if (!level) return toast.error(ct.toasts.chooseAwarenessFirst);
     const fields: Record<string, string> = {};
     for (const id of AUDIENCE_FIELDS) {
       const v = (config.copy.answers as any)[id];
       if (typeof v === 'string' && v.trim()) fields[id] = v;
     }
-    if (Object.keys(fields).length === 0) return toast.error('Preencha a audiência primeiro.');
+    if (Object.keys(fields).length === 0) return toast.error(ct.toasts.fillAudienceFirst);
     setReframingAudience(true);
     const tid = 'reframe-audience';
-    toast.loading('Reescrevendo a audiência pro nível…', { id: tid });
+    toast.loading(ct.toasts.reframingAudience, { id: tid });
     try {
       const out = await reframeAudienceForLevel({
         level,
@@ -1037,9 +1031,9 @@ export function CopyTab({
         return { ...prev, copy: { ...prev.copy, answers: next } };
       });
       setHasUnsavedCopyChanges(true);
-      toast.success(`Audiência reescrita pro nível ${level}.`, { id: tid });
+      toast.success(ct.toasts.audienceReframed(level), { id: tid });
     } catch (e: any) {
-      toast.error(e?.message || 'Erro ao reescrever a audiência.', { id: tid });
+      toast.error(e?.message || ct.toasts.audienceReframeError, { id: tid });
     } finally {
       setReframingAudience(false);
     }
@@ -1063,7 +1057,7 @@ export function CopyTab({
   // analyzeCopyForLibrary. Fallback razoável se IA falhar.
   const handleAddManualCopy = async (input: { name?: string; script: string }) => {
     if (!currentUid) {
-      toast.error('Você precisa estar logado pra salvar copies.');
+      toast.error(ct.toasts.needLoginToSave);
       return;
     }
     try {
@@ -1083,11 +1077,15 @@ export function CopyTab({
       });
       await reloadLibrary();
       toast.success(
-        `Copy salva! Detectado: ${analysis.vertical} · Consc.${analysis.awareness} · ${analysis.language.toUpperCase()}`,
+        ct.toasts.manualCopySaved(
+          analysis.vertical,
+          analysis.awareness,
+          analysis.language.toUpperCase()
+        ),
         { duration: 4500 }
       );
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao salvar.');
+      toast.error(err?.message || ct.toasts.saveError);
     }
   };
 
@@ -1103,13 +1101,13 @@ export function CopyTab({
       },
     }));
     setVariants(null);
-    toast.success('Versão selecionada!');
+    toast.success(ct.toasts.variantSelected);
   };
 
   const handleFillFromSource = async () => {
     if (!productInfo) return;
     const toastId = 'fill-from-source-copy';
-    toast.loading('Preenchendo campos com IA...', { id: toastId });
+    toast.loading(ct.toasts.fillingWithAI, { id: toastId });
     try {
       const allQuestions = COPY_SECTIONS.flatMap((s) => s.questions);
       const optionsFor = (id: string): string[] => {
@@ -1161,9 +1159,9 @@ export function CopyTab({
         const merged = fillRecommendedStrategyFields({ ...prev.copy.answers, ...snapped });
         return { ...prev, copy: { ...prev.copy, answers: merged } };
       });
-      toast.success('Campos preenchidos!', { id: toastId });
+      toast.success(ct.toasts.fieldsFilled, { id: toastId });
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao preencher.', { id: toastId });
+      toast.error(err?.message || ct.toasts.fillError, { id: toastId });
     }
   };
 
@@ -1223,7 +1221,7 @@ export function CopyTab({
             </span>
             <div className="min-w-0">
               <p className="text-[10px] font-black uppercase tracking-widest text-blue-700 dark:text-blue-300">
-                Executando criativo do plano
+                {ct.briefBanner.running}
               </p>
               <p className="text-sm font-bold text-gray-900 dark:text-gray-50 truncate">
                 {activeBrief.targetPersonaName} · {activeBrief.angle} · Consc.
@@ -1244,7 +1242,7 @@ export function CopyTab({
             onClick={() => setCurrentStep('plan')}
             className="shrink-0 text-[10px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-50 px-3 py-1.5 rounded-lg bg-white dark:bg-gray-900/60 ring-1 ring-gray-200/60 dark:ring-gray-700/60 hover:ring-gray-400 transition-all"
           >
-            ← Voltar ao plano
+            {ct.briefBanner.backToPlan}
           </button>
         </div>
       )}
@@ -1256,10 +1254,10 @@ export function CopyTab({
           <button
             onClick={handleFillFromSource}
             className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow flex items-center gap-2"
-            title="Preenche todos os campos de Copy automaticamente com base na Fonte do Produto"
+            title={ct.autoFill.title}
           >
             <Sparkles size={14} />
-            Preencha automaticamente
+            {ct.autoFill.button}
           </button>
         </div>
       )}
@@ -1348,7 +1346,7 @@ export function CopyTab({
           <div className="flex flex-col items-center space-y-4">
             <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
             <p className="text-sm font-black text-gray-900 dark:text-gray-50 uppercase tracking-widest italic">
-              Carregando Projeto...
+              {ct.loadingProject}
             </p>
           </div>
         </div>
@@ -1358,12 +1356,9 @@ export function CopyTab({
         <div className="flex flex-col items-center justify-center min-h-[400px] space-y-8 max-w-lg mx-auto text-center animate-in fade-in zoom-in duration-500">
           <div className="space-y-2">
             <h2 className="text-2xl font-black text-gray-900 dark:text-gray-50 uppercase tracking-tight">
-              Antes de criar sua copy...
+              {ct.intro.title}
             </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Precisamos saber quem vai assistir este vídeo. Isso garante uma copy muito mais
-              eficaz.
-            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{ct.intro.body}</p>
           </div>
 
           <div className="w-full space-y-3">
@@ -1381,10 +1376,10 @@ export function CopyTab({
                 <span className="text-2xl group-hover:scale-110 transition-transform">✅</span>
                 <div>
                   <p className="font-black text-gray-900 dark:text-gray-50 uppercase italic">
-                    Já sei quem é meu cliente
+                    {ct.intro.knownTitle}
                   </p>
                   <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest">
-                    Vou preencher as informações diretamente
+                    {ct.intro.knownDesc}
                   </p>
                 </div>
               </div>
@@ -1400,10 +1395,10 @@ export function CopyTab({
                 <span className="text-2xl group-hover:scale-110 transition-transform">🔍</span>
                 <div>
                   <p className="font-black text-gray-900 dark:text-gray-50 uppercase italic">
-                    Me ajuda a descobrir
+                    {ct.intro.discoverTitle}
                   </p>
                   <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest">
-                    A IA gera 3 personas com nível de consciência
+                    {ct.intro.discoverDesc}
                   </p>
                 </div>
               </div>
@@ -1431,7 +1426,7 @@ export function CopyTab({
                   </div>
                   <div>
                     <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">
-                      Persona Ativo
+                      {ct.activePersona.label}
                     </p>
                     <h4 className="text-xl font-black text-gray-900 dark:text-gray-50">
                       {activePersona.name}
@@ -1439,14 +1434,14 @@ export function CopyTab({
                   </div>
                 </div>
                 <span className="px-3 py-1 bg-blue-600 text-white rounded-full text-[10px] font-black uppercase tracking-widest">
-                  Nível {activePersona.awarenessLevel}
+                  {ct.activePersona.level(activePersona.awarenessLevel)}
                 </span>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                 <div className="bg-white dark:bg-gray-900/80 p-3 rounded-2xl border border-blue-100 dark:border-blue-900">
                   <p className="text-[9px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">
-                    Dor principal
+                    {ct.activePersona.mainPain}
                   </p>
                   <p className="text-gray-800 dark:text-gray-200 leading-snug">
                     {activePersona.mainPain}
@@ -1454,7 +1449,7 @@ export function CopyTab({
                 </div>
                 <div className="bg-white dark:bg-gray-900/80 p-3 rounded-2xl border border-blue-100 dark:border-blue-900">
                   <p className="text-[9px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">
-                    Desejo profundo
+                    {ct.activePersona.hiddenDesire}
                   </p>
                   <p className="text-gray-800 dark:text-gray-200 leading-snug">
                     {activePersona.hiddenDesire}
@@ -1462,7 +1457,7 @@ export function CopyTab({
                 </div>
                 <div className="bg-white dark:bg-gray-900/80 p-3 rounded-2xl border border-blue-100 dark:border-blue-900">
                   <p className="text-[9px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">
-                    Objeção principal
+                    {ct.activePersona.mainObjection}
                   </p>
                   <p className="text-gray-800 dark:text-gray-200 leading-snug">
                     {activePersona.mainObjection}
@@ -1470,7 +1465,7 @@ export function CopyTab({
                 </div>
                 <div className="bg-white dark:bg-gray-900/80 p-3 rounded-2xl border border-blue-100 dark:border-blue-900">
                   <p className="text-[9px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">
-                    Idade · Gênero
+                    {ct.activePersona.ageGender}
                   </p>
                   <p className="text-gray-800 dark:text-gray-200 leading-snug">
                     {activePersona.age} · {activePersona.gender}
@@ -1484,21 +1479,22 @@ export function CopyTab({
                   className="flex-1 py-3 px-6 bg-white dark:bg-gray-900/80 border-2 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-50 rounded-2xl font-black uppercase tracking-widest text-xs hover:border-blue-300 transition-all flex items-center justify-center gap-2"
                 >
                   <Edit3 size={16} />
-                  Editar Persona
+                  {ct.activePersona.editButton}
                 </button>
                 <button
                   onClick={applyPersonaToCopy}
                   className="flex-1 py-3 px-6 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 flex items-center justify-center gap-2"
                 >
                   <Sparkles size={16} />
-                  {copyFieldsApplied ? 'Re-Atualizar Campos da Copy' : 'Atualizar Campos da Copy'}
+                  {copyFieldsApplied
+                    ? ct.activePersona.reapplyButton
+                    : ct.activePersona.applyButton}
                 </button>
               </div>
 
               {!copyFieldsApplied && (
                 <p className="text-center text-[10px] text-blue-700 dark:text-blue-300 font-bold uppercase tracking-widest">
-                  Clique em "Atualizar Campos da Copy" para preencher os campos abaixo
-                  automaticamente
+                  {ct.activePersona.applyHint}
                 </p>
               )}
             </div>
@@ -1525,39 +1521,11 @@ export function CopyTab({
 
               {/* Perguntas sequenciais */}
               {[
-                {
-                  id: 'product',
-                  label: 'Qual é o seu produto ou serviço?',
-                  placeholder: 'Ex: Curso online de finanças pessoais para iniciantes',
-                  hint: 'Descreva em uma frase clara o que você vende',
-                },
-                {
-                  id: 'problem',
-                  label: 'Qual problema ele resolve?',
-                  placeholder:
-                    'Ex: Pessoas que vivem no vermelho e não sabem por onde começar a organizar o dinheiro',
-                  hint: 'Foque no problema real, não na solução',
-                },
-                {
-                  id: 'result',
-                  label: 'Qual resultado concreto ele entrega?',
-                  placeholder: 'Ex: Em 30 dias a pessoa consegue quitar dívidas e começar a poupar',
-                  hint: 'Seja específico — números e tempo ajudam',
-                },
-                {
-                  id: 'customer',
-                  label: 'Já vendeu para alguém? Descreva essa pessoa.',
-                  placeholder:
-                    'Ex: Mulher de 35 anos, trabalha como CLT, tem dois filhos, sempre no limite do cartão',
-                  hint: 'Se nunca vendeu, descreva quem você imagina que compraria',
-                },
-                {
-                  id: 'benefit',
-                  label: 'Quem se beneficia MAIS do seu produto?',
-                  placeholder:
-                    'Ex: Pessoas entre 30-45 anos que ganham bem mas não conseguem guardar dinheiro',
-                  hint: 'Pense em quem teria a maior transformação',
-                },
+                { id: 'product', ...ct.discovery.questions.product },
+                { id: 'problem', ...ct.discovery.questions.problem },
+                { id: 'result', ...ct.discovery.questions.result },
+                { id: 'customer', ...ct.discovery.questions.customer },
+                { id: 'benefit', ...ct.discovery.questions.benefit },
               ].map(
                 (q, idx) =>
                   discoveryStep === idx && (
@@ -1567,7 +1535,7 @@ export function CopyTab({
                     >
                       <div className="space-y-2">
                         <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest text-center">
-                          Pergunta {idx + 1} de 5
+                          {ct.discovery.questionCounter(idx + 1)}
                         </p>
                         <p className="text-xl font-black text-gray-900 dark:text-gray-50 text-center uppercase italic tracking-tight">
                           {q.label}
@@ -1598,7 +1566,7 @@ export function CopyTab({
                             onClick={() => setDiscoveryStep(idx - 1)}
                             className="px-8 py-4 rounded-2xl border-2 border-gray-200 dark:border-gray-800 text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest hover:border-gray-200 dark:hover:border-gray-700 hover:text-gray-600 dark:hover:text-gray-400 dark:text-gray-500 transition-all"
                           >
-                            Voltar
+                            {ct.discovery.back}
                           </button>
                         )}
                         <button
@@ -1616,9 +1584,9 @@ export function CopyTab({
                           {loading ? (
                             <Loader2 className="animate-spin" size={16} />
                           ) : idx < 4 ? (
-                            'Próxima →'
+                            ct.discovery.next
                           ) : (
-                            '✨ Descobrir meu cliente ideal'
+                            ct.discovery.finish
                           )}
                         </button>
                       </div>
@@ -1682,11 +1650,11 @@ export function CopyTab({
                 <div className="p-10 bg-white dark:bg-gray-900/80 rounded-[48px] border-4 border-blue-50 shadow-2xl space-y-6">
                   <div className="space-y-2">
                     <label className="block text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">
-                      Cole sua copy total aqui...
+                      {ct.asIs.pasteLabel}
                     </label>
                     <AutoResizeTextarea
                       className="w-full p-8 rounded-[32px] border-2 border-gray-200 dark:border-gray-800 focus:border-blue-600 focus:ring-0 outline-none transition-all text-sm leading-relaxed bg-gray-50 dark:bg-gray-800/60 font-medium"
-                      placeholder="Cole sua copy aqui..."
+                      placeholder={ct.asIs.pastePlaceholder}
                       value={config.copy.answers['pastedCopy'] || ''}
                       onChange={(e: any) => {
                         setConfig((prev: any) => ({
@@ -1712,12 +1680,12 @@ export function CopyTab({
                         copy: { ...prev.copy, generatedScript: textoColado },
                       }));
                       setHasUnsavedCopyChanges(false);
-                      toast.success('Copy salva com sucesso!');
+                      toast.success(ct.toasts.copySaved);
                     }}
                     disabled={(config.copy.answers['pastedCopy']?.length || 0) < 50}
                     className="w-full py-6 bg-blue-600 text-white rounded-[32px] font-black text-xl uppercase tracking-widest hover:bg-blue-700 transition-all shadow-2xl shadow-blue-100 disabled:opacity-40"
                   >
-                    Salvar e continuar
+                    {ct.asIs.saveButton}
                   </button>
                 </div>
               </div>
@@ -1726,11 +1694,11 @@ export function CopyTab({
             <div className="p-8 bg-white dark:bg-gray-900/80 rounded-[40px] border-4 border-blue-50 shadow-xl space-y-6">
               <div className="space-y-2">
                 <label className="block text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">
-                  Cole sua copy existente
+                  {ct.improve.pasteLabel}
                 </label>
                 <AutoResizeTextarea
                   className="w-full p-6 rounded-3xl border-2 border-gray-200 dark:border-gray-800 focus:border-blue-600 focus:ring-0 outline-none transition-all text-sm leading-relaxed bg-gray-50 dark:bg-gray-800/60 font-medium"
-                  placeholder="Cole sua copy aqui..."
+                  placeholder={ct.asIs.pastePlaceholder}
                   value={config.copy.answers['existingCopy'] || ''}
                   onChange={(e: any) => {
                     setConfig((prev: any) => ({
@@ -1758,18 +1726,18 @@ export function CopyTab({
                     1
                   </div>
                   <h4 className="font-black text-gray-900 dark:text-gray-50 text-lg tracking-tight uppercase">
-                    1. Sua Audiência
+                    {ct.section1.title}
                   </h4>
                   {config.copy.answers.awarenessLevel && (
                     <button
                       onClick={reframeAudience}
                       disabled={reframingAudience}
-                      title="A IA reescreve a audiência + o 'problema que resolve' pro nível de consciência atual (sobrescreve o texto). Não toca em nome/mecanismo/prova/oferta."
+                      title={ct.section1.reframeTitle}
                       className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border-2 border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 text-[10px] font-black uppercase tracking-widest hover:bg-purple-50 dark:hover:bg-purple-950/40 disabled:opacity-50"
                     >
                       {reframingAudience
-                        ? '⏳ Reescrevendo…'
-                        : `🔄 Reescrever pro nível ${config.copy.answers.awarenessLevel} (IA)`}
+                        ? ct.section1.reframingButton
+                        : ct.section1.reframeButton(config.copy.answers.awarenessLevel)}
                     </button>
                   )}
                 </div>
@@ -1817,7 +1785,7 @@ export function CopyTab({
                                 updateConfig('copy', 'answers', q.id, e.target.value)
                               }
                             >
-                              <option value="">Selecione...</option>
+                              <option value="">{ct.section1.selectPlaceholder}</option>
                               {(q.options || []).map((opt) => (
                                 <option key={opt} value={opt}>
                                   {opt}
@@ -1852,41 +1820,16 @@ export function CopyTab({
                     2
                   </div>
                   <h4 className="font-black text-gray-900 dark:text-gray-50 text-lg tracking-tight uppercase">
-                    2. Nível de Consciência
+                    {ct.section2.title}
                   </h4>
                 </div>
                 <div className={'space-y-3' + redRing('awarenessLevel')}>
                   {[
-                    {
-                      id: '1',
-                      emoji: '🔴',
-                      label: 'Inconsciente',
-                      desc: 'Não sabe que tem o problema',
-                    },
-                    {
-                      id: '2',
-                      emoji: '🟠',
-                      label: 'Consciente do Problema',
-                      desc: 'Sabe que sofre mas não sabe a causa',
-                    },
-                    {
-                      id: '3',
-                      emoji: '🟡',
-                      label: 'Consciente da Solução',
-                      desc: 'Busca uma solução mas não sabe qual',
-                    },
-                    {
-                      id: '4',
-                      emoji: '🟢',
-                      label: 'Consciente do Produto',
-                      desc: 'Compara você com concorrentes',
-                    },
-                    {
-                      id: '5',
-                      emoji: '⚡',
-                      label: 'Totalmente Consciente',
-                      desc: 'Pronto para comprar',
-                    },
+                    { id: '1', emoji: '🔴', ...ct.section2.levels.unaware },
+                    { id: '2', emoji: '🟠', ...ct.section2.levels.problemAware },
+                    { id: '3', emoji: '🟡', ...ct.section2.levels.solutionAware },
+                    { id: '4', emoji: '🟢', ...ct.section2.levels.productAware },
+                    { id: '5', emoji: '⚡', ...ct.section2.levels.mostAware },
                   ].map((nivel) => (
                     <button
                       key={nivel.id}
@@ -1911,7 +1854,7 @@ export function CopyTab({
                             JSON.parse(config.copy.answers.discoveredPersona || '{}')
                               .awarenessLevel === nivel.id && (
                               <span className="text-[9px] bg-blue-600 text-white font-black uppercase tracking-widest px-2 py-1 rounded-full shadow-lg shadow-blue-100 animate-pulse">
-                                ⭐ Recomendado
+                                {ct.section2.recommendedBadge}
                               </span>
                             )}
                         </div>
@@ -1929,10 +1872,9 @@ export function CopyTab({
                   <button
                     onClick={applyLevelRecommendations}
                     className="mt-3 w-full py-2.5 rounded-2xl border-2 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 text-xs font-black uppercase tracking-widest hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors"
-                    title="Ajusta estilo, ângulo e emoção pros recomendados deste nível de consciência"
+                    title={ct.section2.applyRecommendationsTitle}
                   >
-                    🔄 Aplicar recomendações do nível {config.copy.answers.awarenessLevel} (estilo ·
-                    ângulo · emoção)
+                    {ct.section2.applyRecommendationsButton(config.copy.answers.awarenessLevel)}
                   </button>
                 )}
               </div>
@@ -1944,15 +1886,15 @@ export function CopyTab({
                     3
                   </div>
                   <h4 className="font-black text-gray-900 dark:text-gray-50 text-lg tracking-tight uppercase">
-                    3. Configurações do Anúncio
+                    {ct.section3.title}
                   </h4>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="space-y-4 md:col-span-2">
                     <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1 flex items-center justify-between">
-                      Estilo do Anúncio
+                      {ct.section3.styleLabel}
                       <span className="text-[9px] bg-green-100 text-green-600 dark:text-green-400 px-2 py-0.5 rounded-full">
-                        RECOMENDADO
+                        {ct.section3.recommendedBadge}
                       </span>
                     </label>
                     <div className="relative">
@@ -1972,7 +1914,7 @@ export function CopyTab({
                           updateConfig('copy', 'answers', 'estiloAnuncio', e.target.value)
                         }
                       >
-                        <option value="">Selecione...</option>
+                        <option value="">{ct.section1.selectPlaceholder}</option>
                         {AD_STYLES.map((style: any) => {
                           const recs = getRecomendedEstilo(
                             config.copy.answers.awarenessLevel || ''
@@ -1980,7 +1922,8 @@ export function CopyTab({
                           const isRec = recs.includes(style.label);
                           return (
                             <option key={style.id} value={style.label}>
-                              {style.emoji} {style.label} {isRec ? '⭐ (Recomendado)' : ''}
+                              {style.emoji} {style.label}{' '}
+                              {isRec ? ct.section3.recommendedSuffix : ''}
                             </option>
                           );
                         })}
@@ -2030,7 +1973,7 @@ export function CopyTab({
                                 config.copy.answers[q.id] &&
                                 isRecommended(q.id, config.copy.answers[q.id]) && (
                                   <span className="text-[9px] bg-green-100 text-green-600 dark:text-green-400 px-2 py-0.5 rounded-full">
-                                    Recomendado
+                                    {ct.otherSections.recommendedBadge}
                                   </span>
                                 )}
                             </label>
@@ -2047,10 +1990,13 @@ export function CopyTab({
                                     updateConfig('copy', 'answers', q.id, e.target.value)
                                   }
                                 >
-                                  <option value="">Selecione...</option>
+                                  <option value="">{ct.section1.selectPlaceholder}</option>
                                   {(q.options || []).map((opt: string) => (
                                     <option key={opt} value={opt}>
-                                      {opt} {isRecommended(q.id, opt) ? '⭐ (Recomendado)' : ''}
+                                      {opt}{' '}
+                                      {isRecommended(q.id, opt)
+                                        ? ct.section3.recommendedSuffix
+                                        : ''}
                                     </option>
                                   ))}
                                 </select>
@@ -2115,12 +2061,12 @@ export function CopyTab({
                     {sections.length + 3}
                   </div>
                   <h4 className="font-black text-gray-900 dark:text-gray-50 text-lg tracking-tight uppercase">
-                    {sections.length + 3}. Destino do Clique
+                    {ct.destination.heading(sections.length + 3)}
                   </h4>
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">
-                    {isVsl ? 'Para onde leva o CTA da VSL?' : 'Para onde vai ao clicar?'}
+                    {isVsl ? ct.destination.labelVsl : ct.destination.labelAd}
                   </label>
                   <div
                     className={
@@ -2132,29 +2078,25 @@ export function CopyTab({
                           {
                             id: 'oferta',
                             emoji: '🛒',
-                            label: 'Botão da oferta',
-                            desc: 'CTA "quero acesso" — leva direto pra compra do produto',
+                            ...ct.destination.vslOptions.offerButton,
                             levels: [] as string[],
                           },
                           {
                             id: 'checkout',
                             emoji: '⚡',
-                            label: 'Checkout direto',
-                            desc: 'Compra imediata, sem página intermediária',
+                            ...ct.destination.vslOptions.checkout,
                             levels: [] as string[],
                           },
                           {
                             id: 'inscricao',
                             emoji: '📋',
-                            label: 'Inscrição / lista de espera',
-                            desc: 'Quando o carrinho ainda vai abrir',
+                            ...ct.destination.vslOptions.waitlist,
                             levels: [] as string[],
                           },
                           {
                             id: 'whatsapp',
                             emoji: '💬',
-                            label: 'WhatsApp / grupo',
-                            desc: 'Fechar a venda no atendimento',
+                            ...ct.destination.vslOptions.whatsapp,
                             levels: [] as string[],
                           },
                         ]
@@ -2162,36 +2104,31 @@ export function CopyTab({
                           {
                             id: 'video',
                             emoji: '🎥',
-                            label: 'Assistir a um vídeo explicativo',
-                            desc: 'Ideal para público que ainda não te conhece',
+                            ...ct.destination.adOptions.video,
                             levels: ['1', '2', '3'],
                           },
                           {
                             id: 'article',
                             emoji: '📄',
-                            label: 'Ler um artigo ou conteúdo',
-                            desc: 'Educa o público antes de vender',
+                            ...ct.destination.adOptions.article,
                             levels: ['1', '2', '3'],
                           },
                           {
                             id: 'salespage',
                             emoji: '🛒',
-                            label: 'Página de vendas direta',
-                            desc: 'Para quem já conhece e está pronto',
+                            ...ct.destination.adOptions.salespage,
                             levels: ['4', '5'],
                           },
                           {
                             id: 'whatsapp',
                             emoji: '💬',
-                            label: 'WhatsApp ou formulário',
-                            desc: 'Contato direto para qualificar',
+                            ...ct.destination.adOptions.whatsapp,
                             levels: ['4'],
                           },
                           {
                             id: 'checkout',
                             emoji: '⚡',
-                            label: 'Direto para o checkout',
-                            desc: 'Compra imediata — remarketing',
+                            ...ct.destination.adOptions.checkout,
                             levels: ['5'],
                           },
                         ]
@@ -2242,9 +2179,9 @@ export function CopyTab({
                     <div className="mt-4 space-y-2">
                       <div className="flex items-center justify-between gap-3">
                         <label className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">
-                          Descreva o destino do clique
+                          {ct.destination.describeLabel}
                           <span className="ml-2 text-amber-600 dark:text-amber-400 normal-case tracking-normal">
-                            (recomendado — evita IA inventar formato)
+                            {ct.destination.describeHint}
                           </span>
                         </label>
                         {productInfo && (
@@ -2253,22 +2190,20 @@ export function CopyTab({
                             onClick={handleAutoFillDestination}
                             disabled={isAutoFillingDestination}
                             className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-[10px] font-black uppercase tracking-widest transition-all"
-                            title="Usa a Fonte do Produto pra descrever o destino"
+                            title={ct.destination.autoFillTitle}
                           >
                             {isAutoFillingDestination ? (
                               <Loader2 size={12} className="animate-spin" />
                             ) : (
                               <Sparkles size={12} />
                             )}
-                            Preencher do projeto
+                            {ct.destination.autoFillButton}
                           </button>
                         )}
                       </div>
                       <AutoResizeTextarea
                         placeholder={
-                          isVsl
-                            ? 'Ex: Botão logo abaixo do vídeo escrito "QUERO ACESSO AO CURSO". Leva pro checkout do produto (curso completo + bônus). CTA da VSL deve mandar a pessoa clicar no botão da oferta e garantir a vaga agora.'
-                            : "Ex: Live gratuita de 1h onde um pesquisador conta como criou a vitamina amarela pra ajudar a mãe com neuropatia. Aparecem ele, a mãe e um host. Tom: depoimento de família. NÃO chamar de 'apresentação curta', 'vídeo rápido' ou 'audio'."
+                          isVsl ? ct.destination.placeholderVsl : ct.destination.placeholderAd
                         }
                         value={config.copy.answers.destinationDescription || ''}
                         onChange={(e: any) =>
@@ -2277,8 +2212,7 @@ export function CopyTab({
                         className="w-full p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-800 text-sm outline-none focus:border-blue-400 min-h-[80px]"
                       />
                       <p className="text-[10px] text-gray-400 dark:text-gray-500 italic">
-                        A IA vai usar essa descrição literalmente pra falar do destino. Diga
-                        formato, quem aparece, sobre o que falam, e o que NÃO chamar.
+                        {ct.destination.describeFootnote}
                       </p>
                     </div>
                   )}
@@ -2289,7 +2223,7 @@ export function CopyTab({
               {isVsl && (
                 <div className="space-y-2 bg-white dark:bg-gray-900/80 p-8 rounded-[40px] border-2 border-gray-200 dark:border-gray-800 shadow-sm">
                   <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">
-                    Hook da VSL (frase de abertura que para o scroll) — opcional
+                    {ct.vslHook.label}
                   </label>
                   <input
                     type="text"
@@ -2297,12 +2231,11 @@ export function CopyTab({
                     onChange={(e: any) =>
                       updateConfig('copy', 'answers', 'vslHook', e.target.value)
                     }
-                    placeholder='ex: "Essa arte feita em casa tá virando renda pra milhares de mães"'
+                    placeholder={ct.vslHook.placeholder}
                     className="w-full p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-800 text-sm outline-none focus:border-blue-400"
                   />
                   <p className="text-[10px] text-gray-400 dark:text-gray-500 italic">
-                    Se preenchido, a IA usa isso como a PRIMEIRA frase do roteiro (tipo abertura de
-                    curiosidade com voz/efeito diferentes). Deixe vazio pra a IA criar o hook.
+                    {ct.vslHook.footnote}
                   </p>
                 </div>
               )}
@@ -2311,18 +2244,14 @@ export function CopyTab({
               {isVsl && (
                 <div className="space-y-3 bg-white dark:bg-gray-900/80 p-8 rounded-[40px] border-2 border-gray-200 dark:border-gray-800 shadow-sm">
                   <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">
-                    Quando entra o pitch (oferta + CTA)?
+                    {ct.pitchTiming.label}
                   </label>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {[
-                      {
-                        id: '50',
-                        label: '~50%',
-                        desc: 'Vende cedo — metade conteúdo, metade oferta',
-                      },
-                      { id: '75', label: '~75%', desc: 'Educa mais, vende no último quarto' },
-                      { id: '90', label: '~90%', desc: 'Quase tudo conteúdo, pitch curto no fim' },
-                      { id: 'end', label: 'Só no fim', desc: 'Padrão — oferta nos blocos finais' },
+                      { id: '50', ...ct.pitchTiming.options.p50 },
+                      { id: '75', ...ct.pitchTiming.options.p75 },
+                      { id: '90', ...ct.pitchTiming.options.p90 },
+                      { id: 'end', ...ct.pitchTiming.options.end },
                     ].map((opt) => {
                       const cur = (config.copy.answers.pitchPosition || 'end').toString();
                       const active = cur === opt.id;
@@ -2347,8 +2276,7 @@ export function CopyTab({
                     })}
                   </div>
                   <p className="text-[10px] text-gray-400 dark:text-gray-500 italic">
-                    Antes do pitch a IA só entrega história/problema/mecanismo/prova; a partir do
-                    ponto escolhido é que entra o produto, objeções e o CTA.
+                    {ct.pitchTiming.footnote}
                   </p>
                 </div>
               )}
@@ -2367,37 +2295,17 @@ export function CopyTab({
                       {sections.length + 4}
                     </div>
                     <h4 className="font-black text-gray-900 dark:text-gray-50 text-lg tracking-tight uppercase">
-                      {sections.length + 4}. Estratégia da Copy
+                      {ct.strategy.heading(sections.length + 4)}
                     </h4>
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">
-                      O ad vai vender ou só fazer o viewer clicar?
+                      {ct.strategy.label}
                     </label>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       {[
-                        {
-                          id: 'vsl-curiosity',
-                          emoji: '🎯',
-                          label: 'Criar curiosidade',
-                          desc: 'Pro funil com VSL, webinar ou conteúdo longo. O ad só convence a clicar — quem vende é o vídeo.',
-                          bullets: [
-                            'Não revela produto / mecanismo',
-                            'Sem garantia, preço ou oferta',
-                            'Abre loop, fecha no vídeo',
-                          ],
-                        },
-                        {
-                          id: 'direct-sale',
-                          emoji: '💰',
-                          label: 'Vender no próprio ad',
-                          desc: 'Pro funil direto: ad → página de vendas / checkout. O ad já apresenta o produto, mecanismo e oferta.',
-                          bullets: [
-                            'Apresenta produto e mecanismo',
-                            'Pode usar prova social e garantia',
-                            'Fecha com CTA direto',
-                          ],
-                        },
+                        { id: 'vsl-curiosity', emoji: '🎯', ...ct.strategy.curiosity },
+                        { id: 'direct-sale', emoji: '💰', ...ct.strategy.directSale },
                       ].map((strat) => (
                         <button
                           key={strat.id}
@@ -2433,8 +2341,7 @@ export function CopyTab({
                     </div>
                     {!config.copy.answers.copyStrategy && (
                       <p className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-widest mt-2 ml-1">
-                        Padrão: Criar curiosidade (tráfego pra VSL). Escolha "Vender no próprio ad"
-                        só se o ad leva direto pra página de vendas.
+                        {ct.strategy.defaultNote}
                       </p>
                     )}
                   </div>
@@ -2457,18 +2364,18 @@ export function CopyTab({
                     !
                   </div>
                   <h4 className="font-black text-gray-900 dark:text-gray-50 text-lg tracking-tight uppercase">
-                    Evite mencionar
+                    {ct.avoidList.heading}
                     <span className="ml-2 text-[10px] text-gray-400 dark:text-gray-500 normal-case tracking-normal">
-                      (opcional)
+                      {ct.avoidList.optional}
                     </span>
                   </h4>
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest ml-1">
-                    Palavras / frases / formatos que a IA NUNCA pode usar
+                    {ct.avoidList.label}
                   </label>
                   <AutoResizeTextarea
-                    placeholder="Ex: podcast, apresentação curta, vídeo rápido, áudio, ofereço, garantia de devolução"
+                    placeholder={ct.avoidList.placeholder}
                     value={config.copy.answers.avoidList || ''}
                     onChange={(e: any) =>
                       updateConfig('copy', 'answers', 'avoidList', e.target.value)
@@ -2476,8 +2383,7 @@ export function CopyTab({
                     className="w-full p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-800 text-sm outline-none focus:border-red-400 min-h-[60px]"
                   />
                   <p className="text-[10px] text-gray-400 dark:text-gray-500 italic">
-                    Separe por vírgula. Vira regra dura no prompt — a IA não pode usar nada daqui no
-                    texto final.
+                    {ct.avoidList.footnote}
                   </p>
                 </div>
               </div>
@@ -2501,19 +2407,19 @@ export function CopyTab({
                     ★
                   </div>
                   <h4 className="font-black text-gray-900 dark:text-gray-50 text-lg tracking-tight uppercase">
-                    Termos obrigatórios &amp; produto inovador
+                    {ct.mandatoryTerms.heading}
                     <span className="ml-2 text-[10px] text-gray-400 dark:text-gray-500 normal-case tracking-normal">
-                      (opcional)
+                      {ct.mandatoryTerms.optional}
                     </span>
                   </h4>
                 </div>
 
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest ml-1">
-                    Palavras / termos que a copy TEM que conter
+                    {ct.mandatoryTerms.termsLabel}
                   </label>
                   <AutoResizeTextarea
-                    placeholder='Ex: "yellow vitamin", neuropathy, Dr. Moore, 30 segundos'
+                    placeholder={ct.mandatoryTerms.termsPlaceholder}
                     value={config.copy.answers.mandatoryTerms || ''}
                     onChange={(e: any) =>
                       updateConfig('copy', 'answers', 'mandatoryTerms', e.target.value)
@@ -2521,21 +2427,20 @@ export function CopyTab({
                     className="w-full p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-800 text-sm outline-none focus:border-emerald-400 min-h-[60px]"
                   />
                   <p className="text-[10px] text-gray-400 dark:text-gray-500 italic">
-                    Separe por vírgula. Vira regra dura no prompt — a IA é obrigada a usar cada
-                    termo no texto final (encaixados de forma natural).
+                    {ct.mandatoryTerms.termsFootnote}
                   </p>
                 </div>
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
                     <label className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest ml-1">
-                      Nome do "produto inovador" / truque especial
+                      {ct.mandatoryTerms.nameLabel}
                     </label>
                     <button
                       onClick={() => runGenInnovative(false)}
                       disabled={isGenInnovative}
                       className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-50 transition-all"
-                      title="A IA cria um gancho de curiosidade (estilo 'yellow vitamin'). Re-gere quantas vezes quiser, ou escreva o seu."
+                      title={ct.mandatoryTerms.generateTitle}
                     >
                       {isGenInnovative ? (
                         <Loader2 size={12} className="animate-spin" />
@@ -2543,15 +2448,15 @@ export function CopyTab({
                         <Sparkles size={12} />
                       )}
                       {isGenInnovative
-                        ? 'Gerando...'
+                        ? ct.mandatoryTerms.generating
                         : config.copy.answers.innovativeProductName
-                          ? 'Re-gerar'
-                          : 'Gerar'}
+                          ? ct.mandatoryTerms.regenerate
+                          : ct.mandatoryTerms.generate}
                     </button>
                   </div>
                   <input
                     type="text"
-                    placeholder='Ex: "yellow vitamin", "truque da banana", "5-second ritual"'
+                    placeholder={ct.mandatoryTerms.namePlaceholder}
                     value={config.copy.answers.innovativeProductName || ''}
                     onChange={(e: any) =>
                       updateConfig('copy', 'answers', 'innovativeProductName', e.target.value)
@@ -2559,8 +2464,7 @@ export function CopyTab({
                     className="w-full p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-800 text-sm outline-none focus:border-emerald-400"
                   />
                   <p className="text-[10px] text-gray-400 dark:text-gray-500 italic">
-                    A IA vai usar esse nome como gancho de curiosidade — cita o nome pra intrigar,
-                    mas NUNCA explica o que é (isso fica no vídeo).
+                    {ct.mandatoryTerms.nameFootnote}
                   </p>
                 </div>
               </div>
@@ -2581,16 +2485,16 @@ export function CopyTab({
                     🎙
                   </div>
                   <h4 className="font-black text-gray-900 dark:text-gray-50 text-lg tracking-tight uppercase">
-                    Quem conta a história
+                    {ct.narrator.heading}
                     <span className="ml-2 text-[10px] text-gray-400 dark:text-gray-500 normal-case tracking-normal">
-                      (auto pelo plano · editável)
+                      {ct.narrator.hint}
                     </span>
                   </h4>
                   <button
                     onClick={handleGenNarrator}
                     disabled={isGenNarrator}
                     className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-50 transition-all"
-                    title="A IA escolhe o narrador mais convincente. Pode clicar de novo pra re-gerar, ou escrever o seu no campo."
+                    title={ct.narrator.generateTitle}
                   >
                     {isGenNarrator ? (
                       <Loader2 size={12} className="animate-spin" />
@@ -2598,20 +2502,18 @@ export function CopyTab({
                       <Sparkles size={12} />
                     )}
                     {isGenNarrator
-                      ? 'Gerando...'
+                      ? ct.mandatoryTerms.generating
                       : config.copy.answers.narrator
-                        ? 'Re-gerar'
-                        : 'Gerar narrador'}
+                        ? ct.mandatoryTerms.regenerate
+                        : ct.narrator.generateButton}
                   </button>
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest ml-1">
-                    Quem narra — quem é, idade, relação com o problema (não precisa ser 1ª pessoa)
+                    {ct.narrator.label}
                   </label>
                   <AutoResizeTextarea
-                    placeholder={
-                      'Ex: Sofredor de 58 anos que conviveu 6 anos com a dor até achar a resposta\nEx: Filha que cuidou do pai com neuropatia e foi atrás da causa\nEx: Um pesquisador que reúne histórias de quem viveu isso (3ª pessoa)'
-                    }
+                    placeholder={ct.narrator.placeholder}
                     value={config.copy.answers.narrator || ''}
                     onChange={(e: any) =>
                       updateConfig('copy', 'answers', 'narrator', e.target.value)
@@ -2619,9 +2521,7 @@ export function CopyTab({
                     className="w-full p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-800 text-sm outline-none focus:border-emerald-400 min-h-[64px]"
                   />
                   <p className="text-[10px] text-gray-400 dark:text-gray-500 italic">
-                    Pode ser quem viveu, um cuidador, um profissional, ou alguém contando histórias
-                    de outros (3ª pessoa). É UMA voz só, mantida do início ao fim. Edite ou re-gere
-                    se quiser outra.
+                    {ct.narrator.footnote}
                   </p>
                 </div>
               </div>
@@ -2644,20 +2544,18 @@ export function CopyTab({
                     %
                   </div>
                   <h4 className="font-black text-gray-900 dark:text-gray-50 text-lg tracking-tight uppercase">
-                    Estatísticas &amp; dados
+                    {ct.statistics.heading}
                     <span className="ml-2 text-[10px] text-gray-400 dark:text-gray-500 normal-case tracking-normal">
-                      (opcional)
+                      {ct.statistics.optional}
                     </span>
                   </h4>
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest ml-1">
-                    Números reais que a copy pode usar (com a fonte, se tiver)
+                    {ct.statistics.label}
                   </label>
                   <AutoResizeTextarea
-                    placeholder={
-                      'Ex: 90% dos adultos 50+ têm algum grau de degeneração nervosa (fonte: ...)\n48.000 pessoas já usam\nligado a maior risco de demência e doença cardíaca (estudo X)'
-                    }
+                    placeholder={ct.statistics.placeholder}
                     value={config.copy.answers.statistics || ''}
                     onChange={(e: any) =>
                       updateConfig('copy', 'answers', 'statistics', e.target.value)
@@ -2665,9 +2563,7 @@ export function CopyTab({
                     className="w-full p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-800 text-sm outline-none focus:border-indigo-400 min-h-[80px]"
                   />
                   <p className="text-[10px] text-gray-400 dark:text-gray-500 italic">
-                    Um por linha. A IA só pode afirmar números que estejam aqui ou na fonte do
-                    produto — sem isso, ela não inventa estatística. Ligação com doença sai só como
-                    "ligado a / aumenta o risco", nunca "você tem / vai ter".
+                    {ct.statistics.footnote}
                   </p>
                 </div>
 
@@ -2680,15 +2576,13 @@ export function CopyTab({
                     disabled={isFindingStats}
                     className="text-xs font-bold px-4 py-2 rounded-xl border-2 border-indigo-200 dark:border-indigo-900 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors disabled:opacity-50"
                   >
-                    {isFindingStats
-                      ? '🔍 Buscando na web...'
-                      : '🔍 Não tenho números — buscar com fonte'}
+                    {isFindingStats ? ct.statistics.searchingButton : ct.statistics.searchButton}
                   </button>
 
                   {statFindings && statFindings.length > 0 && (
                     <div className="space-y-2 bg-indigo-50/60 dark:bg-indigo-950/20 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-900">
                       <p className="text-[10px] font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-widest">
-                        Estatísticas com fonte — revise antes de usar
+                        {ct.statistics.resultsLabel}
                       </p>
                       {statFindings.map((s, i) => (
                         <div
@@ -2703,7 +2597,7 @@ export function CopyTab({
                               rel="noopener noreferrer"
                               className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline break-all"
                             >
-                              {s.source || 'fonte'}
+                              {s.source || ct.statistics.sourceFallback}
                               {s.year ? ` (${s.year})` : ''} ↗
                             </a>
                           </div>
@@ -2712,13 +2606,12 @@ export function CopyTab({
                             onClick={() => handleAddStat(s)}
                             className="shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
                           >
-                            Adicionar
+                            {ct.statistics.addButton}
                           </button>
                         </div>
                       ))}
                       <p className="text-[10px] text-gray-400 dark:text-gray-500 italic">
-                        Confira a fonte antes de adicionar. Só números com fonte real aparecem aqui
-                        — nada inventado.
+                        {ct.statistics.resultsFootnote}
                       </p>
                     </div>
                   )}
@@ -2732,12 +2625,12 @@ export function CopyTab({
                     {sections.length + 4}
                   </div>
                   <h4 className="font-black text-gray-900 dark:text-gray-50 text-lg tracking-tight uppercase">
-                    {sections.length + 4}. Call to Action (CTA)
+                    {ct.cta.heading(sections.length + 4)}
                   </h4>
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">
-                    Como o viewer deve agir ao final do anúncio?
+                    {ct.cta.label}
                   </label>
                   <div className="space-y-3">
                     <button
@@ -2749,11 +2642,10 @@ export function CopyTab({
                       }`}
                     >
                       <p className="text-sm font-bold text-gray-900 dark:text-gray-50">
-                        ✨ Deixar a IA criar o CTA
+                        {ct.cta.autoTitle}
                       </p>
                       <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
-                        A IA vai criar o melhor CTA baseado no nível de consciência e destino do
-                        clique
+                        {ct.cta.autoDesc}
                       </p>
                     </button>
 
@@ -2766,16 +2658,16 @@ export function CopyTab({
                       }`}
                     >
                       <p className="text-sm font-bold text-gray-900 dark:text-gray-50">
-                        ✏️ Escrever meu próprio CTA
+                        {ct.cta.customTitle}
                       </p>
                       <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
-                        Você controla exatamente o que será dito no final do anúncio
+                        {ct.cta.customDesc}
                       </p>
                     </button>
 
                     {config.copy.answers.ctaMode === 'custom' && (
                       <AutoResizeTextarea
-                        placeholder='Ex: Clique no botão "Watch More" abaixo agora e assista ao vídeo completo...'
+                        placeholder={ct.cta.customPlaceholder}
                         value={config.copy.answers.ctaCustom || ''}
                         onChange={(e: any) =>
                           updateConfig('copy', 'answers', 'ctaCustom', e.target.value)
@@ -2797,10 +2689,10 @@ export function CopyTab({
                 </div>
                 <div>
                   <h4 className="font-black text-gray-900 dark:text-gray-50 uppercase tracking-widest text-xs">
-                    Tamanho do Roteiro
+                    {ct.duration.heading}
                   </h4>
                   <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest">
-                    Defina a extensão ideal para seu anúncio
+                    {ct.duration.subtitle}
                   </p>
                 </div>
               </div>
@@ -2816,7 +2708,7 @@ export function CopyTab({
                         <Star size={10} fill="currentColor" />
                       </div>
                       <span className="text-[10px] font-black text-purple-600 dark:text-purple-400 uppercase tracking-widest">
-                        Recomendado pelo plano de marketing
+                        {ct.duration.planRecommendedBadge}
                       </span>
                     </div>
                     <div className="p-6 bg-purple-50/50 dark:bg-purple-950/40 rounded-3xl border-2 border-purple-100 dark:border-purple-900 shadow-sm hover:shadow-md transition-all">
@@ -2824,9 +2716,10 @@ export function CopyTab({
                         {activeBrief.durationTarget}s
                       </h5>
                       <p className="text-sm font-medium text-purple-800 dark:text-purple-300/70 leading-relaxed italic">
-                        "Este criativo do seu plano foi pensado para {activeBrief.durationTarget}s —
-                        ângulo {activeBrief.angle}. Manter a duração alinha o roteiro com a
-                        estratégia."
+                        {ct.duration.planRecommendedQuote(
+                          activeBrief.durationTarget,
+                          activeBrief.angle
+                        )}
                       </p>
                     </div>
                   </div>
@@ -2838,7 +2731,7 @@ export function CopyTab({
                           <Star size={10} fill="currentColor" />
                         </div>
                         <span className="text-[10px] font-black text-green-600 dark:text-green-400 uppercase tracking-widest">
-                          Recomendado para o seu público
+                          {ct.duration.audienceRecommendedBadge}
                         </span>
                       </div>
                       <div className="p-6 bg-blue-50/50 dark:bg-blue-950/40 rounded-3xl border-2 border-blue-100 dark:border-blue-900 shadow-sm hover:shadow-md transition-all">
@@ -2855,7 +2748,7 @@ export function CopyTab({
 
                 <div className="space-y-4">
                   <label className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest ml-1">
-                    {isVsl ? 'Duração da VSL' : 'Selecione a Duração Alvo'}
+                    {isVsl ? ct.duration.labelVsl : ct.duration.labelAd}
                   </label>
 
                   <div
@@ -2902,8 +2795,8 @@ export function CopyTab({
                     <div className="flex items-center gap-3">
                       <p className="text-sm font-bold text-gray-600 dark:text-gray-400">
                         {config.copy.targetWordCount
-                          ? `✍️ ${config.copy.targetWordCount} palavras`
-                          : 'Dica: 150 palavras'}
+                          ? ct.duration.wordCount(config.copy.targetWordCount)
+                          : ct.duration.wordCountHint}
                       </p>
                     </div>
                   </div>
@@ -2948,39 +2841,39 @@ export function CopyTab({
                   ) : (
                     <Sparkles size={32} className="animate-pulse" />
                   )}
-                  {config.copy.generatedScript ? '✨ Regerar Copy com IA' : '✨ Gerar Copy com IA'}
+                  {config.copy.generatedScript ? ct.generate.regenerate : ct.generate.generate}
                 </button>
                 {/* UX15: variants A/B — gera 2 versões em paralelo */}
                 <button
                   onClick={handleGenerateVariants}
                   disabled={loading || isGeneratingVariants}
                   className="px-6 py-6 bg-white dark:bg-gray-900/80 text-gray-900 dark:text-gray-100 border-2 border-gray-300 dark:border-gray-700 rounded-[32px] font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all disabled:opacity-50"
-                  title="Gera 2 versões diferentes pra você escolher — custa 2x o normal"
+                  title={ct.generate.variantsTitle}
                 >
                   {isGeneratingVariants ? (
                     <Loader2 className="animate-spin" size={18} />
                   ) : (
                     <Sparkles size={18} />
                   )}
-                  Gerar 2 versões
+                  {ct.generate.variantsButton}
                 </button>
                 {/* UX20: botão Biblioteca movido pra cá — perto do "Gerar Copy"
                     em vez de no topo da página */}
                 <button
                   onClick={() => setShowLibraryModal(true)}
                   className="px-6 py-6 bg-white dark:bg-gray-900/80 text-gray-900 dark:text-gray-100 border-2 border-gray-300 dark:border-gray-700 rounded-[32px] font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
-                  title="Adiciona/edita copies de referência que a IA usa pra gerar melhor"
+                  title={ct.generate.libraryTitle}
                 >
                   <Library size={18} />
-                  Biblioteca ({personalLibrary.length})
+                  {ct.generate.libraryButton(personalLibrary.length)}
                 </button>
                 <button
                   onClick={() => setShowCompetitorModal(true)}
                   className="px-6 py-6 bg-white dark:bg-gray-900/80 text-gray-900 dark:text-gray-100 border-2 border-gray-300 dark:border-gray-700 rounded-[32px] font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
-                  title="Cola o anúncio de um concorrente — a IA sugere um ângulo próprio inspirado nele"
+                  title={ct.generate.competitorTitle}
                 >
                   <Swords size={18} />
-                  Concorrente
+                  {ct.generate.competitorButton}
                 </button>
               </div>
 
@@ -2996,20 +2889,19 @@ export function CopyTab({
                       ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 ring-amber-300 dark:ring-amber-800/60'
                       : 'bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300 ring-purple-300 dark:ring-purple-800/60'
                   }`}
-                  title={
-                    draftMode
-                      ? 'Modo Rascunho: Sonnet 4.6 — rápido (~3s), barato. Bom pra iterar.'
-                      : 'Modo Final: Opus 4.7 — premium (~15s), melhor qualidade.'
-                  }
+                  title={draftMode ? ct.generate.draftModeTitle : ct.generate.finalModeTitle}
                 >
                   <Zap size={12} />
-                  {draftMode ? 'Rascunho · Sonnet' : 'Final · Opus'}
+                  {draftMode ? ct.generate.draftModeLabel : ct.generate.finalModeLabel}
                 </button>
 
                 {/* Chip de custo da última geração */}
                 {lastDebug && (
                   <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-100 dark:bg-gray-800/60 text-gray-700 dark:text-gray-300 text-[10px] font-black uppercase tracking-widest ring-1 ring-gray-200 dark:ring-gray-700">
-                    Última: ~${lastDebug.estimatedCost.toFixed(4)} · {lastDebug.model.toUpperCase()}
+                    {ct.generate.lastCost(
+                      lastDebug.estimatedCost.toFixed(4),
+                      lastDebug.model.toUpperCase()
+                    )}
                   </div>
                 )}
 
@@ -3018,10 +2910,10 @@ export function CopyTab({
                   <button
                     onClick={() => setShowDebugModal(true)}
                     className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-[10px] font-black uppercase tracking-widest hover:bg-black dark:hover:bg-white transition-all"
-                    title="Mostra o prompt EXATO que foi enviado ao Claude"
+                    title={ct.generate.viewPromptTitle}
                   >
                     <Terminal size={12} />
-                    Ver prompt
+                    {ct.generate.viewPromptButton}
                   </button>
                 )}
 
@@ -3030,18 +2922,16 @@ export function CopyTab({
                   <button
                     onClick={() => setShowHistoryModal(true)}
                     className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 ring-1 ring-indigo-200 dark:ring-indigo-800/60 text-[10px] font-black uppercase tracking-widest hover:bg-indigo-200 dark:hover:bg-indigo-900/40 transition-all"
-                    title="Últimas 5 versões geradas — pra restaurar versão anterior"
+                    title={ct.generate.historyTitle}
                   >
                     <History size={12} />
-                    Histórico ({history.length})
+                    {ct.generate.historyButton(history.length)}
                   </button>
                 )}
               </div>
 
               <p className="text-[10px] text-gray-400 dark:text-gray-500 italic">
-                Tip: "Gerar 2 versões" duplica o custo · "Biblioteca" são copies que a IA usa como
-                referência pra calibrar o estilo · Modo Rascunho usa Sonnet (mais barato) pra iterar
-                antes do Final.
+                {ct.generate.tip}
               </p>
             </div>
           )}
@@ -3051,10 +2941,10 @@ export function CopyTab({
             <div className="mt-8 space-y-4">
               <div className="text-center space-y-1">
                 <h3 className="text-2xl font-black text-gray-900 dark:text-gray-50">
-                  Escolha a versão que prefere
+                  {ct.variantsPicker.heading}
                 </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  As duas usam o mesmo brief — variações naturais do modelo.
+                  {ct.variantsPicker.subtitle}
                 </p>
               </div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -3065,10 +2955,10 @@ export function CopyTab({
                   >
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-500">
-                        Versão {String.fromCharCode(65 + idx)}
+                        {ct.variantsPicker.versionLabel(String.fromCharCode(65 + idx))}
                       </span>
                       <span className="text-[10px] text-gray-400 dark:text-gray-500">
-                        {v.script.split(/\s+/).filter(Boolean).length} palavras
+                        {ct.variantsPicker.wordCount(v.script.split(/\s+/).filter(Boolean).length)}
                       </span>
                     </div>
                     <pre className="flex-1 text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap font-mono max-h-[400px] overflow-y-auto">
@@ -3078,7 +2968,7 @@ export function CopyTab({
                       onClick={() => handlePickVariant(v.script)}
                       className="w-full py-3 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-black dark:hover:bg-white transition-all"
                     >
-                      Usar Versão {String.fromCharCode(65 + idx)}
+                      {ct.variantsPicker.useVersionButton(String.fromCharCode(65 + idx))}
                     </button>
                   </div>
                 ))}
@@ -3090,14 +2980,14 @@ export function CopyTab({
                     onClick={() => setShowCompareModal(true)}
                     className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-purple-100 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 ring-1 ring-purple-200 dark:ring-purple-800/60 text-[10px] font-black uppercase tracking-widest hover:bg-purple-200 dark:hover:bg-purple-900/40 transition-all"
                   >
-                    Comparar A vs B (diff)
+                    {ct.variantsPicker.compareButton}
                   </button>
                 )}
                 <button
                   onClick={() => setVariants(null)}
                   className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                 >
-                  Descartar ambas
+                  {ct.variantsPicker.discardButton}
                 </button>
               </div>
             </div>
@@ -3150,14 +3040,14 @@ export function CopyTab({
                         onClick={handleCheckAuthorities}
                         disabled={isCheckingAuthorities}
                         className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-50 dark:bg-blue-950/30 ring-1 ring-blue-300 dark:ring-blue-800/60 text-blue-700 dark:text-blue-300 text-[10px] font-black uppercase tracking-widest hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-all disabled:opacity-50"
-                        title="Acha instituições/autoridades nomeadas (ex.: 'Instituto Karolinska na Suécia') e oferece trocar por âncora genérica. Nomes que estão na Fonte do Produto são mantidos."
+                        title={ct.generatedScript.generalizeAuthoritiesTitle}
                       >
                         {isCheckingAuthorities ? (
                           <Loader2 size={12} className="animate-spin" />
                         ) : (
                           '🏛️'
                         )}
-                        Generalizar autoridades
+                        {ct.generatedScript.generalizeAuthoritiesButton}
                       </button>
                     )}
                     {/* UX25-A3: botão "Checar alucinações" — só visível quando
@@ -3167,14 +3057,14 @@ export function CopyTab({
                         onClick={handleCheckHallucinations}
                         disabled={isCheckingHallucinations}
                         className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-orange-50 dark:bg-orange-950/30 ring-1 ring-orange-300 dark:ring-orange-800/60 text-orange-700 dark:text-orange-300 text-[10px] font-black uppercase tracking-widest hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-all disabled:opacity-50"
-                        title="Compara a copy gerada com a Fonte do Produto e flagra claims sem suporte"
+                        title={ct.generatedScript.checkHallucinationsTitle}
                       >
                         {isCheckingHallucinations ? (
                           <Loader2 size={12} className="animate-spin" />
                         ) : (
                           '🔬'
                         )}
-                        Checar alucinações
+                        {ct.generatedScript.checkHallucinationsButton}
                       </button>
                     )}
                   </div>
@@ -3187,21 +3077,21 @@ export function CopyTab({
                       </div>
                       <div>
                         <p className="text-[10px] font-black text-green-600 dark:text-green-400 uppercase tracking-widest mb-1">
-                          Cópia Final Salva
+                          {ct.generatedScript.finalSavedLabel}
                         </p>
                         <p className="text-sm font-bold text-gray-900 dark:text-gray-50 line-clamp-1 opacity-70">
-                          A copy completa com hook e script foi salva.
+                          {ct.generatedScript.finalSavedBody}
                         </p>
                       </div>
                     </div>
                     <button
                       onClick={() => {
                         navigator.clipboard.writeText(config.copy.finalScript || '');
-                        toast.success('Cópia copiada!');
+                        toast.success(ct.toasts.copyCopied);
                       }}
                       className="px-6 py-2 bg-white dark:bg-gray-900/80 text-green-600 dark:text-green-400 rounded-xl text-[10px] font-black uppercase tracking-widest border border-green-100 hover:bg-green-100 transition-all whitespace-nowrap"
                     >
-                      Copiar
+                      {ct.generatedScript.copyButton}
                     </button>
                   </div>
                 )}
@@ -3212,7 +3102,7 @@ export function CopyTab({
                       <div className="flex items-center gap-2">
                         <Edit3 className="text-blue-600 dark:text-blue-400" size={20} />
                         <h4 className="font-black text-gray-900 dark:text-gray-50 uppercase tracking-widest text-xs">
-                          Copy Original
+                          {ct.generatedScript.originalTitle}
                         </h4>
                       </div>
                       <div className="flex items-center gap-3 flex-wrap">
@@ -3220,10 +3110,10 @@ export function CopyTab({
                         <button
                           onClick={handleSaveAsExample}
                           className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest transition-all"
-                          title="Adiciona esta copy à sua biblioteca pessoal — IA usará como referência nas próximas gerações"
+                          title={ct.generatedScript.markGoodTitle}
                         >
                           <BookmarkPlus size={12} />
-                          Marcar como copy boa
+                          {ct.generatedScript.markGoodButton}
                         </button>
                         {/* UX15: botão self-critique. IA pontua 6 dimensões e
                             reescreve se score baixo. Custo extra: 1 chamada. */}
@@ -3231,14 +3121,16 @@ export function CopyTab({
                           onClick={handleSelfCritique}
                           disabled={isCritiquing}
                           className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-50 transition-all"
-                          title="IA pontua 6 dimensões e reescreve se identificar pontos fracos"
+                          title={ct.generatedScript.reviewTitle}
                         >
                           {isCritiquing ? (
                             <Loader2 size={12} className="animate-spin" />
                           ) : (
                             <Sparkles size={12} />
                           )}
-                          {isCritiquing ? 'Revisando...' : 'Revisar com IA'}
+                          {isCritiquing
+                            ? ct.generatedScript.reviewingButton
+                            : ct.generatedScript.reviewButton}
                         </button>
                         {/* Estágio 2 — melhorar a copy aplicando uma skill */}
                         <CopySkillsButton
@@ -3251,10 +3143,10 @@ export function CopyTab({
                         <button
                           onClick={() => setShowCopywriterChat(true)}
                           className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 dark:bg-gray-100 dark:text-gray-900 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all"
-                          title="Converse com o copywriter mestre sobre esta copy — ele discute e revisa em diálogo"
+                          title={ct.generatedScript.chatTitle}
                         >
                           <Sparkles size={12} />
-                          Falar com o copywriter
+                          {ct.generatedScript.chatButton}
                         </button>
                         <button
                           onClick={() =>
@@ -3265,7 +3157,7 @@ export function CopyTab({
                           }
                           className="text-[10px] font-black text-red-500 hover:underline uppercase tracking-widest"
                         >
-                          Limpar
+                          {ct.generatedScript.clearButton}
                         </button>
                       </div>
                     </div>
@@ -3283,7 +3175,7 @@ export function CopyTab({
                               : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
                           }`}
                         >
-                          🎬 Beat-by-Beat
+                          {ct.generatedScript.beatByBeatToggle}
                         </button>
                         <button
                           onClick={() => setBeatMode(false)}
@@ -3293,7 +3185,7 @@ export function CopyTab({
                               : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
                           }`}
                         >
-                          📝 Texto Único
+                          {ct.generatedScript.singleTextToggle}
                         </button>
                       </div>
                     )}
@@ -3336,7 +3228,7 @@ export function CopyTab({
                     )}
                     {config.copy.generatedScript && (
                       <div className="text-xs text-gray-400 dark:text-gray-500 text-right mt-2">
-                        ✍️ {countWords(config.copy.generatedScript)} palavras
+                        {ct.generatedScript.wordCount(countWords(config.copy.generatedScript))}
                       </div>
                     )}
 
@@ -3366,10 +3258,10 @@ export function CopyTab({
                               // garante que o finalScript vai pro Firestore agora.
                               await handleSaveProject({ copy: updatedCopy });
 
-                              toast.success('Copy salva com sucesso!');
+                              toast.success(ct.toasts.copySaved);
                             } catch (error) {
                               console.error('Erro ao salvar:', error);
-                              toast.error('Erro ao salvar a copy');
+                              toast.error(ct.toasts.copySaveError);
                             }
                           }}
                           disabled={isSaving || !hasUnsavedCopyChanges}
@@ -3384,7 +3276,7 @@ export function CopyTab({
                           ) : (
                             <CheckCircle2 size={18} />
                           )}
-                          Salvar
+                          {ct.generatedScript.saveButton}
                         </button>
                       </div>
                     </div>
@@ -3403,7 +3295,7 @@ export function CopyTab({
                       }}
                       className="flex items-center gap-3 px-12 py-6 bg-gray-900 text-white rounded-[32px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-2xl shadow-gray-200 group"
                     >
-                      Ir para Copy do Gancho
+                      {ct.generatedScript.continueButton}
                       <ChevronRight
                         size={24}
                         className="group-hover:translate-x-1 transition-transform"

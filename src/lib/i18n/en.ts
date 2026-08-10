@@ -346,4 +346,393 @@ export const en: typeof pt = {
       continueButton: 'Continue to copy',
     },
   },
+  copyTab: {
+    briefBanner: {
+      running: 'Running creative from the plan',
+      backToPlan: '← Back to plan',
+    },
+    toasts: {
+      rewritingSafe: 'Rewriting a safe version...',
+      rewroteSafe: 'Copy rewritten in a safe version!',
+      rewriteError: 'Error rewriting.',
+      riskAcknowledged: "Warning acknowledged. You've taken the risk — good luck! 🤞",
+      critiquing: 'Reviewing copy with AI...',
+      critiqueImproved: (avg: string, notes: string) =>
+        `Copy improved! Average score: ${avg}/10. ${notes}`,
+      critiqueAlreadyGood: (avg: string) => `Copy is already at ${avg}/10 — no need to rewrite.`,
+      critiqueError: 'Error during review.',
+      generatingName: 'Generating name...',
+      nameGenerated: 'Name generated — edit if you want.',
+      couldNotGenerateNow: "Couldn't generate right now.",
+      generateError: 'Error generating.',
+      generatingNarrator: 'Generating narrator...',
+      narratorGenerated: 'Narrator generated — edit if you want.',
+      narratorError: 'Error generating narrator.',
+      generatingVariants: 'Generating 2 versions in parallel...',
+      variantsReady: '2 versions ready — pick one below.',
+      variantsError: 'Error generating variants.',
+      needLoginToSave: 'You need to be logged in to save copies.',
+      noCopyToSave: 'There is no copy to save.',
+      savedToLibrary: 'Copy saved to your library! AI will use it as a reference.',
+      saveError: 'Error saving.',
+      genericError: 'Error.',
+      removedFromLibrary: 'Copy removed from library.',
+      removeError: 'Error removing.',
+      historyCleared: 'History cleared.',
+      needScriptAndSource: 'Generate a copy + have the Product Source configured.',
+      noHallucinations: 'No hallucinations detected — copy looks consistent with the source.',
+      hallucinationsFound: (n: number) => `${n} suspicious excerpt${n > 1 ? 's' : ''} detected.`,
+      checkError: 'Error checking.',
+      needScriptFirst: 'Generate a copy first.',
+      noAuthoritiesFound: 'No specific institution/authority name to generalize.',
+      authoritiesFound: (n: number) =>
+        `${n} specific name${n === 1 ? '' : 's'} — review the swaps.`,
+      excerptNotFound: 'Excerpt not found (maybe already edited).',
+      anchorApplied: 'Swapped for a generic anchor.',
+      anchorsApplied: (n: number) => `${n} anchor${n === 1 ? '' : 's'} generalized.`,
+      needSourceForStats: 'Configure the Product Source so I know the niche to search.',
+      noStatsFound: "Couldn't find statistics with a reliable source for this niche.",
+      statsFound: (n: number) => `${n} statistic${n > 1 ? 's' : ''} with source — review and add.`,
+      statsError: 'Error finding statistics.',
+      statAlreadyAdded: 'That statistic is already in the field.',
+      statAdded: 'Added to the statistics field.',
+      needSourceToAutoFill: 'Configure the Product Source before auto-filling.',
+      destinationFilled: 'Description filled in — review before generating.',
+      destinationError: 'Error filling in destination.',
+      chooseAwarenessFirst: 'Choose an awareness level first.',
+      levelAdjusted: (level: string) => `Style, angle, and emotion adjusted for level ${level}.`,
+      fillAudienceFirst: 'Fill in the audience first.',
+      reframingAudience: 'Rewriting the audience for the level…',
+      audienceReframed: (level: string) => `Audience rewritten for level ${level}.`,
+      audienceReframeError: 'Error rewriting the audience.',
+      manualCopySaved: (vertical: string, awareness: string, lang: string) =>
+        `Copy saved! Detected: ${vertical} · Aware.${awareness} · ${lang}`,
+      variantSelected: 'Version selected!',
+      fillingWithAI: 'Filling in fields with AI...',
+      fieldsFilled: 'Fields filled in!',
+      fillError: 'Error filling in.',
+      copySaved: 'Copy saved successfully!',
+      copySaveError: 'Error saving the copy',
+      copyCopied: 'Copy copied!',
+    },
+    autoFill: {
+      title: 'Automatically fills all Copy fields based on the Product Source',
+      button: 'Auto-fill',
+    },
+    loadingProject: 'Loading Project...',
+    intro: {
+      title: 'Before creating your copy...',
+      body: 'We need to know who will watch this video. That makes the copy far more effective.',
+      knownTitle: 'I already know my customer',
+      knownDesc: "I'll fill in the information directly",
+      discoverTitle: 'Help me discover it',
+      discoverDesc: 'The AI generates 3 personas with awareness level',
+    },
+    activePersona: {
+      label: 'Active Persona',
+      level: (n: unknown) => `Level ${n}`,
+      mainPain: 'Main pain point',
+      hiddenDesire: 'Deep desire',
+      mainObjection: 'Main objection',
+      ageGender: 'Age · Gender',
+      editButton: 'Edit Persona',
+      reapplyButton: 'Re-Update Copy Fields',
+      applyButton: 'Update Copy Fields',
+      applyHint: 'Click "Update Copy Fields" to fill in the fields below automatically',
+    },
+    discovery: {
+      questions: {
+        product: {
+          label: 'What is your product or service?',
+          placeholder: 'E.g.: Online personal finance course for beginners',
+          hint: 'Describe in one clear sentence what you sell',
+        },
+        problem: {
+          label: 'What problem does it solve?',
+          placeholder:
+            "E.g.: People living paycheck to paycheck who don't know where to start organizing their money",
+          hint: 'Focus on the real problem, not the solution',
+        },
+        result: {
+          label: 'What concrete result does it deliver?',
+          placeholder: 'E.g.: In 30 days the person can pay off debts and start saving',
+          hint: 'Be specific — numbers and time help',
+        },
+        customer: {
+          label: 'Have you sold to anyone? Describe that person.',
+          placeholder:
+            'E.g.: 35-year-old woman, works a salaried job, has two kids, always maxed out on her credit card',
+          hint: "If you've never sold, describe who you imagine would buy",
+        },
+        benefit: {
+          label: 'Who benefits MOST from your product?',
+          placeholder: "E.g.: People aged 30-45 who earn well but can't manage to save money",
+          hint: 'Think about who would have the biggest transformation',
+        },
+      },
+      questionCounter: (n: number) => `Question ${n} of 5`,
+      back: 'Back',
+      next: 'Next →',
+      finish: '✨ Discover my ideal customer',
+    },
+    asIs: {
+      pasteLabel: 'Paste your entire copy here...',
+      pastePlaceholder: 'Paste your copy here...',
+      saveButton: 'Save and continue',
+    },
+    improve: {
+      pasteLabel: 'Paste your existing copy',
+    },
+    section1: {
+      title: '1. Your Audience',
+      reframeTitle:
+        "The AI rewrites the audience + the 'problem it solves' for the current awareness level (overwrites the text). Doesn't touch name/mechanism/proof/offer.",
+      reframingButton: '⏳ Rewriting…',
+      reframeButton: (level: string) => `🔄 Rewrite for level ${level} (AI)`,
+      selectPlaceholder: 'Select...',
+    },
+    section2: {
+      title: '2. Awareness Level',
+      levels: {
+        unaware: { label: 'Unaware', desc: "Doesn't know they have the problem" },
+        problemAware: { label: 'Problem Aware', desc: "Knows they're suffering but not the cause" },
+        solutionAware: {
+          label: 'Solution Aware',
+          desc: 'Looking for a solution but not sure which one',
+        },
+        productAware: { label: 'Product Aware', desc: 'Compares you with competitors' },
+        mostAware: { label: 'Most Aware', desc: 'Ready to buy' },
+      },
+      recommendedBadge: '⭐ Recommended',
+      applyRecommendationsTitle:
+        'Adjusts style, angle, and emotion to the ones recommended for this awareness level',
+      applyRecommendationsButton: (level: string) =>
+        `🔄 Apply recommendations for level ${level} (style · angle · emotion)`,
+    },
+    section3: {
+      title: '3. Ad Settings',
+      styleLabel: 'Ad Style',
+      recommendedBadge: 'RECOMMENDED',
+      recommendedSuffix: '⭐ (Recommended)',
+    },
+    otherSections: {
+      recommendedBadge: 'Recommended',
+    },
+    destination: {
+      heading: (n: number) => `${n}. Click Destination`,
+      labelAd: 'Where does it go when clicked?',
+      labelVsl: "Where does the VSL's CTA lead to?",
+      vslOptions: {
+        offerButton: {
+          label: 'Offer button',
+          desc: 'CTA "I want access" — leads straight to the product purchase',
+        },
+        checkout: { label: 'Direct checkout', desc: 'Immediate purchase, no intermediate page' },
+        waitlist: { label: 'Sign-up / waitlist', desc: 'When the cart is about to open' },
+        whatsapp: { label: 'WhatsApp / group', desc: 'Close the sale in support chat' },
+      },
+      adOptions: {
+        video: {
+          label: 'Watch an explainer video',
+          desc: "Ideal for an audience that doesn't know you yet",
+        },
+        article: {
+          label: 'Read an article or content',
+          desc: 'Educates the audience before selling',
+        },
+        salespage: {
+          label: 'Direct sales page',
+          desc: 'For those who already know you and are ready',
+        },
+        whatsapp: { label: 'WhatsApp or form', desc: 'Direct contact to qualify' },
+        checkout: { label: 'Straight to checkout', desc: 'Immediate purchase — remarketing' },
+      },
+      describeLabel: 'Describe the click destination',
+      describeHint: '(recommended — keeps the AI from inventing a format)',
+      autoFillButton: 'Fill from project',
+      autoFillTitle: 'Uses the Product Source to describe the destination',
+      placeholderVsl:
+        'E.g.: Button right below the video that says "I WANT ACCESS TO THE COURSE". Leads to the product checkout (full course + bonuses). The VSL\'s CTA should get the person to click the offer button and lock in their spot now.',
+      placeholderAd:
+        "E.g.: 1-hour free live session where a researcher explains how they created the yellow vitamin to help their mother with neuropathy. He, his mother, and a host appear. Tone: family testimonial. Do NOT call it a 'short presentation', 'quick video', or 'audio'.",
+      describeFootnote:
+        'The AI will use this description literally to talk about the destination. Say the format, who appears, what they talk about, and what NOT to call it.',
+    },
+    vslHook: {
+      label: 'VSL Hook (opening line that stops the scroll) — optional',
+      placeholder: 'e.g.: "This homemade craft is turning into income for thousands of moms"',
+      footnote:
+        'If filled in, the AI uses this as the FIRST line of the script (like a curiosity opener with a different voice/effect). Leave it blank for the AI to create the hook.',
+    },
+    pitchTiming: {
+      label: 'When does the pitch (offer + CTA) come in?',
+      options: {
+        p50: { label: '~50%', desc: 'Sells early — half content, half offer' },
+        p75: { label: '~75%', desc: 'Educates more, sells in the last quarter' },
+        p90: { label: '~90%', desc: 'Almost all content, short pitch at the end' },
+        end: { label: 'Only at the end', desc: 'Default — offer in the final blocks' },
+      },
+      footnote:
+        'Before the pitch the AI only delivers story/problem/mechanism/proof; from the chosen point on, the product, objections, and CTA come in.',
+    },
+    strategy: {
+      heading: (n: number) => `${n}. Copy Strategy`,
+      label: 'Will the ad sell, or just get the viewer to click?',
+      curiosity: {
+        label: 'Create curiosity',
+        desc: 'For a funnel with a VSL, webinar, or long-form content. The ad only convinces them to click — the video does the selling.',
+        bullets: [
+          "Doesn't reveal product / mechanism",
+          'No guarantee, price, or offer',
+          'Opens a loop, closes in the video',
+        ],
+      },
+      directSale: {
+        label: 'Sell in the ad itself',
+        desc: 'For a direct funnel: ad → sales page / checkout. The ad already presents the product, mechanism, and offer.',
+        bullets: [
+          'Presents product and mechanism',
+          'Can use social proof and guarantee',
+          'Closes with a direct CTA',
+        ],
+      },
+      defaultNote:
+        'Default: Create curiosity (traffic to the VSL). Choose "Sell in the ad itself" only if the ad leads straight to the sales page.',
+    },
+    avoidList: {
+      heading: 'Avoid mentioning',
+      optional: '(optional)',
+      label: 'Words / phrases / formats the AI can NEVER use',
+      placeholder:
+        'E.g.: podcast, short presentation, quick video, audio, I offer, money-back guarantee',
+      footnote:
+        "Separate with commas. Becomes a hard rule in the prompt — the AI can't use anything from here in the final text.",
+    },
+    mandatoryTerms: {
+      heading: 'Mandatory terms & innovative product',
+      optional: '(optional)',
+      termsLabel: 'Words / terms the copy HAS to contain',
+      termsPlaceholder: 'E.g.: "yellow vitamin", neuropathy, Dr. Moore, 30 seconds',
+      termsFootnote:
+        'Separate with commas. Becomes a hard rule in the prompt — the AI is required to use every term in the final text (fit in naturally).',
+      nameLabel: 'Name of the "innovative product" / special trick',
+      generating: 'Generating...',
+      regenerate: 'Regenerate',
+      generate: 'Generate',
+      generateTitle:
+        "The AI creates a curiosity hook (in the style of 'yellow vitamin'). Regenerate as many times as you want, or write your own.",
+      namePlaceholder: 'E.g.: "yellow vitamin", "banana trick", "5-second ritual"',
+      nameFootnote:
+        "The AI will use this name as a curiosity hook — mentions the name to intrigue, but NEVER explains what it is (that's in the video).",
+    },
+    narrator: {
+      heading: 'Who tells the story',
+      hint: '(auto from the plan · editable)',
+      generateTitle:
+        'The AI picks the most convincing narrator. Click again to regenerate, or write your own in the field.',
+      generateButton: 'Generate narrator',
+      label:
+        "Who narrates — who they are, age, relation to the problem (doesn't have to be 1st person)",
+      placeholder:
+        'E.g.: A 58-year-old sufferer who lived with the pain for 6 years until finding the answer\nE.g.: A daughter who cared for her father with neuropathy and looked into the cause\nE.g.: A researcher who gathers stories from people who lived through it (3rd person)',
+      footnote:
+        "Can be someone who lived it, a caregiver, a professional, or someone telling others' stories (3rd person). It's ONE voice, kept from start to finish. Edit or regenerate if you want another.",
+    },
+    statistics: {
+      heading: 'Statistics & data',
+      optional: '(optional)',
+      label: 'Real numbers the copy can use (with the source, if you have one)',
+      placeholder:
+        'E.g.: 90% of adults 50+ have some degree of nerve degeneration (source: ...)\n48,000 people already use it\nlinked to higher risk of dementia and heart disease (study X)',
+      footnote:
+        'One per line. The AI can only state numbers that are here or in the product source — without this, it won\'t invent statistics. A link to disease only comes out as "linked to / increases the risk of", never "you have / will get".',
+      searchingButton: '🔍 Searching the web...',
+      searchButton: "🔍 I don't have numbers — search with a source",
+      resultsLabel: 'Statistics with source — review before using',
+      sourceFallback: 'source',
+      addButton: 'Add',
+      resultsFootnote:
+        'Check the source before adding. Only numbers with a real source show up here — nothing invented.',
+    },
+    cta: {
+      heading: (n: number) => `${n}. Call to Action (CTA)`,
+      label: 'How should the viewer act at the end of the ad?',
+      autoTitle: '✨ Let the AI create the CTA',
+      autoDesc:
+        'The AI will create the best CTA based on the awareness level and click destination',
+      customTitle: '✏️ Write my own CTA',
+      customDesc: 'You control exactly what will be said at the end of the ad',
+      customPlaceholder:
+        'E.g.: Click the "Watch More" button below now and watch the full video...',
+    },
+    duration: {
+      heading: 'Script Length',
+      subtitle: 'Set the ideal length for your ad',
+      planRecommendedBadge: 'Recommended by the marketing plan',
+      planRecommendedQuote: (dur: number, angle: string) =>
+        `"This creative from your plan was designed for ${dur}s — ${angle} angle. Keeping the length aligns the script with the strategy."`,
+      audienceRecommendedBadge: 'Recommended for your audience',
+      labelVsl: 'VSL Length',
+      labelAd: 'Select the Target Length',
+      wordCount: (n: number) => `✍️ ${n} words`,
+      wordCountHint: 'Tip: 150 words',
+    },
+    generate: {
+      regenerate: '✨ Regenerate Copy with AI',
+      generate: '✨ Generate Copy with AI',
+      variantsButton: 'Generate 2 versions',
+      variantsTitle:
+        'Generates 2 different versions for you to choose — costs 2x the normal amount',
+      libraryButton: (n: number) => `Library (${n})`,
+      libraryTitle: 'Add/edit reference copies the AI uses to generate better',
+      competitorButton: 'Competitor',
+      competitorTitle: "Paste a competitor's ad — the AI suggests its own angle inspired by it",
+      draftModeTitle: 'Draft Mode: Sonnet 4.6 — fast (~3s), cheap. Good for iterating.',
+      finalModeTitle: 'Final Mode: Opus 4.7 — premium (~15s), better quality.',
+      draftModeLabel: 'Draft · Sonnet',
+      finalModeLabel: 'Final · Opus',
+      lastCost: (cost: string, model: string) => `Last: ~$${cost} · ${model}`,
+      viewPromptButton: 'View prompt',
+      viewPromptTitle: 'Shows the EXACT prompt that was sent to Claude',
+      historyButton: (n: number) => `History (${n})`,
+      historyTitle: 'Last 5 generated versions — to restore a previous version',
+      tip: 'Tip: "Generate 2 versions" doubles the cost · "Library" is copies the AI uses as a reference to calibrate style · Draft Mode uses Sonnet (cheaper) to iterate before Final.',
+    },
+    variantsPicker: {
+      heading: 'Choose the version you prefer',
+      subtitle: 'Both use the same brief — natural variations from the model.',
+      versionLabel: (letter: string) => `Version ${letter}`,
+      wordCount: (n: number) => `${n} words`,
+      useVersionButton: (letter: string) => `Use Version ${letter}`,
+      compareButton: 'Compare A vs B (diff)',
+      discardButton: 'Discard both',
+    },
+    generatedScript: {
+      finalSavedLabel: 'Final Copy Saved',
+      finalSavedBody: 'The complete copy with hook and script has been saved.',
+      copyButton: 'Copy',
+      originalTitle: 'Original Copy',
+      markGoodButton: 'Mark as good copy',
+      markGoodTitle:
+        'Adds this copy to your personal library — AI will use it as a reference in future generations',
+      reviewButton: 'Review with AI',
+      reviewingButton: 'Reviewing...',
+      reviewTitle: 'AI scores 6 dimensions and rewrites if it finds weak points',
+      chatButton: 'Talk to the copywriter',
+      chatTitle:
+        'Chat with the master copywriter about this copy — they discuss and revise in dialogue',
+      clearButton: 'Clear',
+      beatByBeatToggle: '🎬 Beat-by-Beat',
+      singleTextToggle: '📝 Single Text',
+      wordCount: (n: number) => `✍️ ${n} words`,
+      saveButton: 'Save',
+      generalizeAuthoritiesButton: 'Generalize authorities',
+      generalizeAuthoritiesTitle:
+        "Finds named institutions/authorities (e.g. 'Karolinska Institute in Sweden') and offers to swap them for a generic anchor. Names found in the Product Source are kept.",
+      checkHallucinationsButton: 'Check hallucinations',
+      checkHallucinationsTitle:
+        'Compares the generated copy with the Product Source and flags unsupported claims',
+      continueButton: 'Go to Hook Copy',
+    },
+  },
 };
