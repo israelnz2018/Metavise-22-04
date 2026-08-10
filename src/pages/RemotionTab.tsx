@@ -23,6 +23,7 @@ import {
 } from '../remotion/templates';
 import { type BrandProfile, loadBrand, saveBrand } from '../lib/brand';
 import { BrandModal } from '../components/BrandModal';
+import { useLanguage } from '../lib/i18n/LanguageContext';
 
 // ───────────────────────────────────────────────────────────────────────────
 //  Braço 2 — aba Remotion. Fluxo: Marca (obrigatória) → Template → preencher
@@ -44,11 +45,18 @@ interface BlockData {
   mediaType: 'video' | 'image' | '';
   label: string;
 }
-const emptyBlock = (): BlockData => ({ source: '', text: '', mediaUrl: '', mediaType: '', label: '' });
-
-const CTA_PRESETS = ['Baixe grátis →', 'Link na bio', 'Comece agora', 'Experimente hoje'];
+const emptyBlock = (): BlockData => ({
+  source: '',
+  text: '',
+  mediaUrl: '',
+  mediaType: '',
+  label: '',
+});
 
 export const RemotionTab: React.FC<RemotionTabProps> = ({ config }) => {
+  const { t } = useLanguage();
+  const rt = t.remotionTab;
+  const CTA_PRESETS = rt.ctaPresets;
   const [brand, setBrand] = useState<BrandProfile | null>(() => loadBrand());
   const [showBrandModal, setShowBrandModal] = useState(false);
 
@@ -67,7 +75,10 @@ export const RemotionTab: React.FC<RemotionTabProps> = ({ config }) => {
     if (!brand) setShowBrandModal(true);
   }, [brand]);
 
-  const selected = useMemo(() => TEMPLATES.find((t) => t.id === templateId) ?? TEMPLATES[0]!, [templateId]);
+  const selected = useMemo(
+    () => TEMPLATES.find((t) => t.id === templateId) ?? TEMPLATES[0]!,
+    [templateId]
+  );
 
   // Player: ao clicar num template, reinicia e toca na hora (sem precisar da setinha).
   const playerRef = useRef<PlayerRef>(null);
@@ -86,7 +97,12 @@ export const RemotionTab: React.FC<RemotionTabProps> = ({ config }) => {
     setMusic({ url: URL.createObjectURL(f), name: f.name });
   };
 
-  const dims = format === '1:1' ? { w: 1080, h: 1080 } : format === '16:9' ? { w: 1920, h: 1080 } : { w: WIDTH, h: HEIGHT };
+  const dims =
+    format === '1:1'
+      ? { w: 1080, h: 1080 }
+      : format === '16:9'
+        ? { w: 1920, h: 1080 }
+        : { w: WIDTH, h: HEIGHT };
 
   // Conteúdo que alimenta a prévia (campos vazios caem no exemplo padrão).
   const creative: CreativeInput = useMemo(
@@ -124,7 +140,7 @@ export const RemotionTab: React.FC<RemotionTabProps> = ({ config }) => {
     saveBrand(b);
     setBrand(b);
     setShowBrandModal(false);
-    toast.success('Marca cadastrada!');
+    toast.success(rt.toasts.brandSaved);
   };
 
   const locked = !brand;
@@ -138,16 +154,14 @@ export const RemotionTab: React.FC<RemotionTabProps> = ({ config }) => {
         </div>
         <div>
           <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100">Remotion</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Fábrica de criativos — monte a partir do que você já fez no projeto.
-          </p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{rt.subtitle}</p>
         </div>
         <button
           onClick={() => setShowBrandModal(true)}
           className="ml-auto flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border-2 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
         >
           <Building2 className="w-4 h-4" />
-          {brand ? brand.companyName : 'Cadastrar marca'}
+          {brand ? brand.companyName : rt.registerBrandButton}
         </button>
       </div>
 
@@ -155,7 +169,7 @@ export const RemotionTab: React.FC<RemotionTabProps> = ({ config }) => {
         <div className="grid md:grid-cols-[1fr_320px] gap-8">
           {/* Coluna esquerda: escolher template + montar */}
           <div>
-            <Section title="1. Template" subtitle="a “roupa” que veste hook + corpo + CTA">
+            <Section title={rt.sections.template.title} subtitle={rt.sections.template.subtitle}>
               <div className="grid grid-cols-3 gap-3">
                 {TEMPLATES.map((t) => {
                   const active = templateId === t.id;
@@ -169,72 +183,119 @@ export const RemotionTab: React.FC<RemotionTabProps> = ({ config }) => {
                           : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
                       }`}
                     >
-                      <div className="font-bold text-sm text-gray-900 dark:text-gray-100">{t.name}</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t.description}</div>
+                      <div className="font-bold text-sm text-gray-900 dark:text-gray-100">
+                        {t.name}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {t.description}
+                      </div>
                     </button>
                   );
                 })}
               </div>
             </Section>
 
-            <Section title="2. Montar" subtitle="Hook + Corpo + CTA">
+            <Section title={rt.sections.assemble.title} subtitle={rt.sections.assemble.subtitle}>
               <BlockEditor
-                title="Hook"
-                hint="os primeiros segundos"
+                title={rt.blocks.hook.title}
+                hint={rt.blocks.hook.hint}
                 block={hook}
                 setBlock={setHook}
                 projectItems={
                   [
-                    fromProject.hookCopy && { kind: 'text', label: 'Copy do gancho', value: fromProject.hookCopy },
-                    fromProject.hookImage && { kind: 'image', label: 'Imagem do gancho', value: fromProject.hookImage },
-                    fromProject.hookAudioUrl && { kind: 'audio', label: 'Áudio do gancho', value: fromProject.hookAudioUrl },
-                    fromProject.avatarVideoUrl && { kind: 'video', label: 'Vídeo do avatar', value: fromProject.avatarVideoUrl },
+                    fromProject.hookCopy && {
+                      kind: 'text',
+                      label: rt.projectItemLabels.hookCopy,
+                      value: fromProject.hookCopy,
+                    },
+                    fromProject.hookImage && {
+                      kind: 'image',
+                      label: rt.projectItemLabels.hookImage,
+                      value: fromProject.hookImage,
+                    },
+                    fromProject.hookAudioUrl && {
+                      kind: 'audio',
+                      label: rt.projectItemLabels.hookAudio,
+                      value: fromProject.hookAudioUrl,
+                    },
+                    fromProject.avatarVideoUrl && {
+                      kind: 'video',
+                      label: rt.projectItemLabels.avatarVideo,
+                      value: fromProject.avatarVideoUrl,
+                    },
                   ].filter(Boolean) as ProjectItem[]
                 }
               />
               <BlockEditor
-                title="Corpo"
-                hint="a demonstração"
+                title={rt.blocks.body.title}
+                hint={rt.blocks.body.hint}
                 block={body}
                 setBlock={setBody}
                 projectItems={
                   [
-                    fromProject.creativeCopy && { kind: 'text', label: 'Copy do criativo', value: fromProject.creativeCopy },
-                    fromProject.avatarVideoUrl && { kind: 'video', label: 'Vídeo do avatar', value: fromProject.avatarVideoUrl },
-                    fromProject.bodyAudioUrl && { kind: 'audio', label: 'Áudio do corpo', value: fromProject.bodyAudioUrl },
+                    fromProject.creativeCopy && {
+                      kind: 'text',
+                      label: rt.projectItemLabels.creativeCopy,
+                      value: fromProject.creativeCopy,
+                    },
+                    fromProject.avatarVideoUrl && {
+                      kind: 'video',
+                      label: rt.projectItemLabels.avatarVideo,
+                      value: fromProject.avatarVideoUrl,
+                    },
+                    fromProject.bodyAudioUrl && {
+                      kind: 'audio',
+                      label: rt.projectItemLabels.bodyAudio,
+                      value: fromProject.bodyAudioUrl,
+                    },
                   ].filter(Boolean) as ProjectItem[]
                 }
               />
-              <BlockEditor title="CTA" hint="a chamada final" block={cta} setBlock={setCta} presets={CTA_PRESETS} projectItems={[]} />
+              <BlockEditor
+                title={rt.blocks.cta.title}
+                hint={rt.blocks.cta.hint}
+                block={cta}
+                setBlock={setCta}
+                presets={CTA_PRESETS}
+                projectItems={[]}
+              />
             </Section>
 
             <div className="flex items-start gap-2 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3 mb-6">
               <Link2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
               <span>
-                <b>Duração automática:</b> se houver áudio/vídeo preparado, o tempo é o dele. Senão, é
-                definido pela própria copy.
+                <b>{rt.autoDurationHint.bold}</b> {rt.autoDurationHint.text}
               </span>
             </div>
 
-            <Section title="3. Ajustes (opcional)" subtitle="teste e inclua se quiser">
-              <Knob label="Transição">
-                {([['slide', 'Deslizar'], ['fade', 'Fundir'], ['wipe', 'Limpar']] as const).map(([v, l]) => (
+            <Section
+              title={rt.sections.adjustments.title}
+              subtitle={rt.sections.adjustments.subtitle}
+            >
+              <Knob label={rt.knobs.transition}>
+                {(
+                  [
+                    ['slide', rt.transitions.slide],
+                    ['fade', rt.transitions.fade],
+                    ['wipe', rt.transitions.wipe],
+                  ] as const
+                ).map(([v, l]) => (
                   <Pill key={v} active={transition === v} onClick={() => setTransition(v)}>
                     {l}
                   </Pill>
                 ))}
               </Knob>
-              <Knob label="Formato">
+              <Knob label={rt.knobs.format}>
                 {(['9:16', '1:1', '16:9'] as const).map((v) => (
                   <Pill key={v} active={format === v} onClick={() => setFormat(v)}>
                     {v}
                   </Pill>
                 ))}
               </Knob>
-              <Knob label="Música">
+              <Knob label={rt.knobs.music}>
                 <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-dashed border-gray-300 dark:border-gray-600 hover:border-indigo-400 cursor-pointer">
                   <Upload className="w-3.5 h-3.5" />
-                  Upload música
+                  {rt.uploadMusicLabel}
                   <input type="file" accept="audio/*" className="hidden" onChange={onMusic} />
                 </label>
                 {music.url ? (
@@ -242,28 +303,32 @@ export const RemotionTab: React.FC<RemotionTabProps> = ({ config }) => {
                     ✕ {music.name}
                   </Pill>
                 ) : (
-                  <span className="text-xs text-gray-400">sem música</span>
+                  <span className="text-xs text-gray-400">{rt.noMusic}</span>
                 )}
               </Knob>
-              <Knob label="Legendas">
+              <Knob label={rt.knobs.captions}>
                 <Pill active={captions} onClick={() => setCaptions((c) => !c)}>
-                  {captions ? 'Ligadas' : 'Desligadas'}
+                  {captions ? rt.captionsOn : rt.captionsOff}
                 </Pill>
-                <span className="text-xs text-gray-400">aplicadas no vídeo final (a partir do áudio)</span>
+                <span className="text-xs text-gray-400">{rt.captionsHint}</span>
               </Knob>
             </Section>
 
             <button
-              onClick={() => (brand ? toast('Próximo passo: render em massa na nuvem 🎬', { icon: '🛠️' }) : setShowBrandModal(true))}
+              onClick={() =>
+                brand ? toast(rt.toasts.nextStepRender, { icon: '🛠️' }) : setShowBrandModal(true)
+              }
               className="w-full py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-lg shadow-lg transition-all"
             >
-              Gerar vídeo 🎬
+              {rt.generateVideoButton}
             </button>
           </div>
 
           {/* Coluna direita: PRÉVIA AO VIVO (clica num template e vê com os olhos) */}
           <div className="md:sticky md:top-6 self-start">
-            <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Prévia ao vivo</div>
+            <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
+              {rt.livePreviewLabel}
+            </div>
             <div className="rounded-2xl overflow-hidden border-2 border-gray-200 dark:border-gray-700 bg-black">
               <Player
                 ref={playerRef}
@@ -279,25 +344,34 @@ export const RemotionTab: React.FC<RemotionTabProps> = ({ config }) => {
                 autoPlay
               />
             </div>
-            <p className="text-[11px] text-gray-400 mt-2 text-center">
-              Roda no navegador — leve, sem renderizar. O MP4 final é gerado na nuvem.
-            </p>
+            <p className="text-[11px] text-gray-400 mt-2 text-center">{rt.previewFootnote}</p>
           </div>
         </div>
       </div>
 
       {showBrandModal && (
-        <BrandModal initial={brand} mandatory={!brand} onClose={() => brand && setShowBrandModal(false)} onSave={handleSaveBrand} />
+        <BrandModal
+          initial={brand}
+          mandatory={!brand}
+          onClose={() => brand && setShowBrandModal(false)}
+          onSave={handleSaveBrand}
+        />
       )}
     </div>
   );
 };
 
 // ── Subcomponentes ──────────────────────────────────────────────────────────
-const Section: React.FC<{ title: string; subtitle?: string; children: React.ReactNode }> = ({ title, subtitle, children }) => (
+const Section: React.FC<{ title: string; subtitle?: string; children: React.ReactNode }> = ({
+  title,
+  subtitle,
+  children,
+}) => (
   <div className="mb-6">
     <div className="flex items-baseline gap-2 mb-3">
-      <h2 className="text-sm font-black uppercase tracking-widest text-gray-900 dark:text-gray-100">{title}</h2>
+      <h2 className="text-sm font-black uppercase tracking-widest text-gray-900 dark:text-gray-100">
+        {title}
+      </h2>
       {subtitle && <span className="text-xs text-gray-400">— {subtitle}</span>}
     </div>
     {children}
@@ -311,7 +385,11 @@ const Knob: React.FC<{ label: string; children: React.ReactNode }> = ({ label, c
   </div>
 );
 
-const Pill: React.FC<{ active?: boolean; onClick: () => void; children: React.ReactNode }> = ({ active, onClick, children }) => (
+const Pill: React.FC<{ active?: boolean; onClick: () => void; children: React.ReactNode }> = ({
+  active,
+  onClick,
+  children,
+}) => (
   <button
     onClick={onClick}
     className={`px-3 py-1.5 rounded-lg text-xs font-semibold border-2 transition-all ${
@@ -335,6 +413,8 @@ const BlockEditor: React.FC<{
   projectItems: ProjectItem[];
   presets?: string[];
 }> = ({ title, hint, block, setBlock, projectItems, presets }) => {
+  const { t } = useLanguage();
+  const be = t.remotionTab.blockEditor;
   const onUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -357,7 +437,9 @@ const BlockEditor: React.FC<{
 
       {projectItems.length > 0 && (
         <div className="mb-3">
-          <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Puxar do projeto</div>
+          <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+            {be.pullFromProjectLabel}
+          </div>
           <div className="flex flex-wrap gap-2">
             {projectItems.map((it, i) => {
               const Icon = KIND_ICON[it.kind];
@@ -371,7 +453,8 @@ const BlockEditor: React.FC<{
                       label: it.label,
                       text: it.kind === 'text' ? it.value : b.text,
                       mediaUrl: it.kind === 'text' ? b.mediaUrl : it.value,
-                      mediaType: it.kind === 'image' ? 'image' : it.kind === 'video' ? 'video' : b.mediaType,
+                      mediaType:
+                        it.kind === 'image' ? 'image' : it.kind === 'video' ? 'video' : b.mediaType,
                     }))
                   }
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 dark:border-gray-700 hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
@@ -388,7 +471,7 @@ const BlockEditor: React.FC<{
       <div className="flex flex-wrap gap-2 items-center">
         <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-dashed border-gray-300 dark:border-gray-600 hover:border-indigo-400 cursor-pointer">
           <Upload className="w-3.5 h-3.5" />
-          Upload vídeo/imagem
+          {be.uploadMediaLabel}
           <input type="file" accept="video/*,image/*" className="hidden" onChange={onUpload} />
         </label>
         {presets?.map((p) => (
@@ -404,12 +487,13 @@ const BlockEditor: React.FC<{
 
       <textarea
         value={block.text}
-        onChange={(e) => setBlock((b) => ({ ...b, text: e.target.value, source: b.source || 'write' }))}
-        placeholder="…ou escreva a copy aqui (opcional)"
+        onChange={(e) =>
+          setBlock((b) => ({ ...b, text: e.target.value, source: b.source || 'write' }))
+        }
+        placeholder={be.textPlaceholder}
         rows={2}
         className="mt-3 w-full text-sm rounded-xl border-2 border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/40 p-3 resize-none focus:outline-none focus:border-indigo-400"
       />
     </div>
   );
 };
-

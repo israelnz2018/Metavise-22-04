@@ -1734,4 +1734,60 @@ export const en: typeof pt = {
       availableInVideoIa: 'Available in AI Video as the starting image.',
     },
   },
+  remotionTab: {
+    subtitle: 'Creative factory — assemble it from what you already made in the project.',
+    registerBrandButton: 'Register brand',
+    ctaPresets: ['Download free →', 'Link in bio', 'Start now', 'Try it today'],
+    toasts: {
+      brandSaved: 'Brand registered!',
+      nextStepRender: 'Next step: batch render in the cloud 🎬',
+    },
+    sections: {
+      template: { title: '1. Template', subtitle: 'the "outfit" that wraps hook + body + CTA' },
+      assemble: { title: '2. Assemble', subtitle: 'Hook + Body + CTA' },
+      adjustments: { title: '3. Adjustments (optional)', subtitle: 'test and include if you want' },
+    },
+    blocks: {
+      hook: { title: 'Hook', hint: 'the first few seconds' },
+      body: { title: 'Body', hint: 'the demonstration' },
+      cta: { title: 'CTA', hint: 'the closing call' },
+    },
+    projectItemLabels: {
+      hookCopy: 'Hook copy',
+      hookImage: 'Hook image',
+      hookAudio: 'Hook audio',
+      avatarVideo: 'Avatar video',
+      creativeCopy: 'Creative copy',
+      bodyAudio: 'Body audio',
+    },
+    autoDurationHint: {
+      bold: 'Automatic duration:',
+      text: "if there's a prepared audio/video, its length is used. Otherwise, it's set by the copy itself.",
+    },
+    knobs: {
+      transition: 'Transition',
+      format: 'Format',
+      music: 'Music',
+      captions: 'Captions',
+    },
+    transitions: {
+      slide: 'Slide',
+      fade: 'Fade',
+      wipe: 'Wipe',
+    },
+    uploadMusicLabel: 'Upload music',
+    noMusic: 'no music',
+    captionsOn: 'On',
+    captionsOff: 'Off',
+    captionsHint: 'applied to the final video (from the audio)',
+    generateVideoButton: 'Generate video 🎬',
+    livePreviewLabel: 'Live preview',
+    previewFootnote:
+      'Runs in the browser — lightweight, no rendering. The final MP4 is generated in the cloud.',
+    blockEditor: {
+      pullFromProjectLabel: 'Pull from project',
+      uploadMediaLabel: 'Upload video/image',
+      textPlaceholder: '…or write the copy here (optional)',
+    },
+  },
 };
