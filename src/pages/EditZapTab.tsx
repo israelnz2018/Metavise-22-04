@@ -33,6 +33,7 @@ import { IntercutModal } from '@/components/IntercutModal';
 import { MusicSection } from '@/components/MusicSection';
 import { SpeedSection } from '@/components/SpeedSection';
 import type { ZapBundle } from '@/hooks/useZapState';
+import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 interface Video {
   url: string;
@@ -114,6 +115,8 @@ export function EditZapTab({
   zapCapTemplates,
   onAddUploadedVideo,
 }: Props) {
+  const { t } = useLanguage();
+  const ez = t.editZapTab;
   // Destructure everything from `zap` — the giant union exists so the
   // body below reads exactly like the pre-extraction code.
   const {
@@ -245,7 +248,7 @@ export function EditZapTab({
   const vslMontageAspect = (vslMontage.aspect as string | undefined) || '1:1';
   const vslGroupVideos = vslGroupUrls.map((url, i) => ({
     url,
-    label: `Grupo ${i + 1}`,
+    label: ez.labels.groupN(i + 1),
     aspectRatio: vslMontageAspect,
   }));
   const hasVslGroups = vslGroupVideos.length > 0;
@@ -269,23 +272,30 @@ export function EditZapTab({
             b.resultUrl as string | undefined,
             ...((b.resultHistory as { url: string }[] | undefined) || []).map((v) => v.url),
           ].filter((u, i, a) => u && a.indexOf(u) === i) as string[];
-          return urls.map((url, j) => ({
-            url,
-            label: `Bloco ${k + 1}${urls.length > 1 ? ` · v${j + 1}` : ''}`,
-            aspectRatio: vslMontageAspect,
-            source: 'montagem' as const,
-          }));
+          return urls.map((url, j) =>
+            urls.length > 1
+              ? {
+                  url,
+                  label: ez.labels.blockNVersion(k + 1, j + 1),
+                  aspectRatio: vslMontageAspect,
+                  source: 'montagem' as const,
+                }
+              : {
+                  url,
+                  label: ez.labels.blockN(k + 1),
+                  aspectRatio: vslMontageAspect,
+                  source: 'montagem' as const,
+                }
+          );
         })
       : [
           ...(vslMontage.resultUrl ? [vslMontage.resultUrl as string] : []),
-          ...(((vslMontage.resultHistory as { url: string }[] | undefined) || []).map(
-            (v) => v.url
-          )),
+          ...((vslMontage.resultHistory as { url: string }[] | undefined) || []).map((v) => v.url),
         ]
           .filter((u, i, a) => u && a.indexOf(u) === i)
           .map((url, i, a) => ({
             url,
-            label: `Montagem VSL${a.length > 1 ? ` ${i + 1}` : ''}`,
+            label: a.length > 1 ? ez.labels.montagemVslN(i + 1) : ez.labels.montagemVsl,
             aspectRatio: vslMontageAspect,
             source: 'montagem' as const,
           }));
@@ -299,29 +309,29 @@ export function EditZapTab({
     ...vslGroupVideos.map((g) => ({ ...g, source: 'montagem' as const })),
     ...vslAvatarVideos.map(({ v, i }) => ({
       url: v.url as string,
-      label: `Vídeo ${i + 1}${v.blockLabel ? ` · ${v.blockLabel}` : ''}`,
+      label: `${ez.labels.videoN(i + 1)}${v.blockLabel ? ` · ${v.blockLabel}` : ''}`,
       aspectRatio: (v.aspectRatio as string) || vslMontageAspect,
       source: 'avatar' as const,
     })),
   ].filter((o, i, a) => o.url && a.findIndex((x) => x.url === o.url) === i);
   const hasVslContent = vslSourceVideos.length > 0;
-  const activeZapVersions = isVslEdit ? vslZapVersions : isHookEdit ? hookZapVersions : bodyZapVersions;
+  const activeZapVersions = isVslEdit
+    ? vslZapVersions
+    : isHookEdit
+      ? hookZapVersions
+      : bodyZapVersions;
   // Opções de CORPO pro "Juntar": versões normais + os vídeos MESCLADOS.
   const bodyJoinOptions: { url: string; label: string }[] = [
-    ...bodyZapVersions.map((url, i) => ({ url, label: `Versão ${i + 1}` })),
+    ...bodyZapVersions.map((url, i) => ({ url, label: ez.labels.versionN(i + 1) })),
     ...(((config.edit as any)?.mergeVersions as string[] | undefined) || []).map((url, i) => ({
       url,
-      label: `Mesclado ${i + 1}`,
+      label: ez.labels.mergedN(i + 1),
     })),
   ].filter((o, i, a) => o.url && a.findIndex((x) => x.url === o.url) === i);
 
   // Source video picker pulls from hook, body, or the VSL groups depending on mode.
   const availableVideos = (
-    isVslEdit
-      ? (vslSourceVideos as any)
-      : isHookEdit
-        ? hookVideosForEdit
-        : videos || []
+    isVslEdit ? (vslSourceVideos as any) : isHookEdit ? hookVideosForEdit : videos || []
   ).filter((v: any) => v.url);
 
   // ── Upload do próprio vídeo ───────────────────────────────────────────────
@@ -357,17 +367,17 @@ export function EditZapTab({
   const handleUploadOwnVideo = async (file: File | null | undefined) => {
     if (!file) return;
     if (!file.type.startsWith('video/')) {
-      toast.error('Selecione um arquivo de vídeo (mp4, mov...).');
+      toast.error(ez.toasts.selectVideoFile);
       return;
     }
     const uid = user?.uid || auth.currentUser?.uid;
     if (!uid) {
-      toast.error('Faça login para enviar um vídeo.');
+      toast.error(ez.toasts.loginToUpload);
       return;
     }
     setUploadingVideo(true);
     const toastId = 'upload-own-video';
-    toast.loading('Enviando seu vídeo...', { id: toastId });
+    toast.loading(ez.toasts.uploadingVideo, { id: toastId });
     try {
       const aspectRatio = await detectAspect(file);
       const safeName = file.name.replace(/[^a-z0-9.-]/gi, '_');
@@ -388,12 +398,12 @@ export function EditZapTab({
       // Já seleciona como fonte ativa do pipeline.
       setZapVideoUrl(url);
       setZapState((prev) => ({ ...prev, originalVideoUrl: url }));
-      toast.success('Vídeo enviado e selecionado! Edite como quiser.', {
+      toast.success(ez.toasts.videoUploadedSelected, {
         id: toastId,
         duration: 4000,
       });
     } catch (err: any) {
-      toast.error(err?.message || 'Falha ao enviar o vídeo.', { id: toastId });
+      toast.error(err?.message || ez.toasts.uploadFailed, { id: toastId });
     } finally {
       setUploadingVideo(false);
     }
@@ -405,14 +415,12 @@ export function EditZapTab({
         <div>
           <h3 className="text-2xl font-black text-gray-900 dark:text-gray-50 tracking-tight flex items-center gap-2">
             <Zap size={28} className="text-yellow-500" />
-            Edição
+            {ez.header.title}
           </h3>
-          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
-            Versão simplificada — ZapCap faz tudo (transcrição + b-rolls automaticamente).
-          </p>
+          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">{ez.header.subtitle}</p>
         </div>
         <span className="px-3 py-1 bg-yellow-100 text-yellow-800 dark:text-yellow-300 rounded-full text-[10px] font-black uppercase tracking-widest">
-          Beta
+          {ez.header.betaBadge}
         </span>
       </div>
 
@@ -431,7 +439,7 @@ export function EditZapTab({
                 : 'text-gray-500 dark:text-gray-400 hover:bg-yellow-50 dark:hover:bg-yellow-950/40'
             }`}
           >
-            Editar Corpo
+            {ez.modeToggle.editBody}
             {bodyZapVersions.length > 0 && (
               <span className="ml-2 text-[9px] opacity-70">({bodyZapVersions.length})</span>
             )}
@@ -448,7 +456,7 @@ export function EditZapTab({
                   : 'text-gray-500 dark:text-gray-400 hover:bg-amber-50 dark:hover:bg-amber-950/40'
               }`}
             >
-              Editar Gancho
+              {ez.modeToggle.editHook}
               {hookZapVersions.length > 0 && (
                 <span className="ml-2 text-[9px] opacity-70">({hookZapVersions.length})</span>
               )}
@@ -466,8 +474,10 @@ export function EditZapTab({
                   : 'text-gray-500 dark:text-gray-400 hover:bg-purple-50 dark:hover:bg-purple-950/40'
               }`}
             >
-              Editar VSL
-              <span className="ml-2 text-[9px] opacity-70">({vslGroupVideos.length} grupos)</span>
+              {ez.modeToggle.editVsl}
+              <span className="ml-2 text-[9px] opacity-70">
+                {ez.modeToggle.groupsSuffix(vslGroupVideos.length)}
+              </span>
             </button>
           )}
         </div>
@@ -505,9 +515,9 @@ export function EditZapTab({
       <div className="bg-white dark:bg-gray-900/80 p-6 md:p-8 rounded-[32px] border-2 border-gray-200 dark:border-gray-800 shadow-sm space-y-4">
         <div className="flex items-center gap-3">
           <span className="px-3 py-1 bg-yellow-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest">
-            Etapa 1
+            {ez.step1.badge}
           </span>
-          <h4 className="text-lg font-black text-gray-900 dark:text-gray-50">Selecione o Vídeo</h4>
+          <h4 className="text-lg font-black text-gray-900 dark:text-gray-50">{ez.step1.title}</h4>
         </div>
 
         {/* Upload do próprio vídeo — vira fonte do pipeline (legenda, tela
@@ -537,19 +547,19 @@ export function EditZapTab({
           )}
           <span className="text-sm font-bold text-blue-700 dark:text-blue-300">
             {uploadingVideo
-              ? 'Enviando seu vídeo...'
-              : `Enviar meu próprio vídeo${isHookEdit ? ' (para o gancho)' : ''}`}
+              ? ez.step1.uploadingLabel
+              : `${ez.step1.uploadLabel}${isHookEdit ? ez.step1.uploadHookSuffix : ''}`}
           </span>
           <span className="text-[11px] text-blue-500/70 dark:text-blue-400/60 hidden sm:inline">
-            mp4, mov — edite como se tivesse feito aqui
+            {ez.step1.uploadHint}
           </span>
         </label>
 
         {availableVideos.length === 0 ? (
           <div className="p-8 text-center bg-gray-50 dark:bg-gray-800/60 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700">
             <p className="text-sm text-gray-500 dark:text-gray-400 font-bold">
-              Nenhum vídeo gerado ainda. Gere um em "Gerar Vídeo com Avatar" — ou
-              <span className="text-blue-600 dark:text-blue-400"> envie o seu próprio acima</span>.
+              {ez.step1.emptyPart1}
+              <span className="text-blue-600 dark:text-blue-400"> {ez.step1.emptyPart2}</span>.
             </p>
           </div>
         ) : (
@@ -610,7 +620,7 @@ export function EditZapTab({
                         v.source === 'avatar' ? 'bg-purple-600' : 'bg-blue-600'
                       )}
                     >
-                      {v.source === 'avatar' ? 'Avatar' : 'Montagem'}
+                      {v.source === 'avatar' ? ez.step1.avatarBadge : ez.step1.montagemBadge}
                     </span>
                   )}
                   {/* Nome do vídeo — igual ao da aba de origem (ex.: "Vídeo 3"). */}
@@ -621,7 +631,7 @@ export function EditZapTab({
                   )}
                   {zapVideoUrl === v.url && (
                     <span className="px-2 py-0.5 bg-yellow-500 text-white text-[9px] font-black rounded uppercase tracking-widest">
-                      ✓ Selecionado
+                      {ez.step1.selectedBadge}
                     </span>
                   )}
                 </div>
@@ -630,7 +640,7 @@ export function EditZapTab({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (!window.confirm('Excluir este vídeo da lista?')) return;
+                    if (!window.confirm(ez.step1.deleteVideoConfirm)) return;
                     handleDeleteVideoFromArray({
                       url: v.url,
                       storagePath: v.storagePath ?? null,
@@ -642,7 +652,7 @@ export function EditZapTab({
                     }
                   }}
                   className="absolute top-2 right-2 w-7 h-7 bg-red-500/90 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg transition-colors"
-                  title="Excluir vídeo"
+                  title={ez.step1.deleteVideoTitle}
                 >
                   <Trash2 size={14} />
                 </button>
@@ -663,12 +673,16 @@ export function EditZapTab({
             setZapVideoUrl(url);
             // Adiciona como NOVA versão na galeria (aparece ao lado do original).
             setConfig((prev: any) => {
-              const key = isVslEdit ? 'zapVslVersions' : isHookEdit ? 'zapHookVersions' : 'zapVersions';
+              const key = isVslEdit
+                ? 'zapVslVersions'
+                : isHookEdit
+                  ? 'zapHookVersions'
+                  : 'zapVersions';
               const cur = ((prev.edit as any)?.[key] as string[] | undefined) || [];
               if (cur.includes(url)) return prev;
               return { ...prev, edit: { ...(prev.edit as any), [key]: [...cur, url] } };
             });
-            toast.success('B-roll aplicado e salvo como nova versão! Agora é só gerar a legenda.');
+            toast.success(ez.broll.appliedToast);
           }}
           disabled={isRendering}
         />
@@ -678,23 +692,21 @@ export function EditZapTab({
       <div className="bg-white dark:bg-gray-900/80 p-6 md:p-8 rounded-[32px] border-2 border-gray-200 dark:border-gray-800 shadow-sm space-y-4">
         <div className="flex items-center gap-3">
           <span className="px-3 py-1 bg-yellow-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest">
-            Etapa 3
+            {ez.step3.badge}
           </span>
-          <h4 className="text-lg font-black text-gray-900 dark:text-gray-50">
-            Escolha o Template de Legenda
-          </h4>
+          <h4 className="text-lg font-black text-gray-900 dark:text-gray-50">{ez.step3.title}</h4>
         </div>
 
         {zapCapTemplates.length === 0 ? (
           <div className="p-8 text-center bg-gray-50 dark:bg-gray-800/60 rounded-2xl">
             <p className="text-sm text-gray-500 dark:text-gray-400 font-bold mb-3">
-              Carregando templates...
+              {ez.step3.loadingTemplates}
             </p>
             <button
               onClick={fetchZapCapTemplates}
               className="px-5 py-2 bg-yellow-500 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-yellow-600"
             >
-              Recarregar Templates
+              {ez.step3.reloadButton}
             </button>
           </div>
         ) : (
@@ -713,10 +725,10 @@ export function EditZapTab({
             >
               <div className="text-3xl mb-2">🚫</div>
               <p className="text-xs font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest">
-                Nenhuma
+                {ez.step3.noneTitle}
               </p>
               <p className="text-[9px] text-gray-500 dark:text-gray-400 mt-1 leading-tight">
-                Pula a legenda. Útil pra aplicar só Cortes/Headline.
+                {ez.step3.noneDescription}
               </p>
               {zapTemplateId === '__none__' && (
                 <span className="absolute top-2 right-2 px-2 py-0.5 bg-yellow-500 text-white text-[9px] font-black rounded">
@@ -768,9 +780,9 @@ export function EditZapTab({
       <div className="bg-white dark:bg-gray-900/80 p-6 md:p-8 rounded-[32px] border-2 border-gray-200 dark:border-gray-800 shadow-sm space-y-5">
         <div className="flex items-center gap-3">
           <span className="px-3 py-1 bg-yellow-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest">
-            Etapa 4
+            {ez.step4.badge}
           </span>
-          <h4 className="text-lg font-black text-gray-900 dark:text-gray-50">Ajustes</h4>
+          <h4 className="text-lg font-black text-gray-900 dark:text-gray-50">{ez.step4.title}</h4>
         </div>
 
         {/* Presets: salva/reaplica todos os ajustes de estilo da legenda. */}
@@ -801,13 +813,15 @@ export function EditZapTab({
             if (s.zapBrollStartSec !== undefined) setZapBrollStartSec(s.zapBrollStartSec);
             if (s.zapEmoji !== undefined) setZapEmoji(s.zapEmoji);
             if (s.zapAnimation !== undefined) setZapAnimation(s.zapAnimation);
-            if (s.zapEmphasizeKeywords !== undefined) setZapEmphasizeKeywords(s.zapEmphasizeKeywords);
+            if (s.zapEmphasizeKeywords !== undefined)
+              setZapEmphasizeKeywords(s.zapEmphasizeKeywords);
             if (s.zapFontUppercase !== undefined) setZapFontUppercase(s.zapFontUppercase);
             if (s.zapFontSize !== undefined) setZapFontSize(s.zapFontSize);
             if (s.zapDisplayWords !== undefined) setZapDisplayWords(s.zapDisplayWords);
             if (s.zapFontColor !== undefined) setZapFontColor(s.zapFontColor);
             if (s.zapStrokeColor !== undefined) setZapStrokeColor(s.zapStrokeColor);
-            if (s.zapUseCustomHighlight !== undefined) setZapUseCustomHighlight(s.zapUseCustomHighlight);
+            if (s.zapUseCustomHighlight !== undefined)
+              setZapUseCustomHighlight(s.zapUseCustomHighlight);
             if (s.zapHl1 !== undefined) setZapHl1(s.zapHl1);
             if (s.zapHl2 !== undefined) setZapHl2(s.zapHl2);
             if (s.zapHl3 !== undefined) setZapHl3(s.zapHl3);
@@ -818,13 +832,13 @@ export function EditZapTab({
         {/* Idioma */}
         <div className="space-y-2">
           <label className="text-xs font-black text-gray-900 dark:text-gray-50 uppercase tracking-widest">
-            Idioma do Vídeo
+            {ez.step4.languageLabel}
           </label>
           <div className="flex flex-wrap gap-2">
             {[
-              { value: 'en', label: '🇺🇸 Inglês' },
-              { value: 'pt', label: '🇧🇷 Português' },
-              { value: 'es', label: '🇪🇸 Espanhol' },
+              { value: 'en', label: ez.step4.languages.en },
+              { value: 'pt', label: ez.step4.languages.pt },
+              { value: 'es', label: ez.step4.languages.es },
             ].map((lang: any) => (
               <button
                 key={lang.value}
@@ -845,7 +859,7 @@ export function EditZapTab({
         {/* B-Roll Percent */}
         <div className="space-y-2">
           <label className="text-xs font-black text-gray-900 dark:text-gray-50 uppercase tracking-widest flex items-center justify-between">
-            <span>Quantidade de B-Rolls</span>
+            <span>{ez.step4.brollAmountLabel}</span>
             <span className="text-yellow-600 dark:text-yellow-400">{zapBrollPercent}%</span>
           </label>
           <input
@@ -858,7 +872,7 @@ export function EditZapTab({
             className="w-full"
           />
           <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest">
-            0% = sem b-rolls · 30-50% = balanceado · 70-80% = bastante
+            {ez.step4.brollAmountHint}
           </p>
         </div>
 
@@ -866,9 +880,9 @@ export function EditZapTab({
         {!isHookEdit && (
           <div className="space-y-2">
             <label className="text-xs font-black text-gray-900 dark:text-gray-50 uppercase tracking-widest flex items-center justify-between">
-              <span>B-roll começa em</span>
+              <span>{ez.step4.brollStartLabel}</span>
               <span className="text-yellow-600 dark:text-yellow-400">
-                {zapBrollStartSec > 0 ? `${zapBrollStartSec}s` : 'início'}
+                {zapBrollStartSec > 0 ? `${zapBrollStartSec}s` : ez.step4.brollStartAtStart}
               </span>
             </label>
             <input
@@ -882,9 +896,7 @@ export function EditZapTab({
               className="w-full p-2.5 bg-gray-50 dark:bg-gray-800/60 ring-1 ring-gray-200/60 dark:ring-gray-700/60 rounded-xl text-sm focus:ring-2 focus:ring-yellow-500 outline-none dark:text-gray-100"
             />
             <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest leading-snug">
-              0 = b-roll desde o começo. Maior que 0 = a intro até esse segundo fica só avatar +
-              legenda (sem b-roll) e o b-roll entra depois. Escolha um segundo onde uma frase
-              termina, pra não cortar no meio.
+              {ez.step4.brollStartHint}
             </p>
           </div>
         )}
@@ -901,10 +913,10 @@ export function EditZapTab({
             )}
           >
             <p className="text-sm font-black text-gray-900 dark:text-gray-50">
-              {zapEmoji ? '✅' : '⬜'} Emojis na Legenda
+              {zapEmoji ? '✅' : '⬜'} {ez.step4.emojiToggleTitle}
             </p>
             <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest">
-              ZapCap insere emojis automaticamente
+              {ez.step4.emojiToggleHint}
             </p>
           </button>
 
@@ -918,10 +930,10 @@ export function EditZapTab({
             )}
           >
             <p className="text-sm font-black text-gray-900 dark:text-gray-50">
-              {zapAnimation ? '✅' : '⬜'} Animação na Legenda
+              {zapAnimation ? '✅' : '⬜'} {ez.step4.animationToggleTitle}
             </p>
             <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest">
-              Texto animado conforme o template
+              {ez.step4.animationToggleHint}
             </p>
           </button>
 
@@ -935,10 +947,10 @@ export function EditZapTab({
             )}
           >
             <p className="text-sm font-black text-gray-900 dark:text-gray-50">
-              {zapEmphasizeKeywords ? '✅' : '⬜'} Destacar Palavras-Chave
+              {zapEmphasizeKeywords ? '✅' : '⬜'} {ez.step4.keywordsToggleTitle}
             </p>
             <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest">
-              ZapCap detecta e destaca palavras importantes
+              {ez.step4.keywordsToggleHint}
             </p>
           </button>
 
@@ -952,10 +964,10 @@ export function EditZapTab({
             )}
           >
             <p className="text-sm font-black text-gray-900 dark:text-gray-50">
-              {zapFontUppercase ? '✅' : '⬜'} Legenda em MAIÚSCULAS
+              {zapFontUppercase ? '✅' : '⬜'} {ez.step4.uppercaseToggleTitle}
             </p>
             <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest">
-              Estilo viral / Hormozi
+              {ez.step4.uppercaseToggleHint}
             </p>
           </button>
         </div>
@@ -963,14 +975,14 @@ export function EditZapTab({
         {/* Formato do vídeo */}
         <div className="space-y-2">
           <label className="text-xs font-black text-gray-900 dark:text-gray-50 uppercase tracking-widest">
-            Formato do Vídeo
+            {ez.step4.formatLabel}
           </label>
           <div className="flex flex-wrap gap-2">
             {[
-              { value: 'auto', label: '🤖 Auto' },
-              { value: '9:16', label: '📱 9:16 (Vertical)' },
-              { value: '1:1', label: '⬜ 1:1 (Quadrado)' },
-              { value: '16:9', label: '🖥️ 16:9 (Horizontal)' },
+              { value: 'auto', label: ez.step4.formats.auto },
+              { value: '9:16', label: ez.step4.formats.vertical },
+              { value: '1:1', label: ez.step4.formats.square },
+              { value: '16:9', label: ez.step4.formats.horizontal },
             ].map((fmt: any) => (
               <button
                 key={fmt.value}
@@ -987,14 +999,14 @@ export function EditZapTab({
             ))}
           </div>
           <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest">
-            Por enquanto informativo — ZapCap usa o formato do vídeo de entrada
+            {ez.step4.formatHint}
           </p>
         </div>
 
         {/* Posição vertical da legenda */}
         <div className="space-y-2">
           <label className="text-xs font-black text-gray-900 dark:text-gray-50 uppercase tracking-widest flex items-center justify-between">
-            <span>Posição Vertical da Legenda</span>
+            <span>{ez.step4.verticalPosLabel}</span>
             <span className="text-yellow-600 dark:text-yellow-400">{zapSubtitleTop}%</span>
           </label>
           <input
@@ -1007,7 +1019,7 @@ export function EditZapTab({
             className="w-full"
           />
           <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest">
-            0% = topo · 50% = centro · 70-80% = padrão para avatares (máximo 80%)
+            {ez.step4.verticalPosHint}
           </p>
         </div>
 
@@ -1016,17 +1028,17 @@ export function EditZapTab({
             e escolha do template. */}
         <div className="space-y-2 p-3 bg-yellow-50 dark:bg-yellow-950/40 rounded-xl border border-yellow-200">
           <p className="text-[10px] font-black text-yellow-700 uppercase tracking-widest">
-            💡 Como controlar a largura da legenda
+            {ez.step4.widthTipTitle}
           </p>
           <p className="text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed">
-            ZapCap não tem ajuste direto de largura. Pra deixar a legenda{' '}
-            <strong>mais estreita</strong>:
+            {ez.step4.widthTipIntro} <strong>{ez.step4.widthTipBold}</strong>:
           </p>
           <ul className="text-[11px] text-gray-600 dark:text-gray-400 space-y-1 list-disc list-inside">
-            <li>Diminua o tamanho da fonte abaixo (36-40px)</li>
-            <li>Troque para um template que renderize menos texto por linha</li>
+            <li>{ez.step4.widthTipItem1}</li>
+            <li>{ez.step4.widthTipItem2}</li>
             <li>
-              Reduza <em>Palavras por bloco</em> (mostrar 2-3 palavras por vez em vez de 5+)
+              {ez.step4.widthTipReduceWordsPre} <em>{ez.step4.widthTipReduceWordsEm}</em>{' '}
+              {ez.step4.widthTipReduceWordsPost}
             </li>
           </ul>
         </div>
@@ -1034,7 +1046,7 @@ export function EditZapTab({
         {/* Tamanho da fonte */}
         <div className="space-y-2">
           <label className="text-xs font-black text-gray-900 dark:text-gray-50 uppercase tracking-widest flex items-center justify-between">
-            <span>Tamanho da Fonte</span>
+            <span>{ez.step4.fontSizeLabel}</span>
             <span className="text-yellow-600 dark:text-yellow-400">{zapFontSize}px</span>
           </label>
           <input
@@ -1047,14 +1059,14 @@ export function EditZapTab({
             className="w-full"
           />
           <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest">
-            6-18 = bem pequeno · 24 = padrão · 30-40 = médio · 50-80 = grande (estilo viral)
+            {ez.step4.fontSizeHint}
           </p>
         </div>
 
         {/* Palavras por linha */}
         <div className="space-y-2">
           <label className="text-xs font-black text-gray-900 dark:text-gray-50 uppercase tracking-widest flex items-center justify-between">
-            <span>Palavras por Linha</span>
+            <span>{ez.step4.wordsPerLineLabel}</span>
             <span className="text-yellow-600 dark:text-yellow-400">{zapDisplayWords}</span>
           </label>
           <input
@@ -1067,21 +1079,21 @@ export function EditZapTab({
             className="w-full"
           />
           <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest">
-            1-2 = estilo viral / Hormozi · 4 = padrão · 6-8 = tutoriais longos
+            {ez.step4.wordsPerLineHint}
           </p>
         </div>
 
         {/* Cores da legenda — picker livre + presets rápidos */}
         <div className="space-y-4 p-4 bg-gray-50 dark:bg-gray-800/60 rounded-2xl">
           <label className="text-xs font-black text-gray-900 dark:text-gray-50 uppercase tracking-widest">
-            Cores da Legenda
+            {ez.step4.colorsTitle}
           </label>
 
           {/* Cor da fonte + borda — sempre visíveis */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="bg-white dark:bg-gray-900/80 p-3 rounded-xl border-2 border-gray-200 dark:border-gray-800">
               <div className="text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest mb-2">
-                Cor das letras
+                {ez.step4.fontColorLabel}
               </div>
               <div className="flex items-center gap-2">
                 <input
@@ -1101,7 +1113,7 @@ export function EditZapTab({
             </div>
             <div className="bg-white dark:bg-gray-900/80 p-3 rounded-xl border-2 border-gray-200 dark:border-gray-800">
               <div className="text-[10px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest mb-2">
-                Cor da borda (contorno)
+                {ez.step4.strokeColorLabel}
               </div>
               <div className="flex items-center gap-2">
                 <input
@@ -1137,7 +1149,7 @@ export function EditZapTab({
                 paintOrder: 'stroke fill',
               }}
             >
-              EXEMPLO LEGENDA
+              {ez.step4.previewText}
             </span>
           </div>
 
@@ -1151,7 +1163,7 @@ export function EditZapTab({
                 className="w-4 h-4 accent-yellow-500"
               />
               <span className="text-[11px] font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest">
-                Cores customizadas pra palavras em destaque
+                {ez.step4.customHighlightLabel}
               </span>
             </label>
             {zapUseCustomHighlight && (
@@ -1163,36 +1175,30 @@ export function EditZapTab({
                 {!zapEmphasizeKeywords && (
                   <div className="bg-red-50 dark:bg-red-950/40 border-2 border-red-300 rounded-lg p-3 space-y-1">
                     <p className="text-[11px] text-red-900 dark:text-red-200 font-black uppercase tracking-widest">
-                      ⚠ Pré-requisito desligado
+                      {ez.step4.prereqOffTitle}
                     </p>
                     <p className="text-[10px] text-red-800 dark:text-red-300 leading-tight">
-                      As cores customizadas só aparecem quando{' '}
-                      <strong>"Destacar Palavras-Chave" está LIGADO</strong> (lá embaixo em
-                      "Ajustes"). Sem isso, o ZapCap não destaca nenhuma palavra e as cores são
-                      ignoradas.
+                      {ez.step4.prereqOffTextPre} <strong>{ez.step4.prereqOffTextBold}</strong>{' '}
+                      {ez.step4.prereqOffTextPost}
                     </p>
                     <button
                       onClick={() => setZapEmphasizeKeywords(true)}
                       className="text-[10px] font-black text-red-700 underline hover:text-red-900 dark:text-red-200 mt-1"
                     >
-                      Ligar agora →
+                      {ez.step4.prereqOffButton}
                     </button>
                   </div>
                 )}
                 <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 rounded-lg p-2 space-y-1">
                   <p className="text-[10px] text-amber-900 dark:text-amber-200 leading-tight">
-                    <strong>O ZapCap expõe só 3 cores</strong> ({'randomColour 1/2/3'}) e cada
-                    template usa elas de um jeito.
+                    <strong>{ez.step4.hlExplainBold}</strong> {ez.step4.hlExplainSuffix}
                   </p>
                   <p className="text-[10px] text-amber-800 dark:text-amber-300 leading-tight">
-                    Em templates como o <strong>Viktor</strong>, a cor 1 costuma virar o fundo da
-                    palavra falada e a cor 2 a letra por dentro. Em outros templates as 3 cores são
-                    rotacionadas aleatoriamente. Teste mudando uma de cada vez pra mapear o seu
-                    template.
+                    {ez.step4.hlExplain2Pre} <strong>{ez.step4.hlExplain2Bold}</strong>
+                    {ez.step4.hlExplain2Post}
                   </p>
                   <p className="text-[10px] text-amber-800 dark:text-amber-300 leading-tight">
-                    Alguns templates simples (sem destaque embutido) podem ignorar essas cores — se
-                    nada mudar, tente outro template.
+                    {ez.step4.hlExplain3}
                   </p>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
@@ -1200,16 +1206,16 @@ export function EditZapTab({
                     {
                       v: zapHl1,
                       set: setZapHl1,
-                      label: 'Cor 1',
-                      hint: 'Fundo da palavra (Viktor)',
+                      label: ez.step4.hl1Label,
+                      hint: ez.step4.hl1Hint,
                     },
                     {
                       v: zapHl2,
                       set: setZapHl2,
-                      label: 'Cor 2',
-                      hint: 'Letras por dentro (Viktor)',
+                      label: ez.step4.hl2Label,
+                      hint: ez.step4.hl2Hint,
                     },
-                    { v: zapHl3, set: setZapHl3, label: 'Cor 3', hint: 'Acento extra' },
+                    { v: zapHl3, set: setZapHl3, label: ez.step4.hl3Label, hint: ez.step4.hl3Hint },
                   ].map((hl, i) => (
                     <div key={i}>
                       <div
@@ -1245,42 +1251,42 @@ export function EditZapTab({
           {/* Presets rápidos — preenchem font + stroke + highlights de uma vez */}
           <div>
             <div className="text-[10px] font-black text-gray-600 dark:text-gray-400 uppercase tracking-widest mb-2">
-              Presets rápidos (clica pra preencher tudo)
+              {ez.step4.presetsTitle}
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               {[
                 {
-                  label: '🎯 Viral Amarela',
+                  label: ez.step4.presets.viralYellow,
                   font: '#FFFFFF',
                   stroke: '#000000',
                   hl: ['#FFD700', '#FFFFFF', '#FFA500'],
                 },
                 {
-                  label: '🔥 Viral Vermelha',
+                  label: ez.step4.presets.viralRed,
                   font: '#FFFFFF',
                   stroke: '#000000',
                   hl: ['#FF3B30', '#FFFFFF', '#FFD700'],
                 },
                 {
-                  label: '💚 Viral Verde',
+                  label: ez.step4.presets.viralGreen,
                   font: '#FFFFFF',
                   stroke: '#000000',
                   hl: ['#00FF7F', '#FFFFFF', '#FFD700'],
                 },
                 {
-                  label: '⚡ Neon Vibrante',
+                  label: ez.step4.presets.neon,
                   font: '#FFFFFF',
                   stroke: '#000000',
                   hl: ['#FF00FF', '#00FFFF', '#FFFF00'],
                 },
                 {
-                  label: '⚪ Clássico',
+                  label: ez.step4.presets.classic,
                   font: '#FFFFFF',
                   stroke: '#000000',
                   hl: ['#FFFFFF', '#FFD700', '#FFFFFF'],
                 },
                 {
-                  label: '🌫 Sutil Cinza',
+                  label: ez.step4.presets.subtleGray,
                   font: '#FFFFFF',
                   stroke: '#444444',
                   hl: ['#D3D3D3', '#FFFFFF', '#A9A9A9'],
@@ -1319,9 +1325,9 @@ export function EditZapTab({
         {/* Intensidade de remoção de silêncios (slider, substitui o toggle) */}
         <div className="space-y-2">
           <label className="text-xs font-black text-gray-900 dark:text-gray-50 uppercase tracking-widest flex items-center justify-between">
-            <span>Remoção de Silêncios</span>
+            <span>{ez.step4.silenceRemovalLabel}</span>
             <span className="text-yellow-600 dark:text-yellow-400">
-              {zapSilenceRemoval === 0 ? 'Desligado' : zapSilenceRemoval.toFixed(1)}
+              {zapSilenceRemoval === 0 ? ez.step4.silenceRemovalOff : zapSilenceRemoval.toFixed(1)}
             </span>
           </label>
           <input
@@ -1334,7 +1340,7 @@ export function EditZapTab({
             className="w-full"
           />
           <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest">
-            0 = desligado · 0.2-0.4 = corte suave · 0.5-0.7 = corte médio · 0.8-1 = corte agressivo
+            {ez.step4.silenceRemovalHint}
           </p>
         </div>
       </div>
@@ -1342,9 +1348,7 @@ export function EditZapTab({
       {/* BOTÃO GERAR */}
       <button
         onClick={() =>
-          !isHookEdit && zapBrollStartSec > 0
-            ? handleRenderZapSplit()
-            : handleRenderZapSimple()
+          !isHookEdit && zapBrollStartSec > 0 ? handleRenderZapSplit() : handleRenderZapSimple()
         }
         // Intentional ref read during render — same double-click guard
         // rationale as Edit2Tab. See note on isRenderingRef there.
@@ -1355,23 +1359,23 @@ export function EditZapTab({
         {isRendering ? (
           <>
             <Loader2 className="animate-spin" size={24} />
-            {zapState.step || 'Renderizando...'}
+            {zapState.step || ez.generateButton.renderingFallback}
           </>
         ) : (
           <>
             <Zap size={24} />
-            Gerar Vídeo Editado
+            {ez.generateButton.idle}
           </>
         )}
       </button>
       {!zapVideoUrl && (
         <p className="text-center text-xs text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest">
-          Selecione um vídeo na Etapa 1
+          {ez.generateButton.selectVideoHint}
         </p>
       )}
       {zapVideoUrl && !zapTemplateId && (
         <p className="text-center text-xs text-gray-400 dark:text-gray-500 font-bold uppercase tracking-widest">
-          Selecione um template na Etapa 3
+          {ez.generateButton.selectTemplateHint}
         </p>
       )}
 
@@ -1399,7 +1403,13 @@ export function EditZapTab({
       {activeZapVersions.length > 0 && (
         <div className="space-y-4 pt-8">
           <h4 className="text-xl font-black text-gray-900 dark:text-gray-50 uppercase italic">
-            Galeria de Versões {isVslEdit ? '(VSL)' : isHookEdit ? '(Gancho)' : '(Corpo)'}
+            {ez.gallery.title(
+              isVslEdit
+                ? ez.gallery.suffixVsl
+                : isHookEdit
+                  ? ez.gallery.suffixHook
+                  : ez.gallery.suffixBody
+            )}
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Original (only meaningful for the body side right now) */}
@@ -1420,7 +1430,7 @@ export function EditZapTab({
                     }
                   />
                   <div className="absolute top-3 left-3 bg-gray-900 text-white text-[9px] font-black px-2 py-1 rounded uppercase tracking-widest">
-                    Original
+                    {ez.gallery.originalBadge}
                   </div>
                   <VideoDurationBadge src={zapState.originalVideoUrl} />
                 </div>
@@ -1437,14 +1447,18 @@ export function EditZapTab({
                   }));
                 }
                 setConfig((prev: any) => {
-                  const key = isVslEdit ? 'zapVslVersions' : isHookEdit ? 'zapHookVersions' : 'zapVersions';
+                  const key = isVslEdit
+                    ? 'zapVslVersions'
+                    : isHookEdit
+                      ? 'zapHookVersions'
+                      : 'zapVersions';
                   const current = ((prev.edit as any)[key] as string[] | undefined) || [];
                   return {
                     ...prev,
                     edit: { ...prev.edit, [key]: current.filter((u) => u !== vUrl) },
                   };
                 });
-                toast.success(`Versão ${idx + 1} removida.`);
+                toast.success(ez.gallery.versionRemoved(idx + 1));
               };
               return (
                 <div key={`zap-v-${idx}-${vUrl}`} className="space-y-3">
@@ -1463,14 +1477,14 @@ export function EditZapTab({
                           : undefined
                       }
                       onRemove={removeVersion}
-                      label={`${isHookEdit ? 'Gancho' : 'Versão'} ${idx + 1}`}
+                      label={`${isHookEdit ? ez.gallery.hookLabel : ez.gallery.versionLabel} ${idx + 1}`}
                     />
                     <div
                       className={`absolute top-3 left-3 text-white text-[9px] font-black px-2 py-1 rounded uppercase tracking-widest ${
                         isHookEdit ? 'bg-amber-500' : 'bg-yellow-500'
                       }`}
                     >
-                      {isHookEdit ? 'Gancho' : 'Versão'} {idx + 1}
+                      {isHookEdit ? ez.gallery.hookLabel : ez.gallery.versionLabel} {idx + 1}
                     </div>
                     <VideoDurationBadge src={vUrl} />
                   </div>
@@ -1481,16 +1495,16 @@ export function EditZapTab({
                       className="flex-1 py-2 bg-gray-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black flex items-center justify-center gap-2"
                     >
                       <Download size={12} />
-                      Baixar
+                      {ez.gallery.downloadButton}
                     </a>
                     <button
                       onClick={() => {
                         setIntercutSourceUrl(vUrl);
                       }}
                       className="px-3 py-2 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-purple-100 flex items-center justify-center gap-1"
-                      title="Inserir cortes pretos com texto entre trechos do avatar"
+                      title={ez.gallery.cutsTitle}
                     >
-                      ✂ Cortes
+                      {ez.gallery.cutsButton}
                     </button>
                     {isHookEdit && (
                       <button
@@ -1498,23 +1512,18 @@ export function EditZapTab({
                           setHeadlineSourceUrl(vUrl);
                         }}
                         className="px-3 py-2 bg-pink-50 text-pink-700 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-pink-100 flex items-center justify-center gap-1"
-                        title="Adicionar headline colorida no topo (estilo anúncio Meta)"
+                        title={ez.gallery.headlineTitle}
                       >
-                        📰 Headline
+                        {ez.gallery.headlineButton}
                       </button>
                     )}
                     <button
                       onClick={() => {
-                        if (
-                          !window.confirm(
-                            `Excluir Versão ${idx + 1}? Esta ação não pode ser desfeita.`
-                          )
-                        )
-                          return;
+                        if (!window.confirm(ez.gallery.deleteConfirm(idx + 1))) return;
                         removeVersion();
                       }}
                       className="px-3 py-2 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-100 flex items-center justify-center gap-1"
-                      title="Excluir esta versão"
+                      title={ez.gallery.deleteTitle}
                     >
                       <Trash2 size={12} />
                     </button>
@@ -1535,13 +1544,13 @@ export function EditZapTab({
           videoOptions={[
             ...activeZapVersions.map((url, i) => ({
               url,
-              label: `${isHookEdit ? 'Gancho' : 'Versão'} ${i + 1}`,
+              label: `${isHookEdit ? ez.gallery.hookLabel : ez.gallery.versionLabel} ${i + 1}`,
             })),
             // Vídeos mesclados (da aba Mesclar) entram como alvo de música.
             ...(!isHookEdit
               ? (((config.edit as any)?.mergeVersions as string[]) || []).map((url, i) => ({
                   url,
-                  label: `Mesclado ${i + 1}`,
+                  label: ez.labels.mergedN(i + 1),
                 }))
               : []),
           ]}
@@ -1591,7 +1600,11 @@ export function EditZapTab({
               }));
             }
             setConfig((prev: any) => {
-              const key = isVslEdit ? 'zapVslVersions' : isHookEdit ? 'zapHookVersions' : 'zapVersions';
+              const key = isVslEdit
+                ? 'zapVslVersions'
+                : isHookEdit
+                  ? 'zapHookVersions'
+                  : 'zapVersions';
               const current = ((prev.edit as any)[key] as string[] | undefined) || [];
               return { ...prev, edit: { ...prev.edit, [key]: [...current, newUrl] } };
             });
@@ -1605,12 +1618,12 @@ export function EditZapTab({
         videoOptions={[
           ...activeZapVersions.map((url, i) => ({
             url,
-            label: `${isHookEdit ? 'Gancho' : 'Versão'} ${i + 1}`,
+            label: `${isHookEdit ? ez.gallery.hookLabel : ez.gallery.versionLabel} ${i + 1}`,
           })),
           ...(!isHookEdit
             ? (((config.edit as any)?.mergeVersions as string[]) || []).map((url, i) => ({
                 url,
-                label: `Mesclado ${i + 1}`,
+                label: ez.labels.mergedN(i + 1),
               }))
             : []),
         ]}
@@ -1620,7 +1633,11 @@ export function EditZapTab({
             setZapState((prev) => ({ ...prev, versions: [...(prev.versions || []), newUrl] }));
           }
           setConfig((prev: any) => {
-            const key = isVslEdit ? 'zapVslVersions' : isHookEdit ? 'zapHookVersions' : 'zapVersions';
+            const key = isVslEdit
+              ? 'zapVslVersions'
+              : isHookEdit
+                ? 'zapHookVersions'
+                : 'zapVersions';
             const current = ((prev.edit as any)[key] as string[] | undefined) || [];
             return { ...prev, edit: { ...prev.edit, [key]: [...current, newUrl] } };
           });
@@ -1633,7 +1650,11 @@ export function EditZapTab({
         userId={user?.uid}
         existingOptions={activeZapVersions.map((url, i) => ({
           url,
-          label: `${isVslEdit ? 'VSL' : isHookEdit ? 'Gancho' : 'Versão'} ${i + 1}`,
+          label: isVslEdit
+            ? ez.labels.vslN(i + 1)
+            : isHookEdit
+              ? ez.labels.hookN(i + 1)
+              : ez.labels.versionN(i + 1),
         }))}
       />
 
@@ -1644,11 +1665,11 @@ export function EditZapTab({
         existingAudios={[
           ...(((config.copy as any)?.hookAudios as any[]) || []).map((a, i) => ({
             url: a?.url,
-            label: `🎣 Gancho #${i + 1}`,
+            label: ez.labels.hookAudioN(i + 1),
           })),
           ...(((config as any).audios as any[]) || []).map((a, i) => ({
             url: a?.url,
-            label: `🎙 Corpo #${i + 1}`,
+            label: ez.labels.bodyAudioN(i + 1),
           })),
         ].filter((a) => a.url)}
         onJoined={(url) => {
@@ -1661,7 +1682,7 @@ export function EditZapTab({
               { url, storagePath: null, voiceId: 'joined', createdAt: new Date().toISOString() },
             ],
           }));
-          toast.success('Áudio adicionado ao projeto — já aparece na Montagem.');
+          toast.success(ez.audioJoin.addedToast);
         }}
       />
 
@@ -1689,11 +1710,10 @@ export function EditZapTab({
                 </div>
                 <div>
                   <h3 className="text-xl font-black text-gray-900 dark:text-gray-50 uppercase italic">
-                    Juntar Gancho + Corpo
+                    {ez.joinPanel.title}
                   </h3>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Escolha qualquer versão do gancho e qualquer versão do corpo. O resultado vai
-                    pra galeria "Vídeos Completos" abaixo.
+                    {ez.joinPanel.description}
                   </p>
                 </div>
               </div>
@@ -1703,10 +1723,10 @@ export function EditZapTab({
                 <div className="bg-white dark:bg-gray-900/80 p-4 rounded-2xl border-2 border-amber-100 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest">
-                      Gancho (1º)
+                      {ez.joinPanel.hookPickerLabel}
                     </span>
                     <span className="text-[10px] text-gray-400 dark:text-gray-500 font-bold">
-                      {hookZapVersions.length} {hookZapVersions.length === 1 ? 'versão' : 'versões'}
+                      {ez.joinPanel.versionsCount(hookZapVersions.length)}
                     </span>
                   </div>
                   <select
@@ -1716,8 +1736,8 @@ export function EditZapTab({
                   >
                     {hookZapVersions.map((url, i) => (
                       <option key={url} value={url}>
-                        Gancho {i + 1}
-                        {i === hookZapVersions.length - 1 ? ' (mais recente)' : ''}
+                        {ez.labels.hookN(i + 1)}
+                        {i === hookZapVersions.length - 1 ? ez.joinPanel.mostRecentSuffix : ''}
                       </option>
                     ))}
                   </select>
@@ -1738,10 +1758,10 @@ export function EditZapTab({
                 <div className="bg-white dark:bg-gray-900/80 p-4 rounded-2xl border-2 border-yellow-100 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-black text-yellow-600 dark:text-yellow-400 uppercase tracking-widest">
-                      Corpo (2º)
+                      {ez.joinPanel.bodyPickerLabel}
                     </span>
                     <span className="text-[10px] text-gray-400 dark:text-gray-500 font-bold">
-                      {bodyJoinOptions.length} {bodyJoinOptions.length === 1 ? 'opção' : 'opções'}
+                      {ez.joinPanel.optionsCount(bodyJoinOptions.length)}
                     </span>
                   </div>
                   <select
@@ -1752,7 +1772,7 @@ export function EditZapTab({
                     {bodyJoinOptions.map((o, i) => (
                       <option key={o.url} value={o.url}>
                         {o.label}
-                        {i === bodyJoinOptions.length - 1 ? ' (mais recente)' : ''}
+                        {i === bodyJoinOptions.length - 1 ? ez.joinPanel.mostRecentSuffix : ''}
                       </option>
                     ))}
                   </select>
@@ -1773,12 +1793,12 @@ export function EditZapTab({
               <button
                 onClick={async () => {
                   if (!user?.uid) {
-                    toast.error('Faça login antes de juntar.');
+                    toast.error(ez.joinPanel.loginToJoin);
                     return;
                   }
                   setJoinRendering(true);
                   const toastId = 'join-render';
-                  toast.loading('Juntando gancho + corpo...', { id: toastId, duration: 60000 });
+                  toast.loading(ez.joinPanel.joining, { id: toastId, duration: 60000 });
                   try {
                     const res = await fetch('/api/video/concat', {
                       method: 'POST',
@@ -1803,12 +1823,12 @@ export function EditZapTab({
                         },
                       };
                     });
-                    toast.success('Vídeo completo (gancho + corpo) criado!', {
+                    toast.success(ez.joinPanel.joinedSuccess, {
                       id: toastId,
                       duration: 5000,
                     });
                   } catch (err: any) {
-                    toast.error(`Falha ao juntar: ${err.message}`, {
+                    toast.error(ez.joinPanel.joinFailed(err.message), {
                       id: toastId,
                       duration: 6000,
                     });
@@ -1822,12 +1842,12 @@ export function EditZapTab({
                 {joinRendering ? (
                   <>
                     <Loader2 size={16} className="animate-spin" />
-                    Juntando...
+                    {ez.joinPanel.joiningButton}
                   </>
                 ) : (
                   <>
                     <Layers size={16} />
-                    Juntar agora (gancho → corpo)
+                    {ez.joinPanel.joinButton}
                   </>
                 )}
               </button>
@@ -1846,7 +1866,7 @@ export function EditZapTab({
             <div className="space-y-4 pt-8">
               <h4 className="text-xl font-black text-gray-900 dark:text-gray-50 uppercase italic flex items-center gap-2">
                 <Layers size={20} className="text-amber-500" />
-                Vídeos Completos (Gancho + Corpo)
+                {ez.completeGallery.title}
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {joined.map((vUrl, idx) => (
@@ -1863,7 +1883,7 @@ export function EditZapTab({
                         }
                       />
                       <div className="absolute top-3 left-3 bg-amber-600 text-white text-[9px] font-black px-2 py-1 rounded uppercase tracking-widest">
-                        Completo {idx + 1}
+                        {ez.completeGallery.completeBadge(idx + 1)}
                       </div>
                       <VideoDurationBadge src={vUrl} />
                     </div>
@@ -1874,16 +1894,11 @@ export function EditZapTab({
                         className="flex-1 py-2 bg-gray-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black flex items-center justify-center gap-2"
                       >
                         <Download size={12} />
-                        Baixar
+                        {ez.gallery.downloadButton}
                       </a>
                       <button
                         onClick={() => {
-                          if (
-                            !window.confirm(
-                              `Excluir Vídeo Completo ${idx + 1}? Esta ação não pode ser desfeita.`
-                            )
-                          )
-                            return;
+                          if (!window.confirm(ez.completeGallery.deleteConfirm(idx + 1))) return;
                           setConfig((prev: any) => {
                             const current =
                               ((prev.edit as any).zapJoinedVersions as string[] | undefined) || [];
@@ -1895,10 +1910,10 @@ export function EditZapTab({
                               },
                             };
                           });
-                          toast.success(`Vídeo Completo ${idx + 1} excluído.`);
+                          toast.success(ez.completeGallery.deletedToast(idx + 1));
                         }}
                         className="px-3 py-2 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-100 flex items-center justify-center gap-1"
-                        title="Excluir este vídeo completo"
+                        title={ez.completeGallery.deleteTitle}
                       >
                         <Trash2 size={12} />
                       </button>
@@ -1993,7 +2008,7 @@ export function EditZapTab({
                 : 'text-gray-500 dark:text-gray-400 hover:bg-yellow-50 dark:hover:bg-yellow-950/40'
             }`}
           >
-            Editar Corpo
+            {ez.modeToggle.editBody}
             {bodyZapVersions.length > 0 && (
               <span className="ml-2 text-[9px] opacity-70">({bodyZapVersions.length})</span>
             )}
@@ -2009,7 +2024,7 @@ export function EditZapTab({
                 : 'text-gray-500 dark:text-gray-400 hover:bg-amber-50 dark:hover:bg-amber-950/40'
             }`}
           >
-            Editar Gancho
+            {ez.modeToggle.editHook}
             {hookZapVersions.length > 0 && (
               <span className="ml-2 text-[9px] opacity-70">({hookZapVersions.length})</span>
             )}
@@ -2035,6 +2050,8 @@ function VersionVideo({
   onRemove?: () => void;
   label: string;
 }) {
+  const { t } = useLanguage();
+  const ez = t.editZapTab;
   const [broken, setBroken] = useState(false);
 
   if (broken) {
@@ -2042,15 +2059,13 @@ function VersionVideo({
       <div className="w-full h-full flex flex-col items-center justify-center bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 p-4 text-center gap-3">
         <AlertTriangle size={32} className="text-red-500" />
         <p className="text-xs font-black uppercase tracking-widest">{label}</p>
-        <p className="text-[11px] leading-tight opacity-80">
-          O link do vídeo expirou ou o arquivo não está mais disponível.
-        </p>
+        <p className="text-[11px] leading-tight opacity-80">{ez.versionVideo.brokenHint}</p>
         {onRemove && (
           <button
             onClick={onRemove}
             className="px-3 py-2 bg-red-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-red-700 transition-colors"
           >
-            Remover desta lista
+            {ez.versionVideo.removeButton}
           </button>
         )}
       </div>
