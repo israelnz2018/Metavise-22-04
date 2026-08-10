@@ -12,12 +12,10 @@ import {
   Target,
   Clapperboard,
 } from 'lucide-react';
-import {
-  generateCreativePlan,
-  type AwarenessReadout,
-} from '@/lib/claudeService';
+import { generateCreativePlan, type AwarenessReadout } from '@/lib/claudeService';
 import type { WeightedPersona, CreativeBrief } from '@/types/project';
 import { currencySymbol } from '@/lib/constants';
+import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 /** Meta do plano persistida em config.copy.marketingPlan — só o que precisa
  *  pra reabrir a aba com os inputs e a leitura de consciência. */
@@ -64,35 +62,15 @@ interface Props {
   onContinue: () => void;
 }
 
-// Níveis de consciência — rótulo + número (1-5) pro selo compacto.
-const AWARENESS_PT: Record<string, string> = {
-  unaware: 'Não consciente',
-  problem_aware: 'Consciente do problema',
-  solution_aware: 'Consciente da solução',
-  product_aware: 'Consciente do produto',
-  most_aware: 'Mais consciente',
-};
+// Números (1-5) do selo compacto de consciência — não é texto, não precisa
+// de tradução. Os RÓTULOS (awareness/angles) vêm do dicionário (t.plan.*)
+// porque precisam reagir à língua atual.
 const AWARENESS_NUM: Record<string, string> = {
   unaware: '1',
   problem_aware: '2',
   solution_aware: '3',
   product_aware: '4',
   most_aware: '5',
-};
-
-// Menu fixo de ângulos (guia-da-copy) → rótulo PT.
-const ANGLE_PT: Record<string, string> = {
-  choque: 'Choque / contra-intuitivo',
-  curiosidade: 'Curiosidade',
-  historia: 'História',
-  dor: 'Dor',
-  medo_de_perda: 'Medo de perder',
-  prova: 'Prova',
-  autoridade: 'Autoridade',
-  mecanismo: 'Mecanismo',
-  comparacao: 'Comparação',
-  transformacao: 'Transformação',
-  urgencia: 'Urgência',
 };
 
 // Distribui `total` criativos entre as personas pelo peso (floor + resto pros
@@ -135,6 +113,9 @@ export function PlanTab({
   onCreateVsl,
   onContinue,
 }: Props) {
+  const { t } = useLanguage();
+  const AWARENESS_PT = t.plan.awareness as Record<string, string>;
+  const ANGLE_PT = t.plan.angles as Record<string, string>;
   const personas = useMemo(
     () => (Array.isArray(personasWithWeights) ? personasWithWeights : []),
     [personasWithWeights]
@@ -182,7 +163,8 @@ export function PlanTab({
 
   // Enquanto não editar à mão, o custo por conjunto acompanha o recomendado.
   useEffect(() => {
-    if (!costTouched && recommendedCost > 0) setCostPerCreative(String(Math.round(recommendedCost)));
+    if (!costTouched && recommendedCost > 0)
+      setCostPerCreative(String(Math.round(recommendedCost)));
   }, [recommendedCost, costTouched]);
 
   const clampCount = (n: number) => Math.max(1, Math.min(Math.floor(n), 40));
@@ -214,9 +196,7 @@ export function PlanTab({
 
   // Aviso (não bloqueia — Metavise nunca proíbe).
   const cpaWarning =
-    nCpa > 0 && nPrice > 0 && nCpa >= nPrice
-      ? `CPA máximo (${sym}${nCpa}) é maior ou igual ao preço (${sym}${nPrice}) — isso dá prejuízo por venda.`
-      : null;
+    nCpa > 0 && nPrice > 0 && nCpa >= nPrice ? t.plan.media.cpaWarning(sym, nCpa, nPrice) : null;
 
   // Guia do número desejado, conforme a estrutura.
   //  - ABO: o recomendado é TETO (cada anúncio precisa da verba dele). Avisa se passar.
@@ -224,15 +204,9 @@ export function PlanTab({
   const countGuidance =
     structure === 'abo'
       ? nDesired > 0 && recommended > 0 && nDesired > recommended
-        ? {
-            tone: 'warn' as const,
-            text: `Acima do recomendado: em ABO cada anúncio recebe verba fixa, e com esse orçamento dá pra ~${recommended} com sinal de verdade. Acima disso, divide demais. Faixa típica: 3–6.`,
-          }
-        : { tone: 'info' as const, text: 'Em ABO, o ideal é ficar no recomendado ou abaixo. Faixa típica: 3–6.' }
-      : {
-          tone: 'info' as const,
-          text: 'Em CBO pode carregar mais — o Meta concentra a verba nos que vendem. Mais criativos = mais chances de achar um vencedor. Faixa típica: 10–20.',
-        };
+        ? { tone: 'warn' as const, text: t.plan.media.countGuidanceAboWarn(recommended) }
+        : { tone: 'info' as const, text: t.plan.media.countGuidanceAboInfo }
+      : { tone: 'info' as const, text: t.plan.media.countGuidanceCboInfo };
 
   const distribution = useMemo(
     () => (nDesired > 0 ? distributeByWeight(personas, nDesired) : []),
@@ -274,7 +248,7 @@ export function PlanTab({
         structure: result.structure,
       });
     } catch (e: any) {
-      setError(e?.message || 'Erro ao gerar o plano de criativos.');
+      setError(e?.message || t.plan.generateButton.defaultError);
     } finally {
       setLoading(false);
     }
@@ -322,12 +296,18 @@ export function PlanTab({
         )}
         <h2 className="text-3xl font-black text-gray-900 dark:text-gray-50 tracking-tight flex items-center gap-2">
           <Layers size={26} className="text-blue-600 dark:text-blue-400" />
-          Plano de criativos
+          {t.plan.header.title}
         </h2>
         <p className="text-sm text-gray-600 dark:text-gray-400 max-w-2xl">
-          Define <strong>quantos</strong> anúncios fazer, pra <strong>qual persona</strong>, em que{' '}
-          <strong>nível de consciência</strong> e com qual <strong>ângulo</strong>. O gancho e a copy
-          vêm depois.
+          {t.plan.header.subtitleDefine}
+          <strong>{t.plan.header.subtitleHow}</strong>
+          {t.plan.header.subtitleAfterHow}
+          <strong>{t.plan.header.subtitlePersona}</strong>
+          {t.plan.header.subtitleAfterPersona}
+          <strong>{t.plan.header.subtitleAwareness}</strong>
+          {t.plan.header.subtitleAfterAwareness}
+          <strong>{t.plan.header.subtitleAngle}</strong>
+          {t.plan.header.subtitleEnd}
         </p>
       </header>
 
@@ -336,44 +316,42 @@ export function PlanTab({
         <div className="flex items-center gap-2">
           <Target size={18} className="text-blue-600 dark:text-blue-400" />
           <h3 className="font-black uppercase text-xs tracking-widest text-gray-700 dark:text-gray-300">
-            Mídia
+            {t.plan.media.heading}
           </h3>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {numField('Orçamento por dia', 'Quanto você vai gastar por dia.', dailyBudget, setDailyBudget)}
           {numField(
-            'CPA máximo',
-            'CPA = custo por aquisição (quanto você paga, em média, por cada venda). Informe o máximo que aceita pagar.',
-            targetCpa,
-            setTargetCpa
+            t.plan.media.dailyBudgetLabel,
+            t.plan.media.dailyBudgetHint,
+            dailyBudget,
+            setDailyBudget
           )}
-          {numField('Preço do produto', 'Valor de uma compra.', productPrice, setProductPrice)}
+          {numField(t.plan.media.cpaLabel, t.plan.media.cpaHint, targetCpa, setTargetCpa)}
+          {numField(t.plan.media.priceLabel, t.plan.media.priceHint, productPrice, setProductPrice)}
         </div>
 
         {/* Estrutura CBO/ABO */}
         <div>
           <label className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300 block mb-0.5">
-            Estrutura da campanha
+            {t.plan.media.structureLabel}
           </label>
           <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-1.5 leading-snug">
-            É quem decide quanto cada anúncio recebe de verba: o Meta (CBO) ou você (ABO).
+            {t.plan.media.structureHint}
           </p>
           <div className="grid grid-cols-2 gap-2">
-            {(
-              [
-                {
-                  key: 'cbo' as const,
-                  title: 'CBO',
-                  desc: 'Você põe a verba na campanha e o Meta divide sozinho entre os anúncios, dando mais pros que vendem. Aguenta muitos criativos. Recomendado.',
-                },
-                {
-                  key: 'abo' as const,
-                  title: 'ABO',
-                  desc: 'Você define a verba fixa de cada anúncio. Mais controle, mas testa poucos por vez. Bom pra forçar um teste justo.',
-                },
-              ]
-            ).map((opt) => (
+            {[
+              {
+                key: 'cbo' as const,
+                title: t.plan.media.cboTitle,
+                desc: t.plan.media.cboDesc,
+              },
+              {
+                key: 'abo' as const,
+                title: t.plan.media.aboTitle,
+                desc: t.plan.media.aboDesc,
+              },
+            ].map((opt) => (
               <button
                 key={opt.key}
                 onClick={() => setStructure(opt.key)}
@@ -383,21 +361,25 @@ export function PlanTab({
                     : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
                 }`}
               >
-                <span className="font-black text-sm text-gray-900 dark:text-gray-50">{opt.title}</span>
+                <span className="font-black text-sm text-gray-900 dark:text-gray-50">
+                  {opt.title}
+                </span>
                 <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 leading-snug">
                   {opt.desc}
                 </p>
                 {opt.key === 'cbo' && recCBO > 0 && (
                   <p className="text-[10px] font-black text-blue-700 dark:text-blue-300 mt-1.5 leading-snug">
-                    {sym}
-                    {nBudget}/dia na campanha → ~{recCBO} criativos
+                    {t.plan.media.cboRecommendation(sym, nBudget, recCBO)}
                   </p>
                 )}
                 {opt.key === 'abo' && recABO > 0 && (
                   <p className="text-[10px] font-black text-blue-700 dark:text-blue-300 mt-1.5 leading-snug">
-                    {sym}
-                    {recCostPerSet}/conjunto × {recABO} = {sym}
-                    {recCostPerSet * recABO}/dia → {recABO} criativos
+                    {t.plan.media.aboRecommendation(
+                      sym,
+                      recCostPerSet,
+                      recABO,
+                      recCostPerSet * recABO
+                    )}
                   </p>
                 )}
               </button>
@@ -417,7 +399,7 @@ export function PlanTab({
         {structure === 'abo' && (
           <div className="rounded-2xl bg-gray-50 dark:bg-gray-800/40 ring-1 ring-gray-200/60 dark:ring-gray-700/60 p-4 space-y-2">
             <label className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300 block">
-              Orçamento por conjunto / criativo
+              {t.plan.media.perSetBudgetLabel}
             </label>
             <div className="flex items-center gap-2">
               <div className="relative w-32">
@@ -445,18 +427,17 @@ export function PlanTab({
                   }}
                   className="text-[10px] font-black uppercase tracking-widest text-blue-700 dark:text-blue-300 hover:underline"
                 >
-                  Usar {sym}
-                  {recCostPerSet} (1× CPA)
+                  {t.plan.media.useValue(sym, recCostPerSet)}
                 </button>
               )}
             </div>
             <p className="text-[10px] text-gray-500 dark:text-gray-400">
-              Cada conjunto tem 1 criativo e recebe essa verba fixa. Recomendado ≈ 1× CPA.
+              {t.plan.media.perSetHint}
             </p>
             {aboTotal > 0 && (
               <p className="text-[11px] font-bold text-gray-700 dark:text-gray-300">
-                Valor total/dia: {sym}
-                {aboCostPerSet} × {nDesired} ={' '}
+                {t.plan.media.dailyTotalPrefix}
+                {t.plan.media.dailyTotalFormula(sym, aboCostPerSet, nDesired)}{' '}
                 <span className="text-blue-700 dark:text-blue-300">
                   {sym}
                   {aboTotal}
@@ -471,15 +452,15 @@ export function PlanTab({
           <div className="flex items-center justify-between gap-3 p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/40 ring-1 ring-gray-200/60 dark:ring-gray-700/60">
             <div className="min-w-0">
               <span className="text-[11px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300 block">
-                Número de criativos{structure === 'abo' ? ' (= conjuntos)' : ''}
+                {t.plan.media.countLabel(structure === 'abo')}
               </span>
               {recommended > 0 ? (
                 <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                  Recomendado p/ {structure.toUpperCase()}: {recommended}. Pode editar.
+                  {t.plan.media.recommendedFor(structure.toUpperCase(), recommended)}
                 </span>
               ) : (
                 <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                  Preencha orçamento e CPA, ou digite quantos quer.
+                  {t.plan.media.fillBudgetCpa}
                 </span>
               )}
             </div>
@@ -492,7 +473,7 @@ export function PlanTab({
                   }}
                   className="text-[10px] font-black uppercase tracking-widest text-blue-700 dark:text-blue-300 hover:underline"
                 >
-                  Usar {recommended}
+                  {t.plan.media.useRecommended(recommended)}
                 </button>
               )}
               <input
@@ -512,9 +493,7 @@ export function PlanTab({
           </div>
           {structure === 'cbo' && nBudget > 0 && nDesired > 0 && (
             <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-snug">
-              Você coloca {sym}
-              {nBudget}/dia na campanha; o Meta divide entre os {nDesired} criativos, dando mais
-              verba pros que vendem.
+              {t.plan.media.cboSpendExplain(sym, nBudget, nDesired)}
             </p>
           )}
           <p
@@ -535,7 +514,7 @@ export function PlanTab({
           <div className="flex items-center gap-2">
             <Users size={18} className="text-blue-600 dark:text-blue-400" />
             <h3 className="font-black uppercase text-xs tracking-widest text-gray-700 dark:text-gray-300">
-              Personas ({personas.length})
+              {t.plan.personas.heading(personas.length)}
             </h3>
           </div>
           <ul className="space-y-1.5">
@@ -546,10 +525,12 @@ export function PlanTab({
                   key={p.id}
                   className="flex items-center justify-between gap-3 text-sm py-1.5 px-3 rounded-xl bg-gray-50 dark:bg-gray-800/40"
                 >
-                  <span className="font-bold text-gray-900 dark:text-gray-50 truncate">{p.name}</span>
+                  <span className="font-bold text-gray-900 dark:text-gray-50 truncate">
+                    {p.name}
+                  </span>
                   <span className="text-[11px] font-black tabular-nums text-gray-500 dark:text-gray-400 shrink-0">
                     {Math.round((Number(p.suggestedWeight) || 0) * 100)}%
-                    {nDesired > 0 && d ? ` · ${d.count} criativos` : ''}
+                    {nDesired > 0 && d ? t.plan.personas.creativesCount(d.count) : ''}
                   </span>
                 </li>
               );
@@ -566,21 +547,21 @@ export function PlanTab({
       >
         {loading ? (
           <>
-            <Loader2 size={18} className="animate-spin" /> Gerando plano…
+            <Loader2 size={18} className="animate-spin" /> {t.plan.generateButton.generating}
           </>
         ) : briefs.length > 0 ? (
           <>
-            <RefreshCw size={18} /> Refazer plano
+            <RefreshCw size={18} /> {t.plan.generateButton.redo}
           </>
         ) : (
           <>
-            <Sparkles size={18} /> Gerar plano de criativos
+            <Sparkles size={18} /> {t.plan.generateButton.generate}
           </>
         )}
       </button>
       {!canGenerate && !loading && personas.length === 0 && (
         <p className="text-center text-[11px] text-gray-500 dark:text-gray-400">
-          Defina as personas na etapa anterior pra gerar o plano.
+          {t.plan.generateButton.defineFirst}
         </p>
       )}
 
@@ -597,7 +578,7 @@ export function PlanTab({
           <div className="flex items-center gap-2">
             <Sparkles size={18} className="text-purple-600 dark:text-purple-400" />
             <h3 className="font-black uppercase text-xs tracking-widest text-purple-900 dark:text-purple-200">
-              Nível de consciência (deduzido)
+              {t.plan.awarenessSection.heading}
             </h3>
           </div>
           <ul className="space-y-2">
@@ -609,7 +590,9 @@ export function PlanTab({
                 <p className="font-bold text-sm text-gray-900 dark:text-gray-50">{a.personaName}</p>
                 <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
                   <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-purple-100 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300">
-                    Principal: {AWARENESS_PT[a.principal] || a.principal}
+                    {t.plan.awarenessSection.principalLabel(
+                      AWARENESS_PT[a.principal] || a.principal
+                    )}
                   </span>
                   {(a.secundarios || []).map((s) => (
                     <span
@@ -636,11 +619,11 @@ export function PlanTab({
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-3">
             <h3 className="font-black uppercase text-xs tracking-widest text-gray-700 dark:text-gray-300">
-              Criativos ({briefs.length})
+              {t.plan.briefs.heading(briefs.length)}
             </h3>
             {executedCount > 0 && (
               <span className="text-[11px] font-bold text-green-600 dark:text-green-400">
-                {executedCount} de {briefs.length} criados
+                {t.plan.briefs.createdCount(executedCount, briefs.length)}
               </span>
             )}
           </div>
@@ -649,7 +632,12 @@ export function PlanTab({
               tráfego pra ela). Duração recomendada pelo ticket da oferta. */}
           {(() => {
             const vslMin = nPrice >= 1000 ? 40 : nPrice >= 300 ? 30 : nPrice >= 100 ? 20 : 15;
-            const ticket = nPrice >= 300 ? 'alto' : nPrice >= 100 ? 'médio' : 'baixo';
+            const ticket =
+              nPrice >= 300
+                ? t.plan.briefs.ticketHigh
+                : nPrice >= 100
+                  ? t.plan.briefs.ticketMid
+                  : t.plan.briefs.ticketLow;
             return (
               <div className="flex items-stretch bg-gradient-to-br from-purple-50 to-purple-100/40 dark:from-purple-950/30 dark:to-purple-900/20 ring-1 ring-purple-200/60 dark:ring-purple-800/50 rounded-2xl overflow-hidden">
                 <div className="w-1.5 flex-shrink-0 bg-purple-500" />
@@ -661,15 +649,14 @@ export function PlanTab({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-black text-gray-900 dark:text-gray-50">
-                        VSL do plano
+                        {t.plan.briefs.vslTitle}
                       </p>
                       <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-purple-100 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300">
-                        ~{vslMin} min
+                        {t.plan.briefs.vslMinBadge(vslMin)}
                       </span>
                     </div>
                     <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-snug mt-0.5">
-                      Ticket {ticket}: VSL de ~{vslMin} min pra construir desejo, prova e quebrar
-                      objeções. Os criativos abaixo levam tráfego pra ela.
+                      {t.plan.briefs.vslDescription(ticket, vslMin)}
                     </p>
                   </div>
                   {onCreateVsl && (
@@ -677,7 +664,7 @@ export function PlanTab({
                       onClick={() => onCreateVsl(vslMin * 150)}
                       className="flex-shrink-0 px-3 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-[10px] font-black uppercase tracking-widest"
                     >
-                      Criar VSL →
+                      {t.plan.briefs.createVslButton}
                     </button>
                   )}
                 </div>
@@ -706,7 +693,7 @@ export function PlanTab({
                         {brief.targetPersonaName}
                       </p>
                       <p className="text-[9px] uppercase tracking-widest text-gray-400 dark:text-gray-500 font-bold">
-                        Persona
+                        {t.plan.briefs.personaLabel}
                       </p>
                     </div>
                     <div className="flex-1 flex items-center justify-end gap-1.5 text-[9px] flex-wrap">
@@ -714,7 +701,7 @@ export function PlanTab({
                         className="font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 ring-1 ring-indigo-200/60 dark:ring-indigo-800/40"
                         title={AWARENESS_PT[brief.awareness] || brief.awareness}
                       >
-                        Consc. {AWARENESS_NUM[brief.awareness] || '?'}
+                        {t.plan.briefs.awarenessBadge(AWARENESS_NUM[brief.awareness] || '?')}
                       </span>
                       <span
                         className="font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 truncate max-w-[160px]"
@@ -728,7 +715,7 @@ export function PlanTab({
                         <button
                           onClick={() => onBriefEdit(brief)}
                           className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-800"
-                          title="Editar"
+                          title={t.plan.briefs.editTitle}
                         >
                           <Edit3 size={12} />
                         </button>
@@ -738,16 +725,16 @@ export function PlanTab({
                           onClick={() => onBriefClick(brief)}
                           className="px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase tracking-widest"
                         >
-                          Criar →
+                          {t.plan.briefs.createArrow}
                         </button>
                       )}
                       {onBriefClick && isExecuted && (
                         <button
                           onClick={() => onBriefClick(brief)}
                           className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-[10px] font-black uppercase tracking-widest"
-                          title="Abrir o subprojeto já criado"
+                          title={t.plan.briefs.openExistingTitle}
                         >
-                          <Check size={12} /> Abrir →
+                          <Check size={12} /> {t.plan.briefs.openArrow}
                         </button>
                       )}
                     </div>
@@ -761,7 +748,7 @@ export function PlanTab({
             onClick={onContinue}
             className="w-full py-4 bg-gray-900 dark:bg-gray-50 text-white dark:text-gray-900 rounded-2xl font-black uppercase tracking-widest text-sm hover:opacity-90 transition-all flex items-center justify-center gap-2"
           >
-            Continuar pra copy <ArrowRight size={16} />
+            {t.plan.briefs.continueButton} <ArrowRight size={16} />
           </button>
         </div>
       )}

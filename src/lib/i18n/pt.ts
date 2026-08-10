@@ -238,4 +238,115 @@ export const pt = {
       planUsesMarked: 'O plano de marketing abaixo usa as personas marcadas',
     },
   },
+  plan: {
+    awareness: {
+      unaware: 'Não consciente',
+      problem_aware: 'Consciente do problema',
+      solution_aware: 'Consciente da solução',
+      product_aware: 'Consciente do produto',
+      most_aware: 'Mais consciente',
+    },
+    angles: {
+      choque: 'Choque / contra-intuitivo',
+      curiosidade: 'Curiosidade',
+      historia: 'História',
+      dor: 'Dor',
+      medo_de_perda: 'Medo de perder',
+      prova: 'Prova',
+      autoridade: 'Autoridade',
+      mecanismo: 'Mecanismo',
+      comparacao: 'Comparação',
+      transformacao: 'Transformação',
+      urgencia: 'Urgência',
+    },
+    header: {
+      title: 'Plano de criativos',
+      subtitleDefine: 'Define ',
+      subtitleHow: 'quantos',
+      subtitleAfterHow: ' anúncios fazer, pra ',
+      subtitlePersona: 'qual persona',
+      subtitleAfterPersona: ', em que ',
+      subtitleAwareness: 'nível de consciência',
+      subtitleAfterAwareness: ' e com qual ',
+      subtitleAngle: 'ângulo',
+      subtitleEnd: '. O gancho e a copy vêm depois.',
+    },
+    media: {
+      heading: 'Mídia',
+      dailyBudgetLabel: 'Orçamento por dia',
+      dailyBudgetHint: 'Quanto você vai gastar por dia.',
+      cpaLabel: 'CPA máximo',
+      cpaHint:
+        'CPA = custo por aquisição (quanto você paga, em média, por cada venda). Informe o máximo que aceita pagar.',
+      priceLabel: 'Preço do produto',
+      priceHint: 'Valor de uma compra.',
+      structureLabel: 'Estrutura da campanha',
+      structureHint:
+        'É quem decide quanto cada anúncio recebe de verba: o Meta (CBO) ou você (ABO).',
+      cboTitle: 'CBO',
+      cboDesc:
+        'Você põe a verba na campanha e o Meta divide sozinho entre os anúncios, dando mais pros que vendem. Aguenta muitos criativos. Recomendado.',
+      aboTitle: 'ABO',
+      aboDesc:
+        'Você define a verba fixa de cada anúncio. Mais controle, mas testa poucos por vez. Bom pra forçar um teste justo.',
+      cboRecommendation: (sym: string, budget: number, count: number) =>
+        `${sym}${budget}/dia na campanha → ~${count} criativos`,
+      aboRecommendation: (sym: string, costPerSet: number, count: number, total: number) =>
+        `${sym}${costPerSet}/conjunto × ${count} = ${sym}${total}/dia → ${count} criativos`,
+      cpaWarning: (sym: string, cpa: number, price: number) =>
+        `CPA máximo (${sym}${cpa}) é maior ou igual ao preço (${sym}${price}) — isso dá prejuízo por venda.`,
+      perSetBudgetLabel: 'Orçamento por conjunto / criativo',
+      useValue: (sym: string, val: number) => `Usar ${sym}${val} (1× CPA)`,
+      perSetHint: 'Cada conjunto tem 1 criativo e recebe essa verba fixa. Recomendado ≈ 1× CPA.',
+      dailyTotalPrefix: 'Valor total/dia: ',
+      dailyTotalFormula: (sym: string, costPerSet: number, count: number) =>
+        `${sym}${costPerSet} × ${count} =`,
+      countLabel: (isAbo: boolean) => `Número de criativos${isAbo ? ' (= conjuntos)' : ''}`,
+      recommendedFor: (structure: string, n: number) =>
+        `Recomendado p/ ${structure}: ${n}. Pode editar.`,
+      fillBudgetCpa: 'Preencha orçamento e CPA, ou digite quantos quer.',
+      useRecommended: (n: number) => `Usar ${n}`,
+      cboSpendExplain: (sym: string, budget: number, count: number) =>
+        `Você coloca ${sym}${budget}/dia na campanha; o Meta divide entre os ${count} criativos, dando mais verba pros que vendem.`,
+      countGuidanceAboWarn: (recommended: number) =>
+        `Acima do recomendado: em ABO cada anúncio recebe verba fixa, e com esse orçamento dá pra ~${recommended} com sinal de verdade. Acima disso, divide demais. Faixa típica: 3–6.`,
+      countGuidanceAboInfo: 'Em ABO, o ideal é ficar no recomendado ou abaixo. Faixa típica: 3–6.',
+      countGuidanceCboInfo:
+        'Em CBO pode carregar mais — o Meta concentra a verba nos que vendem. Mais criativos = mais chances de achar um vencedor. Faixa típica: 10–20.',
+    },
+    personas: {
+      heading: (n: number) => `Personas (${n})`,
+      creativesCount: (n: number) => ` · ${n} criativos`,
+    },
+    generateButton: {
+      generating: 'Gerando plano…',
+      redo: 'Refazer plano',
+      generate: 'Gerar plano de criativos',
+      defineFirst: 'Defina as personas na etapa anterior pra gerar o plano.',
+      defaultError: 'Erro ao gerar o plano de criativos.',
+    },
+    awarenessSection: {
+      heading: 'Nível de consciência (deduzido)',
+      principalLabel: (label: string) => `Principal: ${label}`,
+    },
+    briefs: {
+      heading: (n: number) => `Criativos (${n})`,
+      createdCount: (done: number, total: number) => `${done} de ${total} criados`,
+      vslTitle: 'VSL do plano',
+      vslMinBadge: (min: number) => `~${min} min`,
+      vslDescription: (ticket: string, min: number) =>
+        `Ticket ${ticket}: VSL de ~${min} min pra construir desejo, prova e quebrar objeções. Os criativos abaixo levam tráfego pra ela.`,
+      ticketHigh: 'alto',
+      ticketMid: 'médio',
+      ticketLow: 'baixo',
+      createVslButton: 'Criar VSL →',
+      personaLabel: 'Persona',
+      awarenessBadge: (n: string) => `Consc. ${n}`,
+      editTitle: 'Editar',
+      createArrow: 'Criar →',
+      openArrow: 'Abrir →',
+      openExistingTitle: 'Abrir o subprojeto já criado',
+      continueButton: 'Continuar pra copy',
+    },
+  },
 };

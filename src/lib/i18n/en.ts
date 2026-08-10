@@ -235,4 +235,115 @@ export const en: typeof pt = {
       planUsesMarked: 'The marketing plan below uses the marked personas',
     },
   },
+  plan: {
+    awareness: {
+      unaware: 'Unaware',
+      problem_aware: 'Problem aware',
+      solution_aware: 'Solution aware',
+      product_aware: 'Product aware',
+      most_aware: 'Most aware',
+    },
+    angles: {
+      choque: 'Shock / counter-intuitive',
+      curiosidade: 'Curiosity',
+      historia: 'Story',
+      dor: 'Pain',
+      medo_de_perda: 'Fear of loss',
+      prova: 'Proof',
+      autoridade: 'Authority',
+      mecanismo: 'Mechanism',
+      comparacao: 'Comparison',
+      transformacao: 'Transformation',
+      urgencia: 'Urgency',
+    },
+    header: {
+      title: 'Creative plan',
+      subtitleDefine: 'Defines ',
+      subtitleHow: 'how many',
+      subtitleAfterHow: ' ads to make, for ',
+      subtitlePersona: 'which persona',
+      subtitleAfterPersona: ', at what ',
+      subtitleAwareness: 'awareness level',
+      subtitleAfterAwareness: ' and with what ',
+      subtitleAngle: 'angle',
+      subtitleEnd: '. The hook and copy come next.',
+    },
+    media: {
+      heading: 'Media',
+      dailyBudgetLabel: 'Daily budget',
+      dailyBudgetHint: "How much you'll spend per day.",
+      cpaLabel: 'Maximum CPA',
+      cpaHint:
+        'CPA = cost per acquisition (how much you pay, on average, per sale). Enter the maximum you accept paying.',
+      priceLabel: 'Product price',
+      priceHint: 'Value of one purchase.',
+      structureLabel: 'Campaign structure',
+      structureHint: 'Decides who chooses how much budget each ad gets: Meta (CBO) or you (ABO).',
+      cboTitle: 'CBO',
+      cboDesc:
+        'You set the budget at the campaign level and Meta splits it across the ads on its own, giving more to the ones that sell. Handles many creatives. Recommended.',
+      aboTitle: 'ABO',
+      aboDesc:
+        'You set a fixed budget for each ad. More control, but tests fewer at a time. Good for forcing a fair test.',
+      cboRecommendation: (sym: string, budget: number, count: number) =>
+        `${sym}${budget}/day in the campaign → ~${count} creatives`,
+      aboRecommendation: (sym: string, costPerSet: number, count: number, total: number) =>
+        `${sym}${costPerSet}/ad set × ${count} = ${sym}${total}/day → ${count} creatives`,
+      cpaWarning: (sym: string, cpa: number, price: number) =>
+        `Maximum CPA (${sym}${cpa}) is greater than or equal to the price (${sym}${price}) — that's a loss per sale.`,
+      perSetBudgetLabel: 'Budget per ad set / creative',
+      useValue: (sym: string, val: number) => `Use ${sym}${val} (1× CPA)`,
+      perSetHint: 'Each ad set has 1 creative and gets this fixed budget. Recommended ≈ 1× CPA.',
+      dailyTotalPrefix: 'Total value/day: ',
+      dailyTotalFormula: (sym: string, costPerSet: number, count: number) =>
+        `${sym}${costPerSet} × ${count} =`,
+      countLabel: (isAbo: boolean) => `Number of creatives${isAbo ? ' (= ad sets)' : ''}`,
+      recommendedFor: (structure: string, n: number) =>
+        `Recommended for ${structure}: ${n}. You can edit it.`,
+      fillBudgetCpa: 'Fill in budget and CPA, or type how many you want.',
+      useRecommended: (n: number) => `Use ${n}`,
+      cboSpendExplain: (sym: string, budget: number, count: number) =>
+        `You put ${sym}${budget}/day into the campaign; Meta splits it across the ${count} creatives, giving more budget to the ones that sell.`,
+      countGuidanceAboWarn: (recommended: number) =>
+        `Above the recommendation: in ABO each ad gets a fixed budget, and with this budget you can run ~${recommended} with a real signal. Beyond that, it spreads too thin. Typical range: 3–6.`,
+      countGuidanceAboInfo:
+        "In ABO, it's best to stay at or below the recommendation. Typical range: 3–6.",
+      countGuidanceCboInfo:
+        'In CBO you can load more — Meta concentrates the budget on the ones that sell. More creatives = more chances of finding a winner. Typical range: 10–20.',
+    },
+    personas: {
+      heading: (n: number) => `Personas (${n})`,
+      creativesCount: (n: number) => ` · ${n} creatives`,
+    },
+    generateButton: {
+      generating: 'Generating plan…',
+      redo: 'Redo plan',
+      generate: 'Generate creative plan',
+      defineFirst: 'Define the personas in the previous step to generate the plan.',
+      defaultError: 'Error generating the creative plan.',
+    },
+    awarenessSection: {
+      heading: 'Awareness level (inferred)',
+      principalLabel: (label: string) => `Primary: ${label}`,
+    },
+    briefs: {
+      heading: (n: number) => `Creatives (${n})`,
+      createdCount: (done: number, total: number) => `${done} of ${total} created`,
+      vslTitle: 'Plan VSL',
+      vslMinBadge: (min: number) => `~${min} min`,
+      vslDescription: (ticket: string, min: number) =>
+        `${ticket} ticket: ~${min} min VSL to build desire, proof, and break objections. The creatives below drive traffic to it.`,
+      ticketHigh: 'High',
+      ticketMid: 'Medium',
+      ticketLow: 'Low',
+      createVslButton: 'Create VSL →',
+      personaLabel: 'Persona',
+      awarenessBadge: (n: string) => `Aware. ${n}`,
+      editTitle: 'Edit',
+      createArrow: 'Create →',
+      openArrow: 'Open →',
+      openExistingTitle: 'Open the subproject already created',
+      continueButton: 'Continue to copy',
+    },
+  },
 };
