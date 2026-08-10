@@ -2,6 +2,7 @@ import { RefreshCw, Shield, Volume2, User, Sparkles, Zap, Film, Bot } from 'luci
 import { IntegrationCard, type TestStatus } from '@/components/IntegrationCard';
 import { PreferencesSection } from '@/components/PreferencesSection';
 import type { AccentColor } from '@/hooks/useAppPreferences';
+import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 // One provider's worth of state + callbacks. App.tsx still owns the state;
 // this tab is pure presentation and just routes events back up.
@@ -54,6 +55,8 @@ export function IntegrationsTab({
   zapcap,
   preferences,
 }: IntegrationsTabProps) {
+  const { t } = useLanguage();
+  const it = t.integrationsTab;
   const isAdmin = userRole === 'admin';
 
   // Trim noise: each card is configured by a small data record below.
@@ -70,10 +73,9 @@ export function IntegrationsTab({
     {
       state: elevenlabs,
       title: 'ElevenLabs TTS',
-      subtitle: 'Vozes de Alta Fidelidade',
+      subtitle: it.providers.elevenlabs.subtitle,
       envVarName: 'ELEVENLABS_API_KEY',
-      warningText:
-        '⚠️ Esta chave será salva no servidor e usada para todas as gerações de voz da plataforma.',
+      warningText: it.providers.elevenlabs.warning,
       icon: <Volume2 size={20} />,
       iconBgColor: 'bg-blue-100 dark:bg-blue-950/40',
       iconColor: 'text-blue-600 dark:text-blue-400',
@@ -81,10 +83,9 @@ export function IntegrationsTab({
     {
       state: heygen,
       title: 'HeyGen Avatars',
-      subtitle: 'Vídeos com Avatares AI',
+      subtitle: it.providers.heygen.subtitle,
       envVarName: 'HEYGEN_API_KEY',
-      warningText:
-        '⚠️ Esta chave será salva no servidor e usada para geração de vídeos com avatar HeyGen.',
+      warningText: it.providers.heygen.warning,
       icon: <User size={20} />,
       iconBgColor: 'bg-purple-100 dark:bg-purple-950/40',
       iconColor: 'text-purple-600 dark:text-purple-400',
@@ -92,10 +93,9 @@ export function IntegrationsTab({
     {
       state: runway,
       title: 'Runway Gen-3 Alpha',
-      subtitle: 'Vídeos Cinematográficos',
+      subtitle: it.providers.runway.subtitle,
       envVarName: 'RUNWAY_API_KEY',
-      warningText:
-        '⚠️ Esta chave será salva no servidor e usada para todas as gerações de vídeo Runway da plataforma.',
+      warningText: it.providers.runway.warning,
       icon: <Sparkles size={20} />,
       iconBgColor: 'bg-orange-100 dark:bg-orange-950/40',
       iconColor: 'text-orange-600 dark:text-orange-400',
@@ -103,10 +103,9 @@ export function IntegrationsTab({
     {
       state: gemini,
       title: 'Google Gemini',
-      subtitle: 'IA Generativa de Copy + Hooks',
+      subtitle: it.providers.gemini.subtitle,
       envVarName: 'GEMINI_API_KEY',
-      warningText:
-        '⚠️ Esta chave será salva no servidor e usada para geração de copy, hooks e roteiros via Google Gemini.',
+      warningText: it.providers.gemini.warning,
       icon: <Sparkles size={20} />,
       iconBgColor: 'bg-amber-100 dark:bg-amber-950/40',
       iconColor: 'text-amber-600 dark:text-amber-400',
@@ -114,10 +113,9 @@ export function IntegrationsTab({
     {
       state: claude,
       title: 'Anthropic Claude',
-      subtitle: 'Copy, Hooks, Personas',
+      subtitle: it.providers.claude.subtitle,
       envVarName: 'CLAUDE_API_KEY',
-      warningText:
-        '⚠️ Esta chave será salva no servidor e usada para gerar copy (beats Schwartz), hooks, otimização para ElevenLabs e descoberta de persona.',
+      warningText: it.providers.claude.warning,
       icon: <Bot size={20} />,
       iconBgColor: 'bg-indigo-100 dark:bg-indigo-950/40',
       iconColor: 'text-indigo-600 dark:text-indigo-400',
@@ -125,10 +123,9 @@ export function IntegrationsTab({
     {
       state: assemblyai,
       title: 'AssemblyAI',
-      subtitle: 'Transcrição + Análise Neural',
+      subtitle: it.providers.assemblyai.subtitle,
       envVarName: 'ASSEMBLYAI_API_KEY',
-      warningText:
-        '⚠️ Esta chave será salva no servidor e usada para transcrição e análise de áudio via AssemblyAI.',
+      warningText: it.providers.assemblyai.warning,
       icon: <Zap size={20} />,
       iconBgColor: 'bg-blue-100 dark:bg-blue-950/40',
       iconColor: 'text-blue-600 dark:text-blue-400',
@@ -136,10 +133,9 @@ export function IntegrationsTab({
     {
       state: zapcap,
       title: 'ZapCap Engine',
-      subtitle: 'Legendas + Edição Automática',
+      subtitle: it.providers.zapcap.subtitle,
       envVarName: 'ZAPCAP_API_KEY',
-      warningText:
-        '⚠️ Esta chave será salva no servidor e usada para edição de legendas + b-rolls via ZapCap.',
+      warningText: it.providers.zapcap.warning,
       icon: <Film size={20} />,
       iconBgColor: 'bg-purple-100 dark:bg-purple-950/40',
       iconColor: 'text-purple-600 dark:text-purple-400',
@@ -158,17 +154,15 @@ export function IntegrationsTab({
             </div>
             <div>
               <h3 className="text-2xl font-black text-gray-900 dark:text-gray-50 tracking-tight">
-                Status das Integrações
+                {it.statusTitle}
               </h3>
-              <p className="text-gray-500 dark:text-gray-400 text-sm">
-                Verifique a conectividade com as plataformas parceiras.
-              </p>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">{it.statusSubtitle}</p>
             </div>
           </div>
           {isAdmin && (
             <div className="flex items-center gap-2 px-3 py-1 bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 rounded-full text-[10px] font-bold ring-1 ring-amber-200/60 dark:ring-amber-900/40">
               <Shield size={12} />
-              MODO ADMIN
+              {it.adminModeBadge}
             </div>
           )}
         </div>
@@ -203,16 +197,15 @@ export function IntegrationsTab({
           <div className="flex items-center gap-3 mb-2">
             <Sparkles className="text-blue-600 dark:text-blue-400" size={18} />
             <h4 className="font-bold text-blue-900 dark:text-blue-200 text-sm">
-              Sistema de Créditos
+              {it.creditsTitle}
             </h4>
           </div>
           <p className="text-xs text-blue-700 dark:text-blue-300/90 leading-relaxed">
-            Sua conta possui{' '}
+            {it.creditsPrefix}{' '}
             <strong className="font-black text-blue-900 dark:text-blue-100">
-              {credits} créditos
+              {it.creditsAmountLabel(credits)}
             </strong>{' '}
-            disponíveis. Cada geração de voz consome créditos proporcionalmente ao tamanho do texto
-            (1 crédito por 10 caracteres).
+            {it.creditsSuffix}
           </p>
         </div>
       </div>

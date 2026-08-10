@@ -6,6 +6,7 @@ import { ImageIcon, Loader2, X, Check, Download, Sparkles, Film } from 'lucide-r
 import { useJobs } from '@/lib/jobsStore';
 import { logCreativeCost, COST_RATES } from '@/lib/creativeCost';
 import { useFileDrop } from '@/hooks/useFileDrop';
+import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 interface Props {
   user?: { uid?: string } | null;
@@ -23,6 +24,8 @@ interface Img {
 const ASPECTS = ['1:1', '16:9', '9:16'] as const;
 
 export function ImagemIATab({ user, onUseInVideo }: Props) {
+  const { t } = useLanguage();
+  const it = t.imagemIaTab;
   const uid = user?.uid || auth.currentUser?.uid;
   const { addJob, updateJob } = useJobs();
 
@@ -78,7 +81,11 @@ export function ImagemIATab({ user, onUseInVideo }: Props) {
             const bp = base(v.url);
             if (seen.has(bp)) continue;
             seen.add(bp);
-            merged.push({ url: v.url, prompt: '', at: v.createdAt ? Date.parse(v.createdAt) : Date.now() });
+            merged.push({
+              url: v.url,
+              prompt: '',
+              at: v.createdAt ? Date.parse(v.createdAt) : Date.now(),
+            });
           }
           for (const x of prev) {
             if (!seen.has(base(x.url))) {
@@ -92,15 +99,12 @@ export function ImagemIATab({ user, onUseInVideo }: Props) {
         /* mantém */
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uid]);
-
-  const { dragging: dragRef, dropHandlers: refDrop } = useFileDrop((files) => uploadRef(files[0]));
 
   const uploadRef = async (file?: File | null) => {
     if (!file) return;
-    if (!file.type.startsWith('image/')) return toast.error('Envie um arquivo de imagem.');
-    if (!uid) return toast.error('Faça login pra enviar imagem.');
+    if (!file.type.startsWith('image/')) return toast.error(it.toasts.invalidFile);
+    if (!uid) return toast.error(it.toasts.loginToUpload);
     setRefUploading(true);
     try {
       const safe = file.name.replace(/[^a-z0-9.-]/gi, '_');
@@ -108,23 +112,25 @@ export function ImagemIATab({ user, onUseInVideo }: Props) {
       await uploadBytes(r, file, { contentType: file.type || 'image/png' });
       const url = await getDownloadURL(r);
       setRefs((prev) => [...prev, url]);
-      toast.success('Referência adicionada.');
+      toast.success(it.toasts.refAdded);
     } catch (e: any) {
-      toast.error(e?.message || 'Falha no upload.');
+      toast.error(e?.message || it.toasts.uploadFailed);
     } finally {
       setRefUploading(false);
     }
   };
 
+  const { dragging: dragRef, dropHandlers: refDrop } = useFileDrop((files) => uploadRef(files[0]));
+
   const generate = async () => {
-    if (!uid) return toast.error('Faça login pra gerar.');
+    if (!uid) return toast.error(it.toasts.loginToGenerate);
     if (!prompt.trim() && refs.length === 0) {
-      return toast.error('Descreva a imagem (ou envie uma referência).');
+      return toast.error(it.toasts.describeOrUpload);
     }
     setGenerating(true);
     const tid = 'fal-image';
     const jid = addJob('Imagem IA (Nano Banana)');
-    toast.loading('Gerando a imagem…', { id: tid });
+    toast.loading(it.toasts.generating, { id: tid });
     try {
       const r = await fetch('/api/fal/image', {
         method: 'POST',
@@ -132,13 +138,13 @@ export function ImagemIATab({ user, onUseInVideo }: Props) {
         body: JSON.stringify({ prompt: prompt.trim(), imageUrls: refs, aspectRatio, userId: uid }),
       });
       const d = await r.json();
-      if (!r.ok) throw new Error(d.error || 'Falha ao gerar a imagem.');
+      if (!r.ok) throw new Error(d.error || it.toasts.generateFailed);
       setResults((prev) => [{ url: d.url, prompt: prompt.trim(), at: Date.now() }, ...prev]);
-      toast.success('Imagem pronta!', { id: tid });
+      toast.success(it.toasts.ready, { id: tid });
       updateJob(jid, { status: 'done' });
       logCreativeCost('Imagem IA (Nano Banana)', COST_RATES.image);
     } catch (e: any) {
-      toast.error(e?.message || 'Erro ao gerar.', { id: tid });
+      toast.error(e?.message || it.toasts.generateError, { id: tid });
       updateJob(jid, { status: 'error' });
     } finally {
       setGenerating(false);
@@ -146,8 +152,10 @@ export function ImagemIATab({ user, onUseInVideo }: Props) {
     }
   };
 
-  const box = 'bg-white dark:bg-gray-900/70 rounded-2xl border border-gray-200 dark:border-gray-800 p-4';
-  const stepLabel = 'text-[11px] font-black uppercase tracking-widest text-pink-600 dark:text-pink-400';
+  const box =
+    'bg-white dark:bg-gray-900/70 rounded-2xl border border-gray-200 dark:border-gray-800 p-4';
+  const stepLabel =
+    'text-[11px] font-black uppercase tracking-widest text-pink-600 dark:text-pink-400';
 
   return (
     <div className="space-y-4 max-w-3xl mx-auto">
@@ -155,37 +163,38 @@ export function ImagemIATab({ user, onUseInVideo }: Props) {
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">
           <ImageIcon size={20} className="text-pink-600 dark:text-pink-400" />
-          <h2 className="text-lg font-black text-gray-900 dark:text-gray-100">Imagem IA</h2>
+          <h2 className="text-lg font-black text-gray-900 dark:text-gray-100">{it.title}</h2>
         </div>
         <button
           onClick={fetchBalance}
-          title="Saldo de créditos do fal"
+          title={it.balanceButtonTitle}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 text-xs font-black text-gray-700 dark:text-gray-200 hover:border-pink-300"
         >
           <span className="text-pink-600 dark:text-pink-400">◈</span>
-          Créditos fal: {balance == null ? '—' : `$${balance.toFixed(2)}`}
+          {it.balanceLabel(balance == null ? '—' : `$${balance.toFixed(2)}`)}
         </button>
       </div>
       <p className="text-sm text-gray-500 dark:text-gray-400 -mt-2">
-        Gera imagens com <b>Nano Banana</b> (~$0.04). Envie uma <b>referência</b> (ex.: a boneca) pra
-        compor ("a mulher segurando essa boneca"). Depois use no <b>Vídeo IA</b> pra animar.
+        {it.descriptionPart1} <b>{it.nanoBananaBold}</b> {it.descriptionPart2}{' '}
+        <b>{it.referenceBold}</b> {it.descriptionPart3} <b>{it.videoIaBold}</b>{' '}
+        {it.descriptionPart4}
       </p>
 
       {/* 1 · prompt */}
       <div className={box + ' space-y-2'}>
-        <span className={stepLabel}>1 · Descreva a imagem</span>
+        <span className={stepLabel}>{it.step1Label}</span>
         <textarea
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           rows={3}
-          placeholder="ex.: foto realista de uma mulher de 40 anos segurando essa boneca reborn, sala aconchegante, luz natural de janela, estilo foto de celular"
+          placeholder={it.promptPlaceholder}
           className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-gray-100 text-sm resize-none"
         />
       </div>
 
       {/* 2 · referências */}
       <div className={box + ' space-y-2'}>
-        <span className={stepLabel}>2 · Referências (opcional)</span>
+        <span className={stepLabel}>{it.step2Label}</span>
         <div className="flex items-center gap-2 flex-wrap">
           {refs.map((u, i) => (
             <div key={u} className="relative">
@@ -206,23 +215,34 @@ export function ImagemIATab({ user, onUseInVideo }: Props) {
                 : 'border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-pink-400'
             }`}
           >
-            {refUploading ? <Loader2 size={14} className="animate-spin" /> : <ImageIcon size={14} />}
-            {dragRef ? 'Solte a imagem' : 'Enviar referência (ou arraste)'}
-            <input type="file" accept="image/*" className="hidden" onChange={(e) => uploadRef(e.target.files?.[0])} />
+            {refUploading ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <ImageIcon size={14} />
+            )}
+            {dragRef ? it.dropHint : it.uploadRefLabel}
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => uploadRef(e.target.files?.[0])}
+            />
           </label>
         </div>
       </div>
 
       {/* 3 · formato */}
       <div className={box}>
-        <span className={stepLabel}>3 · Formato</span>
+        <span className={stepLabel}>{it.step3Label}</span>
         <div className="mt-1 flex gap-1">
           {ASPECTS.map((a) => (
             <button
               key={a}
               onClick={() => setAspectRatio(a)}
               className={`px-3 py-1.5 rounded-lg text-xs font-black ${
-                aspectRatio === a ? 'bg-pink-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'
+                aspectRatio === a
+                  ? 'bg-pink-600 text-white'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300'
               }`}
             >
               {a}
@@ -237,9 +257,13 @@ export function ImagemIATab({ user, onUseInVideo }: Props) {
         className="w-full py-3.5 bg-pink-600 text-white rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-pink-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
       >
         {generating ? (
-          <><Loader2 size={16} className="animate-spin" /> Gerando…</>
+          <>
+            <Loader2 size={16} className="animate-spin" /> {it.generatingButton}
+          </>
         ) : (
-          <><Sparkles size={16} /> Gerar imagem · ≈ $0.04</>
+          <>
+            <Sparkles size={16} /> {it.generateButton}
+          </>
         )}
       </button>
 
@@ -247,12 +271,16 @@ export function ImagemIATab({ user, onUseInVideo }: Props) {
       {results.length > 0 && (
         <div className="space-y-3">
           <span className="text-[11px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">
-            Imagens geradas
+            {it.galleryLabel}
           </span>
           <div className="grid grid-cols-2 gap-3">
             {results.map((img, idx) => (
               <div key={img.at} className={box + ' space-y-2'}>
-                <img src={img.url} alt="gerada" className="w-full rounded-xl bg-black object-contain max-h-[300px]" />
+                <img
+                  src={img.url}
+                  alt="gerada"
+                  className="w-full rounded-xl bg-black object-contain max-h-[300px]"
+                />
                 <div className="flex items-center gap-2 flex-wrap">
                   <a
                     href={img.url}
@@ -261,23 +289,25 @@ export function ImagemIATab({ user, onUseInVideo }: Props) {
                     download
                     className="inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-widest text-gray-600 dark:text-gray-300 hover:underline"
                   >
-                    <Download size={12} /> Baixar
+                    <Download size={12} /> {it.downloadButton}
                   </a>
                   {onUseInVideo &&
                     (img.used ? (
                       <span className="inline-flex items-center gap-1 text-[11px] font-black text-green-600 dark:text-green-400">
-                        <Check size={12} /> no Vídeo IA
+                        <Check size={12} /> {it.usedInVideoLabel}
                       </span>
                     ) : (
                       <button
                         onClick={() => {
                           onUseInVideo(img.url);
-                          setResults((prev) => prev.map((x, i) => (i === idx ? { ...x, used: true } : x)));
-                          toast.success('Disponível no Vídeo IA como imagem inicial.');
+                          setResults((prev) =>
+                            prev.map((x, i) => (i === idx ? { ...x, used: true } : x))
+                          );
+                          toast.success(it.toasts.availableInVideoIa);
                         }}
                         className="inline-flex items-center gap-1 text-[11px] font-black px-2.5 py-1 rounded-lg bg-purple-600 text-white hover:bg-purple-700"
                       >
-                        <Film size={12} /> Usar no Vídeo IA
+                        <Film size={12} /> {it.useInVideoButton}
                       </button>
                     ))}
                 </div>

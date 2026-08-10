@@ -1600,4 +1600,144 @@ export const pt = {
       noMusic: 'Sem Música',
     },
   },
+  hubTab: {
+    subprojectFallback: 'Subprojeto',
+    stages: {
+      copy: { label: 'Copy', hint: 'O roteiro do anúncio.' },
+      voice: { label: 'Voz', hint: 'Narração com voz IA.' },
+      video: { label: 'Vídeo', hint: 'Avatar ou clipes IA.' },
+      montagem: { label: 'Montagem', hint: 'Monta no tempo do áudio.' },
+      edit: { label: 'Edição', hint: 'Legendas e b-roll.' },
+    },
+    progress: {
+      ready: (done: number, total: number) => `${done}/${total} etapas prontas.`,
+      missing: (list: string) => `Falta: ${list}.`,
+      allDone: 'Tudo pronto! 🎉',
+    },
+    nextStepLabel: 'Próximo passo',
+    statusDone: 'pronto',
+    statusPending: 'pendente',
+    latestVideoLabel: 'Vídeo mais recente',
+    coverLabel: 'Capa',
+    coverAlt: 'capa',
+  },
+  integrationsTab: {
+    statusTitle: 'Status das Integrações',
+    statusSubtitle: 'Verifique a conectividade com as plataformas parceiras.',
+    adminModeBadge: 'MODO ADMIN',
+    providers: {
+      elevenlabs: {
+        subtitle: 'Vozes de Alta Fidelidade',
+        warning:
+          '⚠️ Esta chave será salva no servidor e usada para todas as gerações de voz da plataforma.',
+      },
+      heygen: {
+        subtitle: 'Vídeos com Avatares AI',
+        warning:
+          '⚠️ Esta chave será salva no servidor e usada para geração de vídeos com avatar HeyGen.',
+      },
+      runway: {
+        subtitle: 'Vídeos Cinematográficos',
+        warning:
+          '⚠️ Esta chave será salva no servidor e usada para todas as gerações de vídeo Runway da plataforma.',
+      },
+      gemini: {
+        subtitle: 'IA Generativa de Copy + Hooks',
+        warning:
+          '⚠️ Esta chave será salva no servidor e usada para geração de copy, hooks e roteiros via Google Gemini.',
+      },
+      claude: {
+        subtitle: 'Copy, Hooks, Personas',
+        warning:
+          '⚠️ Esta chave será salva no servidor e usada para gerar copy (beats Schwartz), hooks, otimização para ElevenLabs e descoberta de persona.',
+      },
+      assemblyai: {
+        subtitle: 'Transcrição + Análise Neural',
+        warning:
+          '⚠️ Esta chave será salva no servidor e usada para transcrição e análise de áudio via AssemblyAI.',
+      },
+      zapcap: {
+        subtitle: 'Legendas + Edição Automática',
+        warning:
+          '⚠️ Esta chave será salva no servidor e usada para edição de legendas + b-rolls via ZapCap.',
+      },
+    },
+    creditsTitle: 'Sistema de Créditos',
+    creditsPrefix: 'Sua conta possui',
+    creditsAmountLabel: (n: number) => `${n} créditos`,
+    creditsSuffix:
+      'disponíveis. Cada geração de voz consome créditos proporcionalmente ao tamanho do texto (1 crédito por 10 caracteres).',
+  },
+  recortarTab: {
+    title: 'Recortar / Redimensionar',
+    subtitle:
+      'Arraste a caixa pra recortar exatamente onde quiser, escolha o tamanho de saída (qualquer W×H) e, se quiser, corte no tempo.',
+    toasts: {
+      invalidFile: 'Envie um arquivo de vídeo.',
+      login: 'Faça login.',
+      videoLoaded: 'Vídeo carregado.',
+      uploadFailed: 'Falha no upload.',
+      uploadFirst: 'Envie um vídeo primeiro.',
+      processing: 'Processando o recorte…',
+      processFailed: 'Falha ao processar.',
+      done: 'Pronto!',
+      processError: 'Erro ao processar.',
+    },
+    uploadLabel: 'Enviar vídeo',
+    sourceInfo: (w: number, h: number, cw: number, ch: number) =>
+      `Fonte: ${w}×${h}. Recorte: ${cw}×${ch}px.`,
+    outputSizeLabel: 'Tamanho de saída',
+    useCropSizeLabel: (w: number, h: number) => `Usar o tamanho do recorte (${w}×${h})`,
+    widthLabel: 'Largura',
+    heightLabel: 'Altura',
+    px: 'px',
+    trimTimeLabel: (dur: string) => `Cortar no tempo (opcional) · vídeo tem ${dur}s`,
+    fromLabel: 'De',
+    toLabel: 's até',
+    secondsLabel: 's',
+    processingButton: 'Processando…',
+    applyButton: 'Aplicar',
+    changeVideoButton: 'Trocar vídeo',
+    resultLabel: 'Resultado',
+    downloadButton: 'Baixar',
+  },
+  imagemIaTab: {
+    title: 'Imagem IA',
+    balanceButtonTitle: 'Saldo de créditos do fal',
+    balanceLabel: (v: string) => `Créditos fal: ${v}`,
+    descriptionPart1: 'Gera imagens com',
+    nanoBananaBold: 'Nano Banana',
+    descriptionPart2: '(~$0.04). Envie uma',
+    referenceBold: 'referência',
+    descriptionPart3:
+      '(ex.: a boneca) pra compor ("a mulher segurando essa boneca"). Depois use no',
+    videoIaBold: 'Vídeo IA',
+    descriptionPart4: 'pra animar.',
+    step1Label: '1 · Descreva a imagem',
+    promptPlaceholder:
+      'ex.: foto realista de uma mulher de 40 anos segurando essa boneca reborn, sala aconchegante, luz natural de janela, estilo foto de celular',
+    step2Label: '2 · Referências (opcional)',
+    dropHint: 'Solte a imagem',
+    uploadRefLabel: 'Enviar referência (ou arraste)',
+    step3Label: '3 · Formato',
+    generatingButton: 'Gerando…',
+    generateButton: 'Gerar imagem · ≈ $0.04',
+    galleryLabel: 'Imagens geradas',
+    downloadButton: 'Baixar',
+    usedInVideoLabel: 'no Vídeo IA',
+    useInVideoButton: 'Usar no Vídeo IA',
+    toasts: {
+      invalidFile: 'Envie um arquivo de imagem.',
+      loginToUpload: 'Faça login pra enviar imagem.',
+      refAdded: 'Referência adicionada.',
+      uploadFailed: 'Falha no upload.',
+      loginToGenerate: 'Faça login pra gerar.',
+      describeOrUpload: 'Descreva a imagem (ou envie uma referência).',
+      generating: 'Gerando a imagem…',
+      generateFailed: 'Falha ao gerar a imagem.',
+      ready: 'Imagem pronta!',
+      generateError: 'Erro ao gerar.',
+      availableInVideoIa: 'Disponível no Vídeo IA como imagem inicial.',
+    },
+  },
 };

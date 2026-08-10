@@ -1,6 +1,7 @@
 import { Check, ArrowRight, Edit3, Sparkles, User, Film, Zap } from 'lucide-react';
 import type { Step } from '@/types/project';
 import type { LucideIcon } from 'lucide-react';
+import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 // HUB do subprojeto: porta de entrada com o que já tem (✓), previews dos vídeos
 // prontos e um botão grande "próximo passo →" pra guiar o fluxo.
@@ -20,28 +21,72 @@ interface Stage {
 }
 
 export function HubTab({ config, projectName, onGo }: Props) {
+  const { t } = useLanguage();
+  const ht = t.hubTab;
   const c = config || {};
   const stages: Stage[] = [
-    { label: 'Copy', done: !!(c.copy?.finalScript || c.copy?.generatedScript), step: 'copy', icon: Edit3, hint: 'O roteiro do anúncio.' },
-    { label: 'Voz', done: !!(c.audioUrl || c.audios?.length || c.copy?.hookAudios?.length), step: 'voz-premium', icon: Sparkles, hint: 'Narração com voz IA.' },
-    { label: 'Vídeo', done: !!(c.videoUrl || c.videos?.length), step: 'avatar', icon: User, hint: 'Avatar ou clipes IA.' },
-    { label: 'Montagem', done: !!c.montagem?.resultUrl, step: 'montagem', icon: Film, hint: 'Monta no tempo do áudio.' },
-    { label: 'Edição', done: !!(c.edit?.zapVersions?.length || c.edit?.zapVslVersions?.length || c.edit?.zapHookVersions?.length), step: 'edit-zap', icon: Zap, hint: 'Legendas e b-roll.' },
+    {
+      label: ht.stages.copy.label,
+      done: !!(c.copy?.finalScript || c.copy?.generatedScript),
+      step: 'copy',
+      icon: Edit3,
+      hint: ht.stages.copy.hint,
+    },
+    {
+      label: ht.stages.voice.label,
+      done: !!(c.audioUrl || c.audios?.length || c.copy?.hookAudios?.length),
+      step: 'voz-premium',
+      icon: Sparkles,
+      hint: ht.stages.voice.hint,
+    },
+    {
+      label: ht.stages.video.label,
+      done: !!(c.videoUrl || c.videos?.length),
+      step: 'avatar',
+      icon: User,
+      hint: ht.stages.video.hint,
+    },
+    {
+      label: ht.stages.montagem.label,
+      done: !!c.montagem?.resultUrl,
+      step: 'montagem',
+      icon: Film,
+      hint: ht.stages.montagem.hint,
+    },
+    {
+      label: ht.stages.edit.label,
+      done: !!(
+        c.edit?.zapVersions?.length ||
+        c.edit?.zapVslVersions?.length ||
+        c.edit?.zapHookVersions?.length
+      ),
+      step: 'edit-zap',
+      icon: Zap,
+      hint: ht.stages.edit.hint,
+    },
   ];
   const doneCount = stages.filter((s) => s.done).length;
   const next = stages.find((s) => !s.done);
-  const finalVideo = c.montagem?.resultUrl || c.edit?.zapVersions?.[c.edit.zapVersions.length - 1] || c.videoUrl;
+  const finalVideo =
+    c.montagem?.resultUrl || c.edit?.zapVersions?.[c.edit.zapVersions.length - 1] || c.videoUrl;
   const cover = c.montagem?.coverUrl || c.montagem?.coverOptions?.[0];
 
   return (
     <div className="max-w-5xl mx-auto space-y-5">
       <div>
         <h2 className="text-xl font-black text-gray-900 dark:text-gray-100">
-          {projectName || 'Subprojeto'}
+          {projectName || ht.subprojectFallback}
         </h2>
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          {doneCount}/{stages.length} etapas prontas.{' '}
-          {next ? `Falta: ${stages.filter((s) => !s.done).map((s) => s.label).join(', ')}.` : 'Tudo pronto! 🎉'}
+          {ht.progress.ready(doneCount, stages.length)}{' '}
+          {next
+            ? ht.progress.missing(
+                stages
+                  .filter((s) => !s.done)
+                  .map((s) => s.label)
+                  .join(', ')
+              )
+            : ht.progress.allDone}
         </p>
       </div>
 
@@ -55,9 +100,11 @@ export function HubTab({ config, projectName, onGo }: Props) {
             <next.icon size={22} />
             <span className="text-left">
               <span className="block text-[10px] font-black uppercase tracking-widest opacity-80">
-                Próximo passo
+                {ht.nextStepLabel}
               </span>
-              <span className="block text-base font-black">{next.label} — {next.hint}</span>
+              <span className="block text-base font-black">
+                {next.label} — {next.hint}
+              </span>
             </span>
           </span>
           <ArrowRight size={22} />
@@ -84,8 +131,12 @@ export function HubTab({ config, projectName, onGo }: Props) {
                 <span className="w-3 h-3 rounded-full border-2 border-gray-300 dark:border-gray-600 inline-block" />
               )}
             </div>
-            <div className="mt-2 text-sm font-black text-gray-800 dark:text-gray-100">{s.label}</div>
-            <div className="text-[10px] text-gray-400">{s.done ? 'pronto' : 'pendente'}</div>
+            <div className="mt-2 text-sm font-black text-gray-800 dark:text-gray-100">
+              {s.label}
+            </div>
+            <div className="text-[10px] text-gray-400">
+              {s.done ? ht.statusDone : ht.statusPending}
+            </div>
           </button>
         ))}
       </div>
@@ -96,15 +147,26 @@ export function HubTab({ config, projectName, onGo }: Props) {
           {finalVideo && (
             <div className="space-y-1">
               <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">
-                Vídeo mais recente
+                {ht.latestVideoLabel}
               </span>
-              <video src={finalVideo} controls poster={cover} className="w-full rounded-xl bg-black max-h-[360px]" />
+              <video
+                src={finalVideo}
+                controls
+                poster={cover}
+                className="w-full rounded-xl bg-black max-h-[360px]"
+              />
             </div>
           )}
           {cover && (
             <div className="space-y-1">
-              <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">Capa</span>
-              <img src={cover} alt="capa" className="w-full rounded-xl bg-black object-contain max-h-[360px]" />
+              <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">
+                {ht.coverLabel}
+              </span>
+              <img
+                src={cover}
+                alt={ht.coverAlt}
+                className="w-full rounded-xl bg-black object-contain max-h-[360px]"
+              />
             </div>
           )}
         </div>

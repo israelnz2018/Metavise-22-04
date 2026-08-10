@@ -1594,4 +1594,144 @@ export const en: typeof pt = {
       noMusic: 'No Music',
     },
   },
+  hubTab: {
+    subprojectFallback: 'Subproject',
+    stages: {
+      copy: { label: 'Copy', hint: 'The ad script.' },
+      voice: { label: 'Voice', hint: 'AI voice narration.' },
+      video: { label: 'Video', hint: 'AI avatar or clips.' },
+      montagem: { label: 'Assembly', hint: 'Assembles to the audio timing.' },
+      edit: { label: 'Editing', hint: 'Subtitles and b-roll.' },
+    },
+    progress: {
+      ready: (done: number, total: number) => `${done}/${total} steps ready.`,
+      missing: (list: string) => `Missing: ${list}.`,
+      allDone: 'All done! 🎉',
+    },
+    nextStepLabel: 'Next step',
+    statusDone: 'ready',
+    statusPending: 'pending',
+    latestVideoLabel: 'Latest video',
+    coverLabel: 'Cover',
+    coverAlt: 'cover',
+  },
+  integrationsTab: {
+    statusTitle: 'Integration Status',
+    statusSubtitle: 'Check connectivity with partner platforms.',
+    adminModeBadge: 'ADMIN MODE',
+    providers: {
+      elevenlabs: {
+        subtitle: 'High-Fidelity Voices',
+        warning:
+          '⚠️ This key will be saved on the server and used for every voice generation on the platform.',
+      },
+      heygen: {
+        subtitle: 'AI Avatar Videos',
+        warning:
+          '⚠️ This key will be saved on the server and used for HeyGen avatar video generation.',
+      },
+      runway: {
+        subtitle: 'Cinematic Videos',
+        warning:
+          '⚠️ This key will be saved on the server and used for every Runway video generation on the platform.',
+      },
+      gemini: {
+        subtitle: 'Generative AI for Copy + Hooks',
+        warning:
+          '⚠️ This key will be saved on the server and used to generate copy, hooks, and scripts via Google Gemini.',
+      },
+      claude: {
+        subtitle: 'Copy, Hooks, Personas',
+        warning:
+          '⚠️ This key will be saved on the server and used to generate copy (Schwartz beats), hooks, ElevenLabs optimization, and persona discovery.',
+      },
+      assemblyai: {
+        subtitle: 'Transcription + Neural Analysis',
+        warning:
+          '⚠️ This key will be saved on the server and used for audio transcription and analysis via AssemblyAI.',
+      },
+      zapcap: {
+        subtitle: 'Subtitles + Automatic Editing',
+        warning:
+          '⚠️ This key will be saved on the server and used for subtitle + b-roll editing via ZapCap.',
+      },
+    },
+    creditsTitle: 'Credits System',
+    creditsPrefix: 'Your account has',
+    creditsAmountLabel: (n: number) => `${n} credits`,
+    creditsSuffix:
+      'available. Each voice generation consumes credits proportional to the text length (1 credit per 10 characters).',
+  },
+  recortarTab: {
+    title: 'Crop / Resize',
+    subtitle:
+      'Drag the box to crop exactly where you want, choose the output size (any W×H), and, if you want, trim it in time.',
+    toasts: {
+      invalidFile: 'Upload a video file.',
+      login: 'Please log in.',
+      videoLoaded: 'Video loaded.',
+      uploadFailed: 'Upload failed.',
+      uploadFirst: 'Upload a video first.',
+      processing: 'Processing the crop…',
+      processFailed: 'Failed to process.',
+      done: 'Done!',
+      processError: 'Error processing.',
+    },
+    uploadLabel: 'Upload video',
+    sourceInfo: (w: number, h: number, cw: number, ch: number) =>
+      `Source: ${w}×${h}. Crop: ${cw}×${ch}px.`,
+    outputSizeLabel: 'Output size',
+    useCropSizeLabel: (w: number, h: number) => `Use the crop size (${w}×${h})`,
+    widthLabel: 'Width',
+    heightLabel: 'Height',
+    px: 'px',
+    trimTimeLabel: (dur: string) => `Trim in time (optional) · video is ${dur}s`,
+    fromLabel: 'From',
+    toLabel: 's to',
+    secondsLabel: 's',
+    processingButton: 'Processing…',
+    applyButton: 'Apply',
+    changeVideoButton: 'Change video',
+    resultLabel: 'Result',
+    downloadButton: 'Download',
+  },
+  imagemIaTab: {
+    title: 'AI Image',
+    balanceButtonTitle: 'fal credit balance',
+    balanceLabel: (v: string) => `fal credits: ${v}`,
+    descriptionPart1: 'Generates images with',
+    nanoBananaBold: 'Nano Banana',
+    descriptionPart2: '(~$0.04). Upload a',
+    referenceBold: 'reference',
+    descriptionPart3:
+      '(e.g. the doll) to compose it ("the woman holding this doll"). Then use it in',
+    videoIaBold: 'AI Video',
+    descriptionPart4: 'to animate it.',
+    step1Label: '1 · Describe the image',
+    promptPlaceholder:
+      'e.g.: realistic photo of a 40-year-old woman holding this reborn doll, cozy living room, natural window light, phone photo style',
+    step2Label: '2 · References (optional)',
+    dropHint: 'Drop the image',
+    uploadRefLabel: 'Upload reference (or drag)',
+    step3Label: '3 · Format',
+    generatingButton: 'Generating…',
+    generateButton: 'Generate image · ≈ $0.04',
+    galleryLabel: 'Generated images',
+    downloadButton: 'Download',
+    usedInVideoLabel: 'in AI Video',
+    useInVideoButton: 'Use in AI Video',
+    toasts: {
+      invalidFile: 'Upload an image file.',
+      loginToUpload: 'Log in to upload an image.',
+      refAdded: 'Reference added.',
+      uploadFailed: 'Upload failed.',
+      loginToGenerate: 'Log in to generate.',
+      describeOrUpload: 'Describe the image (or upload a reference).',
+      generating: 'Generating the image…',
+      generateFailed: 'Failed to generate the image.',
+      ready: 'Image ready!',
+      generateError: 'Error generating.',
+      availableInVideoIa: 'Available in AI Video as the starting image.',
+    },
+  },
 };
