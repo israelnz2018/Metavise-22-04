@@ -14,31 +14,15 @@ import {
   X,
 } from 'lucide-react';
 import type { MusicTrack } from '@/types/project';
+import { loadMusicLibrary, addToMusicLibrary, deleteFromMusicLibrary } from '@/lib/musicLibrary';
 import {
-  loadMusicLibrary,
-  addToMusicLibrary,
-  deleteFromMusicLibrary,
-} from '@/lib/musicLibrary';
-
-function formatRelativeDate(iso: string): string {
-  const d = new Date(iso);
-  const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
-  const diffMin = Math.floor(diffMs / 60_000);
-  if (diffMin < 1) return 'agora';
-  if (diffMin < 60) return `${diffMin}min atrás`;
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h atrás`;
-  const diffDay = Math.floor(diffHr / 24);
-  if (diffDay < 7) return `${diffDay}d atrás`;
-  return d.toLocaleDateString('pt-BR');
-}
-
-function formatBytes(n: number): string {
-  if (n < 1024) return `${n}B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)}KB`;
-  return `${(n / (1024 * 1024)).toFixed(1)}MB`;
-}
+  STYLE_OPTIONS,
+  ENERGY_OPTIONS,
+  TEMPO_OPTIONS,
+  INSTRUMENT_OPTIONS,
+  formatRelativeDate,
+  formatBytes,
+} from '@/lib/musicPresets';
 
 // F7.2 — Background music section for EditZapTab.
 //
@@ -94,36 +78,6 @@ interface MusicArcPlan {
   negativeGlobalStyles: string[];
   sections: MusicArcSection[];
 }
-
-// Presets de estilo/gênero (label PT + token EN pro gerador).
-const STYLE_OPTIONS = [
-  { id: 'cinematic', label: 'Cinematográfico', en: 'cinematic' },
-  { id: 'corporate', label: 'Corporativo', en: 'corporate, clean' },
-  { id: 'lofi', label: 'Lo-fi', en: 'lo-fi, chill' },
-  { id: 'epic', label: 'Épico', en: 'epic, orchestral' },
-  { id: 'acoustic', label: 'Acústico', en: 'acoustic, organic' },
-  { id: 'electronic', label: 'Eletrônico', en: 'electronic' },
-  { id: 'pop', label: 'Pop', en: 'modern pop' },
-];
-const ENERGY_OPTIONS = [
-  { id: 'baixa', label: 'Baixa', en: 'low energy' },
-  { id: 'media', label: 'Média', en: 'medium energy' },
-  { id: 'alta', label: 'Alta', en: 'high energy' },
-];
-const TEMPO_OPTIONS = [
-  { id: 'calmo', label: 'Calmo', en: 'slow tempo' },
-  { id: 'medio', label: 'Médio', en: 'mid tempo' },
-  { id: 'acelerado', label: 'Acelerado', en: 'fast tempo' },
-];
-const INSTRUMENT_OPTIONS = [
-  { id: 'piano', label: 'Piano', en: 'piano' },
-  { id: 'violin', label: 'Violino', en: 'solo violin' },
-  { id: 'strings', label: 'Cordas', en: 'strings' },
-  { id: 'guitar', label: 'Violão', en: 'acoustic guitar' },
-  { id: 'drums', label: 'Bateria', en: 'drums' },
-  { id: 'synth', label: 'Sintetizadores', en: 'synths' },
-  { id: 'perc', label: 'Percussão', en: 'percussion' },
-];
 
 export function MusicSection({
   videoOptions,
@@ -247,8 +201,7 @@ export function MusicSection({
   }, [targetUrl]);
 
   // Duração efetiva: sincronizada com o vídeo OU manual (slider).
-  const effectiveLengthSec =
-    syncDuration && videoDurationSec ? videoDurationSec : lengthSec;
+  const effectiveLengthSec = syncDuration && videoDurationSec ? videoDurationSec : lengthSec;
 
   // Monta o prompt simples (modo sem arco) a partir dos controles + texto livre.
   const buildSimplePrompt = (): string => {
@@ -270,16 +223,12 @@ export function MusicSection({
   };
 
   const toggleInstrument = (id: string) => {
-    setInstrumentIds((cur) =>
-      cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]
-    );
+    setInstrumentIds((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
   };
 
   // ─── Recomendação personalizada: IA escolhe os controles pelo projeto ─
   const canRecommend =
-    !!copyText ||
-    !!projectContext?.productInfo ||
-    (projectContext?.personas?.length || 0) > 0;
+    !!copyText || !!projectContext?.productInfo || (projectContext?.personas?.length || 0) > 0;
 
   const handleRecommend = async () => {
     setRecommending(true);
@@ -365,7 +314,7 @@ export function MusicSection({
   };
 
   // Seleciona uma track (do subprojeto ou da biblioteca) pra mixagem.
-  function useTrack(track: MusicTrack) {
+  function selectTrack(track: MusicTrack) {
     setMusicUrl(track.url);
     setMusicLabel(track.label);
     toast.success('Música selecionada pra mixagem.');
@@ -464,7 +413,12 @@ export function MusicSection({
   // ─── AI generation via ElevenLabs Music ────────────────────────────
   const handleGenerateAI = async () => {
     const usingArc = useArc && !!arcPlan && arcPlan.sections.length > 0;
-    if (!usingArc && !buildSimplePrompt().replace(/instrumental, no vocals,?/, '').trim()) {
+    if (
+      !usingArc &&
+      !buildSimplePrompt()
+        .replace(/instrumental, no vocals,?/, '')
+        .trim()
+    ) {
       toast.error('Escolha estilo/instrumentos ou descreva a música.');
       return;
     }
@@ -589,7 +543,10 @@ export function MusicSection({
             {track.source === 'ai' ? <Sparkles size={14} /> : <Upload size={14} />}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-bold text-gray-900 dark:text-gray-100 truncate" title={track.label}>
+            <p
+              className="text-xs font-bold text-gray-900 dark:text-gray-100 truncate"
+              title={track.label}
+            >
               {track.label}
             </p>
             <p className="text-[10px] text-gray-500 dark:text-gray-400">
@@ -603,7 +560,7 @@ export function MusicSection({
         <div className="flex gap-2 mt-2">
           <button
             type="button"
-            onClick={() => useTrack(track)}
+            onClick={() => selectTrack(track)}
             disabled={isBusy}
             className={`flex-1 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
               isSelected
@@ -618,7 +575,9 @@ export function MusicSection({
               type="button"
               onClick={() => saveTrackToLibrary(track)}
               disabled={isBusy || inLibrary || savingId === track.id}
-              title={inLibrary ? 'Já está na biblioteca' : 'Salvar na biblioteca (todos os projetos)'}
+              title={
+                inLibrary ? 'Já está na biblioteca' : 'Salvar na biblioteca (todos os projetos)'
+              }
               className={`px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50 ${
                 inLibrary
                   ? 'text-green-600 dark:text-green-400'
@@ -732,8 +691,8 @@ export function MusicSection({
               </div>
             ) : libraryTracks.length === 0 ? (
               <p className="text-center text-xs text-gray-500 dark:text-gray-400 py-4">
-                Sua biblioteca está vazia. Salve uma música (ícone <Save size={11} className="inline" />)
-                pra reusá-la em qualquer projeto.
+                Sua biblioteca está vazia. Salve uma música (ícone{' '}
+                <Save size={11} className="inline" />) pra reusá-la em qualquer projeto.
               </p>
             ) : (
               <ul className="space-y-2">{libraryTracks.map((t) => renderTrack(t, 'library'))}</ul>
@@ -1008,13 +967,14 @@ export function MusicSection({
             {useArc && (
               <div className="p-3 bg-white dark:bg-gray-900/40 space-y-3">
                 <p className="text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed">
-                  A IA lê a copy do anúncio e propõe uma trilha que segue o arco
-                  emocional. Você revisa antes de gerar.
+                  A IA lê a copy do anúncio e propõe uma trilha que segue o arco emocional. Você
+                  revisa antes de gerar.
                 </p>
                 {/* A trilha é baseada 100% na copy/texto falado — sem emoção-base. */}
                 <p className="text-[11px] font-bold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 rounded-lg px-3 py-2">
                   🎵 A trilha é montada lendo a <strong>copy/texto falado</strong> — cada parte da
-                  música reflete a parte da copy (dor → virada → esperança → CTA), sem tom-base fixo.
+                  música reflete a parte da copy (dor → virada → esperança → CTA), sem tom-base
+                  fixo.
                 </p>
                 <button
                   type="button"
@@ -1067,7 +1027,8 @@ export function MusicSection({
                               onChange={(e) =>
                                 updateArcSection(idx, {
                                   durationMs:
-                                    Math.max(3, Math.min(120, parseInt(e.target.value) || 3)) * 1000,
+                                    Math.max(3, Math.min(120, parseInt(e.target.value) || 3)) *
+                                    1000,
                                 })
                               }
                               disabled={isBusy}
@@ -1104,10 +1065,8 @@ export function MusicSection({
                       </div>
                     ))}
                     <p className="text-[10px] text-gray-500 dark:text-gray-400 text-right">
-                      Total: {Math.round(
-                        arcPlan.sections.reduce((a, s) => a + s.durationMs, 0) / 1000
-                      )}
-                      s
+                      Total:{' '}
+                      {Math.round(arcPlan.sections.reduce((a, s) => a + s.durationMs, 0) / 1000)}s
                     </p>
                   </div>
                 )}

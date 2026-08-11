@@ -31,6 +31,7 @@ import { VslStyleReference } from '@/components/VslStyleReference';
 import { HeadlineModal } from '@/components/HeadlineModal';
 import { IntercutModal } from '@/components/IntercutModal';
 import { MusicSection } from '@/components/MusicSection';
+import { StandaloneMusicSection } from '@/components/StandaloneMusicSection';
 import { SpeedSection } from '@/components/SpeedSection';
 import type { ZapBundle } from '@/hooks/useZapState';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
@@ -1611,6 +1612,38 @@ export function EditZapTab({
           }}
         />
       )}
+
+      {/* Música avulsa — gera/envia uma trilha SEM precisar de vídeo editado.
+          Escreve na mesma lista (config.edit.musicTracks) que a MusicSection
+          acima lê, então a faixa fica pronta pra mixar depois que houver um
+          vídeo. Sempre visível, ao contrário da MusicSection (gated por vídeo). */}
+      <StandaloneMusicSection
+        tracks={(config.edit?.musicTracks as any[] | undefined) || []}
+        onTracksChange={(next) =>
+          setConfig((prev: any) => ({
+            ...prev,
+            edit: { ...prev.edit, musicTracks: next },
+          }))
+        }
+        userId={user?.uid}
+        copyText={
+          config.copy?.finalScript ||
+          config.copy?.optimizedScript ||
+          config.copy?.generatedScript ||
+          ''
+        }
+        projectContext={{
+          productInfo: config.copy?.productInfo,
+          personas: config.copy?.personasWithWeights,
+          marketingPlan: config.copy?.marketingPlan,
+          creativeBriefs: config.copy?.creativeBriefs,
+        }}
+        disabled={isRendering || intercutRendering || headlineRendering}
+        hideOwnTrackList={
+          activeZapVersions.length > 0 ||
+          (!isHookEdit && (((config.edit as any)?.mergeVersions as string[]) || []).length > 0)
+        }
+      />
 
       {/* Velocidade — seção independente: qualquer vídeo (galeria + mesclados +
           upload) pode ser re-renderizado numa velocidade diferente. */}
