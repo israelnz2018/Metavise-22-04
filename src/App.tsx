@@ -2329,6 +2329,8 @@ export default function App() {
         hookAudios: [],
         hookAudioUrl: '',
         hookAudioStoragePath: null,
+        // Blocos de voz do corpo (Gerar em blocos) também não herdam.
+        blockAudios: [],
       } as any,
       // Reset render outputs (same as MM — A/B variant pattern).
       videoUrl: null,
@@ -2461,6 +2463,8 @@ export default function App() {
         hookAudios: [],
         hookAudioUrl: '',
         hookAudioStoragePath: null,
+        // Blocos de voz do corpo (Gerar em blocos) também não herdam.
+        blockAudios: [],
         // Marca qual persona originou (debug + futura UI).
         activePersonaId: persona.id,
       } as any,
@@ -6746,7 +6750,11 @@ export default function App() {
                           savedAudioUrl={activeAudioUrl || undefined}
                           savedAudios={activeAudios}
                           savedBlockAudios={
-                            isVslVoice ? ((vslCopyCfg as any)?.blockAudios as any) : undefined
+                            isVslVoice
+                              ? ((vslCopyCfg as any)?.blockAudios as any)
+                              : !isHook
+                                ? ((config.copy as any)?.blockAudios as any)
+                                : undefined
                           }
                           onBlockAudiosChange={
                             isVslVoice
@@ -6755,7 +6763,13 @@ export default function App() {
                                     ...prev,
                                     copyVsl: { ...(prev as any).copyVsl, blockAudios: arr } as any,
                                   }))
-                              : undefined
+                              : !isHook
+                                ? (arr) =>
+                                    setConfig((prev) => ({
+                                      ...prev,
+                                      copy: { ...prev.copy, blockAudios: arr } as any,
+                                    }))
+                                : undefined
                           }
                           copyAnswers={config.copy?.answers || {}}
                           cachedRecommendation={avatarRecommendation}
