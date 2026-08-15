@@ -416,20 +416,32 @@ const VozPremium: React.FC<Props> = ({
   const [joiningBlocks, setJoiningBlocks] = useState(false);
   // Qual bloco está no player de preview (default: o mais recente gerado).
   const [previewBlock, setPreviewBlock] = useState<number | null>(null);
-  // Restaura os blocos SALVOS (persistidos) quando a quantidade bate; senão
-  // reinicia como idle. Assim os áudios de bloco sobrevivem à navegação.
+  // Restaura os blocos SALVOS (persistidos) por ÍNDICE — não descarta tudo só
+  // porque a contagem de blocos no remount ficou diferente (ex.: script raw
+  // vs otimizado recalculando splitScriptBlocks). Cada posição que ainda tem
+  // um bloco salvo mantém o que já foi gerado; só posições novas viram idle.
   useEffect(() => {
     const saved = savedBlockAudios;
-    if (Array.isArray(saved) && saved.length === scriptBlocks.length && scriptBlocks.length > 0) {
-      setBlockAudios(saved.map((b) => ({ ...b, status: (b.status as any) || 'idle' })));
-    } else {
-      setBlockAudios(scriptBlocks.map(() => ({ status: 'idle' as const })));
-    }
+    setBlockAudios(
+      scriptBlocks.map((_, i) => {
+        const s = Array.isArray(saved) ? saved[i] : undefined;
+        return s ? { ...s, status: (s.status as any) || 'idle' } : { status: 'idle' as const };
+      })
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scriptBlocks.length]);
 
-  // Persiste os blocos toda vez que mudam (pra sobreviverem à navegação).
+  // Persiste os blocos toda vez que mudam (pra sobreviverem à navegação). Pula
+  // a primeira execução: no mount ela roda com o `blockAudios` inicial ([]),
+  // ANTES do setBlockAudios acima (que já restaurou os blocos salvos) ter
+  // efeito — sem esse guard, essa primeira chamada sobrescrevia o que acabou
+  // de ser restaurado do config com um array vazio.
+  const skipFirstPersistRef = useRef(true);
   useEffect(() => {
+    if (skipFirstPersistRef.current) {
+      skipFirstPersistRef.current = false;
+      return;
+    }
     if (scriptBlocks.length > 1) onBlockAudiosChange?.(blockAudios);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [blockAudios]);
