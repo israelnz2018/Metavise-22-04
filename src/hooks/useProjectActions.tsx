@@ -184,6 +184,10 @@ export function useProjectActions({
   setPendingPersonaExec,
   handleStartBigVariation,
 }: UseProjectActionsArgs) {
+  // Trava de reentrância pro handleSaveProject: evita que o auto-save
+  // (debounce) e o clique manual em "Salvar" disparem dois setDoc concorrentes
+  // pro mesmo doc — o que perde/sobrescrever silenciosamente um dos dois.
+  const savingRef = React.useRef(false);
   const handleCreateProject = async () => {
     if (!user || !newProjectName.trim()) return;
 
@@ -327,7 +331,11 @@ export function useProjectActions({
   const handleSaveProject = async (
     overridesOrEvent?: Partial<AdConfig> | React.MouseEvent,
     opts?: { silent?: boolean }
-  ) => {
+  ): Promise<boolean> => {
+    // Já tem um save em andamento (auto-save ou manual) — não dispara outro
+    // setDoc concorrente pro mesmo doc, senão o que terminar por último pode
+    // sobrescrever com um config mais antigo.
+    if (savingRef.current) return false;
     // Robust event detection to prevent circular structure errors
     const isEvent = !!(
       overridesOrEvent &&
@@ -343,15 +351,16 @@ export function useProjectActions({
     // Antes esse toast pipocava a cada 2s porque o debounce roda em todo
     // change de config.
     const silent = opts?.silent !== false;
-    if (!user || isProjectLoading) return;
+    if (!user || isProjectLoading) return false;
 
     if (!currentProjectId) {
       // Auto-save silencioso NÃO abre o modal de novo projeto — só o clique
       // manual em "Salvar" faz isso. Sem projeto aberto, o save vira no-op.
       if (!silent) setShowNewProjectModal(true);
-      return;
+      return false;
     }
 
+    savingRef.current = true;
     setIsSaving(true);
     if (process.env.NODE_ENV !== 'production') console.log('VOICE_SAVE_STARTED');
     try {
@@ -508,6 +517,7 @@ export function useProjectActions({
             : 'Projeto salvo com sucesso!'
         );
       }
+      return true;
     } catch (err: any) {
       console.error('Error saving project:', err);
       setError('Falha ao salvar projeto.');
@@ -526,7 +536,9 @@ export function useProjectActions({
           });
         }
       }
+      return false;
     } finally {
+      savingRef.current = false;
       setIsSaving(false);
       setHasUnsavedCopyChanges(false);
       // Stamp the last-saved time so AutoSaveIndicator can show

@@ -1413,7 +1413,7 @@ export function AvatarTab({
                 ElevenLabs gerado primeiro). */}
             <button
               onClick={() => setSegmentedModalOpen(true)}
-              disabled={loading || !config.avatar.faceId || !audioUrl}
+              disabled={loading || !config.avatar.faceId || !displayedAudioUrl}
               title={at.generation.economicModeTitle}
               className="w-full md:w-auto px-6 py-5 bg-gradient-to-br from-green-500 to-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 hover:from-green-600 hover:to-emerald-700 disabled:opacity-50 transition-all shadow-xl shadow-green-100"
             >
@@ -1426,7 +1426,7 @@ export function AvatarTab({
         <SegmentedAvatarModal
           open={segmentedModalOpen}
           avatarId={config.avatar.faceId || ''}
-          audioUrl={audioUrl || ''}
+          audioUrl={displayedAudioUrl || ''}
           aspectRatio={fmtCfg.aspectRatio as any}
           scale={avatarCfg.scale}
           background={avatarCfg.background}

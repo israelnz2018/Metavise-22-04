@@ -2773,9 +2773,14 @@ export default function App() {
     const onAutoSave = () => {
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
-        // Só salva se dá pra salvar (logado + projeto aberto) — senão vira no-op.
-        saveRef.current?.({}, { silent: true });
-        toast.success('Salvo', { id: 'autosave', duration: 1400 });
+        // Só mostra "Salvo" se o save realmente terminou com sucesso — antes
+        // o toast disparava na hora, sem esperar nem checar o resultado, e
+        // aparecia "Salvo" mesmo quando o save falhava ou foi sobrescrito por
+        // um save concorrente (ex.: clique manual no botão "Salvar" enquanto
+        // o auto-save ainda estava em andamento).
+        saveRef.current?.({}, { silent: true }).then((ok) => {
+          if (ok) toast.success('Salvo', { id: 'autosave', duration: 1400 });
+        });
       }, 1200);
     };
     window.addEventListener('metavise-autosave', onAutoSave);
@@ -6870,70 +6875,101 @@ export default function App() {
                               return;
                             }
 
-                            const currentAudios = activeAudios;
-                            const existing = currentAudios.find((a) => a.url === audioUrl);
                             const newAudio = {
                               url: audioUrl,
                               storagePath: storagePath || null,
                               voiceId: voiceId || '',
                               createdAt: new Date().toISOString(),
                             };
-                            const newAudios = existing
-                              ? currentAudios
-                              : [...currentAudios, newAudio];
-
+                            // audioWasNew é decidido DENTRO do updater de cada
+                            // setConfig, a partir do `prev` mais atual — não de
+                            // um snapshot (activeAudios) capturado no início do
+                            // callback. Evita perder uma voz quando duas
+                            // gerações terminam próximas uma da outra (a
+                            // segunda sobrescrevia com um array baseado no
+                            // estado de ANTES da primeira).
+                            let audioWasNew = false;
                             if (isVslVoice) {
-                              setConfig((prev) => ({
-                                ...prev,
-                                copyVsl: {
-                                  ...(prev as any).copyVsl,
-                                  audioUrl,
-                                  audioStoragePath: storagePath || null,
-                                  audios: newAudios,
-                                } as any,
-                                ...(voiceId
-                                  ? {
-                                      avatar: {
-                                        ...prev.avatar,
-                                        voiceId,
-                                        ...(voiceName ? { voiceName } : {}),
-                                      },
-                                    }
-                                  : {}),
-                              }));
+                              setConfig((prev) => {
+                                const currentAudios = (((prev as any).copyVsl?.audios as any[]) ||
+                                  []) as any[];
+                                const existing = currentAudios.find((a) => a.url === audioUrl);
+                                audioWasNew = !existing;
+                                const nextAudios = existing
+                                  ? currentAudios
+                                  : [...currentAudios, newAudio];
+                                return {
+                                  ...prev,
+                                  copyVsl: {
+                                    ...(prev as any).copyVsl,
+                                    audioUrl,
+                                    audioStoragePath: storagePath || null,
+                                    audios: nextAudios,
+                                  } as any,
+                                  ...(voiceId
+                                    ? {
+                                        avatar: {
+                                          ...prev.avatar,
+                                          voiceId,
+                                          ...(voiceName ? { voiceName } : {}),
+                                        },
+                                      }
+                                    : {}),
+                                };
+                              });
                             } else if (isHook) {
-                              setConfig((prev) => ({
-                                ...prev,
-                                copy: {
-                                  ...prev.copy,
-                                  hookAudioUrl: audioUrl,
-                                  hookAudioStoragePath: storagePath || null,
-                                  hookAudios: newAudios,
-                                } as any,
-                              }));
+                              setConfig((prev) => {
+                                const currentAudios = (((prev.copy as any)?.hookAudios as any[]) ||
+                                  []) as any[];
+                                const existing = currentAudios.find((a) => a.url === audioUrl);
+                                audioWasNew = !existing;
+                                const nextAudios = existing
+                                  ? currentAudios
+                                  : [...currentAudios, newAudio];
+                                return {
+                                  ...prev,
+                                  copy: {
+                                    ...prev.copy,
+                                    hookAudioUrl: audioUrl,
+                                    hookAudioStoragePath: storagePath || null,
+                                    hookAudios: nextAudios,
+                                  } as any,
+                                };
+                              });
                               // (auto-save removido — salvar manualmente)
                             } else {
-                              if (!existing) setAudios(newAudios);
                               setAudioUrl(audioUrl);
-                              setConfig((prev) => ({
-                                ...prev,
-                                audioUrl,
-                                audioStoragePath: storagePath || null,
-                                audios: newAudios,
-                                ...(voiceId
-                                  ? {
-                                      avatar: {
-                                        ...prev.avatar,
-                                        voiceId,
-                                        // Guarda o nome legível pro painel de info.
-                                        ...(voiceName ? { voiceName } : {}),
-                                      },
-                                    }
-                                  : {}),
-                              }));
+                              setConfig((prev) => {
+                                const currentAudios = ((prev.audios as any[]) || []) as any[];
+                                const existing = currentAudios.find((a) => a.url === audioUrl);
+                                audioWasNew = !existing;
+                                const nextAudios = existing
+                                  ? currentAudios
+                                  : [...currentAudios, newAudio];
+                                return {
+                                  ...prev,
+                                  audioUrl,
+                                  audioStoragePath: storagePath || null,
+                                  audios: nextAudios,
+                                  ...(voiceId
+                                    ? {
+                                        avatar: {
+                                          ...prev.avatar,
+                                          voiceId,
+                                          // Guarda o nome legível pro painel de info.
+                                          ...(voiceName ? { voiceName } : {}),
+                                        },
+                                      }
+                                    : {}),
+                                };
+                              });
+                              setAudios((prevAudios) => {
+                                const existing = prevAudios.find((a) => a.url === audioUrl);
+                                return existing ? prevAudios : [...prevAudios, newAudio];
+                              });
                             }
                             // Save por evento: voz/áudio gerado → persiste o projeto.
-                            if (!existing) {
+                            if (audioWasNew) {
                               triggerProjectSave('voz');
                               logCreativeCost('Voz/narração (ElevenLabs)', COST_RATES.voice);
                             }
