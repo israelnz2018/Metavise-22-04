@@ -25,7 +25,7 @@ const byId = new Map(STEPS.map((s) => [s.id, s]));
 
 export function Sidebar({ currentStep, onNavigate, canNavigateTo, useHookFlow }: Props) {
   return (
-    <aside className="hidden md:flex flex-col w-56 shrink-0 sticky top-20 self-start max-h-[calc(100vh-5rem)] overflow-y-auto scrollbar-hide border-r border-gray-200/60 dark:border-gray-800/60 py-4 pr-2">
+    <aside className="hidden md:flex flex-col w-56 shrink-0 h-full overflow-y-auto scrollbar-hide border-r border-gray-200/60 dark:border-gray-800/60 py-4 pr-2">
       {/* Resumo (hub) — porta de entrada do subprojeto. */}
       {canNavigateTo('hub') && (
         <button

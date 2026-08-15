@@ -6067,14 +6067,14 @@ export default function App() {
       </header>
 
       {/* Sidebar (desktop) + conteúdo. No mobile a nav fica no header. */}
-      <div className="max-w-[1600px] mx-auto w-full px-4 flex items-start gap-2">
+      <div className="max-w-[1600px] mx-auto w-full px-4 flex items-start gap-2 md:h-[calc(100vh-5rem)]">
         <Sidebar
           currentStep={currentStep}
           onNavigate={requestStepChange}
           canNavigateTo={canNavigateTo}
           useHookFlow={useHookFlow}
         />
-        <main className="flex-1 min-w-0 py-12 md:pl-4">
+        <main className="flex-1 min-w-0 py-12 md:pl-4 md:h-full md:overflow-y-auto">
           {!isOnline && (
             <div className="mb-6 p-4 bg-red-50/80 dark:bg-red-950/30 ring-1 ring-red-200/60 dark:ring-red-900/40 rounded-2xl flex items-center gap-3 text-red-700 dark:text-red-300 font-bold text-sm">
               <div className="w-2 h-2 bg-red-500 dark:bg-red-400 rounded-full animate-pulse shadow shadow-red-500/50" />

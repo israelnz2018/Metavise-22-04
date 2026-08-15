@@ -127,7 +127,7 @@ export interface TimelineEdit {
   phrase?: string;
   videoUrl?: string;
   processedVideoUrl?: string;
-  aspectRatio?: '16:9' | '9:16' | '1:1';
+  aspectRatio?: '16:9' | '9:16' | '1:1' | '4:5';
   previewMetadata?: {
     zoom?: number;
     textOverlay?: string;
@@ -259,7 +259,7 @@ export interface AutoEditState {
   editMode?: 'auto' | 'manual';
   versions?: string[];
   originalVideoUrl?: string;
-  videoFormat?: '9:16' | '1:1' | '16:9';
+  videoFormat?: '9:16' | '1:1' | '16:9' | '4:5';
   compressing?: boolean;
 }
 

@@ -1426,6 +1426,7 @@ export const en: typeof pt = {
       saveTemplateButton: '💾 Save template',
       formatLabel: 'Format',
       vertical: 'Vertical 9:16',
+      feed: 'Feed 4:5',
       square: 'Square 1:1',
       horizontal: 'Horizontal 16:9',
       fitLabel: 'Fit',

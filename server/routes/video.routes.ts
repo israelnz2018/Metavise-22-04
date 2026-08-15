@@ -2121,8 +2121,15 @@ videoRouter.post(
 videoRouter.post(
   '/watermark',
   withFfmpegQueue(async (req, res) => {
-    const { videoUrl, logoUrl, position = 'br', sizePct = 0.18, opacity = 1, marginPct = 0.03, userId } =
-      req.body || {};
+    const {
+      videoUrl,
+      logoUrl,
+      position = 'br',
+      sizePct = 0.18,
+      opacity = 1,
+      marginPct = 0.03,
+      userId,
+    } = req.body || {};
     if (!videoUrl || !logoUrl || !userId) {
       return res.status(400).json({ error: 'videoUrl, logoUrl e userId são obrigatórios.' });
     }
@@ -2348,7 +2355,16 @@ videoRouter.post(
 
         cmd
           .complexFilter(filters)
-          .outputOptions(['-map', '[vout]', '-map', `${audioIdx}:a?`, '-shortest', ...ENCODE_FAST, '-c:a aac', '-b:a 128k'])
+          .outputOptions([
+            '-map',
+            '[vout]',
+            '-map',
+            `${audioIdx}:a?`,
+            '-shortest',
+            ...ENCODE_FAST,
+            '-c:a aac',
+            '-b:a 128k',
+          ])
           .save(outPath)
           .on('end', () => resolve(null))
           .on('error', reject);
@@ -2383,12 +2399,19 @@ videoRouter.post(
 videoRouter.post(
   '/sequence',
   withFfmpegQueue(async (req, res) => {
-    const { clips, userId, muted } = req.body || {};
+    const { clips, userId, muted, aspectRatio } = req.body || {};
     if (!Array.isArray(clips) || clips.length === 0 || !userId) {
       return res.status(400).json({ error: 'clips e userId são obrigatórios.' });
     }
     const list = clips.slice(0, 60).filter((c: any) => c && c.url);
     if (list.length === 0) return res.status(400).json({ error: 'Nenhum clipe válido.' });
+    const SEQ_AR: Record<string, [number, number]> = {
+      '1:1': [1080, 1080],
+      '9:16': [1080, 1920],
+      '4:5': [1080, 1350],
+      '16:9': [1920, 1080],
+    };
+    const [seqW, seqH] = SEQ_AR[String(aspectRatio)] || SEQ_AR['9:16']!;
     const stamp = Date.now();
     const workDir = path.join(GENERATED_DIR, `sequence_${stamp}`);
     fs.mkdirSync(workDir, { recursive: true });
@@ -2414,7 +2437,7 @@ videoRouter.post(
           const b = Number(c.endSec) || 0;
           const vTrim = b > a ? `trim=${a}:${b},` : a > 0 ? `trim=start=${a},` : '';
           filters.push(
-            `[${i}:v]${vTrim}setpts=PTS-STARTPTS,scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30[v${i}]`
+            `[${i}:v]${vTrim}setpts=PTS-STARTPTS,scale=${seqW}:${seqH}:force_original_aspect_ratio=decrease,pad=${seqW}:${seqH}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30[v${i}]`
           );
           if (!isMuted) {
             const aTrim = b > a ? `atrim=${a}:${b},` : a > 0 ? `atrim=start=${a},` : '';
@@ -2489,6 +2512,7 @@ videoRouter.post(
     const AR: Record<string, [number, number]> = {
       '1:1': [1080, 1080],
       '9:16': [1080, 1920],
+      '4:5': [1080, 1350],
       '16:9': [1920, 1080],
     };
     let [W, H] = AR[String((req.body || {}).aspectRatio)] || [1080, 1080];
@@ -2693,11 +2717,24 @@ videoRouter.post(
                     `[afg]scale=${W}:${H}:force_original_aspect_ratio=decrease,setsar=1[afgf]`,
                     `[abgb][afgf]overlay=(W-w)/2:(H-h)/2:shortest=1,setsar=1[v]`,
                   ])
-                  .outputOptions(['-map', '[v]', '-an', ...ENCODE_FAST, '-threads', String(CLIP_THREADS), '-t', String(compDur)])
+                  .outputOptions([
+                    '-map',
+                    '[v]',
+                    '-an',
+                    ...ENCODE_FAST,
+                    '-threads',
+                    String(CLIP_THREADS),
+                    '-t',
+                    String(compDur),
+                  ])
                   .save(p)
                   .on('end', () => resolve(null))
                   .on('error', (err: any, _o: any, stderr: any) =>
-                    reject(new Error(`avatar-full: ${err?.message || err} | ${(stderr || '').slice(-300)}`))
+                    reject(
+                      new Error(
+                        `avatar-full: ${err?.message || err} | ${(stderr || '').slice(-300)}`
+                      )
+                    )
                   );
               });
               clipPaths[i] = p;
@@ -2778,11 +2815,22 @@ videoRouter.post(
               }
               cmd
                 .complexFilter(filters)
-                .outputOptions(['-map', '[v]', '-an', ...ENCODE_FAST, '-threads', String(CLIP_THREADS), '-t', String(compDur)])
+                .outputOptions([
+                  '-map',
+                  '[v]',
+                  '-an',
+                  ...ENCODE_FAST,
+                  '-threads',
+                  String(CLIP_THREADS),
+                  '-t',
+                  String(compDur),
+                ])
                 .save(p)
                 .on('end', () => resolve(null))
                 .on('error', (err: any, _o: any, stderr: any) =>
-                  reject(new Error(`${err?.message || err} | STDERR: ${(stderr || '').slice(-600)}`))
+                  reject(
+                    new Error(`${err?.message || err} | STDERR: ${(stderr || '').slice(-600)}`)
+                  )
                 );
             });
             clipPaths[i] = p;
@@ -2815,7 +2863,16 @@ videoRouter.post(
                   `[1:v]scale=${rightW}:${H}:force_original_aspect_ratio=increase,crop=${rightW}:${H},setsar=1[r]`,
                   `[l][r]hstack=inputs=2[v]`,
                 ])
-                .outputOptions(['-map', '[v]', '-an', ...ENCODE_FAST, '-threads', String(CLIP_THREADS), '-t', String(compDur)])
+                .outputOptions([
+                  '-map',
+                  '[v]',
+                  '-an',
+                  ...ENCODE_FAST,
+                  '-threads',
+                  String(CLIP_THREADS),
+                  '-t',
+                  String(compDur),
+                ])
                 .save(p)
                 .on('end', () => resolve(null))
                 .on('error', reject);
@@ -2851,7 +2908,10 @@ videoRouter.post(
       for (let i = 0; i < list.length; i++) {
         const at = Math.max(0, Number(list[i].atSec) || 0);
         const end = Math.max(at + 0.1, Number(list[i].endSec) || 0);
-        const dOut = Math.min(Math.max(0.1, Number(list[i].transOutDur) || 0.4), Math.max(0.1, end - at));
+        const dOut = Math.min(
+          Math.max(0.1, Number(list[i].transOutDur) || 0.4),
+          Math.max(0.1, end - at)
+        );
         if (list[i].soundIn) {
           try {
             const sp = path.join(workDir, `sin_${i}.mp3`);
@@ -2880,9 +2940,7 @@ videoRouter.post(
             let atSfx = Math.min(at + 0.4, Math.max(at, end - 0.3));
             if (list[i].soundMidAlign === 'end') {
               const durSfx = await new Promise<number>((resolve) => {
-                ffmpeg.ffprobe(sp, (err, m) =>
-                  resolve(err ? 0 : Number(m?.format?.duration) || 0)
-                );
+                ffmpeg.ffprobe(sp, (err, m) => resolve(err ? 0 : Number(m?.format?.duration) || 0));
               });
               if (durSfx > 0) atSfx = Math.max(0, end - durSfx);
             }
@@ -2895,7 +2953,9 @@ videoRouter.post(
 
       // Som de ENTRADA dos textos cinéticos (ex.: "Swoosh Fight") — começa no
       // MESMO instante em que o texto aparece (t.atSec).
-      const textSfxList: any[] = Array.isArray((req.body || {}).texts) ? (req.body as any).texts : [];
+      const textSfxList: any[] = Array.isArray((req.body || {}).texts)
+        ? (req.body as any).texts
+        : [];
       for (let ti = 0; ti < textSfxList.length; ti++) {
         const t = textSfxList[ti];
         if (t && t.sound) {
@@ -2943,9 +3003,14 @@ videoRouter.post(
           // passar pelo preto) → link smooth: crossfade, slides e whip. O clipe
           // começa dIn ANTES do seu atSec, e a transição de entrada roda em cima
           // do trecho que está saindo.
-          const crossIn = ['dissolve', 'slideleft', 'slideright', 'slideup', 'slidedown', 'whip'].includes(
-            tIn
-          );
+          const crossIn = [
+            'dissolve',
+            'slideleft',
+            'slideright',
+            'slideup',
+            'slidedown',
+            'whip',
+          ].includes(tIn);
           const atV = crossIn ? Math.max(0, at - dIn) : at;
           const trimEnd = crossIn ? ts + win + dIn : ts + win;
 
@@ -2967,8 +3032,7 @@ videoRouter.post(
           const zCY = Math.min(1, Math.max(0, Number(c.zoomCY ?? 0.5)));
           const zp = `d=1:x='max(0,min(iw-iw/zoom,${zCX}*iw-(iw/zoom/2)))':y='max(0,min(ih-ih/zoom,${zCY}*ih-(ih/zoom/2)))':s=${W}x${H}:fps=30`;
           let zoomF = '';
-          if (c.zoom === 'in')
-            zoomF = `,fps=30,zoompan=z='min(1+${inc}*on,1.18)':${zp},setsar=1`;
+          if (c.zoom === 'in') zoomF = `,fps=30,zoompan=z='min(1+${inc}*on,1.18)':${zp},setsar=1`;
           else if (c.zoom === 'out')
             zoomF = `,fps=30,zoompan=z='max(1.18-${inc}*on,1.0)':${zp},setsar=1`;
 
@@ -2984,14 +3048,12 @@ videoRouter.post(
           // P&B do clipe inteiro (independente da transição) — usado nos trechos
           // de "antes" / passado (tom "past"). Também aceita tIn === 'bw' (legado).
           if (c.bw || tIn === 'bw') clipF += `,hue=s=0`;
-          if (tIn === 'whip')
-            clipF += `,gblur=sigma=24:enable='between(t,${atV},${effEnd})'`;
+          if (tIn === 'whip') clipF += `,gblur=sigma=24:enable='between(t,${atV},${effEnd})'`;
           else if (tIn === 'glitch')
             clipF += `,rgbashift=rh=10:bh=-10:enable='between(t,${atV},${effEnd})',noise=alls=36:allf=t:enable='between(t,${atV},${effEnd})'`;
           // Whip na SAÍDA: blur no fim do trecho (o slide-out é tratado no xOut
           // abaixo). Sem isso, "saída: whip" não fazia nada visível.
-          if (tOut === 'whip')
-            clipF += `,gblur=sigma=24:enable='between(t,${outStart},${end})'`;
+          if (tOut === 'whip') clipF += `,gblur=sigma=24:enable='between(t,${outStart},${end})'`;
           const fadeIn = tIn === 'fade' || tIn === 'dissolve';
           const whiteIn = tIn === 'whiteflash';
           const fadeOut = tOut === 'fade';
@@ -3008,15 +3070,31 @@ videoRouter.post(
           // movimento de entrada rodar EM CIMA do clipe anterior.
           const pIn = `(t-${atV})/${dIn}`;
           const pOut = `(t-${outStart})/${dOut}`;
-          const xIn = tIn === 'slideleft' || tIn === 'whip' ? `(1-${pIn})*W` : tIn === 'slideright' ? `-(1-${pIn})*W` : null;
-          const yIn = tIn === 'slideup' ? `(1-${pIn})*H` : tIn === 'slidedown' ? `-(1-${pIn})*H` : null;
-          const xOut = tOut === 'slideleft' || tOut === 'whip' ? `-(${pOut})*W` : tOut === 'slideright' ? `(${pOut})*W` : null;
-          const yOut = tOut === 'slideup' ? `-(${pOut})*H` : tOut === 'slidedown' ? `(${pOut})*H` : null;
+          const xIn =
+            tIn === 'slideleft' || tIn === 'whip'
+              ? `(1-${pIn})*W`
+              : tIn === 'slideright'
+                ? `-(1-${pIn})*W`
+                : null;
+          const yIn =
+            tIn === 'slideup' ? `(1-${pIn})*H` : tIn === 'slidedown' ? `-(1-${pIn})*H` : null;
+          const xOut =
+            tOut === 'slideleft' || tOut === 'whip'
+              ? `-(${pOut})*W`
+              : tOut === 'slideright'
+                ? `(${pOut})*W`
+                : null;
+          const yOut =
+            tOut === 'slideup' ? `-(${pOut})*H` : tOut === 'slidedown' ? `(${pOut})*H` : null;
           const opts: string[] = [];
           if (xIn || xOut)
-            opts.push(`x='if(lt(t,${atV}+${dIn}),${xIn || 0},if(gt(t,${outStart}),${xOut || 0},0))'`);
+            opts.push(
+              `x='if(lt(t,${atV}+${dIn}),${xIn || 0},if(gt(t,${outStart}),${xOut || 0},0))'`
+            );
           if (yIn || yOut)
-            opts.push(`y='if(lt(t,${atV}+${dIn}),${yIn || 0},if(gt(t,${outStart}),${yOut || 0},0))'`);
+            opts.push(
+              `y='if(lt(t,${atV}+${dIn}),${yIn || 0},if(gt(t,${outStart}),${yOut || 0},0))'`
+            );
           opts.push(`enable='between(t,${atV},${end})'`);
           opts.push('eof_action=pass');
           filters.push(`[${last}][c${i}]overlay=${opts.join(':')}[${out}]`);
@@ -3303,9 +3381,7 @@ videoRouter.post(
           proc.on('close', () => {
             const c = (stderr.match(/pts_time:/g) || []).length;
             const durM = /Duration:\s*(\d+):(\d+):(\d+\.\d+)/.exec(stderr);
-            const dur = durM
-              ? Number(durM[1]) * 3600 + Number(durM[2]) * 60 + Number(durM[3])
-              : 0;
+            const dur = durM ? Number(durM[1]) * 3600 + Number(durM[2]) * 60 + Number(durM[3]) : 0;
             resolve({ cuts: c, durationSec: dur });
           });
         }

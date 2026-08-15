@@ -1433,6 +1433,7 @@ export const pt = {
       saveTemplateButton: '💾 Salvar molde',
       formatLabel: 'Formato',
       vertical: 'Vertical 9:16',
+      feed: 'Feed 4:5',
       square: 'Quadrado 1:1',
       horizontal: 'Horizontal 16:9',
       fitLabel: 'Enquadrar',

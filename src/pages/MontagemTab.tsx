@@ -507,15 +507,15 @@ export function MontagemTab({
     a._segTimer = setTimeout(() => a.pause(), Math.max(300, (end - start) * 1000));
   };
   // Formato do vídeo + enquadramento. Padrão: preencher (sem barras pretas).
-  const [aspect, setAspect] = useState<'1:1' | '9:16' | '16:9'>(
+  const [aspect, setAspect] = useState<'1:1' | '9:16' | '16:9' | '4:5'>(
     (draft.aspect as any) || ((config as any)?.format?.aspectRatio as any) || '1:1'
   );
   const [fit, setFit] = useState<'cover' | 'contain'>((draft.fit as any) || 'cover');
   // Orientação do Pexels segue o FORMATO da montagem. 1:1 busca LANDSCAPE (o
   // Pexels quase não tem quadrado — "woman" tem 8; landscape tem milhares) e o
-  // "Preencher" corta as laterais pro quadrado, mantendo a altura/cabeça. Só
-  // 9:16 busca retrato.
-  const pexOrient = aspect === '9:16' ? 'portrait' : 'landscape';
+  // "Preencher" corta as laterais pro quadrado, mantendo a altura/cabeça. 9:16
+  // e 4:5 (ambos mais altos que largos) buscam retrato.
+  const pexOrient = aspect === '9:16' || aspect === '4:5' ? 'portrait' : 'landscape';
   // Vídeos do PRÓPRIO subprojeto (Vídeo IA, avatar HeyGen, uploads) — pra
   // escolher como b-roll no picker, além do Pexels. Exclui os "Auto N" (Pexels).
   const myProjectVideos = (() => {
@@ -2115,6 +2115,7 @@ export function MontagemTab({
           body: JSON.stringify({
             userId: uid,
             muted,
+            aspectRatio: aspect,
             clips: clips.map((c) => ({ url: c.url, startSec: c.startSec, endSec: c.endSec })),
           }),
         });
@@ -2924,9 +2925,11 @@ export function MontagemTab({
               className={`relative bg-black rounded-xl overflow-hidden mx-auto max-h-[440px] w-full ${
                 aspect === '9:16'
                   ? 'aspect-[9/16] max-w-[260px]'
-                  : aspect === '16:9'
-                    ? 'aspect-video max-w-[640px]'
-                    : 'aspect-square max-w-[420px]'
+                  : aspect === '4:5'
+                    ? 'aspect-[4/5] max-w-[340px]'
+                    : aspect === '16:9'
+                      ? 'aspect-video max-w-[640px]'
+                      : 'aspect-square max-w-[420px]'
               } [&:fullscreen]:max-h-none [&:fullscreen]:max-w-none [&:fullscreen]:aspect-auto [&:fullscreen]:rounded-none`}
             >
               <video
@@ -3716,7 +3719,9 @@ export function MontagemTab({
                             ? 'aspect-square'
                             : aspect === '16:9'
                               ? 'aspect-video'
-                              : 'aspect-[9/16]';
+                              : aspect === '4:5'
+                                ? 'aspect-[4/5]'
+                                : 'aspect-[9/16]';
                         const av = (
                           <video
                             src={avatarBase}
@@ -4294,7 +4299,7 @@ export function MontagemTab({
           <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">
             {mt.formatSection.formatLabel}
           </span>
-          {(['9:16', '1:1', '16:9'] as const).map((ar) => (
+          {(['9:16', '4:5', '1:1', '16:9'] as const).map((ar) => (
             <button
               key={ar}
               onClick={() => setAspect(ar)}
@@ -4306,9 +4311,11 @@ export function MontagemTab({
             >
               {ar === '9:16'
                 ? mt.formatSection.vertical
-                : ar === '1:1'
-                  ? mt.formatSection.square
-                  : mt.formatSection.horizontal}
+                : ar === '4:5'
+                  ? mt.formatSection.feed
+                  : ar === '1:1'
+                    ? mt.formatSection.square
+                    : mt.formatSection.horizontal}
             </button>
           ))}
         </div>

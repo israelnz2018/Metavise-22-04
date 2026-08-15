@@ -49,12 +49,13 @@ export const DEFAULT_AVATAR_FRAMING: AvatarFraming = {
 const OUT_DIMS: Record<string, { w: number; h: number }> = {
   '16:9': { w: 1920, h: 1080 },
   '9:16': { w: 1080, h: 1920 },
+  '4:5': { w: 1080, h: 1350 },
   '1:1': { w: 1080, h: 1080 },
 };
 
 interface Props {
   avatarUrl: string;
-  aspect: '1:1' | '9:16' | '16:9';
+  aspect: '1:1' | '9:16' | '16:9' | '4:5';
   value: AvatarFraming;
   onSave: (f: AvatarFraming) => void;
   onClose: () => void;
@@ -123,7 +124,10 @@ export function AvatarFramingModal({
     if (!uid || !name) return;
     try {
       const id = await addToFramingLibrary(uid, name, f);
-      setLibrary((prev) => [{ ...f, id, label: name, createdAt: new Date().toISOString() }, ...prev]);
+      setLibrary((prev) => [
+        { ...f, id, label: name, createdAt: new Date().toISOString() },
+        ...prev,
+      ]);
       setSavingName(null);
       toast.success('Enquadramento salvo na biblioteca.');
     } catch (e: any) {
@@ -150,7 +154,7 @@ export function AvatarFramingModal({
   // (verticalSplit); senão adivinha pelo formato de saída (só o PREVIEW — o
   // render usa a orientação real de cada trecho). splitRatio = fração que o
   // avatar ocupa (0.5 = metade/metade; sobe pra caber mais coisa no lado dele).
-  const vertical = verticalSplit ?? aspect === '9:16';
+  const vertical = verticalSplit ?? (aspect === '9:16' || aspect === '4:5');
   const ar = vertical ? out.w / (out.h * f.splitRatio) : (out.w * f.splitRatio) / out.h;
 
   // Caixa do split: escala da maior caixa (proporção ar) que cabe na fonte.
@@ -185,11 +189,17 @@ export function AvatarFramingModal({
       const px = clamp((e.clientX - r.left) / r.width, 0, 1);
       const py = clamp((e.clientY - r.top) / r.height, 0, 1);
       if (mode === 'crop-l') setF((s) => ({ ...s, cropL: clamp(px, 0, 1 - s.cropR - 0.1) }));
-      else if (mode === 'crop-r') setF((s) => ({ ...s, cropR: clamp(1 - px, 0, 1 - s.cropL - 0.1) }));
+      else if (mode === 'crop-r')
+        setF((s) => ({ ...s, cropR: clamp(1 - px, 0, 1 - s.cropL - 0.1) }));
       else if (mode === 'crop-t') setF((s) => ({ ...s, cropT: clamp(py, 0, 1 - s.cropB - 0.1) }));
-      else if (mode === 'crop-b') setF((s) => ({ ...s, cropB: clamp(1 - py, 0, 1 - s.cropT - 0.1) }));
+      else if (mode === 'crop-b')
+        setF((s) => ({ ...s, cropB: clamp(1 - py, 0, 1 - s.cropT - 0.1) }));
       else if (mode === 'move') {
-        setF((s) => ({ ...s, [cxKey]: clamp(px, halfWf, 1 - halfWf), [cyKey]: clamp(py, halfHf, 1 - halfHf) }));
+        setF((s) => ({
+          ...s,
+          [cxKey]: clamp(px, halfWf, 1 - halfWf),
+          [cyKey]: clamp(py, halfHf, 1 - halfHf),
+        }));
       } else if (mode === 'resize') {
         const cxPx = curCX * r.width;
         const cyPx = curCY * r.height;
@@ -201,7 +211,12 @@ export function AvatarFramingModal({
           setF((s) => {
             const rWf = (newSize * (minSide / nat.w)) / 2;
             const rHf = (newSize * (minSide / nat.h)) / 2;
-            return { ...s, pipSize: newSize, pipCX: clamp(s.pipCX, rWf, 1 - rWf), pipCY: clamp(s.pipCY, rHf, 1 - rHf) };
+            return {
+              ...s,
+              pipSize: newSize,
+              pipCX: clamp(s.pipCX, rWf, 1 - rWf),
+              pipCY: clamp(s.pipCY, rHf, 1 - rHf),
+            };
           });
         } else {
           const halfWpx = Math.abs(e.clientX - r.left - cxPx);
@@ -213,7 +228,12 @@ export function AvatarFramingModal({
             const bH = (maxBoxW / ar) * newSize;
             const rWf = bW / nat.w / 2;
             const rHf = bH / nat.h / 2;
-            return { ...s, splitSize: newSize, splitCX: clamp(s.splitCX, rWf, 1 - rWf), splitCY: clamp(s.splitCY, rHf, 1 - rHf) };
+            return {
+              ...s,
+              splitSize: newSize,
+              splitCX: clamp(s.splitCX, rWf, 1 - rWf),
+              splitCY: clamp(s.splitCY, rHf, 1 - rHf),
+            };
           });
         }
       }
@@ -255,7 +275,10 @@ export function AvatarFramingModal({
           <h3 className="text-sm font-black uppercase tracking-widest text-violet-600 dark:text-violet-400">
             {title || 'Enquadrar avatar'}
           </h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-lg leading-none">
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-red-500 text-lg leading-none"
+          >
             ✕
           </button>
         </div>
@@ -328,7 +351,8 @@ export function AvatarFramingModal({
               </div>
             ) : (
               <p className="text-[10px] text-gray-400">
-                Nenhum salvo ainda — calibre e clique "salvar este" pra reusar em qualquer vídeo/projeto.
+                Nenhum salvo ainda — calibre e clique "salvar este" pra reusar em qualquer
+                vídeo/projeto.
               </p>
             )}
           </div>
@@ -340,7 +364,9 @@ export function AvatarFramingModal({
               key={t}
               onClick={() => setTab(t)}
               className={`flex-1 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-widest transition ${
-                tab === t ? 'bg-violet-600 text-white' : 'text-gray-500 dark:text-gray-400 hover:text-violet-600'
+                tab === t
+                  ? 'bg-violet-600 text-white'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-violet-600'
               }`}
             >
               {t === 'crop' ? '✂ Cortar' : t === 'split' ? '▮ Split' : '◎ PiP'}
@@ -436,19 +462,31 @@ export function AvatarFramingModal({
                 }}
               >
                 <div
-                  onPointerDown={(e) => { e.stopPropagation(); dragRef.current = 'crop-t'; }}
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    dragRef.current = 'crop-t';
+                  }}
                   className={`${edge} -top-1 left-0 right-0 h-2 cursor-ns-resize`}
                 />
                 <div
-                  onPointerDown={(e) => { e.stopPropagation(); dragRef.current = 'crop-b'; }}
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    dragRef.current = 'crop-b';
+                  }}
                   className={`${edge} -bottom-1 left-0 right-0 h-2 cursor-ns-resize`}
                 />
                 <div
-                  onPointerDown={(e) => { e.stopPropagation(); dragRef.current = 'crop-l'; }}
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    dragRef.current = 'crop-l';
+                  }}
                   className={`${edge} -left-1 top-0 bottom-0 w-2 cursor-ew-resize`}
                 />
                 <div
-                  onPointerDown={(e) => { e.stopPropagation(); dragRef.current = 'crop-r'; }}
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    dragRef.current = 'crop-r';
+                  }}
                   className={`${edge} -right-1 top-0 bottom-0 w-2 cursor-ew-resize`}
                 />
               </div>
@@ -485,7 +523,13 @@ export function AvatarFramingModal({
               setF((s) =>
                 tab === 'crop'
                   ? { ...s, cropL: 0, cropR: 0, cropT: 0, cropB: 0 }
-                  : { ...DEFAULT_AVATAR_FRAMING, cropL: s.cropL, cropR: s.cropR, cropT: s.cropT, cropB: s.cropB }
+                  : {
+                      ...DEFAULT_AVATAR_FRAMING,
+                      cropL: s.cropL,
+                      cropR: s.cropR,
+                      cropT: s.cropT,
+                      cropB: s.cropB,
+                    }
               )
             }
             className="text-[11px] font-black uppercase tracking-widest text-gray-400 hover:text-gray-600"
