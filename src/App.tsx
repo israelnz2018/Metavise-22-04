@@ -2090,10 +2090,12 @@ export default function App() {
       copy: { ...prev.copy, personasWithWeights: weighted as any },
     }));
 
-    // Persiste no Firestore via handleSaveProject com override explícito
+    // Persiste no Firestore via handleSaveProject com override explícito.
+    // Só o campo `copy` — espalhar `...config` inteiro aqui sobrescrevia
+    // audioUrl/audios (voz ativa) com o snapshot capturado no clique, caso
+    // esse save (mais lento) terminasse depois de uma voz gerada nesse meio-tempo.
     try {
       const overrideConfig = {
-        ...config,
         copy: {
           ...config.copy,
           answers: {

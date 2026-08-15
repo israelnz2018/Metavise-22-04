@@ -367,7 +367,28 @@ export function useProjectActions({
       const awarenessLevel = config.copy.answers.awarenessLevel || 'Geral';
       const variantId = currentVariantId || Date.now().toString();
 
-      // Update config with current videoUrl and audioUrl before saving, allowing overrides
+      // Update config with current videoUrl and audioUrl before saving, allowing overrides.
+      // IMPORTANTE: os campos abaixo (videoUrl, audioUrl, audios, etc.) já são
+      // resolvidos campo a campo (usa overrides.X se veio, senão o valor AO
+      // VIVO do estado). Por isso NÃO espalhamos `...overrides` de novo depois
+      // — se um chamador passar um `overrides` que por engano carrega um
+      // snapshot inteiro e desatualizado do config (ex.: `{...config, copy: {...}}`
+      // capturado no momento do clique), esse spread final sobrescrevia esses
+      // campos já corretos com valores antigos quando esse save (geralmente
+      // mais lento) terminava depois de outro save mais recente — silenciosamente
+      // revertia a voz/vídeo ativos pra uma versão anterior. `restOverrides`
+      // carrega só os OUTROS campos (ex.: `copy`) que o chamador quis mudar.
+      const {
+        videoUrl: _ovVideoUrl,
+        videoStoragePath: _ovVideoStoragePath,
+        audioUrl: _ovAudioUrl,
+        audioStoragePath: _ovAudioStoragePath,
+        audios: _ovAudios,
+        videos: _ovVideos,
+        lastVideoMetadata: _ovLastVideoMetadata,
+        generationStage: _ovGenerationStage,
+        ...restOverrides
+      } = overrides || {};
       const configToSave = JSON.parse(
         JSON.stringify({
           ...config,
@@ -389,7 +410,7 @@ export function useProjectActions({
               : lastVideoMetadata,
           generationStage:
             overrides?.generationStage !== undefined ? overrides.generationStage : generationStage,
-          ...overrides,
+          ...restOverrides,
         })
       );
 
