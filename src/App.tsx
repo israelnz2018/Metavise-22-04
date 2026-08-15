@@ -191,6 +191,11 @@ export interface AdConfig {
   /** Campo próprio da aba "Copy da VSL" — mesma forma de `copy`, guarda o
    *  roteiro longo (VSL) separado do anúncio, pra os dois coexistirem. */
   copyVsl?: AdConfig['copy'];
+  /** Draft da aba Montagem (clips, trechos, capa, resultado) — POR SUBPROJETO,
+   *  não deve ser herdado ao criar um novo criativo/variante. Formato interno
+   *  fica em MontagemTab.tsx (getMontagemDraft); tipado solto aqui de propósito. */
+  montagem?: any;
+  montagemVsl?: any;
   copy: {
     mode: 'improve' | 'as-is' | 'questions';
     subMode?: 'zero' | 'improve' | 'ready';
@@ -2343,6 +2348,10 @@ export default function App() {
       },
       // Cada subprojeto tem sua PRÓPRIA VSL — não herda a do subprojeto anterior.
       copyVsl: undefined,
+      // Montagem também é POR SUBPROJETO — sem isso, o novo criativo herdava a
+      // timeline/trechos inteira (clips, capa, resultado) do subprojeto anterior.
+      montagem: undefined,
+      montagemVsl: undefined,
     };
 
     // Use the brief's id as the variant id (deterministic mapping).
@@ -2470,6 +2479,10 @@ export default function App() {
         zapHookVersions: [],
         zapJoinedVersions: [],
       },
+      // Montagem também é POR SUBPROJETO — sem isso, o novo criativo herdava a
+      // timeline/trechos inteira (clips, capa, resultado) do subprojeto anterior.
+      montagem: undefined,
+      montagemVsl: undefined,
     };
 
     const newVariant = {

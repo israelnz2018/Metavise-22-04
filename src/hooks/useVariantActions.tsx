@@ -239,6 +239,10 @@ export function useVariantActions({
           zapHookVersions: [],
           zapJoinedVersions: [],
         },
+        // Montagem referencia os clipes do avatar ANTERIOR — não faz sentido
+        // manter numa variante que vai renderizar com outro avatar.
+        montagem: undefined,
+        montagemVsl: undefined,
       };
 
       const newVariant = {
