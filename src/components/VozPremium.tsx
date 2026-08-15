@@ -766,8 +766,13 @@ const VozPremium: React.FC<Props> = ({
       setOptimizedScript(savedOptimizedScript);
       setSavedOptimized(savedOptimizedScript);
       setScript(savedOptimizedScript);
-    } else if (approvedScript) {
-      setScript(approvedScript);
+    } else {
+      // Sem otimizado salvo (ex.: criativo novo) — limpa o que sobrou de um
+      // criativo anterior, senão o painel "Otimizado" mostrava texto de outro
+      // roteiro mesmo já tendo trocado de subprojeto.
+      setOptimizedScript('');
+      setSavedOptimized('');
+      if (approvedScript) setScript(approvedScript);
     }
   }, [savedOptimizedScript, approvedScript]);
 
