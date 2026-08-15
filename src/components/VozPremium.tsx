@@ -167,7 +167,21 @@ function splitScriptBlocks(text: string): string[] {
   const words = t.split(/\s+/).filter(Boolean);
   if (words.length <= 340) return [t];
   const PER = 290;
-  const paras = t.split(/\n\s*\n/);
+  // Quebra em pedaços pra montar os blocos. Tenta parágrafo (linha em branco);
+  // se o roteiro vier com quebra de linha SIMPLES, ou tudo numa linha só, cai
+  // pra quebra simples e depois pra frases. Sem esses fallbacks, um roteiro
+  // longo sem linha em branco virava um "parágrafo" único e nunca era dividido
+  // — o painel "Gerar em blocos" simplesmente não aparecia.
+  let sep = '\n\n';
+  let paras = t.split(/\n\s*\n/).filter((p) => p.trim());
+  if (paras.length < 2) {
+    sep = '\n';
+    paras = t.split(/\n+/).filter((p) => p.trim());
+  }
+  if (paras.length < 2) {
+    sep = ' ';
+    paras = t.split(/(?<=[.!?…])\s+/).filter((p) => p.trim());
+  }
   const blocks: string[] = [];
   let cur = '';
   let curWords = 0;
@@ -178,7 +192,7 @@ function splitScriptBlocks(text: string): string[] {
       cur = '';
       curWords = 0;
     }
-    cur += (cur ? '\n\n' : '') + p;
+    cur += (cur ? sep : '') + p;
     curWords += w;
   }
   if (cur.trim()) blocks.push(cur.trim());
