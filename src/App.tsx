@@ -6743,7 +6743,13 @@ export default function App() {
                         )}
 
                         <VozPremium
-                          key={isVslVoice ? 'voz-vsl' : isHook ? 'voz-hook' : 'voz-body'}
+                          // Inclui o subprojeto na key: sem isso o VozPremium NÃO
+                          // remontava ao trocar de criativo, e o estado local
+                          // (blocos gerados, roteiro, otimizado) vazava do
+                          // criativo anterior pro novo.
+                          key={`${currentVariantId || 'sem-variante'}-${
+                            isVslVoice ? 'voz-vsl' : isHook ? 'voz-hook' : 'voz-body'
+                          }`}
                           approvedScript={activeScript}
                           personaGender={config.copy?.answers?.personaGender || ''}
                           personaAge={config.copy?.answers?.personaAgePrimary || ''}
@@ -6758,17 +6764,24 @@ export default function App() {
                           }
                           onBlockAudiosChange={
                             isVslVoice
-                              ? (arr) =>
+                              ? (arr) => {
                                   setConfig((prev) => ({
                                     ...prev,
                                     copyVsl: { ...(prev as any).copyVsl, blockAudios: arr } as any,
-                                  }))
+                                  }));
+                                  // Sem isso o bloco gerado só existia em memória:
+                                  // atualizava o config mas nunca ia pro Firestore,
+                                  // então sumia no reload/reabrir do projeto.
+                                  triggerProjectSave('voz-blocos');
+                                }
                               : !isHook
-                                ? (arr) =>
+                                ? (arr) => {
                                     setConfig((prev) => ({
                                       ...prev,
                                       copy: { ...prev.copy, blockAudios: arr } as any,
-                                    }))
+                                    }));
+                                    triggerProjectSave('voz-blocos');
+                                  }
                                 : undefined
                           }
                           copyAnswers={config.copy?.answers || {}}
