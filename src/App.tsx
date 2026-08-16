@@ -2339,6 +2339,7 @@ export default function App() {
         hookAudioStoragePath: null,
         // Blocos de voz do corpo (Gerar em blocos) também não herdam.
         blockAudios: [],
+        avatarPendingBlock: '',
       } as any,
       // Reset render outputs (same as MM — A/B variant pattern).
       videoUrl: null,
@@ -2473,6 +2474,7 @@ export default function App() {
         hookAudioStoragePath: null,
         // Blocos de voz do corpo (Gerar em blocos) também não herdam.
         blockAudios: [],
+        avatarPendingBlock: '',
         // Marca qual persona originou (debug + futura UI).
         activePersonaId: persona.id,
       } as any,
@@ -3654,7 +3656,9 @@ export default function App() {
                     blockLabel:
                       avatarModeRef.current === 'vsl'
                         ? (config as any)?.copyVsl?.avatarPendingBlock || undefined
-                        : undefined,
+                        : avatarModeRef.current === 'hook'
+                          ? undefined
+                          : (config.copy as any)?.avatarPendingBlock || undefined,
                   };
                   if (avatarModeRef.current === 'vsl') {
                     setConfig((prev) => {
@@ -3708,7 +3712,9 @@ export default function App() {
                   blockLabel:
                     avatarModeRef.current === 'vsl'
                       ? (config as any)?.copyVsl?.avatarPendingBlock || undefined
-                      : undefined,
+                      : avatarModeRef.current === 'hook'
+                        ? undefined
+                        : (config.copy as any)?.avatarPendingBlock || undefined,
                 };
 
                 // In hook mode, persist to config.copy.hookVideos and the

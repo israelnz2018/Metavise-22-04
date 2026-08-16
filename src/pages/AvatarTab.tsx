@@ -221,6 +221,9 @@ export function AvatarTab({
   const [showOnlyCustom, setShowOnlyCustom] = useState(false);
   // Áudio da VSL escolhido no seletor (vazio = usa o mais recente por padrão).
   const [vslAudioPick, setVslAudioPick] = useState<string>('');
+  // Mesma ideia pro áudio do CORPO (criativo normal) — antes só dava pra usar
+  // a voz "ativa", sem escolher um bloco específico pra gerar o avatar.
+  const [bodyAudioPick, setBodyAudioPick] = useState<string>('');
   const customCount = heygenAvatars.filter((a: any) => a.is_custom).length;
 
   // F9.7 — Modo Econômico (avatar segmentado). Estado isolado pra abrir
@@ -399,12 +402,56 @@ export function AvatarTab({
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isVslMode, activeVslAudio?.label]);
-  const displayedAudioUrl = isVslMode ? vslAudioUrl : isHookMode ? hookAudioUrl : config.audioUrl;
+  // Corpo: mesma lógica de bloco+final da VSL, mas lendo config.copy.blockAudios
+  // e config.audios (histórico de voz do corpo) em vez de config.copyVsl.*.
+  const bodyBlocks = (
+    (((config.copy as any)?.blockAudios as any[] | undefined) || []).map((b, i) => ({
+      b,
+      i,
+    })) as any[]
+  )
+    .filter((x) => x.b?.url && x.b?.status === 'done')
+    .map((x) => ({
+      url: x.b.url as string,
+      storagePath: (x.b.storagePath as string | null) ?? null,
+      label: `Bloco ${x.i + 1}`,
+    }));
+  const bodyFinals = (
+    (((config as any)?.audios as any[]) || []).filter((a) => a?.url) as any[]
+  ).map((a, i, arr) => ({
+    url: a.url as string,
+    storagePath: (a.storagePath as string | null) ?? null,
+    label:
+      `Áudio final ${i + 1}` +
+      (i === arr.length - 1 ? ' (mais recente)' : '') +
+      (a.createdAt ? ` — ${new Date(a.createdAt).toLocaleDateString('pt-BR')}` : ''),
+  }));
+  const bodyAudioOptions = [...bodyBlocks, ...bodyFinals];
+  const defaultBodyAudio =
+    bodyFinals[bodyFinals.length - 1] || bodyBlocks[bodyBlocks.length - 1] || null;
+  const activeBodyAudio =
+    (bodyAudioPick && bodyAudioOptions.find((o) => o.url === bodyAudioPick)) || defaultBodyAudio;
+  const bodyAudioUrl = activeBodyAudio?.url || (config.audioUrl as string | undefined) || '';
+  const bodyAudioStoragePath =
+    activeBodyAudio?.storagePath ?? (config.audioStoragePath as string | null | undefined) ?? null;
+
+  // Guarda qual bloco de voz do CORPO está selecionado, mesmo padrão do
+  // avatarPendingBlock da VSL (rótulo "Vídeo N · Bloco M" na galeria).
+  useEffect(() => {
+    if (isVslMode || isHookMode || !activeBodyAudio?.label) return;
+    setConfig((prev: any) => {
+      if (prev?.copy?.avatarPendingBlock === activeBodyAudio.label) return prev;
+      return { ...prev, copy: { ...(prev.copy || {}), avatarPendingBlock: activeBodyAudio.label } };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isVslMode, isHookMode, activeBodyAudio?.label]);
+
+  const displayedAudioUrl = isVslMode ? vslAudioUrl : isHookMode ? hookAudioUrl : bodyAudioUrl;
   const displayedAudioStoragePath = isVslMode
     ? vslAudioStoragePath
     : isHookMode
       ? hookAudioStoragePath
-      : config.audioStoragePath || null;
+      : bodyAudioStoragePath;
   // Big "current video" preview directly under the audio card. Same idea
   // as the gallery: in hook mode it must show the hook video, not the body's.
   const displayedVideoUrl = isVslMode ? vslVideoUrl : isHookMode ? hookVideoUrl : videoUrl;
@@ -546,6 +593,39 @@ export function AvatarTab({
                 {vslFinals.length > 0 && (
                   <optgroup label={at.audio.finalGroup}>
                     {[...vslFinals].reverse().map((o) => (
+                      <option key={o.url} value={o.url}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+            </div>
+          )}
+          {/* Mesmo seletor, agora pro áudio do CORPO — escolhe qualquer bloco
+              ou áudio final gerado, em vez de ficar preso no "ativo". */}
+          {!isVslMode && !isHookMode && bodyAudioOptions.length > 1 && (
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 shrink-0">
+                {at.audio.countLabel(bodyAudioOptions.length)}
+              </span>
+              <select
+                value={bodyAudioUrl}
+                onChange={(e) => setBodyAudioPick(e.target.value)}
+                className="flex-1 px-2 py-1.5 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-900 text-xs dark:text-gray-100"
+              >
+                {bodyBlocks.length > 0 && (
+                  <optgroup label={at.audio.blocksGroup}>
+                    {bodyBlocks.map((o) => (
+                      <option key={o.url} value={o.url}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {bodyFinals.length > 0 && (
+                  <optgroup label={at.audio.finalGroup}>
+                    {[...bodyFinals].reverse().map((o) => (
                       <option key={o.url} value={o.url}>
                         {o.label}
                       </option>

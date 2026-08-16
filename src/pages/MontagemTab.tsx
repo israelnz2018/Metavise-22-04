@@ -804,8 +804,19 @@ export function MontagemTab({
         : null
     )
     .filter(Boolean) as { key: string; label: string; url: string }[];
+  // Mesma ideia dos blocos da VSL, mas pro roteiro do corpo (criativo normal)
+  // — sem isso, só dava pra usar o áudio "ativo" (o último marcado como uso
+  // na aba Voz), e não tinha como escolher um bloco específico aqui.
+  const bodyBlockAudios = (((config?.copy as any)?.blockAudios as any[]) || [])
+    .map((b, i) =>
+      b?.url && b?.status === 'done'
+        ? { key: `bloco${i}`, label: `Bloco ${i + 1}`, url: b.url as string }
+        : null
+    )
+    .filter(Boolean) as { key: string; label: string; url: string }[];
   const vozOptions = [
     { key: 'corpo', label: 'Voz do Corpo', url: (config?.audioUrl as string) || '' },
+    ...bodyBlockAudios,
     {
       key: 'gancho',
       label: 'Voz do Gancho',
