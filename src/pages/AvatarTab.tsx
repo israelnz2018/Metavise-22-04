@@ -294,10 +294,17 @@ export function AvatarTab({
     avatarFilters.styles.length > 0 ||
     avatarFilters.ethnicities.length > 0;
   const actualFilteredCount = filteredAvatars.length;
-  const isFallbackActive = actualFilteredCount === 0 && hasActiveFilters;
+  // Só faz sentido "relaxar filtros" se existe avatar pra mostrar. Com a lista
+  // vazia (ex.: catálogo do HeyGen não carregou), o fallback dizia "exibindo
+  // todos" e mostrava 0 — mensagem contraditória e confusa.
+  const isFallbackActive =
+    actualFilteredCount === 0 && hasActiveFilters && heygenAvatars.length > 0;
 
   if (isFallbackActive) {
-    filteredAvatars = heygenAvatars.filter((a) => {
+    // Relaxa idade/estilo/etnia MAS mantém busca e gênero. Se ainda assim der
+    // zero, solta também o gênero — senão a mensagem "exibindo todos" seguia
+    // mentindo (avatares próprios, por exemplo, vêm sem gênero preenchido).
+    const relaxed = heygenAvatars.filter((a) => {
       const enrichment = AVATAR_ENRICHMENT[a.avatar_id] || {};
       const matchesSearch = avatarSearch
         ? a.avatar_name.toLowerCase().includes(avatarSearch.toLowerCase())
@@ -308,6 +315,11 @@ export function AvatarTab({
         enrichment.gender === avatarFilters.gender;
       return matchesSearch && matchesGender;
     });
+    filteredAvatars = relaxed.length
+      ? relaxed
+      : heygenAvatars.filter((a) =>
+          avatarSearch ? a.avatar_name.toLowerCase().includes(avatarSearch.toLowerCase()) : true
+        );
   }
 
   filteredAvatars = filteredAvatars.sort((a, b) => {

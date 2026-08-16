@@ -45,14 +45,22 @@ heygenRouter.get('/avatars', async (_req, res) => {
     // devolvia HTML ("Unexpected token '<'"). Agora é best-effort com timeout:
     // se falhar, segue SÓ com os avatares do usuário (que é o que ele usa).
     let data: any = { error: null, data: { avatars: [] } };
+    // publicOk = a lista PÚBLICA veio mesmo. Se falhar, NÃO cacheamos o
+    // resultado (senão a lista vazia ficava presa por 10 min) e avisamos o
+    // front, que antes não tinha como distinguir "deu erro" de "não tem
+    // avatar" — mostrava "0 avatares" sem nenhum aviso.
+    let publicOk = false;
     try {
       const response = await fetch('https://api.heygen.com/v2/avatars', {
         method: 'GET',
         headers: { 'X-Api-Key': apiKey },
-        signal: AbortSignal.timeout(12000),
+        // O payload tem ~3.7MB e leva 10-13s tipicamente — com 12s o abort
+        // disparava direto, devolvia lista vazia e ainda cacheava isso.
+        signal: AbortSignal.timeout(45000),
       });
       if (response.ok) {
         data = await response.json();
+        publicOk = true;
       } else {
         log.warn(
           `[HeyGen Proxy] /v2/avatars ${response.status} — seguindo só com os avatares do usuário`
@@ -95,7 +103,8 @@ heygenRouter.get('/avatars', async (_req, res) => {
                     !(
                       (lk.train_status || lk.status) &&
                       (lk.train_status || lk.status) !== 'completed'
-                    ) && (lk.id || lk.avatar_id)
+                    ) &&
+                    (lk.id || lk.avatar_id)
                 )
                 .map((lk) => ({
                   avatar_id: `pa_${lk.id || lk.avatar_id}`,
@@ -123,7 +132,13 @@ heygenRouter.get('/avatars', async (_req, res) => {
       /* segue só com públicos */
     }
 
-    avatarsCache.set(AVATARS_CACHE_KEY, data);
+    // Só cacheia resultado BOM. Cachear a falha deixava o usuário 10 min
+    // vendo "0 avatares" mesmo depois do HeyGen voltar ao normal.
+    if (publicOk) {
+      avatarsCache.set(AVATARS_CACHE_KEY, data);
+    } else {
+      data.publicAvatarsFailed = true;
+    }
     res.json(data);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -245,7 +260,9 @@ heygenRouter.post('/generate', requireAuth, async (req, res) => {
     const isPhotoAvatar = avatarId && avatarId.startsWith('pa_');
     const isTalkingPhoto =
       avatarId &&
-      (isPhotoAvatar || avatarId.startsWith('talking_photo_') || avatarId.includes('talking_photo'));
+      (isPhotoAvatar ||
+        avatarId.startsWith('talking_photo_') ||
+        avatarId.includes('talking_photo'));
     const talkingPhotoId = isPhotoAvatar ? avatarId.slice(3) : avatarId;
 
     const requestedAspectRatio = req.body.aspectRatio || '9:16';

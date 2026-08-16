@@ -1795,6 +1795,14 @@ export default function App() {
             throw new Error(`Resposta inválida do servidor: ${text.substring(0, 100)}`);
           }
           setHeygenAvatars(data.data?.avatars || []);
+          // O backend responde 200 mesmo quando a lista pública do HeyGen
+          // falha/estoura o timeout (segue só com os avatares do usuário).
+          // Sem isso, a tela mostrava "0 avatares" sem explicar nada.
+          if (data.publicAvatarsFailed) {
+            setAvatarError(
+              'Não foi possível carregar o catálogo de avatares do HeyGen agora (a API demorou demais ou recusou). Tente de novo em alguns instantes.'
+            );
+          }
 
           if (data.data?.avatars?.length > 0) {
             console.log(
