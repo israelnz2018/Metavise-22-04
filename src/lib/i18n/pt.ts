@@ -857,6 +857,10 @@ export const pt = {
       statusGenerating: 'gerando…',
       statusIdle: '—',
       listenTitle: 'Ver/ouvir este bloco no player abaixo',
+      useAsActive: 'Usar',
+      useAsActiveTitle:
+        'Usar SÓ este bloco como áudio ativo (o vídeo vai ter só esta parte do roteiro)',
+      isActive: 'ativo',
       regenerate: 'Regerar',
       generate: 'Gerar',
       deleteTitle: 'Apagar o áudio deste bloco',

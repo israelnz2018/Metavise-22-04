@@ -588,6 +588,34 @@ const VozPremium: React.FC<Props> = ({
                   <Play size={14} />
                 </button>
               )}
+              {/* Deixa escolher um bloco como áudio ativo — útil pra testar/usar
+                  só uma parte. O fluxo normal continua sendo gerar todos os
+                  blocos e clicar em "Juntar → áudio final". */}
+              {st === 'done' &&
+                blockAudios[i]?.url &&
+                (blockAudios[i]!.url === localAudioUrl ? (
+                  <span className="text-[10px] font-black uppercase tracking-widest text-green-600 dark:text-green-400 shrink-0">
+                    {vp.blockPanel.isActive}
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => {
+                      const u = blockAudios[i]!.url!;
+                      setLocalAudioUrl(u);
+                      setDone(true);
+                      onAudioReady?.(
+                        u,
+                        selectedVoice?.voice_id,
+                        blockAudios[i]?.storagePath ?? null,
+                        selectedVoice?.name
+                      );
+                    }}
+                    title={vp.blockPanel.useAsActiveTitle}
+                    className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-lg border-2 border-green-300 dark:border-green-700 text-green-700 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-950/40 shrink-0"
+                  >
+                    {vp.blockPanel.useAsActive}
+                  </button>
+                ))}
               <button
                 onClick={() => generateBlock(i)}
                 disabled={st === 'gen' || !selectedVoice}

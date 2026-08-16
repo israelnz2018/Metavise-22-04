@@ -849,6 +849,10 @@ export const en: typeof pt = {
       statusGenerating: 'generating…',
       statusIdle: '—',
       listenTitle: 'Listen to this block in the player below',
+      useAsActive: 'Use',
+      useAsActiveTitle:
+        'Use ONLY this block as the active audio (the video will only have this part of the script)',
+      isActive: 'active',
       regenerate: 'Regenerate',
       generate: 'Generate',
       deleteTitle: "Delete this block's audio",
