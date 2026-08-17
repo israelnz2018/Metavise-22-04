@@ -1264,6 +1264,8 @@ export const en: typeof pt = {
       joiningToast: 'Joining scenes…',
       readyToast: 'Scenes joined! Already available in Edit.',
       failedToast: 'Failed to join scenes.',
+      resultHeading: 'Joined video',
+      clearResultTitle: 'Hide the player (the video stays saved in Edit)',
     },
     audioBase: {
       heading: 'Base audio (timeline)',

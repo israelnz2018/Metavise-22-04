@@ -598,6 +598,10 @@ export function MontagemTab({
   // usuário reordena manualmente com as setas.
   const [joinOrderOverride, setJoinOrderOverride] = useState<number[] | null>(null);
   const [joiningScenes, setJoiningScenes] = useState(false);
+  // URL do último vídeo juntado — mostrado num player aqui mesmo na
+  // Montagem, além de ir pra Edição. Persiste no draft (config.montagem)
+  // pra sobreviver à troca de aba.
+  const [joinedResultUrl, setJoinedResultUrl] = useState<string>(draft.joinedResultUrl || '');
   const fmtT = (s: number) =>
     `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
   // Fatia a VSL em blocos ~blockSizeSec, encaixando cada fim no SILÊNCIO mais
@@ -935,6 +939,7 @@ export function MontagemTab({
     setBlockEnds(Array.isArray(modeDraft.blockEnds) ? modeDraft.blockEnds : []);
     setBlockDrafts(bd);
     setBlockCount(Math.max(1, Number(modeDraft.blockCount) || 1));
+    setJoinedResultUrl((modeDraft.joinedResultUrl as any) || '');
     setPreviewUrl('');
     setPexQuery('');
     setPexResults([]);
@@ -989,6 +994,7 @@ export function MontagemTab({
       blockDrafts: mergedBlockDrafts,
       blockCount,
       activeBlock,
+      joinedResultUrl,
     };
     setConfig((prev: any) => ({
       ...prev,
@@ -1019,6 +1025,7 @@ export function MontagemTab({
     blockDrafts,
     blockCount,
     activeBlock,
+    joinedResultUrl,
   ]);
 
   // Toda vez que sai um vídeo montado novo, guarda no histórico (dedup, últimos 10).
@@ -2179,6 +2186,7 @@ export function MontagemTab({
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || mt.joinScenes.failedToast);
+      setJoinedResultUrl(data.url);
       onAddUploadedVideo?.(
         { url: data.url, uploaded: true, aspectRatio: aspect, createdAt: new Date().toISOString() },
         false
@@ -3042,6 +3050,30 @@ export function MontagemTab({
                 mt.joinScenes.joinButton(order.length)
               )}
             </button>
+            {/* Player do último vídeo juntado — pra assistir aqui mesmo na
+                Montagem, sem precisar ir pra Edição só pra conferir. */}
+            {joinedResultUrl && (
+              <div className="pt-1 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-black uppercase tracking-widest text-purple-600 dark:text-purple-400">
+                    {mt.joinScenes.resultHeading}
+                  </span>
+                  <button
+                    onClick={() => setJoinedResultUrl('')}
+                    className="text-[10px] text-gray-400 hover:text-red-500"
+                    title={mt.joinScenes.clearResultTitle}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+                <video
+                  key={joinedResultUrl}
+                  src={joinedResultUrl}
+                  controls
+                  className="w-full max-h-[420px] rounded-xl bg-black"
+                />
+              </div>
+            )}
           </div>
         );
       })()}

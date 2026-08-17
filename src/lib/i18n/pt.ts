@@ -1272,6 +1272,8 @@ export const pt = {
       joiningToast: 'Juntando as cenas…',
       readyToast: 'Cenas juntadas! Já disponível na Edição.',
       failedToast: 'Falha ao juntar as cenas.',
+      resultHeading: 'Vídeo juntado',
+      clearResultTitle: 'Esconder o player (o vídeo continua salvo na Edição)',
     },
     audioBase: {
       heading: 'Áudio base (linha do tempo)',
