@@ -3070,7 +3070,15 @@ export function MontagemTab({
                   key={joinedResultUrl}
                   src={joinedResultUrl}
                   controls
-                  className="w-full max-h-[420px] rounded-xl bg-black"
+                  className={`bg-black rounded-xl mx-auto max-h-[420px] w-full ${
+                    aspect === '9:16'
+                      ? 'aspect-[9/16] max-w-[240px]'
+                      : aspect === '4:5'
+                        ? 'aspect-[4/5] max-w-[320px]'
+                        : aspect === '16:9'
+                          ? 'aspect-video max-w-[600px]'
+                          : 'aspect-square max-w-[400px]'
+                  }`}
                 />
               </div>
             )}
