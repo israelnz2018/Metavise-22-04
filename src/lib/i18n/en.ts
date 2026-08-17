@@ -1250,6 +1250,21 @@ export const en: typeof pt = {
       clickToStart: 'Click a block to start assembling it.',
       alreadyEditedHint: '● = already assembled · switching keeps the work',
     },
+    joinScenes: {
+      heading: (noun: string) => `Join ${noun.toLowerCase()}s into one video`,
+      description:
+        'Concatenates the already-assembled video from each scene/block, in the order below (use the arrows to reorder). The result is immediately available in Edit.',
+      positionLabel: (n: number) =>
+        `${n}${n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th'}`,
+      moveUpTitle: 'Move up',
+      moveDownTitle: 'Move down',
+      joinButton: (n: number) => `Join ${n} scenes`,
+      joining: 'Joining…',
+      jobLabel: 'Montage (join scenes)',
+      joiningToast: 'Joining scenes…',
+      readyToast: 'Scenes joined! Already available in Edit.',
+      failedToast: 'Failed to join scenes.',
+    },
     audioBase: {
       heading: 'Base audio (timeline)',
       pause: 'Pause',

@@ -1259,6 +1259,20 @@ export const pt = {
       clickToStart: 'Clique num bloco pra começar a montá-lo.',
       alreadyEditedHint: '● = já montado · trocar não apaga',
     },
+    joinScenes: {
+      heading: (noun: string) => `Juntar ${noun.toLowerCase()}s num vídeo só`,
+      description:
+        'Concatena os vídeos já montados de cada cena/bloco, na ordem abaixo (arraste com as setas pra mudar). O resultado já fica disponível na Edição.',
+      positionLabel: (n: number) => `${n}º`,
+      moveUpTitle: 'Mover pra cima',
+      moveDownTitle: 'Mover pra baixo',
+      joinButton: (n: number) => `Juntar ${n} cenas`,
+      joining: 'Juntando…',
+      jobLabel: 'Montagem (juntar cenas)',
+      joiningToast: 'Juntando as cenas…',
+      readyToast: 'Cenas juntadas! Já disponível na Edição.',
+      failedToast: 'Falha ao juntar as cenas.',
+    },
     audioBase: {
       heading: 'Áudio base (linha do tempo)',
       pause: 'Pausar',

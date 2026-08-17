@@ -29,6 +29,7 @@ import {
   Redo2,
   ImageIcon,
   Download,
+  Layers,
 } from 'lucide-react';
 import { useJobs } from '@/lib/jobsStore';
 import { triggerProjectSave } from '@/lib/autosave';
@@ -592,6 +593,11 @@ export function MontagemTab({
     draft.blockDrafts && typeof draft.blockDrafts === 'object' ? draft.blockDrafts : {}
   );
   const [blockCount, setBlockCount] = useState<number>(Math.max(1, Number(draft.blockCount) || 1));
+  // Ordem escolhida pra juntar as cenas/blocos já montados num vídeo só.
+  // null = ordem numérica padrão (1,2,3...); só passa a valer quando o
+  // usuário reordena manualmente com as setas.
+  const [joinOrderOverride, setJoinOrderOverride] = useState<number[] | null>(null);
+  const [joiningScenes, setJoiningScenes] = useState(false);
   const fmtT = (s: number) =>
     `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
   // Fatia a VSL em blocos ~blockSizeSec, encaixando cada fim no SILÊNCIO mais
@@ -2152,6 +2158,41 @@ export function MontagemTab({
     }
   };
 
+  // Junta TODAS as cenas/blocos já montados (cada um já com seu áudio/voz
+  // embutido) num vídeo só, na ordem escolhida (padrão: numérica), e já
+  // deixa disponível pra Edição — igual o compose() normal, só que
+  // concatenando N cenas em vez de renderizar só a ativa.
+  const joinScenes = async (order: number[]) => {
+    if (!uid || order.length < 2) return;
+    setJoiningScenes(true);
+    const toastId = 'montagem-join-scenes';
+    const jid = addJob(mt.joinScenes.jobLabel);
+    toast.loading(mt.joinScenes.joiningToast, { id: toastId });
+    try {
+      const clips = order.map((i) => ({
+        url: i === activeBlock ? resultUrl : blockDrafts[i]?.resultUrl || '',
+      }));
+      const r = await fetch('/api/video/sequence', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: uid, muted: false, aspectRatio: aspect, clips }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || mt.joinScenes.failedToast);
+      onAddUploadedVideo?.(
+        { url: data.url, uploaded: true, aspectRatio: aspect, createdAt: new Date().toISOString() },
+        false
+      );
+      toast.success(mt.joinScenes.readyToast, { id: toastId });
+      updateJob(jid, { status: 'done' });
+    } catch (e: any) {
+      toast.error(e?.message || mt.joinScenes.failedToast, { id: toastId, duration: 6000 });
+      updateJob(jid, { status: 'error' });
+    } finally {
+      setJoiningScenes(false);
+    }
+  };
+
   // Gera a música (arco emocional a partir da copy) e COLA embaixo do vídeo
   // montado, num clique — plan → generate → add-music. Casa com a montagem.
   const gerarMusicaEColar = async () => {
@@ -2916,6 +2957,91 @@ export function MontagemTab({
                 ? mt.blockSelector.clickToStart
                 : mt.blockSelector.alreadyEditedHint}
             </span>
+          </div>
+        );
+      })()}
+
+      {/* JUNTAR CENAS/BLOCOS — concatena os vídeos já montados de cada
+          cena/bloco num único vídeo final, na ordem escolhida (padrão
+          numérica, reordenável), e já disponibiliza pra Edição. */}
+      {(() => {
+        const sceneUrl = (i: number) =>
+          (i === activeBlock ? resultUrl : blockDrafts[i]?.resultUrl) || '';
+        const withResult = Array.from({ length: blockCount }, (_, i) => i).filter(
+          (i) => !!sceneUrl(i)
+        );
+        if (withResult.length < 2) return null;
+        const noun =
+          montagemMode === 'vsl' ? mt.blockSelector.nounBlock : mt.blockSelector.nounScene;
+        const order =
+          joinOrderOverride &&
+          joinOrderOverride.length === withResult.length &&
+          joinOrderOverride.every((i) => withResult.includes(i))
+            ? joinOrderOverride
+            : withResult;
+        const move = (pos: number, dir: -1 | 1) => {
+          const next = order.slice();
+          const target = pos + dir;
+          if (target < 0 || target >= next.length) return;
+          [next[pos], next[target]] = [next[target]!, next[pos]!];
+          setJoinOrderOverride(next);
+        };
+        return (
+          <div className="bg-white dark:bg-gray-900/70 p-4 rounded-2xl border-2 border-purple-200 dark:border-purple-900/50 space-y-3">
+            <div className="flex items-center gap-2">
+              <Layers size={16} className="text-purple-600 dark:text-purple-400" />
+              <span className="text-xs font-black uppercase tracking-widest text-gray-700 dark:text-gray-300">
+                {mt.joinScenes.heading(noun)}
+              </span>
+            </div>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400">
+              {mt.joinScenes.description}
+            </p>
+            <div className="space-y-1.5">
+              {order.map((i, pos) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-2 p-2 rounded-xl border border-gray-200 dark:border-gray-800"
+                >
+                  <span className="text-[10px] font-black text-gray-400 dark:text-gray-500 w-6 shrink-0">
+                    {mt.joinScenes.positionLabel(pos + 1)}
+                  </span>
+                  <span className="text-xs font-bold text-gray-700 dark:text-gray-200 flex-1">
+                    {`${noun} ${i + 1}`}
+                  </span>
+                  <button
+                    onClick={() => move(pos, -1)}
+                    disabled={pos === 0}
+                    className="p-1 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 disabled:opacity-30 hover:border-purple-300"
+                    title={mt.joinScenes.moveUpTitle}
+                  >
+                    <ArrowUp size={14} />
+                  </button>
+                  <button
+                    onClick={() => move(pos, 1)}
+                    disabled={pos === order.length - 1}
+                    className="p-1 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 disabled:opacity-30 hover:border-purple-300"
+                    title={mt.joinScenes.moveDownTitle}
+                  >
+                    <ArrowDown size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => joinScenes(order)}
+              disabled={joiningScenes}
+              className="w-full py-3 rounded-xl bg-purple-600 text-white text-xs font-black uppercase tracking-widest hover:bg-purple-700 disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {joiningScenes ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  {mt.joinScenes.joining}
+                </>
+              ) : (
+                mt.joinScenes.joinButton(order.length)
+              )}
+            </button>
           </div>
         );
       })()}
